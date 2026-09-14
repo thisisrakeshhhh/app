@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.RouteFlow" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorAccent">#A0D7BA</item>
+        <item name="android:windowBackground">#111914</item>
+    </style>
+</resources>

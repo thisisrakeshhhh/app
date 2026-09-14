@@ -1,4 +1,4 @@
-# RouteFlow — Milestone 1
+i# RouteFlow — Milestone 1
 
 Native Android employee app for warehouse-to-retailer distribution in Jaipur, Rajasthan. This milestone is a **local demonstration**, not production authentication or a working order/payment system.
 
@@ -25,7 +25,7 @@ Company: Jaipur Wholesale Distributors. Warehouse: Jaipur Main Warehouse. Sample
 
 1. Open this directory in Android Studio (tested toolchain versions below).
 2. Install Android SDK Platform **36.1**, Build Tools **35.0.0**, and Platform Tools through SDK Manager. Install an emulator/system image or connect a device running API 26 or newer.
-3. Set Android Studio's Gradle JDK to **21**. The existing Gradle daemon criteria request JDK 21; Java and Kotlin bytecode targets are explicitly aligned to 11.
+3. Set Android Studio's Gradle JDK to its full **JetBrains JDK 21** (`jbr`). The daemon criteria require Java 21 from JetBrains; Java and Kotlin bytecode targets remain aligned to 11. If a build reports missing `jlink.exe` in a VS Code extension directory, follow [JDK setup and discovery](docs/JAVA_SETUP.md).
 4. Let Android Studio create `local.properties` with the SDK path. This file is machine-specific and ignored. The inspected machine uses `sdk.dir=D\:\\AndroidSDK`.
 5. Run Gradle Sync and select the `app` run configuration.
 
@@ -59,7 +59,7 @@ To run device tests:
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-These tests need a connected device/emulator. Compiling the test APK does **not** mean the tests ran. See [validation results](docs/VALIDATION.md) for the actual checks performed.
+These tests need a connected device/emulator. Compiling the test APK does **not** mean the tests ran. The final clean build passed debug assembly, all 11 unit tests, lint, instrumentation APK compilation and unsigned release AAB packaging. Device launch/UI acceptance is still pending. See [validation results](docs/VALIDATION.md) for commands, artifacts and the 18 dependency-update lint warnings.
 
 ## Toolchain decisions
 
