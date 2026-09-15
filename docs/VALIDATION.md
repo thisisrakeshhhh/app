@@ -2,6 +2,14 @@
 
 Final verification: 14 September 2026. This file records actual checks; pending items are not passes.
 
+## Latest follow-up: 15 September 2026
+
+The current working tree now includes separately added Room database/repository files and Kotlin/KSP changes. Those edits were preserved during the JDK troubleshooting follow-up; the Milestone 1 results below are historical.
+
+`gradlew.bat assembleDebug testDebugUnitTest --rerun lintDebug --no-daemon --console=plain` completed **BUILD SUCCESSFUL in 1m 18s**. All 11 existing role/repository/ViewModel unit tests passed. Lint completed with 0 errors and 23 dependency-version notices. These tests do not exercise the new Room database at runtime. Current log: `continuation-build.log`.
+
+The missing-jlink issue is resolved using the full JetBrains JDK 21; see [JDK setup](JAVA_SETUP.md). Device testing was attempted but failed with `No connected devices!`; the phone had disconnected before test execution. ADB again reported no devices on 15 September. Device UI tests remain pending. The release bundle was not rebuilt during this follow-up.
+
 ## Baseline repair
 
 Command: `gradlew.bat assembleDebug testDebugUnitTest lintDebug --no-daemon --console=plain`

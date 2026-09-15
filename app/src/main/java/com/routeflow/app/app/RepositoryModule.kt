@@ -1,7 +1,11 @@
 package com.routeflow.app.app
 
 import com.routeflow.app.data.repository.FakeEmployeeRepository
+import com.routeflow.app.data.repository.OfflineProductRepository
+import com.routeflow.app.data.repository.OfflineRetailerRepository
 import com.routeflow.app.domain.repository.EmployeeRepository
+import com.routeflow.app.domain.repository.ProductRepository
+import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,4 +18,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindEmployeeRepository(repository: FakeEmployeeRepository): EmployeeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRetailerRepository(repository: OfflineRetailerRepository): RetailerRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProductRepository(repository: OfflineProductRepository): ProductRepository
 }

@@ -40,3 +40,11 @@ Daemon JVM criteria take precedence over `JAVA_HOME` and `org.gradle.java.home`;
 The wrapper was deliberately launched with `JAVA_HOME` pointing to the reported Red Hat extension runtime. The Gradle log confirmed the actual build daemon and test executor used `C:\Program Files\Android\Android Studio\jbr\bin\java.exe`, JetBrains 21.0.10. `jlink.exe --version` returned `21.0.10`.
 
 `gradlew.bat assembleDebug testDebugUnitTest --rerun lintDebug --no-daemon --info --console=plain` completed with **BUILD SUCCESSFUL** in 38 seconds. All 11 unit tests passed. The build log is `jlink-fix-build.log` (ignored local output).
+
+## Follow-up on 15 September 2026
+
+The vendor constraint, local JDK discovery entry and full `jlink.exe` remain present. Android Studio's project JDK is now `jbr-21`; it manages daemon selection through the criteria file, so the absence of a legacy `gradleJvm` option is not itself an error.
+
+The current working tree includes separately added Room files and Kotlin/KSP version changes. Those edits were preserved. `gradlew.bat assembleDebug testDebugUnitTest --rerun lintDebug --no-daemon --console=plain` passed in 1 minute 18 seconds, with 11 unit tests passing and lint reporting 0 errors / 23 dependency-version notices. See `continuation-build.log`.
+
+The attempted `connectedDebugAndroidTest` run failed with **No connected devices!** after the vivo phone disconnected. ADB still reported no devices on 15 September. No on-device UI test pass is claimed. Reconnect and authorize the phone, then rerun `gradlew.bat connectedDebugAndroidTest`.
