@@ -8,6 +8,6 @@ data class Retailer(
     val contactNumber: String,
     val latitude: Double,
     val longitude: Double,
-    val creditLimit: Double,
-    val outstandingAmount: Double
+    val creditLimitPaise: Long,
+    val outstandingAmountPaise: Long
 )

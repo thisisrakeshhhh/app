@@ -3,8 +3,10 @@ package com.routeflow.app.app
 import android.content.Context
 import androidx.room.Room
 import com.routeflow.app.core.database.RouteFlowDatabase
+import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.dao.RetailerDao
+import com.routeflow.app.core.database.dao.VisitDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,5 +38,15 @@ object DatabaseModule {
     @Provides
     fun provideProductDao(database: RouteFlowDatabase): ProductDao {
         return database.productDao()
+    }
+
+    @Provides
+    fun provideOrderDao(database: RouteFlowDatabase): OrderDao {
+        return database.orderDao()
+    }
+
+    @Provides
+    fun provideVisitDao(database: RouteFlowDatabase): VisitDao {
+        return database.visitDao()
     }
 }

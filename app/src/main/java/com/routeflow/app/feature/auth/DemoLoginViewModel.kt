@@ -3,6 +3,7 @@ package com.routeflow.app.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.routeflow.app.domain.model.Employee
+import com.routeflow.app.domain.repository.DemoRepository
 import com.routeflow.app.domain.repository.EmployeeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,11 +20,13 @@ data class DemoLoginState(
     val selectedEmployeeId: String? = null,
     val activeEmployee: Employee? = null,
     val errorMessage: String? = null,
+    val showResetDialog: Boolean = false,
 )
 
 @HiltViewModel
 class DemoLoginViewModel @Inject constructor(
-    private val repository: EmployeeRepository,
+    private val employeeRepository: EmployeeRepository,
+    private val demoRepository: DemoRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(DemoLoginState())
     val state = mutableState.asStateFlow()
@@ -35,21 +38,23 @@ class DemoLoginViewModel @Inject constructor(
 
     fun loadEmployees() {
         loadJob?.cancel()
-        mutableState.value = DemoLoginState()
+        mutableState.update { it.copy(isLoading = true) }
         loadJob = viewModelScope.launch {
             try {
-                mutableState.value = DemoLoginState(
-                    isLoading = false,
-                    employees = repository.getDemoEmployees(),
-                )
+                if (!demoRepository.isDemoDataSeeded()) {
+                    demoRepository.seedDemoData()
+                }
+                val employees = employeeRepository.getDemoEmployees()
+                mutableState.update { it.copy(isLoading = false, employees = employees) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                // Do not expose repository exceptions or potentially sensitive details to users.
-                mutableState.value = DemoLoginState(
-                    isLoading = false,
-                    errorMessage = "We couldn't load the demo team. Please try again.",
-                )
+                mutableState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "We couldn't load the demo team. Please try again."
+                    )
+                }
             }
         }
     }
@@ -72,5 +77,22 @@ class DemoLoginViewModel @Inject constructor(
 
     fun changeRole() {
         mutableState.update { it.copy(activeEmployee = null, selectedEmployeeId = null) }
+    }
+
+    fun toggleResetDialog(show: Boolean) {
+        mutableState.update { it.copy(showResetDialog = show) }
+    }
+
+    fun resetDemo() {
+        mutableState.update { it.copy(showResetDialog = false, isLoading = true) }
+        viewModelScope.launch {
+            try {
+                demoRepository.resetDemoData()
+                loadEmployees()
+                mutableState.update { it.copy(activeEmployee = null, selectedEmployeeId = null) }
+            } catch (_: Exception) {
+                mutableState.update { it.copy(isLoading = false, errorMessage = "Reset failed. Please try again.") }
+            }
+        }
     }
 }

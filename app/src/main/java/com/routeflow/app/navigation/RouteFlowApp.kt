@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -13,22 +14,51 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.routeflow.app.feature.auth.DemoLoginScreen
 import com.routeflow.app.feature.auth.DemoLoginState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.routeflow.app.feature.delivery.DeliveryDetailScreen
 import com.routeflow.app.feature.delivery.DeliveryHomeScreen
+import com.routeflow.app.feature.delivery.DeliveryListScreen
+import com.routeflow.app.feature.delivery.DeliveryViewModel
+import com.routeflow.app.feature.owner.OrderApprovalScreen
+import com.routeflow.app.feature.owner.OrderApprovalViewModel
 import com.routeflow.app.feature.owner.OwnerHomeScreen
+import com.routeflow.app.feature.owner.OwnerViewModel
+import com.routeflow.app.feature.sales.OrderBookingScreen
+import com.routeflow.app.feature.sales.OrderBookingViewModel
+import com.routeflow.app.feature.sales.RetailerListScreen
+import com.routeflow.app.feature.sales.RetailerListViewModel
 import com.routeflow.app.feature.sales.SalesHomeScreen
+import com.routeflow.app.feature.sales.SalesViewModel
+import com.routeflow.app.feature.sales.ShopVisitScreen
+import com.routeflow.app.feature.sales.ShopVisitViewModel
+import com.routeflow.app.feature.warehouse.PickingScreen
+import com.routeflow.app.feature.warehouse.PickingViewModel
 import com.routeflow.app.feature.warehouse.WarehouseHomeScreen
+import com.routeflow.app.feature.warehouse.WarehouseViewModel
 
 private const val LOGIN_ROUTE = "demo-login"
+private const val OWNER_APPROVALS = "owner/approvals"
+private const val WAREHOUSE_PICKING = "warehouse/picking"
+private const val DELIVERY_LIST = "delivery/list"
+private const val DELIVERY_DETAIL = "delivery/detail/{orderId}"
+private const val SALES_RETAILER_LIST = "sales/retailers"
+private const val SALES_SHOP_VISIT = "sales/visit/{retailerId}"
+private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +68,8 @@ fun RouteFlowApp(
     onContinue: () -> Unit,
     onRetry: () -> Unit,
     onChangeRole: () -> Unit,
+    onToggleReset: (Boolean) -> Unit,
+    onConfirmReset: () -> Unit,
 ) {
     val navController = rememberNavController()
     val employee = state.activeEmployee
@@ -54,29 +86,64 @@ fun RouteFlowApp(
         }
     }
 
+    if (state.showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { onToggleReset(false) },
+            title = { Text("Reset demo data?") },
+            text = { Text("This will clear all local demo orders, payments and visits. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onConfirmReset) { Text("Reset everything", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { onToggleReset(false) }) { Text("Cancel") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             Column {
                 TopAppBar(
                     title = {
                         Column {
-                            Text("RouteFlow", style = MaterialTheme.typography.titleLarge)
-                            Text(employee?.role?.label ?: "Employee demo",
-                                style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "RouteFlow",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (employee != null) {
+                                Text(
+                                    employee.role.label,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
                         }
                     },
                     actions = {
                         if (employee != null) {
-                            TextButton(onChangeRole, Modifier.heightIn(min = 48.dp).testTag("change_role")) {
-                                Text("Change role", style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onChangeRole, Modifier.testTag("change_role")) {
+                                Text("Change role", style = MaterialTheme.typography.labelMedium)
+                            }
+                        } else {
+                            TextButton(onClick = { onToggleReset(true) }) {
+                                Text("Reset demo", style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.error)
                             }
                         }
                     },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    )
                 )
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text("Offline demo · Sample data only",
-                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.bodyMedium)
+                Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)) {
+                    Text(
+                        text = "Demo data only · Jaipur Wholesale Distributors",
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 }
             }
         },
@@ -86,17 +153,151 @@ fun RouteFlowApp(
             composable(LOGIN_ROUTE) {
                 DemoLoginScreen(state, onSelectEmployee, onContinue, onRetry)
             }
-            RoleDestination.entries.forEach { home ->
-                composable(home.route) {
-                    // A restored or stale destination never displays another employee's home.
-                    if (employee != null && destination == home) {
-                        when (home) {
-                            RoleDestination.OWNER -> OwnerHomeScreen(employee)
-                            RoleDestination.SALES -> SalesHomeScreen(employee)
-                            RoleDestination.WAREHOUSE -> WarehouseHomeScreen(employee)
-                            RoleDestination.DELIVERY -> DeliveryHomeScreen(employee)
-                        }
+
+            composable(RoleDestination.OWNER.route) {
+                if (employee != null) {
+                    val viewModel: OwnerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val ownerState by viewModel.state.collectAsStateWithLifecycle()
+                    OwnerHomeScreen(
+                        employee = employee,
+                        state = ownerState,
+                        onViewApprovals = { navController.navigate(OWNER_APPROVALS) }
+                    )
+                }
+            }
+
+            composable(OWNER_APPROVALS) {
+                val viewModel: OrderApprovalViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val approvalState by viewModel.state.collectAsStateWithLifecycle()
+                OrderApprovalScreen(
+                    state = approvalState,
+                    onApprove = viewModel::approveOrder,
+                    onReject = viewModel::rejectOrder
+                )
+            }
+
+            composable(RoleDestination.SALES.route) {
+                if (employee != null) {
+                    val salesViewModel: SalesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val salesState by salesViewModel.state.collectAsStateWithLifecycle()
+                    SalesHomeScreen(
+                        employee = employee,
+                        state = salesState,
+                        onStartVisits = { navController.navigate(SALES_RETAILER_LIST) }
+                    )
+                }
+            }
+
+            composable(SALES_RETAILER_LIST) {
+                val viewModel: RetailerListViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val salesListState by viewModel.state.collectAsStateWithLifecycle()
+                RetailerListScreen(
+                    state = salesListState,
+                    onRetailerClick = { id -> navController.navigate("sales/visit/$id") }
+                )
+            }
+
+            composable(
+                route = SALES_SHOP_VISIT,
+                arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
+            ) {
+                val viewModel: ShopVisitViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val visitState by viewModel.state.collectAsStateWithLifecycle()
+                ShopVisitScreen(
+                    state = visitState,
+                    onCheckIn = viewModel::checkIn,
+                    onCheckOut = viewModel::checkOut,
+                    onCreateOrder = { navController.navigate("sales/order/${visitState.retailer?.id}") },
+                    onStockCheck = { /* TODO */ }
+                )
+            }
+
+            composable(
+                route = SALES_ORDER_BOOKING,
+                arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
+            ) {
+                val viewModel: OrderBookingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val orderState by viewModel.state.collectAsStateWithLifecycle()
+                
+                if (orderState.orderSubmittedId != null) {
+                    // Show success state or navigate back
+                    LaunchedEffect(orderState.orderSubmittedId) {
+                        navController.popBackStack(SALES_RETAILER_LIST, inclusive = false)
                     }
+                } else {
+                    OrderBookingScreen(
+                        state = orderState,
+                        onSearchChange = viewModel::updateSearch,
+                        onCategorySelect = viewModel::selectCategory,
+                        onQuantityChange = viewModel::updateQuantity,
+                        onSubmit = viewModel::submitOrder
+                    )
+                }
+            }
+
+            composable(RoleDestination.WAREHOUSE.route) {
+                if (employee != null) {
+                    val viewModel: WarehouseViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val warehouseState by viewModel.state.collectAsStateWithLifecycle()
+                    WarehouseHomeScreen(
+                        employee = employee,
+                        state = warehouseState,
+                        onViewPicking = { navController.navigate(WAREHOUSE_PICKING) }
+                    )
+                }
+            }
+
+            composable(WAREHOUSE_PICKING) {
+                val viewModel: PickingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val pickingState by viewModel.state.collectAsStateWithLifecycle()
+                PickingScreen(
+                    state = pickingState,
+                    onStartPicking = viewModel::startPicking,
+                    onPacked = viewModel::markPacked,
+                    onDispatch = viewModel::dispatchOrder
+                )
+            }
+
+            composable(RoleDestination.DELIVERY.route) {
+                if (employee != null) {
+                    val viewModel: DeliveryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val deliveryHomeState by viewModel.state.collectAsStateWithLifecycle()
+                    DeliveryHomeScreen(
+                        employee = employee,
+                        state = deliveryHomeState,
+                        onViewDeliveries = { navController.navigate(DELIVERY_LIST) }
+                    )
+                }
+            }
+
+            composable(DELIVERY_LIST) {
+                val viewModel: DeliveryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
+                DeliveryListScreen(
+                    state = listState,
+                    onDeliveryClick = { id -> navController.navigate("delivery/detail/$id") }
+                )
+            }
+
+            composable(
+                route = DELIVERY_DETAIL,
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId")
+                val viewModel: DeliveryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
+                val item = listState.find { it.order.id == orderId }
+                
+                if (item != null) {
+                    DeliveryDetailScreen(
+                        orderId = item.order.id,
+                        retailerName = item.retailerName,
+                        amountPaise = item.order.totalAmountPaise,
+                        onDeliver = { method ->
+                            viewModel.markDelivered(item.order.id, method)
+                            navController.popBackStack(DELIVERY_LIST, inclusive = false)
+                        }
+                    )
                 }
             }
         }

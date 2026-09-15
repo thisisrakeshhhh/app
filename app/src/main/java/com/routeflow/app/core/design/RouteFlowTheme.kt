@@ -13,36 +13,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF17634D),
+    primary = Color(0xFF003366), // Deep Navy
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD9EDE2),
-    onPrimaryContainer = Color(0xFF103D30),
-    secondary = Color(0xFF596845),
-    secondaryContainer = Color(0xFFE7EDDA),
-    onSecondaryContainer = Color(0xFF303C22),
-    background = Color(0xFFF7F8F2),
-    onBackground = Color(0xFF202B25),
-    surface = Color(0xFFFCFDF8),
-    onSurface = Color(0xFF202B25),
-    surfaceVariant = Color(0xFFE8ECE4),
-    onSurfaceVariant = Color(0xFF4E5C52),
-    outlineVariant = Color(0xFFD4DCD1),
+    primaryContainer = Color(0xFFE3F2FD),
+    onPrimaryContainer = Color(0xFF001E3C),
+    secondary = Color(0xFF5C6BC0), // Indigo
+    secondaryContainer = Color(0xFFE8EAF6),
+    onSecondaryContainer = Color(0xFF1A237E),
+    background = Color(0xFFF8F9FA), // Professional Off-White
+    onBackground = Color(0xFF1C1B1F),
+    surface = Color.White,
+    onSurface = Color(0xFF1C1B1F),
+    surfaceVariant = Color(0xFFE1E2EC),
+    onSurfaceVariant = Color(0xFF44474E),
+    outline = Color(0xFF74777F),
+    outlineVariant = Color(0xFFC4C6D0),
+    error = Color(0xFFB00020),
+    onError = Color.White,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFA0D7BA),
-    onPrimary = Color(0xFF003827),
-    primaryContainer = Color(0xFF23523F),
-    onPrimaryContainer = Color(0xFFD9EDE2),
-    secondaryContainer = Color(0xFF3D4932),
-    onSecondaryContainer = Color(0xFFE7EDDA),
-    background = Color(0xFF111914),
-    surface = Color(0xFF18211B),
-    onSurface = Color(0xFFE1E9DF),
-    onBackground = Color(0xFFE1E9DF),
-    surfaceVariant = Color(0xFF344138),
-    onSurfaceVariant = Color(0xFFBFCBBE),
+    primary = Color(0xFFADC6FF),
+    onPrimary = Color(0xFF002E69),
+    primaryContainer = Color(0xFF004494),
+    onPrimaryContainer = Color(0xFFD8E2FF),
+    background = Color(0xFF1A1C1E),
+    onBackground = Color(0xFFE2E2E6),
+    surface = Color(0xFF1A1C1E),
+    onSurface = Color(0xFFE2E2E6),
+    error = Color(0xFFFFB4AB),
 )
+
+// Status colors for business logic
+object RouteFlowStatus {
+    val Completed = Color(0xFF2E7D32)
+    val Pending = Color(0xFFFFA000)
+    val Rejected = Color(0xFFD32F2F)
+}
 
 private val RouteFlowTypography = Typography(
     headlineLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold,

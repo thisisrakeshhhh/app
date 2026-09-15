@@ -26,6 +26,8 @@ class MainActivity : ComponentActivity() {
                     onContinue = viewModel::openWorkspace,
                     onRetry = viewModel::loadEmployees,
                     onChangeRole = viewModel::changeRole,
+                    onToggleReset = viewModel::toggleResetDialog,
+                    onConfirmReset = viewModel::resetDemo,
                 )
             }
         }

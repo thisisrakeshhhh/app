@@ -32,8 +32,8 @@ private fun RetailerEntity.asDomainModel() = Retailer(
     contactNumber = contactNumber,
     latitude = latitude,
     longitude = longitude,
-    creditLimit = creditLimit,
-    outstandingAmount = outstandingAmount
+    creditLimitPaise = creditLimitPaise,
+    outstandingAmountPaise = outstandingAmountPaise
 )
 
 private fun Retailer.asEntity() = RetailerEntity(
@@ -44,6 +44,6 @@ private fun Retailer.asEntity() = RetailerEntity(
     contactNumber = contactNumber,
     latitude = latitude,
     longitude = longitude,
-    creditLimit = creditLimit,
-    outstandingAmount = outstandingAmount
+    creditLimitPaise = creditLimitPaise,
+    outstandingAmountPaise = outstandingAmountPaise
 )
