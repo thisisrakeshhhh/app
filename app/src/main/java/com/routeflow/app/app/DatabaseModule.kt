@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.OrderDao
+import com.routeflow.app.core.database.dao.PaymentDao
 import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.dao.RetailerDao
 import com.routeflow.app.core.database.dao.VisitDao
@@ -27,7 +28,9 @@ object DatabaseModule {
             context,
             RouteFlowDatabase::class.java,
             RouteFlowDatabase.DATABASE_NAME
-        ).build()
+        )
+        .fallbackToDestructiveMigration() // For demo purposes, we allow destructive migration to version 2
+        .build()
     }
 
     @Provides
@@ -48,5 +51,10 @@ object DatabaseModule {
     @Provides
     fun provideVisitDao(database: RouteFlowDatabase): VisitDao {
         return database.visitDao()
+    }
+
+    @Provides
+    fun providePaymentDao(database: RouteFlowDatabase): PaymentDao {
+        return database.paymentDao()
     }
 }

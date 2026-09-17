@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.OrderDao
+import com.routeflow.app.core.database.dao.PaymentDao
 import com.routeflow.app.core.database.entity.OrderEntity
+import com.routeflow.app.core.database.entity.PaymentEntity
 import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 data class DeliveryHomeState(
@@ -33,14 +36,18 @@ data class DeliveryItemState(
 class DeliveryViewModel @Inject constructor(
     private val database: RouteFlowDatabase,
     private val orderDao: OrderDao,
+    private val paymentDao: PaymentDao,
     private val retailerRepository: RetailerRepository
 ) : ViewModel() {
 
-    val state: StateFlow<DeliveryHomeState> = orderDao.getAllOrders().map { orders ->
+    val state: StateFlow<DeliveryHomeState> = combine(
+        orderDao.getAllOrders(),
+        paymentDao.getTotalCollectedPaise()
+    ) { orders, totalCollected ->
         DeliveryHomeState(
             assignedCount = orders.count { it.status == "OUT_FOR_DELIVERY" },
             completedCount = orders.count { it.status == "DELIVERED" },
-            paymentsCollectedPaise = 0 // TODO: Sum from payments table
+            paymentsCollectedPaise = totalCollected ?: 0
         )
     }.stateIn(
         scope = viewModelScope,
@@ -85,7 +92,15 @@ class DeliveryViewModel @Inject constructor(
                 
                 // 3. Record payment if cash
                 if (method == "CASH") {
-                    // TODO: Insert into payments table
+                    val payment = PaymentEntity(
+                        id = UUID.randomUUID().toString(),
+                        orderId = orderId,
+                        retailerId = order.retailerId,
+                        amountPaise = order.totalAmountPaise,
+                        method = "CASH",
+                        timestamp = System.currentTimeMillis()
+                    )
+                    paymentDao.insertPayment(payment)
                 }
             }
         }

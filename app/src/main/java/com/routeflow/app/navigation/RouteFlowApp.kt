@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -79,23 +80,24 @@ fun RouteFlowApp(
     val employee = state.activeEmployee
     val destination = employee?.let { RoleDestination.forRole(it.role) }
     
-    // Track current route to avoid redundant navigations
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
-    // Handle session-based navigation
+    // Centralized state-driven navigation
     LaunchedEffect(employee, destination) {
         if (employee == null) {
-            if (currentRoute != LOGIN_ROUTE) {
+            if (currentRoute != null && currentRoute != LOGIN_ROUTE) {
                 navController.navigate(LOGIN_ROUTE) {
                     popUpTo(0) { inclusive = true }
                 }
             }
         } else {
             val targetRoute = destination?.route
-            if (targetRoute != null && currentRoute == LOGIN_ROUTE) {
+            // Navigate if we are currently on the login screen or if the route is null (initial)
+            if (targetRoute != null && (currentRoute == LOGIN_ROUTE || currentRoute == null)) {
                 navController.navigate(targetRoute) {
                     popUpTo(LOGIN_ROUTE) { inclusive = true }
+                    launchSingleTop = true
                 }
             }
         }
@@ -172,7 +174,7 @@ fun RouteFlowApp(
 
             composable(RoleDestination.OWNER.route) {
                 if (employee != null) {
-                    val viewModel: OwnerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val viewModel: OwnerViewModel = hiltViewModel()
                     val ownerState by viewModel.state.collectAsStateWithLifecycle()
                     OwnerHomeScreen(
                         employee = employee,
@@ -183,7 +185,7 @@ fun RouteFlowApp(
             }
 
             composable(OWNER_APPROVALS) {
-                val viewModel: OrderApprovalViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: OrderApprovalViewModel = hiltViewModel()
                 val approvalState by viewModel.state.collectAsStateWithLifecycle()
                 OrderApprovalScreen(
                     state = approvalState,
@@ -194,7 +196,7 @@ fun RouteFlowApp(
 
             composable(RoleDestination.SALES.route) {
                 if (employee != null) {
-                    val salesViewModel: SalesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val salesViewModel: SalesViewModel = hiltViewModel()
                     val salesState by salesViewModel.state.collectAsStateWithLifecycle()
                     SalesHomeScreen(
                         employee = employee,
@@ -205,7 +207,7 @@ fun RouteFlowApp(
             }
 
             composable(SALES_RETAILER_LIST) {
-                val viewModel: RetailerListViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: RetailerListViewModel = hiltViewModel()
                 val salesListState by viewModel.state.collectAsStateWithLifecycle()
                 RetailerListScreen(
                     state = salesListState,
@@ -217,7 +219,7 @@ fun RouteFlowApp(
                 route = SALES_SHOP_VISIT,
                 arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
             ) {
-                val viewModel: ShopVisitViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: ShopVisitViewModel = hiltViewModel()
                 val visitState by viewModel.state.collectAsStateWithLifecycle()
                 ShopVisitScreen(
                     state = visitState,
@@ -232,7 +234,7 @@ fun RouteFlowApp(
                 route = SALES_ORDER_BOOKING,
                 arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
             ) {
-                val viewModel: OrderBookingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: OrderBookingViewModel = hiltViewModel()
                 val orderState by viewModel.state.collectAsStateWithLifecycle()
                 
                 if (orderState.orderSubmittedId != null) {
@@ -252,7 +254,7 @@ fun RouteFlowApp(
 
             composable(RoleDestination.WAREHOUSE.route) {
                 if (employee != null) {
-                    val viewModel: WarehouseViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val viewModel: WarehouseViewModel = hiltViewModel()
                     val warehouseState by viewModel.state.collectAsStateWithLifecycle()
                     WarehouseHomeScreen(
                         employee = employee,
@@ -263,7 +265,7 @@ fun RouteFlowApp(
             }
 
             composable(WAREHOUSE_PICKING) {
-                val viewModel: PickingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: PickingViewModel = hiltViewModel()
                 val pickingState by viewModel.state.collectAsStateWithLifecycle()
                 PickingScreen(
                     state = pickingState,
@@ -275,7 +277,7 @@ fun RouteFlowApp(
 
             composable(RoleDestination.DELIVERY.route) {
                 if (employee != null) {
-                    val viewModel: DeliveryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                    val viewModel: DeliveryViewModel = hiltViewModel()
                     val deliveryHomeState by viewModel.state.collectAsStateWithLifecycle()
                     DeliveryHomeScreen(
                         employee = employee,
@@ -286,7 +288,7 @@ fun RouteFlowApp(
             }
 
             composable(DELIVERY_LIST) {
-                val viewModel: DeliveryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: DeliveryViewModel = hiltViewModel()
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
                 DeliveryListScreen(
                     state = listState,
@@ -299,7 +301,7 @@ fun RouteFlowApp(
                 arguments = listOf(navArgument("orderId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val orderId = backStackEntry.arguments?.getString("orderId")
-                val viewModel: DeliveryViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                val viewModel: DeliveryViewModel = hiltViewModel()
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
                 val item = listState.find { it.order.id == orderId }
                 

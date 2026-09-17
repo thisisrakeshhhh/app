@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -30,7 +31,7 @@ data class OrderBookingState(
     val orderSubmittedId: String? = null,
     val isLoading: Boolean = false
 ) {
-    val totalAmountPaise: Long
+    val cartTotalPaise: Long
         get() = products.sumOf { item ->
             val qty = cart[item.product.id] ?: 0
             qty * item.product.pricePaise
@@ -61,22 +62,32 @@ class OrderBookingViewModel @Inject constructor(
     private val _isSubmitting = MutableStateFlow(false)
     private val _orderSubmittedId = MutableStateFlow<String?>(null)
 
+    // Source of truth for products to avoid cart calculation bugs when filtering
+    private val allProducts = productRepository.getAllProducts()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     val state: StateFlow<OrderBookingState> = combine(
-        productRepository.getAllProducts(),
+        allProducts,
         _searchQuery,
         _selectedCategory,
         _cart,
         combine(_isSubmitting, _orderSubmittedId) { isSubmitting, submittedId -> isSubmitting to submittedId }
     ) { products, search, category, cart, extra ->
         val (isSubmitting, submittedId) = extra
-        val filtered = products.filter {
-            it.name.contains(search, ignoreCase = true) &&
-                    (category == null || it.category == category)
-        }.map { product ->
+        
+        // Map products to their UI state including promotion logic
+        val mappedProducts = products.map { product ->
             val qty = cart[product.id] ?: 0
             val freeQty = if (product.name == "Premium Tea") qty / 10 else 0
             ProductItemState(product, freeQty)
         }
+
+        // Filter only for the list display
+        val filtered = mappedProducts.filter {
+            it.product.name.contains(search, ignoreCase = true) &&
+                    (category == null || it.product.category == category)
+        }
+
         OrderBookingState(
             products = filtered,
             searchQuery = search,
@@ -104,7 +115,7 @@ class OrderBookingViewModel @Inject constructor(
             val currentQty = current[productId] ?: 0
             val newQty = (currentQty + delta).coerceAtLeast(0)
             
-            val product = state.value.products.find { it.product.id == productId }?.product
+            val product = allProducts.value.find { it.id == productId }
             if (product != null && newQty > product.stockQuantity) {
                 return@update current
             }
@@ -115,23 +126,29 @@ class OrderBookingViewModel @Inject constructor(
     }
 
     fun submitOrder() {
-        if (_cart.value.isEmpty()) return
+        val currentCart = _cart.value
+        if (currentCart.isEmpty()) return
         
         viewModelScope.launch {
             val employeeId = sessionRepository.activeEmployee.value?.id ?: return@launch
             _isSubmitting.value = true
+            
             val orderId = "ORD-${System.currentTimeMillis().toString().takeLast(6)}"
             val now = System.currentTimeMillis()
             
-            val orderItems = _cart.value.map { (productId, quantity) ->
-                val productItem = state.value.products.find { it.product.id == productId }!!
+            var totalAmount: Long = 0
+            val orderItems = currentCart.map { (productId, quantity) ->
+                val product = allProducts.value.find { it.id == productId }!!
+                val freeQty = if (product.name == "Premium Tea") quantity / 10 else 0
+                totalAmount += quantity * product.pricePaise
+                
                 OrderItemEntity(
                     id = UUID.randomUUID().toString(),
                     orderId = orderId,
                     productId = productId,
                     quantity = quantity,
-                    freeQuantity = productItem.freeQuantity,
-                    pricePaiseAtTime = productItem.product.pricePaise
+                    freeQuantity = freeQty,
+                    pricePaiseAtTime = product.pricePaise
                 )
             }
             
@@ -140,7 +157,7 @@ class OrderBookingViewModel @Inject constructor(
                 retailerId = retailerId,
                 employeeId = employeeId,
                 status = "SUBMITTED",
-                totalAmountPaise = state.value.totalAmountPaise,
+                totalAmountPaise = totalAmount,
                 createdAt = now,
                 updatedAt = now
             )

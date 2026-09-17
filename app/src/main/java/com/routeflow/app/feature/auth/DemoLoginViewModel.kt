@@ -8,10 +8,8 @@ import com.routeflow.app.domain.repository.DemoRepository
 import com.routeflow.app.domain.repository.EmployeeRepository
 import com.routeflow.app.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -52,39 +50,42 @@ class DemoLoginViewModel @Inject constructor(
 
     fun login() {
         val current = mutableState.value
+        if (current.isLoading) return
+        
         if (current.username.isBlank() || current.password.isBlank()) {
             mutableState.update { it.copy(errorMessage = "Please enter credentials") }
             return
         }
 
-        mutableState.update { it.copy(isLoading = true) }
+        mutableState.update { it.copy(isLoading = true, errorMessage = null) }
         
         viewModelScope.launch {
             try {
+                // Ensure data is seeded in background if not already done, 
+                // but login doesn't strictly depend on it for validation.
+                // However, we wait for a quick check to be safe.
                 if (!demoRepository.isDemoDataSeeded()) {
                     demoRepository.seedDemoData()
                 }
 
                 val role = when {
-                    current.username.lowercase() == "owner" && current.password == "123" -> EmployeeRole.OWNER
-                    current.username.lowercase() == "sales" && current.password == "123" -> EmployeeRole.SALESPERSON
-                    current.username.lowercase() == "warehouse" && current.password == "123" -> EmployeeRole.WAREHOUSE_MANAGER
-                    current.username.lowercase() == "delivery" && current.password == "123" -> EmployeeRole.DELIVERY_EXECUTIVE
+                    current.username.lowercase().trim() == "owner" && current.password == "123" -> EmployeeRole.OWNER
+                    current.username.lowercase().trim() == "sales" && current.password == "123" -> EmployeeRole.SALESPERSON
+                    current.username.lowercase().trim() == "warehouse" && current.password == "123" -> EmployeeRole.WAREHOUSE_MANAGER
+                    current.username.lowercase().trim() == "delivery" && current.password == "123" -> EmployeeRole.DELIVERY_EXECUTIVE
                     else -> null
                 }
 
                 if (role != null) {
                     val employee = employeeRepository.getDemoEmployees().find { it.role == role }
                     if (employee != null) {
-                        println("DEBUG: Login successful for ${employee.name}")
                         sessionRepository.login(employee)
+                        // Clear input and loading state
                         mutableState.update { it.copy(isLoading = false, username = "", password = "") }
                     } else {
-                        println("DEBUG: Employee not found for role $role")
-                        mutableState.update { it.copy(isLoading = false, errorMessage = "Internal error: Employee not found") }
+                        mutableState.update { it.copy(isLoading = false, errorMessage = "Employee record not found") }
                     }
                 } else {
-                    println("DEBUG: Invalid credentials for ${current.username}")
                     mutableState.update { it.copy(isLoading = false, errorMessage = "Invalid username or password") }
                 }
             } catch (e: Exception) {
@@ -103,6 +104,7 @@ class DemoLoginViewModel @Inject constructor(
     }
 
     fun resetDemo() {
+        if (mutableState.value.isLoading) return
         mutableState.update { it.copy(showResetDialog = false, isLoading = true) }
         viewModelScope.launch {
             try {

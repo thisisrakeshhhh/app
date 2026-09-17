@@ -62,7 +62,7 @@ fun OrderBookingScreen(
                 }
             }
             
-            CartSummary(state.totalAmountPaise, state.cart.isNotEmpty(), onSubmit)
+            CartSummary(state.cartTotalPaise, state.cart.isNotEmpty(), onSubmit)
         }
     }
 }

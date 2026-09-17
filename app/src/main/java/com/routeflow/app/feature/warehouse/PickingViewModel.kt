@@ -2,6 +2,8 @@ package com.routeflow.app.feature.warehouse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
+import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.entity.OrderEntity
@@ -39,6 +41,7 @@ data class OrderItemWithPicking(
 
 @HiltViewModel
 class PickingViewModel @Inject constructor(
+    private val database: RouteFlowDatabase,
     private val orderDao: OrderDao,
     private val productDao: ProductDao,
     private val retailerRepository: RetailerRepository
@@ -48,7 +51,10 @@ class PickingViewModel @Inject constructor(
         orderDao.getAllOrders(),
         productDao.getAllProducts()
     ) { orders, productEntities ->
-        val details = orders.filter { it.status == "APPROVED" || it.status == "PICKING" }.map { order ->
+        // Now including PACKED status so it doesn't disappear from the warehouse view
+        val details = orders.filter { 
+            it.status == "APPROVED" || it.status == "PICKING" || it.status == "PACKED" 
+        }.map { order ->
             val items = orderDao.getItemsForOrder(order.id).first().map { item ->
                 val entity = productEntities.find { it.id == item.productId }
                 OrderItemWithPicking(item, entity?.asDomainModel())
@@ -77,18 +83,20 @@ class PickingViewModel @Inject constructor(
 
     fun dispatchOrder(orderId: String) {
         viewModelScope.launch {
-            val orderItems = orderDao.getItemsForOrder(orderId).first()
-            val products = productDao.getAllProducts().first()
-            
-            orderItems.forEach { item ->
-                val product = products.find { it.id == item.productId }
-                if (product != null) {
-                    val totalToDeduct = item.quantity + item.freeQuantity
-                    val newStock = (product.stockQuantity - totalToDeduct).coerceAtLeast(0)
-                    productDao.updateStock(product.id, newStock)
+            database.withTransaction {
+                val orderItems = orderDao.getItemsForOrder(orderId).first()
+                val products = productDao.getAllProducts().first()
+                
+                orderItems.forEach { item ->
+                    val product = products.find { it.id == item.productId }
+                    if (product != null) {
+                        val totalToDeduct = item.quantity + item.freeQuantity
+                        val newStock = (product.stockQuantity - totalToDeduct).coerceAtLeast(0)
+                        productDao.updateStock(product.id, newStock)
+                    }
                 }
+                orderDao.updateOrderStatus(orderId, "OUT_FOR_DELIVERY", System.currentTimeMillis())
             }
-            orderDao.updateOrderStatus(orderId, "OUT_FOR_DELIVERY", System.currentTimeMillis())
         }
     }
 }
