@@ -1,166 +1,218 @@
 package com.routeflow.app.feature.auth
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.routeflow.app.core.design.EmptyState
-import com.routeflow.app.core.design.ErrorState
-import com.routeflow.app.core.design.LoadingState
-import com.routeflow.app.core.design.RoleIcon
-import com.routeflow.app.domain.model.Employee
+import androidx.compose.ui.unit.sp
+import com.routeflow.app.core.design.RFColors
 
 @Composable
 fun DemoLoginScreen(
     state: DemoLoginState,
-    onSelectEmployee: (String) -> Unit,
-    onContinue: () -> Unit,
-    onRetry: () -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLogin: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    when {
-        state.isLoading -> LoadingState(modifier.fillMaxSize())
-        state.errorMessage != null -> ErrorState(state.errorMessage, onRetry, modifier.fillMaxSize())
-        state.employees.isEmpty() -> Column(
-            modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(RFColors.Background)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            EmptyState("No demo employees", "The demo team is unavailable. Try loading it again.")
-            OutlinedButton(onRetry, Modifier.heightIn(min = 48.dp)) { Text("Reload demo team") }
-        }
-        else -> Column(modifier.fillMaxSize().testTag("role_picker")) {
-            Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+            Spacer(Modifier.height(48.dp))
+            
+            // Branding
+            Surface(
+                color = RFColors.Primary,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(64.dp)
             ) {
-                Spacer(Modifier.height(32.dp))
-                Text(
-                    text = "RouteFlow",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    text = "Warehouse to retailer, made simple.",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("JAIPUR · RAJASTHAN", style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary)
-                Text("Jaipur Wholesale Distributors", style = MaterialTheme.typography.bodyLarge)
-                
-                Text("Choose a demo role", style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 12.dp).semantics { heading() })
-                
-                Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    state.employees.forEach { employee ->
-                        EmployeeCard(employee, state.selectedEmployeeId == employee.id) {
-                            onSelectEmployee(employee.id)
+                Box(contentAlignment = Alignment.Center) {
+                    Text("RF", color = Color.White, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Text(
+                "Welcome Back",
+                style = MaterialTheme.typography.headlineLarge,
+                color = RFColors.TextPrimary
+            )
+            Text(
+                "Warehouse to retailer, made simple.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = RFColors.TextSecondary
+            )
+            
+            Spacer(Modifier.height(48.dp))
+            
+            // Login Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    Text(
+                        "Sign In",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    OutlinedTextField(
+                        value = state.username,
+                        onValueChange = onUsernameChange,
+                        label = { Text("Username") },
+                        placeholder = { Text("e.g. sales") },
+                        modifier = Modifier.fillMaxWidth().testTag("username_field"),
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RFColors.Accent,
+                            unfocusedBorderColor = RFColors.Outline
+                        )
+                    )
+                    
+                    OutlinedTextField(
+                        value = state.password,
+                        onValueChange = onPasswordChange,
+                        label = { Text("Password") },
+                        placeholder = { Text("Enter your password") },
+                        modifier = Modifier.fillMaxWidth().testTag("password_field"),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RFColors.Accent,
+                            unfocusedBorderColor = RFColors.Outline
+                        )
+                    )
+                    
+                    if (state.errorMessage != null) {
+                        Text(
+                            text = state.errorMessage,
+                            color = RFColors.Error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
+                    
+                    Button(
+                        onClick = onLogin,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .testTag("login_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = RFColors.Primary,
+                            contentColor = Color.White
+                        ),
+                        enabled = !state.isLoading
+                    ) {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text(
+                                text = "Login",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Demo Workflow Guide", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        DemoStep("1. Salesperson", "Check in at Sharma Store & order 10 Tea (1 free).")
-                        DemoStep("2. Owner", "Approve the submitted order.")
-                        DemoStep("3. Warehouse", "Pick, pack and dispatch.")
-                        DemoStep("4. Delivery", "Enter code 4829 and confirm.")
+            }
+            
+            Spacer(Modifier.height(32.dp))
+            
+            // Demo Hints
+            Surface(
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Demo Accounts (Password: 123)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = RFColors.Accent,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        DemoHintChip("owner")
+                        DemoHintChip("sales")
+                        DemoHintChip("warehouse")
+                        DemoHintChip("delivery")
                     }
                 }
-
-                Text("Demo data only. These are fictional accounts for demonstration purposes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                
-                Spacer(Modifier.height(16.dp))
             }
-            Surface(
-                shadowElevation = 8.dp,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp
-            ) {
-                Button(
-                    onClick = onContinue,
-                    enabled = state.employees.any { it.id == state.selectedEmployeeId },
-                    modifier = Modifier.fillMaxWidth().padding(24.dp).heightIn(min = 56.dp)
-                        .testTag("open_workspace"),
-                    shape = RoundedCornerShape(12.dp),
-                ) { Text("Open demo", style = MaterialTheme.typography.titleMedium) }
-            }
+            
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun EmployeeCard(employee: Employee, selected: Boolean, onClick: () -> Unit) {
+private fun DemoHintChip(label: String) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        ),
-        shadowElevation = if (selected) 4.dp else 0.dp
+        color = Color.White,
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDBEAFE))
     ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 72.dp)
-                .testTag("role_${employee.role.name}")
-                .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            RoleIcon(employee.role, Modifier.size(32.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(employee.role.label, style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold)
-                Text(employee.name, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            RadioButton(selected = selected, onClick = null)
-        }
-    }
-}
-
-@Composable
-private fun DemoStep(label: String, description: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(description, style = MaterialTheme.typography.bodySmall)
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = RFColors.TextSecondary
+        )
     }
 }

@@ -2,6 +2,8 @@ package com.routeflow.app.feature.delivery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
+import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.domain.repository.RetailerRepository
@@ -9,7 +11,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -30,6 +31,7 @@ data class DeliveryItemState(
 
 @HiltViewModel
 class DeliveryViewModel @Inject constructor(
+    private val database: RouteFlowDatabase,
     private val orderDao: OrderDao,
     private val retailerRepository: RetailerRepository
 ) : ViewModel() {
@@ -38,7 +40,7 @@ class DeliveryViewModel @Inject constructor(
         DeliveryHomeState(
             assignedCount = orders.count { it.status == "OUT_FOR_DELIVERY" },
             completedCount = orders.count { it.status == "DELIVERED" },
-            paymentsCollectedPaise = 0 // TODO: Real calculation
+            paymentsCollectedPaise = 0 // TODO: Sum from payments table
         )
     }.stateIn(
         scope = viewModelScope,
@@ -66,8 +68,26 @@ class DeliveryViewModel @Inject constructor(
 
     fun markDelivered(orderId: String, method: String) {
         viewModelScope.launch {
-            // TODO: Record payment, update ledger, etc.
-            orderDao.updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
+            database.withTransaction {
+                val order = orderDao.getOrderById(orderId).map { it }.stateIn(this).value ?: return@withTransaction
+                
+                // 1. Update order status
+                orderDao.updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
+                
+                // 2. Update retailer outstanding if credit
+                if (method == "CREDIT") {
+                    val retailer = retailerRepository.getRetailerById(order.retailerId).map { it }.stateIn(this).value
+                    if (retailer != null) {
+                        val newOutstanding = retailer.outstandingAmountPaise + order.totalAmountPaise
+                        database.retailerDao().updateOutstanding(order.retailerId, newOutstanding)
+                    }
+                }
+                
+                // 3. Record payment if cash
+                if (method == "CASH") {
+                    // TODO: Insert into payments table
+                }
+            }
         }
     }
 }

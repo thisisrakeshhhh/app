@@ -8,6 +8,7 @@ import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.core.database.entity.OrderItemEntity
 import com.routeflow.app.domain.model.Product
 import com.routeflow.app.domain.repository.ProductRepository
+import com.routeflow.app.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,12 +48,12 @@ data class ProductItemState(
 @HiltViewModel
 class OrderBookingViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val sessionRepository: SessionRepository,
     private val productRepository: ProductRepository,
     private val orderDao: OrderDao
 ) : ViewModel() {
 
     private val retailerId: String = checkNotNull(savedStateHandle["retailerId"])
-    private val employeeId: String = "S1" // TODO: Get from session
 
     private val _searchQuery = MutableStateFlow("")
     private val _selectedCategory = MutableStateFlow<String?>(null)
@@ -105,7 +106,6 @@ class OrderBookingViewModel @Inject constructor(
             
             val product = state.value.products.find { it.product.id == productId }?.product
             if (product != null && newQty > product.stockQuantity) {
-                // TODO: Show error
                 return@update current
             }
 
@@ -118,6 +118,7 @@ class OrderBookingViewModel @Inject constructor(
         if (_cart.value.isEmpty()) return
         
         viewModelScope.launch {
+            val employeeId = sessionRepository.activeEmployee.value?.id ?: return@launch
             _isSubmitting.value = true
             val orderId = "ORD-${System.currentTimeMillis().toString().takeLast(6)}"
             val now = System.currentTimeMillis()

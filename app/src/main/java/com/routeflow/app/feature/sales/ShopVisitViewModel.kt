@@ -7,6 +7,7 @@ import com.routeflow.app.core.database.dao.VisitDao
 import com.routeflow.app.core.database.entity.VisitEntity
 import com.routeflow.app.domain.model.Retailer
 import com.routeflow.app.domain.repository.RetailerRepository
+import com.routeflow.app.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,12 +35,12 @@ data class ShopVisitState(
 @HiltViewModel
 class ShopVisitViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val sessionRepository: SessionRepository,
     private val retailerRepository: RetailerRepository,
     private val visitDao: VisitDao
 ) : ViewModel() {
 
     private val retailerId: String = checkNotNull(savedStateHandle["retailerId"])
-    private val employeeId: String = "S1" // TODO: Get from session
 
     private val _timer = flow {
         while (true) {
@@ -50,7 +51,10 @@ class ShopVisitViewModel @Inject constructor(
 
     val state: StateFlow<ShopVisitState> = combine(
         retailerRepository.getRetailerById(retailerId),
-        visitDao.getActiveVisit(employeeId),
+        sessionRepository.activeEmployee.flatMapLatest { employee ->
+            if (employee != null) visitDao.getActiveVisit(employee.id)
+            else flow { emit(null) }
+        },
         _timer
     ) { retailer, activeVisit, currentTime ->
         ShopVisitState(
@@ -66,6 +70,7 @@ class ShopVisitViewModel @Inject constructor(
 
     fun checkIn() {
         viewModelScope.launch {
+            val employeeId = sessionRepository.activeEmployee.value?.id ?: return@launch
             val visit = VisitEntity(
                 id = UUID.randomUUID().toString(),
                 retailerId = retailerId,

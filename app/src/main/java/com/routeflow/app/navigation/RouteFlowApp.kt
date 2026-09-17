@@ -2,9 +2,9 @@ package com.routeflow.app.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,19 +17,22 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.feature.auth.DemoLoginScreen
 import com.routeflow.app.feature.auth.DemoLoginState
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.routeflow.app.feature.delivery.DeliveryDetailScreen
 import com.routeflow.app.feature.delivery.DeliveryHomeScreen
 import com.routeflow.app.feature.delivery.DeliveryListScreen
@@ -64,24 +67,36 @@ private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
 @Composable
 fun RouteFlowApp(
     state: DemoLoginState,
-    onSelectEmployee: (String) -> Unit,
-    onContinue: () -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
     onRetry: () -> Unit,
-    onChangeRole: () -> Unit,
     onToggleReset: (Boolean) -> Unit,
     onConfirmReset: () -> Unit,
 ) {
     val navController = rememberNavController()
     val employee = state.activeEmployee
     val destination = employee?.let { RoleDestination.forRole(it.role) }
+    
+    // Track current route to avoid redundant navigations
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
 
-    // The in-memory demo session is the source of truth, including after process restart.
-    LaunchedEffect(destination) {
-        val route = destination?.route ?: LOGIN_ROUTE
-        if (navController.currentDestination?.route != route) {
-            navController.navigate(route) {
-                popUpTo(navController.graph.id) { inclusive = true }
-                launchSingleTop = true
+    // Handle session-based navigation
+    LaunchedEffect(employee, destination) {
+        if (employee == null) {
+            if (currentRoute != LOGIN_ROUTE) {
+                navController.navigate(LOGIN_ROUTE) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        } else {
+            val targetRoute = destination?.route
+            if (targetRoute != null && currentRoute == LOGIN_ROUTE) {
+                navController.navigate(targetRoute) {
+                    popUpTo(LOGIN_ROUTE) { inclusive = true }
+                }
             }
         }
     }
@@ -92,7 +107,7 @@ fun RouteFlowApp(
             title = { Text("Reset demo data?") },
             text = { Text("This will clear all local demo orders, payments and visits. This cannot be undone.") },
             confirmButton = {
-                TextButton(onConfirmReset) { Text("Reset everything", color = MaterialTheme.colorScheme.error) }
+                TextButton(onConfirmReset) { Text("Reset everything", color = RFColors.Error) }
             },
             dismissButton = {
                 TextButton(onClick = { onToggleReset(false) }) { Text("Cancel") }
@@ -102,56 +117,57 @@ fun RouteFlowApp(
 
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(
-                                "RouteFlow",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            if (employee != null) {
+            if (employee != null) {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Column {
+                                Text(
+                                    "RouteFlow",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
                                 Text(
                                     employee.role.label,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = RFColors.Accent
                                 )
                             }
-                        }
-                    },
-                    actions = {
-                        if (employee != null) {
-                            TextButton(onChangeRole, Modifier.testTag("change_role")) {
-                                Text("Change role", style = MaterialTheme.typography.labelMedium)
+                        },
+                        actions = {
+                            TextButton(onLogout, Modifier.testTag("logout")) {
+                                Text("Logout", style = MaterialTheme.typography.labelMedium)
                             }
-                        } else {
-                            TextButton(onClick = { onToggleReset(true) }) {
-                                Text("Reset demo", style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.White,
+                            titleContentColor = RFColors.TextPrimary,
+                        )
                     )
-                )
-                Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)) {
-                    Text(
-                        text = "Demo data only · Jaipur Wholesale Distributors",
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Surface(color = Color(0xFFEFF6FF)) {
+                        Text(
+                            text = "Demo data only · Jaipur Wholesale Distributors",
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RFColors.Accent
+                        )
+                    }
                 }
             }
         },
     ) { padding ->
-        NavHost(navController, startDestination = LOGIN_ROUTE,
-            modifier = Modifier.fillMaxSize().padding(padding)) {
+        NavHost(
+            navController = navController,
+            startDestination = LOGIN_ROUTE,
+            modifier = Modifier.fillMaxSize().padding(if (employee != null) padding else PaddingValues(0.dp))
+        ) {
             composable(LOGIN_ROUTE) {
-                DemoLoginScreen(state, onSelectEmployee, onContinue, onRetry)
+                DemoLoginScreen(
+                    state = state,
+                    onUsernameChange = onUsernameChange,
+                    onPasswordChange = onPasswordChange,
+                    onLogin = onLogin
+                )
             }
 
             composable(RoleDestination.OWNER.route) {
@@ -220,7 +236,6 @@ fun RouteFlowApp(
                 val orderState by viewModel.state.collectAsStateWithLifecycle()
                 
                 if (orderState.orderSubmittedId != null) {
-                    // Show success state or navigate back
                     LaunchedEffect(orderState.orderSubmittedId) {
                         navController.popBackStack(SALES_RETAILER_LIST, inclusive = false)
                     }
@@ -301,7 +316,6 @@ fun RouteFlowApp(
                 }
             }
         }
-        // Registered after NavHost: Back leaves the demo workspace and clears its role.
-        BackHandler(enabled = employee != null, onBack = onChangeRole)
+        BackHandler(enabled = employee != null, onBack = onLogout)
     }
 }

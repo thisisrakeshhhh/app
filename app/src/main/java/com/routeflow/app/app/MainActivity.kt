@@ -22,10 +22,11 @@ class MainActivity : ComponentActivity() {
             RouteFlowTheme {
                 RouteFlowApp(
                     state = viewModel.state.collectAsStateWithLifecycle().value,
-                    onSelectEmployee = viewModel::selectEmployee,
-                    onContinue = viewModel::openWorkspace,
-                    onRetry = viewModel::loadEmployees,
-                    onChangeRole = viewModel::changeRole,
+                    onUsernameChange = viewModel::onUsernameChange,
+                    onPasswordChange = viewModel::onPasswordChange,
+                    onLogin = viewModel::login,
+                    onLogout = viewModel::logout,
+                    onRetry = viewModel::login,
                     onToggleReset = viewModel::toggleResetDialog,
                     onConfirmReset = viewModel::resetDemo,
                 )

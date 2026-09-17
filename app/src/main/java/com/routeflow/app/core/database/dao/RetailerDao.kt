@@ -17,4 +17,7 @@ interface RetailerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRetailers(retailers: List<RetailerEntity>)
+
+    @Query("UPDATE retailers SET outstandingAmountPaise = :newAmount WHERE id = :retailerId")
+    suspend fun updateOutstanding(retailerId: String, newAmount: Long)
 }
