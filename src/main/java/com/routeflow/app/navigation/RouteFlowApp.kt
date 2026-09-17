@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -154,69 +154,50 @@ fun RouteFlowApp(
             modifier = Modifier.fillMaxSize().padding(if (employee != null) padding else PaddingValues(0.dp))
         ) {
             composable(LOGIN_ROUTE) {
-                DemoLoginScreen(
-                    state = state,
-                    onUsernameChange = onUsernameChange,
-                    onPasswordChange = onPasswordChange,
-                    onLogin = onLogin
-                )
+                DemoLoginScreen(state, onUsernameChange, onPasswordChange, onLogin)
             }
 
             composable(RoleDestination.OWNER.route) {
                 if (employee != null) {
                     val viewModel: OwnerViewModel = hiltViewModel()
                     val ownerState by viewModel.state.collectAsStateWithLifecycle()
-                    OwnerHomeScreen(employee = employee, state = ownerState, onViewApprovals = { navController.navigate(OWNER_APPROVALS) })
+                    OwnerHomeScreen(employee, ownerState) { navController.navigate(OWNER_APPROVALS) }
                 }
             }
 
             composable(OWNER_APPROVALS) {
                 val viewModel: OrderApprovalViewModel = hiltViewModel()
                 val approvalState by viewModel.state.collectAsStateWithLifecycle()
-                OrderApprovalScreen(state = approvalState, onApprove = viewModel::approveOrder, onReject = viewModel::rejectOrder)
+                OrderApprovalScreen(approvalState, viewModel::approveOrder, viewModel::rejectOrder)
             }
 
             composable(RoleDestination.SALES.route) {
                 if (employee != null) {
                     val viewModel: SalesViewModel = hiltViewModel()
                     val salesState by viewModel.state.collectAsStateWithLifecycle()
-                    SalesHomeScreen(employee = employee, state = salesState, onStartVisits = { navController.navigate(SALES_RETAILER_LIST) })
+                    SalesHomeScreen(employee, salesState) { navController.navigate(SALES_RETAILER_LIST) }
                 }
             }
 
             composable(SALES_RETAILER_LIST) {
                 val viewModel: RetailerListViewModel = hiltViewModel()
                 val salesListState by viewModel.state.collectAsStateWithLifecycle()
-                RetailerListScreen(state = salesListState, onRetailerClick = { id -> navController.navigate("sales/visit/$id") })
+                RetailerListScreen(salesListState) { id -> navController.navigate("sales/visit/$id") }
             }
 
             composable(SALES_SHOP_VISIT, arguments = listOf(navArgument("retailerId") { type = NavType.StringType })) {
                 val viewModel: ShopVisitViewModel = hiltViewModel()
                 val visitState by viewModel.state.collectAsStateWithLifecycle()
-                ShopVisitScreen(
-                    state = visitState,
-                    onCheckIn = viewModel::checkIn,
-                    onCheckOut = viewModel::checkOut,
-                    onCreateOrder = { navController.navigate("sales/order/${visitState.retailer?.id}") },
-                    onStockCheck = { }
-                )
+                ShopVisitScreen(visitState, viewModel::checkIn, viewModel::checkOut, { navController.navigate("sales/order/${visitState.retailer?.id}") }, {})
             }
 
             composable(SALES_ORDER_BOOKING, arguments = listOf(navArgument("retailerId") { type = NavType.StringType })) {
                 val viewModel: OrderBookingViewModel = hiltViewModel()
                 val orderState by viewModel.state.collectAsStateWithLifecycle()
                 if (orderState.orderSubmittedId != null) {
-                    LaunchedEffect(orderState.orderSubmittedId) {
-                        navController.popBackStack(SALES_RETAILER_LIST, inclusive = false)
-                    }
+                    LaunchedEffect(orderState.orderSubmittedId) { navController.popBackStack(SALES_RETAILER_LIST, false) }
                 } else {
-                    OrderBookingScreen(
-                        state = orderState,
-                        onSearchChange = viewModel::updateSearch,
-                        onCategorySelect = viewModel::selectCategory,
-                        onQuantityChange = viewModel::updateQuantity,
-                        onSubmit = viewModel::submitOrder
-                    )
+                    OrderBookingScreen(orderState, viewModel::updateSearch, viewModel::selectCategory, viewModel::updateQuantity, viewModel::submitOrder)
                 }
             }
 
@@ -224,28 +205,28 @@ fun RouteFlowApp(
                 if (employee != null) {
                     val viewModel: WarehouseViewModel = hiltViewModel()
                     val warehouseState by viewModel.state.collectAsStateWithLifecycle()
-                    WarehouseHomeScreen(employee = employee, state = warehouseState, onViewPicking = { navController.navigate(WAREHOUSE_PICKING) })
+                    WarehouseHomeScreen(employee, warehouseState) { navController.navigate(WAREHOUSE_PICKING) }
                 }
             }
 
             composable(WAREHOUSE_PICKING) {
                 val viewModel: PickingViewModel = hiltViewModel()
                 val pickingState by viewModel.state.collectAsStateWithLifecycle()
-                PickingScreen(state = pickingState, onStartPicking = viewModel::startPicking, onPacked = viewModel::markPacked, onDispatch = viewModel::dispatchOrder)
+                PickingScreen(pickingState, viewModel::startPicking, viewModel::markPacked, viewModel::dispatchOrder)
             }
 
             composable(RoleDestination.DELIVERY.route) {
                 if (employee != null) {
                     val viewModel: DeliveryViewModel = hiltViewModel()
                     val deliveryHomeState by viewModel.state.collectAsStateWithLifecycle()
-                    DeliveryHomeScreen(employee = employee, state = deliveryHomeState, onViewDeliveries = { navController.navigate(DELIVERY_LIST) })
+                    DeliveryHomeScreen(employee, deliveryHomeState) { navController.navigate(DELIVERY_LIST) }
                 }
             }
 
             composable(DELIVERY_LIST) {
                 val viewModel: DeliveryViewModel = hiltViewModel()
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
-                DeliveryListScreen(state = listState, onDeliveryClick = { id -> navController.navigate("delivery/detail/$id") })
+                DeliveryListScreen(listState) { id -> navController.navigate("delivery/detail/$id") }
             }
 
             composable(DELIVERY_DETAIL, arguments = listOf(navArgument("orderId") { type = NavType.StringType })) { backStackEntry ->
@@ -254,20 +235,14 @@ fun RouteFlowApp(
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
                 val item = listState.find { it.order.id == orderId }
                 if (item != null) {
-                    DeliveryDetailScreen(
-                        orderId = item.order.id,
-                        retailerName = item.retailerName,
-                        amountPaise = item.order.totalAmountPaise,
-                        onDeliver = { method ->
-                            viewModel.markDelivered(item.order.id, method)
-                            navController.popBackStack(DELIVERY_LIST, inclusive = false)
-                        }
-                    )
+                    DeliveryDetailScreen(item.order.id, item.retailerName, item.order.totalAmountPaise) { method ->
+                        viewModel.markDelivered(item.order.id, method)
+                        navController.popBackStack(DELIVERY_LIST, false)
+                    }
                 }
             }
         }
 
-        // Back should behave like normal navigation inside a workspace. Only the role home exits the session.
         BackHandler(enabled = employee != null && currentRoute?.startsWith("home/") == true, onBack = onLogout)
     }
 }
