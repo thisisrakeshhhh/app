@@ -1,14 +1,18 @@
 package com.routeflow.app.app
 
-import com.routeflow.app.core.network.RFSessionInterceptor
+import com.routeflow.app.BuildConfig
+import com.routeflow.app.core.network.AuthInterceptor
 import com.routeflow.app.core.network.api.RouteFlowApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import javax.inject.Singleton
 
 @Module
@@ -17,24 +21,38 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideJson(): Json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        encodeDefaults = true
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
-        sessionInterceptor: RFSessionInterceptor
+        authInterceptor: AuthInterceptor
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
         return OkHttpClient.Builder()
-            .addInterceptor(sessionInterceptor)
+            .addInterceptor(authInterceptor)
             .addInterceptor(logging)
             .build()
     }
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
+    fun provideRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit {
+        val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
             .baseUrl("http://10.0.2.2:8787/") 
             .client(okHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType))
             .build()
     }
 

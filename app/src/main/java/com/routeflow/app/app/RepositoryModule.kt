@@ -1,9 +1,9 @@
 package com.routeflow.app.app
 
 import com.routeflow.app.data.repository.FakeEmployeeRepository
-import com.routeflow.app.data.repository.InMemorySessionRepository
+import com.routeflow.app.data.repository.NetworkOrderRepository
 import com.routeflow.app.data.repository.OfflineDemoRepository
-import com.routeflow.app.data.repository.OfflineOrderRepository
+import com.routeflow.app.data.repository.SecureSessionRepository
 import com.routeflow.app.data.repository.OfflineProductRepository
 import com.routeflow.app.data.repository.OfflineRetailerRepository
 import com.routeflow.app.domain.repository.DemoRepository
@@ -35,7 +35,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindOrderRepository(repository: OfflineOrderRepository): OrderRepository
+    abstract fun bindOrderRepository(repository: NetworkOrderRepository): OrderRepository
 
     @Binds
     @Singleton
@@ -43,5 +43,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindSessionRepository(repository: InMemorySessionRepository): SessionRepository
+    abstract fun bindSessionRepository(repository: SecureSessionRepository): SessionRepository
 }

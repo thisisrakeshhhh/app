@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.Modifier
 import com.routeflow.app.core.design.RouteFlowTheme
 import com.routeflow.app.feature.auth.DemoLoginViewModel
 import com.routeflow.app.navigation.RouteFlowApp
@@ -13,7 +14,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val viewModel: DemoLoginViewModel by viewModels()
+    private val demoViewModel: DemoLoginViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,14 +22,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             RouteFlowTheme {
                 RouteFlowApp(
-                    state = viewModel.state.collectAsStateWithLifecycle().value,
-                    onUsernameChange = viewModel::onUsernameChange,
-                    onPasswordChange = viewModel::onPasswordChange,
-                    onLogin = viewModel::login,
-                    onLogout = viewModel::logout,
-                    onRetry = viewModel::login,
-                    onToggleReset = viewModel::toggleResetDialog,
-                    onConfirmReset = viewModel::resetDemo,
+                    demoState = demoViewModel.state.collectAsStateWithLifecycle().value,
+                    onDemoLogout = demoViewModel::logout,
+                    onToggleReset = demoViewModel::toggleResetDialog,
+                    onConfirmReset = demoViewModel::resetDemo,
                 )
             }
         }

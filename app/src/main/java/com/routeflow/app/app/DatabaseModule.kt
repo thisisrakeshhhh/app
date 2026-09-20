@@ -29,7 +29,7 @@ object DatabaseModule {
             RouteFlowDatabase::class.java,
             RouteFlowDatabase.DATABASE_NAME
         )
-        .fallbackToDestructiveMigration() // For demo purposes, we allow destructive migration to version 2
+        .addMigrations(RouteFlowDatabase.MIGRATION_4_5)
         .build()
     }
 

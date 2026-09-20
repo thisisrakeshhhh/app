@@ -32,8 +32,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.routeflow.app.core.design.RFColors
-import com.routeflow.app.feature.auth.DemoLoginScreen
-import com.routeflow.app.feature.auth.DemoLoginState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.routeflow.app.feature.auth.LoginScreen
+import com.routeflow.app.feature.auth.LoginViewModel
 import com.routeflow.app.feature.delivery.DeliveryDetailScreen
 import com.routeflow.app.feature.delivery.DeliveryHomeScreen
 import com.routeflow.app.feature.delivery.DeliveryListScreen
@@ -55,7 +58,8 @@ import com.routeflow.app.feature.warehouse.PickingViewModel
 import com.routeflow.app.feature.warehouse.WarehouseHomeScreen
 import com.routeflow.app.feature.warehouse.WarehouseViewModel
 
-private const val LOGIN_ROUTE = "demo-login"
+private const val DEMO_LOGIN_ROUTE = "demo-login"
+private const val REAL_LOGIN_ROUTE = "login"
 private const val OWNER_APPROVALS = "owner/approvals"
 private const val WAREHOUSE_PICKING = "warehouse/picking"
 private const val DELIVERY_LIST = "delivery/list"
@@ -68,26 +72,31 @@ private const val SALES_STOCK_CHECK = "sales/stock-check"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteFlowApp(
-    state: DemoLoginState,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onLogin: () -> Unit,
-    onLogout: () -> Unit,
-    onRetry: () -> Unit,
+    demoState: DemoLoginState,
+    onDemoLogout: () -> Unit,
     onToggleReset: (Boolean) -> Unit,
     onConfirmReset: () -> Unit,
 ) {
     val navController = rememberNavController()
-    val employee = state.activeEmployee
+    
+    // We'll use a mix of demo and real state for now as requested.
+    // Real login state handled inside composable via hiltViewModel for now, 
+    // or passed down if MainActivity handles both.
+    
+    val employee = demoState.activeEmployee
     val destination = employee?.let { RoleDestination.forRole(it.role) }
     
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
+    var isDemoMode by remember { mutableStateOf(false) }
+
+    val startRoute = if (isDemoMode) DEMO_LOGIN_ROUTE else REAL_LOGIN_ROUTE
+
     // Centralized state-driven navigation
     LaunchedEffect(employee) {
         if (employee == null) {
-            navController.navigate(LOGIN_ROUTE) {
+            navController.navigate(startRoute) {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -95,15 +104,15 @@ fun RouteFlowApp(
 
     LaunchedEffect(destination) {
         val targetRoute = destination?.route
-        if (targetRoute != null && (navController.currentDestination?.route == LOGIN_ROUTE || navController.currentDestination == null)) {
+        if (targetRoute != null && (navController.currentDestination?.route == DEMO_LOGIN_ROUTE || navController.currentDestination?.route == REAL_LOGIN_ROUTE || navController.currentDestination == null)) {
             navController.navigate(targetRoute) {
-                popUpTo(LOGIN_ROUTE) { inclusive = true }
+                popUpTo(navController.currentDestination?.id ?: 0) { inclusive = true }
                 launchSingleTop = true
             }
         }
     }
 
-    if (state.showResetDialog) {
+    if (demoState.showResetDialog) {
         AlertDialog(
             onDismissRequest = { onToggleReset(false) },
             title = { Text("Reset demo data?") },
@@ -137,7 +146,10 @@ fun RouteFlowApp(
                             }
                         },
                         actions = {
-                            TextButton(onLogout, Modifier.testTag("logout")) {
+                            TextButton(onClick = { 
+                                isDemoMode = false
+                                onDemoLogout() 
+                            }, Modifier.testTag("logout")) {
                                 Text("Logout", style = MaterialTheme.typography.labelMedium)
                             }
                         },
@@ -160,15 +172,37 @@ fun RouteFlowApp(
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = LOGIN_ROUTE,
+            startDestination = REAL_LOGIN_ROUTE,
             modifier = Modifier.fillMaxSize().padding(if (employee != null) padding else PaddingValues(0.dp))
         ) {
-            composable(LOGIN_ROUTE) {
+            composable(REAL_LOGIN_ROUTE) {
+                val viewModel: LoginViewModel = hiltViewModel()
+                val loginState by viewModel.state.collectAsStateWithLifecycle()
+                
+                Column {
+                    LoginScreen(
+                        state = loginState,
+                        onUsernameChange = viewModel::onUsernameChange,
+                        onPasswordChange = viewModel::onPasswordChange,
+                        onLogin = viewModel::login
+                    )
+                    TextButton(
+                        onClick = { isDemoMode = true; navController.navigate(DEMO_LOGIN_ROUTE) },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("Switch to Demo Mode", color = RFColors.Accent)
+                    }
+                }
+            }
+
+            composable(DEMO_LOGIN_ROUTE) {
+                val viewModel: DemoLoginViewModel = hiltViewModel()
+                val demoLoginState by viewModel.state.collectAsStateWithLifecycle()
                 DemoLoginScreen(
-                    state = state,
-                    onUsernameChange = onUsernameChange,
-                    onPasswordChange = onPasswordChange,
-                    onLogin = onLogin
+                    state = demoLoginState,
+                    onUsernameChange = viewModel::onUsernameChange,
+                    onPasswordChange = viewModel::onPasswordChange,
+                    onLogin = viewModel::login
                 )
             }
 
@@ -332,7 +366,8 @@ fun RouteFlowApp(
         if (navController.previousBackStackEntry != null) {
             navController.popBackStack()
         } else {
-            onLogout()
+            isDemoMode = false
+            onDemoLogout()
         }
     }
     }

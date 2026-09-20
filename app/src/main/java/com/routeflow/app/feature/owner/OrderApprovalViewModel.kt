@@ -68,8 +68,10 @@ class OrderApprovalViewModel @Inject constructor(
     )
 
     fun approveOrder(orderId: String) {
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             val result = orderRepository.approveOrder(orderId)
+            _uiState.update { it.copy(isLoading = false) }
             if (result.isFailure) {
                 _uiState.update { it.copy(error = result.exceptionOrNull()?.message) }
             }
