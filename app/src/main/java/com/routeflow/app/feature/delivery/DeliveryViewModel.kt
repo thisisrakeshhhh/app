@@ -2,21 +2,19 @@ package com.routeflow.app.feature.delivery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.withTransaction
-import com.routeflow.app.core.database.RouteFlowDatabase
-import com.routeflow.app.core.database.dao.OrderDao
-import com.routeflow.app.core.database.dao.PaymentDao
 import com.routeflow.app.core.database.entity.OrderEntity
-import com.routeflow.app.core.database.entity.PaymentEntity
+import com.routeflow.app.domain.repository.OrderRepository
 import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 import javax.inject.Inject
 
 data class DeliveryHomeState(
@@ -32,22 +30,26 @@ data class DeliveryItemState(
     val retailerAddress: String
 )
 
+data class DeliveryDetailState(
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val success: Boolean = false
+)
+
 @HiltViewModel
 class DeliveryViewModel @Inject constructor(
-    private val database: RouteFlowDatabase,
-    private val orderDao: OrderDao,
-    private val paymentDao: PaymentDao,
+    private val orderRepository: OrderRepository,
     private val retailerRepository: RetailerRepository
 ) : ViewModel() {
 
-    val state: StateFlow<DeliveryHomeState> = combine(
-        orderDao.getAllOrders(),
-        paymentDao.getTotalCollectedPaise()
-    ) { orders, totalCollected ->
+    private val _detailState = MutableStateFlow(DeliveryDetailState())
+    val detailState = _detailState.asStateFlow()
+
+    val state: StateFlow<DeliveryHomeState> = orderRepository.getAllOrders().map { orders ->
         DeliveryHomeState(
             assignedCount = orders.count { it.status == "OUT_FOR_DELIVERY" },
             completedCount = orders.count { it.status == "DELIVERED" },
-            paymentsCollectedPaise = totalCollected ?: 0
+            paymentsCollectedPaise = 0 // TODO: Real calculation from payments table
         )
     }.stateIn(
         scope = viewModelScope,
@@ -56,7 +58,7 @@ class DeliveryViewModel @Inject constructor(
     )
 
     val deliveryList: StateFlow<List<DeliveryItemState>> = combine(
-        orderDao.getAllOrders(),
+        orderRepository.getAllOrders(),
         retailerRepository.getRetailersByBeat("BEAT-04")
     ) { orders, retailers ->
         orders.filter { it.status == "OUT_FOR_DELIVERY" }.map { order ->
@@ -74,35 +76,22 @@ class DeliveryViewModel @Inject constructor(
     )
 
     fun markDelivered(orderId: String, method: String) {
+        if (_detailState.value.isLoading) return
+        
+        _detailState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
-            database.withTransaction {
-                val order = orderDao.getOrderById(orderId).map { it }.stateIn(this).value ?: return@withTransaction
-                
-                // 1. Update order status
-                orderDao.updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
-                
-                // 2. Update retailer outstanding if credit
-                if (method == "CREDIT") {
-                    val retailer = retailerRepository.getRetailerById(order.retailerId).map { it }.stateIn(this).value
-                    if (retailer != null) {
-                        val newOutstanding = retailer.outstandingAmountPaise + order.totalAmountPaise
-                        database.retailerDao().updateOutstanding(order.retailerId, newOutstanding)
-                    }
-                }
-                
-                // 3. Record payment if cash
-                if (method == "CASH") {
-                    val payment = PaymentEntity(
-                        id = UUID.randomUUID().toString(),
-                        orderId = orderId,
-                        retailerId = order.retailerId,
-                        amountPaise = order.totalAmountPaise,
-                        method = "CASH",
-                        timestamp = System.currentTimeMillis()
-                    )
-                    paymentDao.insertPayment(payment)
+            val result = orderRepository.completeDelivery(orderId, method)
+            _detailState.update {
+                if (result.isSuccess) {
+                    it.copy(isLoading = false, success = true)
+                } else {
+                    it.copy(isLoading = false, error = result.exceptionOrNull()?.message ?: "Delivery failed")
                 }
             }
         }
+    }
+
+    fun resetDetailState() {
+        _detailState.value = DeliveryDetailState()
     }
 }

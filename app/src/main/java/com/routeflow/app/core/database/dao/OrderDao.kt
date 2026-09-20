@@ -34,4 +34,7 @@ interface OrderDao {
 
     @Query("UPDATE orders SET status = :status, updatedAt = :timestamp WHERE id = :orderId")
     suspend fun updateOrderStatus(orderId: String, status: String, timestamp: Long)
+
+    @Query("UPDATE order_items SET isPicked = :isPicked WHERE orderId = :orderId AND productId = :productId")
+    suspend fun updateItemPickingStatus(orderId: String, productId: String, isPicked: Boolean)
 }

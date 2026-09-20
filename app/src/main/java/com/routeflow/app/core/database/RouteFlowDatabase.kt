@@ -27,7 +27,7 @@ import com.routeflow.app.core.database.entity.VisitEntity
         DeliveryRecordEntity::class,
         TargetEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {

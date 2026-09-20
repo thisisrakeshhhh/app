@@ -2,14 +2,11 @@ package com.routeflow.app.feature.warehouse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.withTransaction
-import com.routeflow.app.core.database.RouteFlowDatabase
-import com.routeflow.app.core.database.dao.OrderDao
-import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.core.database.entity.OrderItemEntity
-import com.routeflow.app.core.database.entity.ProductEntity
 import com.routeflow.app.domain.model.Product
+import com.routeflow.app.domain.repository.OrderRepository
+import com.routeflow.app.domain.repository.ProductRepository
 import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,18 +16,21 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class PickingState(
     val orders: List<PickingOrderDetailState> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val error: String? = null
 )
 
 data class PickingOrderDetailState(
     val order: OrderEntity,
     val items: List<OrderItemWithPicking>,
-    val retailerName: String
+    val retailerName: String,
+    val allPicked: Boolean = false
 )
 
 data class OrderItemWithPicking(
@@ -41,72 +41,76 @@ data class OrderItemWithPicking(
 
 @HiltViewModel
 class PickingViewModel @Inject constructor(
-    private val database: RouteFlowDatabase,
-    private val orderDao: OrderDao,
-    private val productDao: ProductDao,
+    private val orderRepository: OrderRepository,
+    private val productRepository: ProductRepository,
     private val retailerRepository: RetailerRepository
 ) : ViewModel() {
 
+    private val _error = MutableStateFlow<String?>(null)
+
     val state: StateFlow<PickingState> = combine(
-        orderDao.getAllOrders(),
-        productDao.getAllProducts()
-    ) { orders, productEntities ->
-        // Now including PACKED status so it doesn't disappear from the warehouse view
+        orderRepository.getAllOrders(),
+        productRepository.getAllProducts(),
+        _error
+    ) { orders, products, error ->
         val details = orders.filter { 
             it.status == "APPROVED" || it.status == "PICKING" || it.status == "PACKED" 
         }.map { order ->
-            val items = orderDao.getItemsForOrder(order.id).first().map { item ->
-                val entity = productEntities.find { it.id == item.productId }
-                OrderItemWithPicking(item, entity?.asDomainModel())
+            val items = orderRepository.getItemsForOrder(order.id).first().map { item ->
+                OrderItemWithPicking(item, products.find { it.id == item.productId }, item.isPicked)
             }
             val retailer = retailerRepository.getRetailerById(order.retailerId).first()
-            PickingOrderDetailState(order, items, retailer?.name ?: "Unknown Retailer")
+            PickingOrderDetailState(
+                order = order, 
+                items = items, 
+                retailerName = retailer?.name ?: "Unknown Retailer",
+                allPicked = items.all { it.isPicked }
+            )
         }
-        PickingState(orders = details)
+        PickingState(orders = details, error = error)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = PickingState(isLoading = true)
     )
 
+    fun toggleItemPicked(orderId: String, productId: String) {
+        val order = state.value.orders.find { it.order.id == orderId }
+        val item = order?.items?.find { it.item.productId == productId }
+        if (item != null) {
+            viewModelScope.launch {
+                orderRepository.updateItemPickingStatus(orderId, productId, !item.isPicked)
+            }
+        }
+    }
+
     fun startPicking(orderId: String) {
         viewModelScope.launch {
-            orderDao.updateOrderStatus(orderId, "PICKING", System.currentTimeMillis())
+            orderRepository.startPicking(orderId)
         }
     }
 
     fun markPacked(orderId: String) {
+        val orderState = state.value.orders.find { it.order.id == orderId }
+        if (orderState?.allPicked != true) {
+            _error.value = "Confirm all items before packing"
+            return
+        }
         viewModelScope.launch {
-            orderDao.updateOrderStatus(orderId, "PACKED", System.currentTimeMillis())
+            orderRepository.markPacked(orderId)
         }
     }
 
     fun dispatchOrder(orderId: String) {
         viewModelScope.launch {
-            database.withTransaction {
-                val orderItems = orderDao.getItemsForOrder(orderId).first()
-                val products = productDao.getAllProducts().first()
-                
-                orderItems.forEach { item ->
-                    val product = products.find { it.id == item.productId }
-                    if (product != null) {
-                        val totalToDeduct = item.quantity + item.freeQuantity
-                        val newStock = (product.stockQuantity - totalToDeduct).coerceAtLeast(0)
-                        productDao.updateStock(product.id, newStock)
-                    }
-                }
-                orderDao.updateOrderStatus(orderId, "OUT_FOR_DELIVERY", System.currentTimeMillis())
+            val result = orderRepository.dispatchOrder(orderId)
+            if (result.isFailure) {
+                _error.value = result.exceptionOrNull()?.message
             }
         }
     }
+    
+    fun clearError() {
+        _error.value = null
+    }
 }
-
-private fun ProductEntity.asDomainModel() = Product(
-    id = id,
-    name = name,
-    category = category,
-    pricePaise = pricePaise,
-    stockQuantity = stockQuantity,
-    unit = unit,
-    imageUrl = imageUrl
-)

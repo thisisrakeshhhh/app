@@ -2,19 +2,16 @@ package com.routeflow.app.feature.owner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.routeflow.app.core.database.dao.OrderDao
-import com.routeflow.app.core.database.dao.ProductDao
-import com.routeflow.app.core.database.dao.RetailerDao
-import com.routeflow.app.domain.model.Retailer
+import com.routeflow.app.domain.repository.OrderRepository
+import com.routeflow.app.domain.repository.ProductRepository
 import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 
 data class OwnerHomeState(
@@ -27,21 +24,33 @@ data class OwnerHomeState(
 
 @HiltViewModel
 class OwnerViewModel @Inject constructor(
-    private val orderDao: OrderDao,
-    private val productDao: ProductDao,
+    private val orderRepository: OrderRepository,
+    private val productRepository: ProductRepository,
     private val retailerRepository: RetailerRepository
 ) : ViewModel() {
 
     val state: StateFlow<OwnerHomeState> = combine(
-        orderDao.getAllOrders().map { orders -> orders.count { it.status == "SUBMITTED" } },
-        productDao.getAllProducts().map { products -> products.count { it.stockQuantity < 10 } },
-        retailerRepository.getRetailersByBeat("BEAT-04").map { retailers -> retailers.sumOf { it.outstandingAmountPaise } }
-    ) { pendingCount, lowStock, totalOutstanding ->
+        orderRepository.getAllOrders(),
+        productRepository.getAllProducts(),
+        retailerRepository.getRetailersByBeat("BEAT-04")
+    ) { orders, products, retailers ->
+        val todayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val deliveredSalesToday = orders.filter { 
+            it.status == "DELIVERED" && it.updatedAt >= todayStart 
+        }.sumOf { it.totalAmountPaise }
+
         OwnerHomeState(
-            pendingApprovalsCount = pendingCount,
-            lowStockCount = lowStock,
-            totalOutstandingPaise = totalOutstanding,
-            deliveredSalesTodayPaise = 0 // TODO: Real calculation
+            pendingApprovalsCount = orders.count { it.status == "SUBMITTED" },
+            lowStockCount = products.count { it.stockQuantity < 10 },
+            totalOutstandingPaise = retailers.sumOf { it.outstandingAmountPaise },
+            deliveredSalesTodayPaise = deliveredSalesToday,
+            isLoading = false
         )
     }.stateIn(
         scope = viewModelScope,

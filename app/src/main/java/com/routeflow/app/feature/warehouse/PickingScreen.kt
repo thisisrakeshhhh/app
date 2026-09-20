@@ -8,14 +8,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,32 +34,47 @@ import com.routeflow.app.core.design.RouteFlowStatus
 @Composable
 fun PickingScreen(
     state: PickingState,
+    onTogglePicked: (String, String) -> Unit,
     onStartPicking: (String) -> Unit,
     onPacked: (String) -> Unit,
-    onDispatch: (String) -> Unit
+    onDispatch: (String) -> Unit,
+    onErrorShown: () -> Unit
 ) {
-    if (state.isLoading) {
-        LoadingState(Modifier.fillMaxSize())
-    } else if (state.orders.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-            Text("No orders to pick or pack", style = MaterialTheme.typography.titleMedium)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbarHostState.showSnackbar(it)
+            onErrorShown()
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(state.orders) { detail ->
-                PickingOrderCard(detail, onStartPicking, onPacked, onDispatch)
+    }
+
+    Column {
+        if (state.isLoading) {
+            LoadingState(Modifier.fillMaxSize())
+        } else if (state.orders.isEmpty()) {
+            Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("No orders to pick or pack", style = MaterialTheme.typography.titleMedium)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(state.orders) { detail ->
+                    PickingOrderCard(detail, onTogglePicked, onStartPicking, onPacked, onDispatch)
+                }
             }
         }
+        SnackbarHost(hostState = snackbarHostState)
     }
 }
 
 @Composable
 private fun PickingOrderCard(
     detail: PickingOrderDetailState,
+    onTogglePicked: (String, String) -> Unit,
     onStartPicking: (String) -> Unit,
     onPacked: (String) -> Unit,
     onDispatch: (String) -> Unit
@@ -72,10 +96,21 @@ private fun PickingOrderCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             
             detail.items.forEach { itemDetail ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${itemDetail.product?.name ?: "Unknown"} x ${itemDetail.item.quantity}", style = MaterialTheme.typography.bodyMedium)
-                    if (itemDetail.item.freeQuantity > 0) {
-                        Text("+ ${itemDetail.item.freeQuantity} free", style = MaterialTheme.typography.bodySmall, color = RouteFlowStatus.Completed)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("${itemDetail.product?.name ?: "Unknown"} x ${itemDetail.item.quantity}", style = MaterialTheme.typography.bodyMedium)
+                        if (itemDetail.item.freeQuantity > 0) {
+                            Text("+ ${itemDetail.item.freeQuantity} free", style = MaterialTheme.typography.bodySmall, color = RouteFlowStatus.Completed)
+                        }
+                    }
+                    
+                    if (detail.order.status == "PICKING") {
+                        Checkbox(
+                            checked = itemDetail.isPicked,
+                            onCheckedChange = { onTogglePicked(detail.order.id, itemDetail.item.productId) }
+                        )
+                    } else if (detail.order.status != "APPROVED") {
+                        Icon(Icons.Default.Check, contentDescription = "Picked", tint = RouteFlowStatus.Completed)
                     }
                 }
             }
@@ -89,7 +124,11 @@ private fun PickingOrderCard(
                     }
                 }
                 "PICKING" -> {
-                    Button(onClick = { onPacked(detail.order.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { onPacked(detail.order.id) }, 
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = detail.allPicked
+                    ) {
                         Text("Mark Packed")
                     }
                 }

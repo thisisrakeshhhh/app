@@ -10,5 +10,6 @@ data class OrderItemEntity(
     val productId: String,
     val quantity: Int,
     val freeQuantity: Int,
-    val pricePaiseAtTime: Long
+    val pricePaiseAtTime: Long,
+    val isPicked: Boolean = false // Added for persisted picking
 )

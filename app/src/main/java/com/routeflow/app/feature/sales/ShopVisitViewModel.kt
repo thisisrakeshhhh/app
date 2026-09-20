@@ -29,6 +29,7 @@ data class ShopVisitState(
     val activeVisit: VisitEntity? = null,
     val isLoading: Boolean = false,
     val durationSeconds: Long = 0,
+    val isVisitForThisRetailer: Boolean = false,
     val showCheckoutConfirmation: Boolean = false
 )
 
@@ -60,7 +61,8 @@ class ShopVisitViewModel @Inject constructor(
         ShopVisitState(
             retailer = retailer,
             activeVisit = activeVisit,
-            durationSeconds = if (activeVisit != null) (currentTime - activeVisit.checkInTime) / 1000 else 0
+            durationSeconds = if (activeVisit != null) (currentTime - activeVisit.checkInTime) / 1000 else 0,
+            isVisitForThisRetailer = activeVisit?.retailerId == retailerId
         )
     }.stateIn(
         scope = viewModelScope,
@@ -71,6 +73,9 @@ class ShopVisitViewModel @Inject constructor(
     fun checkIn() {
         viewModelScope.launch {
             val employeeId = sessionRepository.activeEmployee.value?.id ?: return@launch
+            // Prevent duplicate check-in
+            if (state.value.activeVisit != null) return@launch
+
             val visit = VisitEntity(
                 id = UUID.randomUUID().toString(),
                 retailerId = retailerId,

@@ -28,16 +28,16 @@ class OfflineDemoRepository @Inject constructor(
             database.retailerDao().insertRetailers(retailers)
 
             val products = listOf(
-                ProductEntity("P1", "Premium Tea", "Beverages", 45000, 100, "1kg Pack"),
-                ProductEntity("P2", "Spices Pack", "Groceries", 12000, 200, "200g Pouch"),
-                ProductEntity("P3", "Basmati Rice 5kg", "Groceries", 65000, 50, "Bag"),
-                ProductEntity("P4", "Cooking Oil 5L", "Groceries", 85000, 80, "Can"),
-                ProductEntity("P5", "Soap Case (12 units)", "Personal Care", 36000, 150, "Box"),
-                ProductEntity("P6", "Detergent Powder 2kg", "Home Care", 28000, 120, "Pack"),
-                ProductEntity("P7", "Salt Pack", "Groceries", 2500, 500, "1kg Pouch"),
-                ProductEntity("P8", "Sugar 5kg", "Groceries", 22000, 60, "Bag"),
-                ProductEntity("P9", "Pulse Mix 1kg", "Groceries", 14000, 300, "Pack"),
-                ProductEntity("P10", "Biscuits Family Pack", "Snacks", 8000, 400, "Pack")
+                ProductEntity("P1", "Premium Tea", "Beverages", 45000, 100, 0, "1kg Pack"),
+                ProductEntity("P2", "Spices Pack", "Groceries", 12000, 200, 0, "200g Pouch"),
+                ProductEntity("P3", "Basmati Rice 5kg", "Groceries", 65000, 50, 0, "Bag"),
+                ProductEntity("P4", "Cooking Oil 5L", "Groceries", 85000, 80, 0, "Can"),
+                ProductEntity("P5", "Soap Case (12 units)", "Personal Care", 36000, 150, 0, "Box"),
+                ProductEntity("P6", "Detergent Powder 2kg", "Home Care", 28000, 120, 0, "Pack"),
+                ProductEntity("P7", "Salt Pack", "Groceries", 2500, 500, 0, "1kg Pouch"),
+                ProductEntity("P8", "Sugar 5kg", "Groceries", 22000, 60, 0, "Bag"),
+                ProductEntity("P9", "Pulse Mix 1kg", "Groceries", 14000, 300, 0, "Pack"),
+                ProductEntity("P10", "Biscuits Family Pack", "Snacks", 8000, 400, 0, "Pack")
             )
             database.productDao().insertProducts(products)
         }

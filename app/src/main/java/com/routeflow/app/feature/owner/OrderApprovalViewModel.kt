@@ -2,12 +2,12 @@ package com.routeflow.app.feature.owner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.routeflow.app.core.database.dao.OrderDao
-import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.core.database.entity.OrderItemEntity
 import com.routeflow.app.core.database.entity.ProductEntity
 import com.routeflow.app.domain.model.Product
+import com.routeflow.app.domain.repository.OrderRepository
+import com.routeflow.app.domain.repository.ProductRepository
 import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +24,8 @@ data class OrderApprovalState(
     val orders: List<OrderDetailState> = emptyList(),
     val isLoading: Boolean = false,
     val selectedOrderId: String? = null,
-    val rejectionReason: String = ""
+    val rejectionReason: String = "",
+    val error: String? = null
 )
 
 data class OrderDetailState(
@@ -40,24 +41,26 @@ data class OrderItemWithProduct(
 
 @HiltViewModel
 class OrderApprovalViewModel @Inject constructor(
-    private val orderDao: OrderDao,
-    private val productDao: ProductDao,
+    private val orderRepository: OrderRepository,
+    private val productRepository: ProductRepository,
     private val retailerRepository: RetailerRepository
 ) : ViewModel() {
 
+    private val _uiState = MutableStateFlow(OrderApprovalState())
+
     val state: StateFlow<OrderApprovalState> = combine(
-        orderDao.getAllOrders(),
-        productDao.getAllProducts()
-    ) { orders, productEntities ->
+        orderRepository.getAllOrders(),
+        productRepository.getAllProducts(),
+        _uiState
+    ) { orders, products, uiState ->
         val details = orders.filter { it.status == "SUBMITTED" }.map { order ->
-            val items = orderDao.getItemsForOrder(order.id).first().map { item ->
-                val entity = productEntities.find { it.id == item.productId }
-                OrderItemWithProduct(item, entity?.asDomainModel())
+            val items = orderRepository.getItemsForOrder(order.id).first().map { item ->
+                OrderItemWithProduct(item, products.find { it.id == item.productId })
             }
             val retailer = retailerRepository.getRetailerById(order.retailerId).first()
             OrderDetailState(order, items, retailer?.name ?: "Unknown Retailer")
         }
-        OrderApprovalState(orders = details)
+        uiState.copy(orders = details, isLoading = false)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -66,23 +69,24 @@ class OrderApprovalViewModel @Inject constructor(
 
     fun approveOrder(orderId: String) {
         viewModelScope.launch {
-            orderDao.updateOrderStatus(orderId, "APPROVED", System.currentTimeMillis())
+            val result = orderRepository.approveOrder(orderId)
+            if (result.isFailure) {
+                _uiState.update { it.copy(error = result.exceptionOrNull()?.message) }
+            }
         }
     }
 
     fun rejectOrder(orderId: String, reason: String) {
         viewModelScope.launch {
-            orderDao.updateOrderStatus(orderId, "REJECTED", System.currentTimeMillis())
+            orderRepository.rejectOrder(orderId, reason)
         }
+    }
+    
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }
 
-private fun ProductEntity.asDomainModel() = Product(
-    id = id,
-    name = name,
-    category = category,
-    pricePaise = pricePaise,
-    stockQuantity = stockQuantity,
-    unit = unit,
-    imageUrl = imageUrl
-)
+private fun kotlinx.coroutines.flow.MutableStateFlow<OrderApprovalState>.update(function: (OrderApprovalState) -> OrderApprovalState) {
+    this.value = function(this.value)
+}

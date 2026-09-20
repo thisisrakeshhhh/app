@@ -24,6 +24,7 @@ import javax.inject.Inject
 
 data class OrderBookingState(
     val products: List<ProductItemState> = emptyList(),
+    val allProductsForCart: List<Product> = emptyList(), // Added to calculate total correctly
     val searchQuery: String = "",
     val selectedCategory: String? = null,
     val cart: Map<String, Int> = emptyMap(), // ProductId to Quantity
@@ -32,13 +33,13 @@ data class OrderBookingState(
     val isLoading: Boolean = false
 ) {
     val cartTotalPaise: Long
-        get() = products.sumOf { item ->
-            val qty = cart[item.product.id] ?: 0
-            qty * item.product.pricePaise
+        get() = allProductsForCart.sumOf { product ->
+            val qty = cart[product.id] ?: 0
+            qty * product.pricePaise
         }
 
     val categories: List<String>
-        get() = products.map { it.product.category }.distinct()
+        get() = allProductsForCart.map { it.category }.distinct()
 }
 
 data class ProductItemState(
@@ -90,6 +91,7 @@ class OrderBookingViewModel @Inject constructor(
 
         OrderBookingState(
             products = filtered,
+            allProductsForCart = products,
             searchQuery = search,
             selectedCategory = category,
             cart = cart,

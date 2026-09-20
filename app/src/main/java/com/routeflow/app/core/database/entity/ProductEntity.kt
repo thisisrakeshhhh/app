@@ -10,6 +10,7 @@ data class ProductEntity(
     val category: String,
     val pricePaise: Long,
     val stockQuantity: Int,
+    val reservedQuantity: Int = 0, // Added for stock reservation
     val unit: String,
     val imageUrl: String? = null
 )

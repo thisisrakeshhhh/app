@@ -1,6 +1,5 @@
 package com.routeflow.app.feature.auth
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,9 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,34 +39,37 @@ fun DemoLoginScreen(
         modifier = modifier
             .fillMaxSize()
             .background(RFColors.Background)
+            .windowInsetsPadding(WindowInsets.systemBars)
+            .windowInsetsPadding(WindowInsets.ime)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(32.dp))
             
             // Branding
             Surface(
                 color = RFColors.Primary,
                 shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(56.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("RF", color = Color.White, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                    Text("RF", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                 }
             }
             
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
             
             Text(
                 "Welcome Back",
-                style = MaterialTheme.typography.headlineLarge,
-                color = RFColors.TextPrimary
+                style = MaterialTheme.typography.headlineSmall,
+                color = RFColors.TextPrimary,
+                fontWeight = FontWeight.Bold
             )
             Text(
                 "Warehouse to retailer, made simple.",
@@ -77,7 +77,7 @@ fun DemoLoginScreen(
                 color = RFColors.TextSecondary
             )
             
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(32.dp))
             
             // Login Card
             Card(
@@ -88,7 +88,7 @@ fun DemoLoginScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
                         "Sign In",
@@ -172,7 +172,7 @@ fun DemoLoginScreen(
                 }
             }
             
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
             
             // Demo Hints
             Surface(
@@ -196,7 +196,7 @@ fun DemoLoginScreen(
                 }
             }
             
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
         }
     }
 }
@@ -214,5 +214,13 @@ private fun DemoHintChip(label: String) {
             style = MaterialTheme.typography.labelSmall,
             color = RFColors.TextSecondary
         )
+    }
+}
+
+@Composable
+private fun DemoStep(label: String, description: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = RFColors.Primary)
+        Text(description, style = MaterialTheme.typography.bodySmall)
     }
 }

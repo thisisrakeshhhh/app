@@ -63,6 +63,7 @@ private const val DELIVERY_DETAIL = "delivery/detail/{orderId}"
 private const val SALES_RETAILER_LIST = "sales/retailers"
 private const val SALES_SHOP_VISIT = "sales/visit/{retailerId}"
 private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
+private const val SALES_STOCK_CHECK = "sales/stock-check"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,21 +85,20 @@ fun RouteFlowApp(
     val currentRoute = currentBackStackEntry?.destination?.route
 
     // Centralized state-driven navigation
-    LaunchedEffect(employee, destination) {
+    LaunchedEffect(employee) {
         if (employee == null) {
-            if (currentRoute != null && currentRoute != LOGIN_ROUTE) {
-                navController.navigate(LOGIN_ROUTE) {
-                    popUpTo(0) { inclusive = true }
-                }
+            navController.navigate(LOGIN_ROUTE) {
+                popUpTo(0) { inclusive = true }
             }
-        } else {
-            val targetRoute = destination?.route
-            // Navigate if we are currently on the login screen or if the route is null (initial)
-            if (targetRoute != null && (currentRoute == LOGIN_ROUTE || currentRoute == null)) {
-                navController.navigate(targetRoute) {
-                    popUpTo(LOGIN_ROUTE) { inclusive = true }
-                    launchSingleTop = true
-                }
+        }
+    }
+
+    LaunchedEffect(destination) {
+        val targetRoute = destination?.route
+        if (targetRoute != null && (navController.currentDestination?.route == LOGIN_ROUTE || navController.currentDestination == null)) {
+            navController.navigate(targetRoute) {
+                popUpTo(LOGIN_ROUTE) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
@@ -269,9 +269,11 @@ fun RouteFlowApp(
                 val pickingState by viewModel.state.collectAsStateWithLifecycle()
                 PickingScreen(
                     state = pickingState,
+                    onTogglePicked = viewModel::toggleItemPicked,
                     onStartPicking = viewModel::startPicking,
                     onPacked = viewModel::markPacked,
-                    onDispatch = viewModel::dispatchOrder
+                    onDispatch = viewModel::dispatchOrder,
+                    onErrorShown = viewModel::clearError
                 )
             }
 
@@ -303,8 +305,16 @@ fun RouteFlowApp(
                 val orderId = backStackEntry.arguments?.getString("orderId")
                 val viewModel: DeliveryViewModel = hiltViewModel()
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
+                val detailState by viewModel.detailState.collectAsStateWithLifecycle()
                 val item = listState.find { it.order.id == orderId }
                 
+                LaunchedEffect(detailState.success) {
+                    if (detailState.success) {
+                        viewModel.resetDetailState()
+                        navController.popBackStack(DELIVERY_LIST, inclusive = false)
+                    }
+                }
+
                 if (item != null) {
                     DeliveryDetailScreen(
                         orderId = item.order.id,
@@ -312,12 +322,18 @@ fun RouteFlowApp(
                         amountPaise = item.order.totalAmountPaise,
                         onDeliver = { method ->
                             viewModel.markDelivered(item.order.id, method)
-                            navController.popBackStack(DELIVERY_LIST, inclusive = false)
                         }
                     )
                 }
             }
         }
-        BackHandler(enabled = employee != null, onBack = onLogout)
+    // Registered after NavHost: Back leaves the demo workspace and clears its role.
+    BackHandler(enabled = employee != null) {
+        if (navController.previousBackStackEntry != null) {
+            navController.popBackStack()
+        } else {
+            onLogout()
+        }
+    }
     }
 }

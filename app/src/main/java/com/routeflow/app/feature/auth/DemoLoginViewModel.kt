@@ -61,13 +61,6 @@ class DemoLoginViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Ensure data is seeded in background if not already done, 
-                // but login doesn't strictly depend on it for validation.
-                // However, we wait for a quick check to be safe.
-                if (!demoRepository.isDemoDataSeeded()) {
-                    demoRepository.seedDemoData()
-                }
-
                 val role = when {
                     current.username.lowercase().trim() == "owner" && current.password == "123" -> EmployeeRole.OWNER
                     current.username.lowercase().trim() == "sales" && current.password == "123" -> EmployeeRole.SALESPERSON
