@@ -1,15 +1,17 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "RouteFlow Cloudflare Workers API backend",
+  "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "wrangler dev --port 8787 --ip 127.0.0.1",
+    "test": "node --test test/integration.test.mjs",
+    "seed:local": "wrangler d1 execute routeflow-db --local --file=seeds/dev_seeds.sql",
+    "types": "wrangler types"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "devDependencies": {
     "wrangler": "^4.135.0"
   }

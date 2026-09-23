@@ -1,6 +1,5 @@
 package com.routeflow.app.core.network.api
 
-import kotlinx.serialization.Serializable
+import com.routeflow.app.core.network.dto.OrderSubmitResponse
 
-@Serializable
-data class OrderResponse(val success: Boolean, val orderId: String)
+typealias OrderResponse = OrderSubmitResponse

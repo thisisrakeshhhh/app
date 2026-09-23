@@ -24,7 +24,8 @@ fun LoginScreen(
     state: LoginState,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onLogin: () -> Unit
+    onLogin: () -> Unit,
+    onSwitchToDemo: (() -> Unit)? = null
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -108,6 +109,34 @@ fun LoginScreen(
                     )
                 } else {
                     Text("Login")
+                }
+            }
+
+            if (onSwitchToDemo != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(
+                    onClick = onSwitchToDemo,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Switch to Demo Mode", color = RFColors.Accent)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                listOf("owner", "sales", "warehouse", "delivery").forEach { u ->
+                    OutlinedButton(
+                        onClick = {
+                            onUsernameChange(u)
+                            onPasswordChange("password123")
+                        },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(u, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }

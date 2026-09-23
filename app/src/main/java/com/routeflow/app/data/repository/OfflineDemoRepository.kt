@@ -18,12 +18,12 @@ class OfflineDemoRepository @Inject constructor(
     override suspend fun seedDemoData() {
         database.withTransaction {
             val retailers = listOf(
-                RetailerEntity("R1", "Sharma General Store", "BEAT-04", "Main Market, Mansarovar", "9829012345", 26.85, 75.76, 5000000, 1250000),
-                RetailerEntity("R2", "Gupta Provision Store", "BEAT-04", "Near Metro Station, Mansarovar", "9829023456", 26.86, 75.77, 3000000, 450000),
-                RetailerEntity("R3", "Balaji Kirana Store", "BEAT-04", "SFS Colony, Mansarovar", "9829034567", 26.87, 75.78, 2000000, 890000),
-                RetailerEntity("R4", "Pink City Super Mart", "BEAT-04", "VT Road, Mansarovar", "9829045678", 26.88, 75.79, 10000000, 2500000),
-                RetailerEntity("R5", "Rajasthan General Store", "BEAT-04", "Patel Marg, Mansarovar", "9829056789", 26.89, 75.80, 1500000, 120000),
-                RetailerEntity("R6", "Mahadev Departmental Store", "BEAT-04", "Shipra Path, Mansarovar", "9829067890", 26.90, 75.81, 4000000, 670000)
+                RetailerEntity("R1", "Sharma General Store", "BEAT-04", "Main Market, Sector 1", "9829012345", 26.85, 75.76, 5000000, 1250000),
+                RetailerEntity("R2", "Gupta Provision Store", "BEAT-04", "Near Central Station, Sector 2", "9829023456", 26.86, 75.77, 3000000, 450000),
+                RetailerEntity("R3", "Balaji Kirana Store", "BEAT-04", "SFS Colony, Sector 3", "9829034567", 26.87, 75.78, 2000000, 890000),
+                RetailerEntity("R4", "City Super Mart", "BEAT-04", "VT Road, Sector 4", "9829045678", 26.88, 75.79, 10000000, 2500000),
+                RetailerEntity("R5", "Modern General Store", "BEAT-04", "Patel Marg, Sector 5", "9829056789", 26.89, 75.80, 1500000, 120000),
+                RetailerEntity("R6", "Mahadev Departmental Store", "BEAT-04", "Central Path, Sector 6", "9829067890", 26.90, 75.81, 4000000, 670000)
             )
             database.retailerDao().insertRetailers(retailers)
 

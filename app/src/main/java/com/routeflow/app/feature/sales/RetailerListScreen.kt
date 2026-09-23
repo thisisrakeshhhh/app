@@ -42,7 +42,7 @@ fun RetailerListScreen(
         ) {
             item {
                 Text(
-                    text = "Mansarovar West — BEAT-04",
+                    text = state.beatName,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 8.dp)

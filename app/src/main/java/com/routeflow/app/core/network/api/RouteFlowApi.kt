@@ -1,10 +1,19 @@
 package com.routeflow.app.core.network.api
 
-import com.routeflow.app.core.database.entity.OrderEntity
-import com.routeflow.app.core.database.entity.OrderItemEntity
-import com.routeflow.app.core.database.entity.ProductEntity
-import com.routeflow.app.core.database.entity.RetailerEntity
-import kotlinx.serialization.Serializable
+import com.routeflow.app.core.network.dto.AuthResponse
+import com.routeflow.app.core.network.dto.DeliveryCompletionRequest
+import com.routeflow.app.core.network.dto.DispatchOrderRequest
+import com.routeflow.app.core.network.dto.ItemPickRequest
+import com.routeflow.app.core.network.dto.LoginRequest
+import com.routeflow.app.core.network.dto.OrderDetailsResponse
+import com.routeflow.app.core.network.dto.OrderDto
+import com.routeflow.app.core.network.dto.OrderRejectionRequest
+import com.routeflow.app.core.network.dto.OrderSubmitRequest
+import com.routeflow.app.core.network.dto.OrderSubmitResponse
+import com.routeflow.app.core.network.dto.ProductDto
+import com.routeflow.app.core.network.dto.RefreshRequest
+import com.routeflow.app.core.network.dto.RetailerDto
+import com.routeflow.app.core.network.dto.StatusResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -21,60 +30,38 @@ interface RouteFlowApi {
     suspend fun logout(): StatusResponse
 
     @GET("retailers")
-    suspend fun getRetailers(): List<RetailerEntity>
+    suspend fun getRetailers(): List<RetailerDto>
 
     @GET("products")
-    suspend fun getProducts(): List<ProductEntity>
+    suspend fun getProducts(): List<ProductDto>
+
+    @GET("orders")
+    suspend fun getOrders(): List<OrderDto>
 
     @GET("orders/pending")
-    suspend fun getPendingOrders(): List<OrderEntity>
+    suspend fun getPendingOrders(): List<OrderDto>
 
     @GET("orders/{id}")
-    suspend fun getOrderDetails(@Path("id") orderId: String): OrderWithItemsResponse
+    suspend fun getOrderDetails(@Path("id") orderId: String): OrderDetailsResponse
 
     @POST("orders")
-    suspend fun submitOrder(@Body request: OrderWithItemsRequest): OrderResponse
+    suspend fun submitOrder(@Body request: OrderSubmitRequest): OrderSubmitResponse
 
     @POST("orders/{id}/approve")
     suspend fun approveOrder(@Path("id") orderId: String): StatusResponse
 
+    @POST("orders/{id}/reject")
+    suspend fun rejectOrder(@Path("id") orderId: String, @Body request: OrderRejectionRequest): StatusResponse
+
+    @POST("orders/{id}/pick-item")
+    suspend fun pickItem(@Path("id") orderId: String, @Body request: ItemPickRequest): StatusResponse
+
+    @POST("orders/{id}/pack")
+    suspend fun packOrder(@Path("id") orderId: String): StatusResponse
+
     @POST("orders/{id}/dispatch")
-    suspend fun dispatchOrder(@Path("id") orderId: String): StatusResponse
+    suspend fun dispatchOrder(@Path("id") orderId: String, @Body request: DispatchOrderRequest): StatusResponse
+
+    @POST("orders/{id}/deliver")
+    suspend fun completeDelivery(@Path("id") orderId: String, @Body request: DeliveryCompletionRequest): StatusResponse
 }
-
-@Serializable
-data class LoginRequest(val username: String, val password: String)
-
-@Serializable
-data class RefreshRequest(val refresh_token: String)
-
-@Serializable
-data class AuthResponse(
-    val access_token: String,
-    val refresh_token: String,
-    val user: UserDto? = null
-)
-
-@Serializable
-data class UserDto(
-    val id: String,
-    val name: String,
-    val role: String,
-    val company_id: String
-)
-
-@Serializable
-data class OrderWithItemsRequest(
-    val order: OrderEntity,
-    val items: List<OrderItemEntity>,
-    val idempotency_key: String
-)
-
-@Serializable
-data class OrderWithItemsResponse(
-    val order: OrderEntity,
-    val items: List<OrderItemEntity>
-)
-
-@Serializable
-data class StatusResponse(val success: Boolean, val message: String? = null)

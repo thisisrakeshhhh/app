@@ -48,7 +48,7 @@ fun RoleHomeScreen(
                 RoleIcon(employee.role, Modifier.size(32.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(location, style = MaterialTheme.typography.titleMedium)
-                    Text("Jaipur Wholesale Distributors", style = MaterialTheme.typography.bodyMedium)
+                    Text("Wholesale Distributors", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

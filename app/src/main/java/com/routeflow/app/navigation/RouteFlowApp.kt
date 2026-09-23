@@ -18,6 +18,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -35,6 +36,9 @@ import com.routeflow.app.core.design.RFColors
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.routeflow.app.feature.auth.DemoLoginScreen
+import com.routeflow.app.feature.auth.DemoLoginState
+import com.routeflow.app.feature.auth.DemoLoginViewModel
 import com.routeflow.app.feature.auth.LoginScreen
 import com.routeflow.app.feature.auth.LoginViewModel
 import com.routeflow.app.feature.delivery.DeliveryDetailScreen
@@ -160,7 +164,7 @@ fun RouteFlowApp(
                     )
                     Surface(color = Color(0xFFEFF6FF)) {
                         Text(
-                            text = "Demo data only · Jaipur Wholesale Distributors",
+                            text = "Demo data only · Wholesale Distribution",
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = RFColors.Accent
@@ -179,20 +183,16 @@ fun RouteFlowApp(
                 val viewModel: LoginViewModel = hiltViewModel()
                 val loginState by viewModel.state.collectAsStateWithLifecycle()
                 
-                Column {
-                    LoginScreen(
-                        state = loginState,
-                        onUsernameChange = viewModel::onUsernameChange,
-                        onPasswordChange = viewModel::onPasswordChange,
-                        onLogin = viewModel::login
-                    )
-                    TextButton(
-                        onClick = { isDemoMode = true; navController.navigate(DEMO_LOGIN_ROUTE) },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) {
-                        Text("Switch to Demo Mode", color = RFColors.Accent)
+                LoginScreen(
+                    state = loginState,
+                    onUsernameChange = viewModel::onUsernameChange,
+                    onPasswordChange = viewModel::onPasswordChange,
+                    onLogin = viewModel::login,
+                    onSwitchToDemo = {
+                        isDemoMode = true
+                        navController.navigate(DEMO_LOGIN_ROUTE)
                     }
-                }
+                )
             }
 
             composable(DEMO_LOGIN_ROUTE) {

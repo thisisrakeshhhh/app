@@ -35,7 +35,7 @@ class OfflineOrderRepositoryTest {
         runBlocking {
             // Seed a product
             database.productDao().insertProducts(listOf(
-                ProductEntity("P1", "Premium Tea", "Beverages", 1000, 10, "Unit")
+                ProductEntity("P1", "Premium Tea", "Beverages", 1000, 10, 0, "Unit")
             ))
             // Seed a retailer
             database.retailerDao().insertRetailers(listOf(

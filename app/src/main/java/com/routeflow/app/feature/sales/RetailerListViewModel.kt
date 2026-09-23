@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 data class RetailerListState(
+    val beatName: String = "Sector Beat — BEAT-04",
     val retailers: List<RetailerItemState> = emptyList(),
     val isLoading: Boolean = false
 )
@@ -29,6 +30,7 @@ class RetailerListViewModel @Inject constructor(
     val state: StateFlow<RetailerListState> = retailerRepository.getRetailersByBeat("BEAT-04")
         .map { retailers ->
             RetailerListState(
+                beatName = "Sector Beat — BEAT-04",
                 retailers = retailers.map { RetailerItemState(it) }
             )
         }

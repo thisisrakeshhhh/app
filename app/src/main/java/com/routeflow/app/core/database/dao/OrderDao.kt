@@ -37,4 +37,10 @@ interface OrderDao {
 
     @Query("UPDATE order_items SET isPicked = :isPicked WHERE orderId = :orderId AND productId = :productId")
     suspend fun updateItemPickingStatus(orderId: String, productId: String, isPicked: Boolean)
+
+    @Query("DELETE FROM orders")
+    suspend fun deleteAllOrders()
+
+    @Query("DELETE FROM order_items")
+    suspend fun deleteAllOrderItems()
 }

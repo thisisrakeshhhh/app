@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 data class SalesHomeState(
-    val beatName: String = "Mansarovar West — BEAT-04",
+    val beatName: String = "Sector Beat — BEAT-04",
     val shopsVisited: Int = 0,
     val totalShops: Int = 6,
     val todayOrderValuePaise: Long = 0,

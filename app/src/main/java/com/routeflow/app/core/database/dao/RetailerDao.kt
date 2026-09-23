@@ -20,4 +20,7 @@ interface RetailerDao {
 
     @Query("UPDATE retailers SET outstandingAmountPaise = :newAmount WHERE id = :retailerId")
     suspend fun updateOutstanding(retailerId: String, newAmount: Long)
+
+    @Query("DELETE FROM retailers")
+    suspend fun deleteAllRetailers()
 }

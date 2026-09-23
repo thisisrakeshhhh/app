@@ -30,8 +30,21 @@ class TokenStorage @Inject constructor(
             .apply()
     }
 
+    fun saveUser(id: String, name: String, role: String, companyId: String) {
+        sharedPreferences.edit()
+            .putString("user_id", id)
+            .putString("user_name", name)
+            .putString("user_role", role)
+            .putString("company_id", companyId)
+            .apply()
+    }
+
     fun getAccessToken(): String? = sharedPreferences.getString("access_token", null)
     fun getRefreshToken(): String? = sharedPreferences.getString("refresh_token", null)
+    fun getUserId(): String? = sharedPreferences.getString("user_id", null)
+    fun getUserName(): String? = sharedPreferences.getString("user_name", null)
+    fun getUserRole(): String? = sharedPreferences.getString("user_role", null)
+    fun getCompanyId(): String? = sharedPreferences.getString("company_id", null)
 
     fun clear() {
         sharedPreferences.edit().clear().apply()

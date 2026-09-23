@@ -49,8 +49,9 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit {
         val contentType = "application/json".toMediaType()
+        val baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8787/" else "https://api.routeflow.com/"
         return Retrofit.Builder()
-            .baseUrl("http://10.0.2.2:8787/") 
+            .baseUrl(baseUrl) 
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()

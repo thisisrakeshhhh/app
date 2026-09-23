@@ -14,12 +14,18 @@ import javax.inject.Singleton
 class SecureSessionRepository @Inject constructor(
     private val tokenStorage: TokenStorage
 ) : SessionRepository {
-    private val _activeEmployee = MutableStateFlow<Employee?>(null)
+    private val _activeEmployee = MutableStateFlow<Employee?>(restoreSession())
     override val activeEmployee: StateFlow<Employee?> = _activeEmployee.asStateFlow()
 
-    // In a real app, we might derive Employee from token or fetch it on start
-    // For this milestone, we'll populate it after successful API login
-    
+    private fun restoreSession(): Employee? {
+        val token = tokenStorage.getAccessToken() ?: return null
+        val id = tokenStorage.getUserId() ?: return null
+        val name = tokenStorage.getUserName() ?: return null
+        val roleStr = tokenStorage.getUserRole() ?: return null
+        val role = try { EmployeeRole.valueOf(roleStr) } catch (e: Exception) { return null }
+        return Employee(id = id, name = name, role = role)
+    }
+
     override fun login(employee: Employee) {
         _activeEmployee.value = employee
     }

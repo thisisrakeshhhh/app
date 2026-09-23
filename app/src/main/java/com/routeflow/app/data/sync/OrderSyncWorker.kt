@@ -5,8 +5,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.routeflow.app.core.database.RouteFlowDatabase
-import com.routeflow.app.core.network.api.OrderWithItemsRequest
 import com.routeflow.app.core.network.api.RouteFlowApi
+import com.routeflow.app.core.network.dto.OrderSubmitRequest
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.serialization.json.Json
@@ -30,7 +30,7 @@ class OrderSyncWorker @AssistedInject constructor(
             try {
                 when (syncItem.type) {
                     "ORDER_SUBMISSION" -> {
-                        val request = json.decodeFromString<OrderWithItemsRequest>(syncItem.payload)
+                        val request = json.decodeFromString<OrderSubmitRequest>(syncItem.payload)
                         val response = api.submitOrder(request)
                         if (response.success) {
                             database.syncOutboxDao().deleteSyncItem(syncItem)
