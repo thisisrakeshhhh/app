@@ -43,4 +43,21 @@ interface OrderDao {
 
     @Query("DELETE FROM order_items")
     suspend fun deleteAllOrderItems()
+
+    @Query("DELETE FROM orders WHERE id NOT IN (:preservedOrderIds)")
+    suspend fun deleteOrdersExcept(preservedOrderIds: List<String>)
+
+    @Query("DELETE FROM order_items WHERE orderId NOT IN (:preservedOrderIds)")
+    suspend fun deleteOrderItemsExcept(preservedOrderIds: List<String>)
+
+    @Transaction
+    suspend fun clearOrdersExcept(preservedOrderIds: List<String>) {
+        if (preservedOrderIds.isEmpty()) {
+            deleteAllOrderItems()
+            deleteAllOrders()
+        } else {
+            deleteOrderItemsExcept(preservedOrderIds)
+            deleteOrdersExcept(preservedOrderIds)
+        }
+    }
 }

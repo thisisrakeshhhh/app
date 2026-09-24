@@ -13,6 +13,7 @@ import com.routeflow.app.core.network.dto.OrderRejectionRequest
 import com.routeflow.app.core.network.dto.OrderSubmitRequest
 import com.routeflow.app.core.network.dto.toDto
 import com.routeflow.app.core.network.dto.toEntity
+import com.routeflow.app.core.security.TokenStorage
 import com.routeflow.app.domain.repository.OrderRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class NetworkOrderRepository @Inject constructor(
     private val database: RouteFlowDatabase,
     private val api: RouteFlowApi,
+    private val tokenStorage: TokenStorage,
     private val json: Json
 ) : OrderRepository {
 
@@ -39,6 +41,8 @@ class NetworkOrderRepository @Inject constructor(
                 idempotencyKey = idempotencyKey
             )
             val payload = json.encodeToString(request)
+            val currentUserId = tokenStorage.getUserId() ?: ""
+            val currentCompanyId = tokenStorage.getCompanyId() ?: ""
 
             database.withTransaction {
                 database.orderDao().insertOrder(order)
@@ -47,7 +51,9 @@ class NetworkOrderRepository @Inject constructor(
                     SyncOutboxEntity(
                         type = "ORDER_SUBMISSION",
                         payload = payload,
-                        idempotencyKey = idempotencyKey
+                        idempotencyKey = idempotencyKey,
+                        userId = currentUserId,
+                        companyId = currentCompanyId
                     )
                 )
             }
@@ -156,9 +162,17 @@ class NetworkOrderRepository @Inject constructor(
 
     suspend fun syncOrdersFromServer(): Result<Unit> = try {
         val ordersDto = api.getOrders()
-        val entities = ordersDto.map { it.toEntity() }
         database.withTransaction {
-            entities.forEach { database.orderDao().insertOrder(it) }
+            ordersDto.forEach { orderDto ->
+                database.orderDao().insertOrder(orderDto.toEntity())
+                try {
+                    val details = api.getOrderDetails(orderDto.id)
+                    val items = details.items.map { it.toEntity() }
+                    database.orderDao().insertOrderItems(items)
+                } catch (_: Exception) {
+                    // Header preserved even if details fetch fails
+                }
+            }
         }
         Result.success(Unit)
     } catch (e: Exception) {

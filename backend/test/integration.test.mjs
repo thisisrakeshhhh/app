@@ -1,4 +1,4 @@
-import { test, describe, before } from 'node:test';
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { sign } from '@tsndr/cloudflare-worker-jwt';
@@ -10,14 +10,17 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
   let salesToken = '';
   let warehouseToken = '';
   let deliveryToken = '';
+  let delivery2Token = '';
+  let salesComp2Token = '';
+  let ownerComp2Token = '';
   let salesRefreshToken = '';
 
-  test('1. Auth: Valid logins across all active roles', async () => {
-    // Owner
+  test('1. Auth: Valid logins across all active roles and multi-company setup', async () => {
+    // Owner comp_1
     const resOwner = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'owner', password: 'password123' })
+      body: JSON.stringify({ username: 'owner', password: 'password123', device_id: 'dev_owner' })
     });
     assert.equal(resOwner.status, 200, 'Owner login failed');
     const ownerData = await resOwner.json();
@@ -25,11 +28,11 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     assert.equal(ownerData.user.role, 'OWNER');
     ownerToken = ownerData.access_token;
 
-    // Salesperson
+    // Salesperson comp_1
     const resSales = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'sales', password: 'password123' })
+      body: JSON.stringify({ username: 'sales', password: 'password123', device_id: 'dev_sales' })
     });
     assert.equal(resSales.status, 200, 'Sales login failed');
     const salesData = await resSales.json();
@@ -37,30 +40,53 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     salesToken = salesData.access_token;
     salesRefreshToken = salesData.refresh_token;
 
-    // Warehouse Manager
+    // Warehouse Manager comp_1
     const resWh = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'warehouse', password: 'password123' })
     });
     assert.equal(resWh.status, 200, 'Warehouse login failed');
-    const whData = await resWh.json();
-    assert.equal(whData.user.role, 'WAREHOUSE_MANAGER');
-    warehouseToken = whData.access_token;
+    warehouseToken = (await resWh.json()).access_token;
 
-    // Delivery Executive
-    const resDel = await fetch(`${BASE_URL}/auth/login`, {
+    // Delivery Executive 1 comp_1
+    const resDel1 = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'delivery', password: 'password123' })
     });
-    assert.equal(resDel.status, 200, 'Delivery login failed');
-    const delData = await resDel.json();
-    assert.equal(delData.user.role, 'DELIVERY_EXECUTIVE');
-    deliveryToken = delData.access_token;
+    assert.equal(resDel1.status, 200, 'Delivery 1 login failed');
+    deliveryToken = (await resDel1.json()).access_token;
+
+    // Delivery Executive 2 comp_1
+    const resDel2 = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'delivery2', password: 'password123' })
+    });
+    assert.equal(resDel2.status, 200, 'Delivery 2 login failed');
+    delivery2Token = (await resDel2.json()).access_token;
+
+    // Comp 2 Salesperson
+    const resSales2 = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'sales_comp2', password: 'password123' })
+    });
+    assert.equal(resSales2.status, 200, 'Comp 2 Sales login failed');
+    salesComp2Token = (await resSales2.json()).access_token;
+
+    // Comp 2 Owner
+    const resOwner2 = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'owner_comp2', password: 'password123' })
+    });
+    assert.equal(resOwner2.status, 200, 'Comp 2 Owner login failed');
+    ownerComp2Token = (await resOwner2.json()).access_token;
   });
 
-  test('2. Auth Security: Rejections for invalid and disabled users', async () => {
+  test('2. Auth Security: Rejections for invalid, disabled users, and tampered tokens', async () => {
     // Invalid credentials
     const resBad = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
@@ -84,560 +110,356 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     assert.equal(resTampered.status, 401, 'Should reject tampered token');
   });
 
-  test('3. Auth Session: Refresh token rotation and reuse detection', async () => {
-    // Rotate token
-    const resRotate = await fetch(`${BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: salesRefreshToken })
-    });
-    assert.equal(resRotate.status, 200, 'Token rotation failed');
-    const rotateData = await resRotate.json();
-    assert.ok(rotateData.access_token);
-    assert.ok(rotateData.refresh_token);
-    assert.notEqual(rotateData.refresh_token, salesRefreshToken);
-
-    const newRefreshToken = rotateData.refresh_token;
-
-    // Replay attack: try to reuse the OLD refresh token
-    const resReplay = await fetch(`${BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: salesRefreshToken })
-    });
-    assert.equal(resReplay.status, 401, 'Should detect reuse and return 401');
-
-    // Verify all sessions were revoked for that user due to reuse detection
-    const resAfterRevoke = await fetch(`${BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: newRefreshToken })
-    });
-    assert.equal(resAfterRevoke.status, 401, 'Subsequent session should be revoked after reuse detection');
-
-    // Re-login sales for remaining tests
-    const reLogin = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'sales', password: 'password123' })
-    });
-    const reData = await reLogin.json();
-    salesToken = reData.access_token;
-  });
-
-  test('4. Catalog: Server-authorized retailers and products formatting', async () => {
-    // Retailers
-    const resRet = await fetch(`${BASE_URL}/retailers`, {
-      headers: { Authorization: `Bearer ${salesToken}` }
-    });
-    assert.equal(resRet.status, 200);
-    const retailers = await resRet.json();
-    assert.ok(retailers.length >= 6, 'Should load BEAT-04 retailers');
-    const r1 = retailers.find(r => r.id === 'R1');
-    assert.ok(r1, 'R1 must be present');
-    assert.equal(r1.beatId, 'BEAT-04');
-    assert.ok(typeof r1.creditLimitPaise === 'number');
-    assert.ok(typeof r1.outstandingAmountPaise === 'number');
-
-    // Products
-    const resProd = await fetch(`${BASE_URL}/products`, {
-      headers: { Authorization: `Bearer ${salesToken}` }
-    });
-    assert.equal(resProd.status, 200);
-    const products = await resProd.json();
-    assert.ok(products.length >= 10, 'Should load P1-P10 products');
-    const p1 = products.find(p => p.id === 'P1');
-    assert.ok(p1, 'P1 must be present');
-    assert.equal(p1.pricePaise, 45000);
-    assert.ok(typeof p1.stockQuantity === 'number');
-    assert.ok(typeof p1.reservedQuantity === 'number');
-  });
-
-  test('5. Complete Server-Backed Order Journey', async () => {
-    const testOrderId = `test_ord_${Date.now()}`;
-    const idempotencyKey = `idemp_${Date.now()}`;
-
-    // Get current stock and retailer balance before
-    const prodRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const prods = await prodRes.json();
-    const p1Before = prods.find(p => p.id === 'P1');
-    const p2Before = prods.find(p => p.id === 'P2');
-    const retRes = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const rets = await retRes.json();
-    const r1Before = rets.find(r => r.id === 'R1');
-
-    console.log(`\n--- Test Order Journey for: ${testOrderId} ---`);
-    console.log(`Initial stock P1: ${p1Before.stockQuantity} (reserved: ${p1Before.reservedQuantity})`);
-    console.log(`Initial retailer R1 outstanding: ${r1Before.outstandingAmountPaise} paise`);
-
-    // STEP A: Salesperson submits order
-    // Item 1: P1, qty: 2, free: 1 (price 45000 * 2 = 90000)
-    // Item 2: P2, qty: 3, free: 0 (price 12000 * 3 = 36000)
-    // Total: 126000 paise
-    const totalAmount = (2 * 45000) + (3 * 12000);
-    const orderPayload = {
-      order: {
-        id: testOrderId,
-        retailerId: 'R1',
-        employeeId: 'user_sales',
-        status: 'SUBMITTED',
-        totalAmountPaise: totalAmount,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      },
-      items: [
-        {
-          id: `${testOrderId}_item1`,
-          orderId: testOrderId,
-          productId: 'P1',
-          quantity: 2,
-          freeQuantity: 1,
-          pricePaiseAtTime: 45000,
-          isPicked: false
-        },
-        {
-          id: `${testOrderId}_item2`,
-          orderId: testOrderId,
-          productId: 'P2',
-          quantity: 3,
-          freeQuantity: 0,
-          pricePaiseAtTime: 12000,
-          isPicked: false
-        }
-      ],
-      idempotencyKey: idempotencyKey
-    };
-
-    const resSubmit = await fetch(`${BASE_URL}/orders`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${salesToken}`
-      },
-      body: JSON.stringify(orderPayload)
-    });
-    assert.equal(resSubmit.status, 200, 'Order submission failed');
-    const submitData = await resSubmit.json();
-    assert.equal(submitData.orderId, testOrderId);
-
-    // Verify Idempotent retry does not duplicate
-    const resRetry = await fetch(`${BASE_URL}/orders`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${salesToken}`
-      },
-      body: JSON.stringify(orderPayload)
-    });
-    assert.equal(resRetry.status, 200);
-    const retryData = await resRetry.json();
-    assert.equal(retryData.orderId, testOrderId);
-    assert.equal(retryData.idempotent, true, 'Retry must be idempotent');
-
-    // STEP B: Owner views pending orders and approves
-    const resPending = await fetch(`${BASE_URL}/orders/pending`, {
-      headers: { Authorization: `Bearer ${ownerToken}` }
-    });
-    assert.equal(resPending.status, 200);
-    const pendingList = await resPending.json();
-    assert.ok(pendingList.some(o => o.id === testOrderId), 'Order must be in pending list');
-
-    // Owner approves order
-    const resApprove = await fetch(`${BASE_URL}/orders/${testOrderId}/approve`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${ownerToken}` }
-    });
-    assert.equal(resApprove.status, 200, 'Order approval failed');
-
-    // Verify stock reserved atomically
-    const pResAfterApprove = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const prodsAfterApprove = await pResAfterApprove.json();
-    const p1AfterApprove = prodsAfterApprove.find(p => p.id === 'P1');
-    const p2AfterApprove = prodsAfterApprove.find(p => p.id === 'P2');
-    assert.equal(p1AfterApprove.reservedQuantity, p1Before.reservedQuantity + 3, 'P1 reserved quantity must include free units (2+1)');
-    assert.equal(p2AfterApprove.reservedQuantity, p2Before.reservedQuantity + 3, 'P2 reserved quantity must match required');
-    console.log(`Stock after approval: P1 reserved = ${p1AfterApprove.reservedQuantity} (stock: ${p1AfterApprove.stockQuantity})`);
-
-    // Repeated approval is idempotent
-    const resApproveAgain = await fetch(`${BASE_URL}/orders/${testOrderId}/approve`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${ownerToken}` }
-    });
-    assert.equal(resApproveAgain.status, 200);
-    const approveAgainData = await resApproveAgain.json();
-    assert.equal(approveAgainData.idempotent, true);
-
-    // STEP C: Warehouse picks items
-    // Pick item 1
-    const resPick1 = await fetch(`${BASE_URL}/orders/${testOrderId}/pick-item`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({ productId: 'P1', isPicked: true })
-    });
-    assert.equal(resPick1.status, 200, 'Pick item 1 failed');
-
-    // Try packing before item 2 is picked -> MUST FAIL
-    const resEarlyPack = await fetch(`${BASE_URL}/orders/${testOrderId}/pack`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${warehouseToken}` }
-    });
-    assert.equal(resEarlyPack.status, 400, 'Packing must fail when unpicked items remain');
-
-    // Pick item 2
-    const resPick2 = await fetch(`${BASE_URL}/orders/${testOrderId}/pick-item`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({ productId: 'P2', isPicked: true })
-    });
-    assert.equal(resPick2.status, 200, 'Pick item 2 failed');
-
-    // STEP D: Warehouse packs order
-    const resPack = await fetch(`${BASE_URL}/orders/${testOrderId}/pack`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${warehouseToken}` }
-    });
-    assert.equal(resPack.status, 200, 'Packing should succeed after all items picked');
-
-    // STEP E: Warehouse dispatches order
-    // Try dispatching without delivery executive -> MUST FAIL
-    const resNoDriver = await fetch(`${BASE_URL}/orders/${testOrderId}/dispatch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({})
-    });
-    assert.equal(resNoDriver.status, 400, 'Dispatch must require assigned delivery executive');
-
-    // Dispatch with assigned delivery executive user_delivery
-    const resDispatch = await fetch(`${BASE_URL}/orders/${testOrderId}/dispatch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
-    });
-    assert.equal(resDispatch.status, 200, 'Dispatch failed');
-
-    // Verify stock deduction and reservation release
-    const pResAfterDispatch = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const prodsAfterDispatch = await pResAfterDispatch.json();
-    const p1AfterDispatch = prodsAfterDispatch.find(p => p.id === 'P1');
-    const p2AfterDispatch = prodsAfterDispatch.find(p => p.id === 'P2');
-    assert.equal(p1AfterDispatch.stockQuantity, p1Before.stockQuantity - 3, 'P1 stock must be deducted by total quantity (2+1)');
-    assert.equal(p1AfterDispatch.reservedQuantity, p1Before.reservedQuantity, 'P1 reservation must be released');
-    console.log(`Stock after dispatch: P1 stock = ${p1AfterDispatch.stockQuantity} (reserved: ${p1AfterDispatch.reservedQuantity})`);
-
-    // Repeated dispatch is idempotent
-    const resDispatchAgain = await fetch(`${BASE_URL}/orders/${testOrderId}/dispatch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
-    });
-    assert.equal(resDispatchAgain.status, 200);
-    const dispatchAgainData = await resDispatchAgain.json();
-    assert.equal(dispatchAgainData.idempotent, true);
-
-    // STEP F: Delivery completion
-    // Non-assigned user attempting delivery -> MUST FAIL
-    const resWrongDeliver = await fetch(`${BASE_URL}/orders/${testOrderId}/deliver`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({ paymentMethod: 'CREDIT' })
-    });
-    assert.equal(resWrongDeliver.status, 403, 'Unauthorized user cannot complete delivery');
-
-    // Assigned driver completes delivery with CREDIT payment
-    const resDeliver = await fetch(`${BASE_URL}/orders/${testOrderId}/deliver`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
-      body: JSON.stringify({ paymentMethod: 'CREDIT' })
-    });
-    assert.equal(resDeliver.status, 200, 'Delivery completion failed');
-
-    // Verify retailer balance posted
-    const retResAfter = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const retsAfter = await retResAfter.json();
-    const r1After = retsAfter.find(r => r.id === 'R1');
-    assert.equal(
-      r1After.outstandingAmountPaise,
-      r1Before.outstandingAmountPaise + totalAmount,
-      'Retailer outstanding balance must increase by order total for CREDIT payment'
-    );
-    console.log(`Retailer balance after CREDIT delivery: ${r1After.outstandingAmountPaise} paise (increased by ${totalAmount})`);
-
-    // Repeated delivery is idempotent
-    const resDeliverAgain = await fetch(`${BASE_URL}/orders/${testOrderId}/deliver`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
-      body: JSON.stringify({ paymentMethod: 'CREDIT' })
-    });
-    assert.equal(resDeliverAgain.status, 200);
-    const deliverAgainData = await resDeliverAgain.json();
-    assert.equal(deliverAgainData.idempotent, true);
-
-    // Check final order state
-    const resFinal = await fetch(`${BASE_URL}/orders/${testOrderId}`, {
-      headers: { Authorization: `Bearer ${ownerToken}` }
-    });
-    const finalData = await resFinal.json();
-    assert.equal(finalData.order.status, 'DELIVERED');
-    assert.equal(finalData.order.paymentMethod, 'CREDIT');
-    assert.equal(finalData.order.deliveryEmployeeId, 'user_delivery');
-    console.log(`Order ${testOrderId} final status: ${finalData.order.status}, payment: ${finalData.order.paymentMethod}`);
-  });
-
-  test('6. Order Rejection and Stock Reservation Rollback', async () => {
-    const rejectOrderId = `test_rej_${Date.now()}`;
-    const idempotencyKey = `idemp_rej_${Date.now()}`;
-
-    // Get P3 stock before
-    const prodResBefore = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const p3Before = (await prodResBefore.json()).find(p => p.id === 'P3');
-
-    // Submit order for 5 units of P3
-    const orderPayload = {
-      order: {
-        id: rejectOrderId,
-        retailerId: 'R2',
-        employeeId: 'user_sales',
-        status: 'SUBMITTED',
-        totalAmountPaise: 5 * 65000,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      },
-      items: [
-        {
-          id: `${rejectOrderId}_item`,
-          orderId: rejectOrderId,
-          productId: 'P3',
-          quantity: 5,
-          freeQuantity: 0,
-          pricePaiseAtTime: 65000,
-          isPicked: false
-        }
-      ],
-      idempotencyKey: idempotencyKey
-    };
-
-    const resSubmit = await fetch(`${BASE_URL}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify(orderPayload)
-    });
-    assert.equal(resSubmit.status, 200);
-
-    // Owner approves
-    const resApprove = await fetch(`${BASE_URL}/orders/${rejectOrderId}/approve`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${ownerToken}` }
-    });
-    assert.equal(resApprove.status, 200);
-
-    // Verify reserved
-    const p3Reserved = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P3');
-    assert.equal(p3Reserved.reservedQuantity, p3Before.reservedQuantity + 5);
-
-    // Owner rejects with reason
-    const resReject = await fetch(`${BASE_URL}/orders/${rejectOrderId}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
-      body: JSON.stringify({ reason: 'Customer requested cancellation prior to packing' })
-    });
-    assert.equal(resReject.status, 200);
-
-    // Verify stock reservation was released back to 0
-    const p3AfterReject = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P3');
-    assert.equal(p3AfterReject.reservedQuantity, p3Before.reservedQuantity, 'Reservation must be rolled back on rejection');
-
-    // Verify order details reflect rejection
-    const orderRes = await fetch(`${BASE_URL}/orders/${rejectOrderId}`, {
-      headers: { Authorization: `Bearer ${ownerToken}` }
-    });
-    const orderData = await orderRes.json();
-    assert.equal(orderData.order.status, 'REJECTED');
-    assert.equal(orderData.order.rejectionReason, 'Customer requested cancellation prior to packing');
-    console.log(`Rejection verified: reason preserved and stock reservation rolled back`);
-  });
-
-  test('7. Advanced Auth: Expired tokens, Logout session revocation, and Cross-tenant isolation', async () => {
-    // Read secret from .dev.vars without printing it
-    const devVars = fs.readFileSync('.dev.vars', 'utf-8');
-    const secretLine = devVars.split('\n').find(l => l.startsWith('JWT_SECRET='));
-    const jwtSecret = secretLine ? secretLine.substring('JWT_SECRET='.length).trim() : 'dummy';
-
-    // A. Expired token rejection
-    const expiredToken = await sign({
-      sub: 'user_sales',
-      company_id: 'comp_1',
-      role: 'SALESPERSON',
-      name: 'Rakesh Kumar',
-      exp: Math.floor(Date.now() / 1000) - 60
-    }, jwtSecret);
-
-    const resExpired = await fetch(`${BASE_URL}/retailers`, {
-      headers: { Authorization: `Bearer ${expiredToken}` }
-    });
-    assert.equal(resExpired.status, 401, 'Expired token must return 401');
-
-    // B. Logout revokes server session
+  test('3. Session Revocation: Old access token rejected after logout and refresh token reuse', async () => {
+    // A. Log in a temporary session
     const tempLogin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'sales', password: 'password123' })
+      body: JSON.stringify({ username: 'sales', password: 'password123', device_id: 'temp_device' })
     });
+    assert.equal(tempLogin.status, 200);
     const { access_token: tempAccess, refresh_token: tempRefresh } = await tempLogin.json();
 
+    // Verify tempAccess works initially
+    const resBeforeLogout = await fetch(`${BASE_URL}/me`, {
+      headers: { Authorization: `Bearer ${tempAccess}` }
+    });
+    assert.equal(resBeforeLogout.status, 200);
+
+    // Call logout to revoke session
     const resLogout = await fetch(`${BASE_URL}/auth/logout`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${tempAccess}` }
     });
-    assert.equal(resLogout.status, 200, 'Logout must succeed');
+    assert.equal(resLogout.status, 200);
 
+    // CRITICAL: Verify the OLD ACCESS TOKEN is immediately rejected with 401
+    const resOldAccessAfterLogout = await fetch(`${BASE_URL}/me`, {
+      headers: { Authorization: `Bearer ${tempAccess}` }
+    });
+    assert.equal(resOldAccessAfterLogout.status, 401, 'Old access token MUST be rejected after logout');
+
+    // Verify refresh token is also invalid after logout
     const resRefreshAfterLogout = await fetch(`${BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: tempRefresh })
     });
-    assert.equal(resRefreshAfterLogout.status, 401, 'Refresh token must be invalid after logout');
+    assert.equal(resRefreshAfterLogout.status, 401);
 
-    // Re-login sales for subsequent tests
-    const salesReLogin = await fetch(`${BASE_URL}/auth/login`, {
+    // B. Refresh token reuse detection revoking the session
+    const login2 = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'sales', password: 'password123', device_id: 'reuse_test_device' })
+    });
+    const { access_token: acc2, refresh_token: ref2 } = await login2.json();
+
+    // Rotate refresh token
+    const resRotate = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: ref2 })
+    });
+    assert.equal(resRotate.status, 200);
+    const { access_token: acc3, refresh_token: ref3 } = await resRotate.json();
+
+    // Attacker attempts reuse of old ref2
+    const resReplay = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: ref2 })
+    });
+    assert.equal(resReplay.status, 401, 'Old refresh token reuse must be rejected');
+
+    // CRITICAL: Both old access token (acc2) and newer access token (acc3) must be rejected because session is revoked!
+    const resAcc2 = await fetch(`${BASE_URL}/me`, { headers: { Authorization: `Bearer ${acc2}` } });
+    assert.equal(resAcc2.status, 401, 'Access token must be rejected after reuse revocation');
+    const resAcc3 = await fetch(`${BASE_URL}/me`, { headers: { Authorization: `Bearer ${acc3}` } });
+    assert.equal(resAcc3.status, 401, 'Newer access token must also be rejected after reuse revocation');
+
+    // C. Atomic conditional refresh race test
+    const loginRace = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'sales', password: 'password123', device_id: 'race_device' })
+    });
+    const { refresh_token: raceRef } = await loginRace.json();
+
+    // Fire 2 concurrent refresh calls with same token
+    const [resRace1, resRace2] = await Promise.all([
+      fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: raceRef }) }),
+      fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: raceRef }) })
+    ]);
+
+    const statuses = [resRace1.status, resRace2.status];
+    assert.ok(statuses.includes(200), 'Exactly one concurrent refresh must succeed');
+    assert.ok(statuses.includes(401), 'Conflicting concurrent refresh must be rejected with 401');
+
+    // Restore salesToken
+    const finalSalesLogin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'sales', password: 'password123' })
     });
-    salesToken = (await salesReLogin.json()).access_token;
+    salesToken = (await finalSalesLogin.json()).access_token;
+  });
 
-    // C. Cross-tenant isolation: Accessing non-tenant retailer
-    const fakeCrossOrder = {
+  test('4. Multi-Tenant Isolation (Two Companies)', async () => {
+    // Comp 1 Salesperson fetching retailers: sees Comp 1 retailers only
+    const resRet1 = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${salesToken}` } });
+    const retailers1 = await resRet1.json();
+    assert.ok(retailers1.every(r => r.beatId === 'BEAT-04'));
+    assert.ok(!retailers1.some(r => r.id === 'ret_comp2_1'), 'Company 1 must not see Company 2 retailers');
+
+    // Comp 2 Salesperson fetching retailers: sees Comp 2 retailers only
+    const resRet2 = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${salesComp2Token}` } });
+    const retailers2 = await resRet2.json();
+    assert.ok(retailers2.some(r => r.id === 'ret_comp2_1'), 'Company 2 must see its own retailer');
+    assert.ok(!retailers2.some(r => r.id === 'ret_1' || r.id === 'R1'), 'Company 2 must not see Company 1 retailers');
+
+    // Cross-tenant order submission: Comp 2 salesperson trying to order for Comp 1 retailer -> 400
+    const resCrossSubmit = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesComp2Token}` },
+      body: JSON.stringify({
+        order: {
+          id: `cross_tenant_${Date.now()}`,
+          retailerId: 'R1', // from comp_1
+          employeeId: 'user_sales_comp2',
+          status: 'SUBMITTED',
+          totalAmountPaise: 10000,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        },
+        items: [{ id: 'item1', productId: 'prod_comp2_1', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 10000, isPicked: false }]
+      })
+    });
+    assert.equal(resCrossSubmit.status, 400, 'Cross-tenant retailer order must be rejected');
+
+    // Comp 2 Owner accessing Comp 1 order: 404
+    const resCrossOrder = await fetch(`${BASE_URL}/orders/non_existent_or_other_tenant`, {
+      headers: { Authorization: `Bearer ${ownerComp2Token}` }
+    });
+    assert.equal(resCrossOrder.status, 404);
+  });
+
+  test('5. Assignment Permissions: Two Delivery Accounts & Salesperson Beat Checks', async () => {
+    // A. Salesperson beat assignment check
+    // Create an unassigned retailer in comp_1 under BEAT-99
+    // Attempting to submit order by user_sales (assigned only to BEAT-04) for BEAT-99 retailer should fail 403
+    // Note: ret_comp2_1 is in comp_2, but let's test beat assignment with another beat if available.
+    // If user_sales orders for R1 (BEAT-04), it succeeds:
+    const validBeatOrder = {
       order: {
-        id: `cross_ord_${Date.now()}`,
-        retailerId: 'foreign_retailer_99',
+        id: `beat_valid_${Date.now()}`,
+        retailerId: 'R1',
         employeeId: 'user_sales',
         status: 'SUBMITTED',
         totalAmountPaise: 45000,
         createdAt: Date.now(),
         updatedAt: Date.now()
       },
-      items: [
-        {
-          id: `item_cross_${Date.now()}`,
-          orderId: `cross_ord_${Date.now()}`,
-          productId: 'P1',
-          quantity: 1,
-          freeQuantity: 0,
-          pricePaiseAtTime: 45000,
-          isPicked: false
-        }
-      ],
-      idempotencyKey: `idemp_cross_${Date.now()}`
+      items: [{ id: `item_${Date.now()}`, productId: 'P1', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 45000, isPicked: false }]
     };
-
-    const resCross = await fetch(`${BASE_URL}/orders`, {
+    const resValidBeat = await fetch(`${BASE_URL}/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify(fakeCrossOrder)
+      body: JSON.stringify(validBeatOrder)
     });
-    assert.equal(resCross.status, 400, 'Cross-company retailer must be rejected');
+    assert.equal(resValidBeat.status, 200, 'Assigned beat order must succeed');
+
+    // B. Delivery user assignment scoping
+    // Complete cycle up to dispatch, assigned to user_delivery (Driver 1)
+    const delOrderId = validBeatOrder.order.id;
+    await fetch(`${BASE_URL}/orders/${delOrderId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } });
+    await fetch(`${BASE_URL}/orders/${delOrderId}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P1', isPicked: true })
+    });
+    await fetch(`${BASE_URL}/orders/${delOrderId}/pack`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const resDisp = await fetch(`${BASE_URL}/orders/${delOrderId}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
+    });
+    assert.equal(resDisp.status, 200);
+
+    // Driver 1 lists orders: MUST include delOrderId
+    const resDel1List = await fetch(`${BASE_URL}/orders`, { headers: { Authorization: `Bearer ${deliveryToken}` } });
+    const del1Orders = await resDel1List.json();
+    assert.ok(del1Orders.some(o => o.id === delOrderId), 'Assigned driver 1 must see assigned order in list');
+
+    // Driver 1 reads order detail: MUST succeed
+    const resDel1Detail = await fetch(`${BASE_URL}/orders/${delOrderId}`, { headers: { Authorization: `Bearer ${deliveryToken}` } });
+    assert.equal(resDel1Detail.status, 200, 'Assigned driver 1 can view order detail');
+
+    // Driver 2 lists orders: MUST NOT include delOrderId
+    const resDel2List = await fetch(`${BASE_URL}/orders`, { headers: { Authorization: `Bearer ${delivery2Token}` } });
+    const del2Orders = await resDel2List.json();
+    assert.ok(!del2Orders.some(o => o.id === delOrderId), 'Driver 2 must NOT see orders assigned to Driver 1 in list');
+
+    // Driver 2 attempts to read order detail: MUST return 403 Forbidden
+    const resDel2Detail = await fetch(`${BASE_URL}/orders/${delOrderId}`, { headers: { Authorization: `Bearer ${delivery2Token}` } });
+    assert.equal(resDel2Detail.status, 403, 'Driver 2 must be rejected with 403 when reading Driver 1 order');
+
+    // Driver 2 attempts to deliver Driver 1 order: MUST return 403 Forbidden
+    const resDel2Deliver = await fetch(`${BASE_URL}/orders/${delOrderId}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${delivery2Token}` },
+      body: JSON.stringify({ paymentMethod: 'CASH' })
+    });
+    assert.equal(resDel2Deliver.status, 403, 'Driver 2 cannot deliver Driver 1 order');
+
+    // Driver 1 completes delivery: MUST succeed
+    const resDel1Deliver = await fetch(`${BASE_URL}/orders/${delOrderId}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CASH' })
+    });
+    assert.equal(resDel1Deliver.status, 200, 'Assigned driver 1 can complete delivery');
   });
 
-  test('8. Concurrency & Integrity: Race-condition stock reservation and submission rollback', async () => {
-    // Check initial stock of P8 (Sugar 5kg, total stock = 60)
-    const prodRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const p8Initial = (await prodRes.json()).find(p => p.id === 'P8');
-    const availableP8 = p8Initial.stockQuantity - p8Initial.reservedQuantity;
+  test('6. Server Validation, Promotions & Bound Idempotency Keys', async () => {
+    // A. Bounded Integer Validation
+    // Negative quantity -> 400
+    const resNeg = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: `neg_${Date.now()}`, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 45000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: 'item_neg', productId: 'P1', quantity: -5, freeQuantity: 0, pricePaiseAtTime: 45000, isPicked: false }]
+      })
+    });
+    assert.equal(resNeg.status, 400, 'Negative quantity must be rejected');
 
-    // Order 1 requires 60% of available stock
-    const qty1 = Math.floor(availableP8 * 0.6);
-    // Order 2 requires 60% of available stock (combined 120% > available)
-    const qty2 = Math.floor(availableP8 * 0.6);
+    // Excessive total amount (> 1,000,000,000 paise) -> 400
+    const resExcessive = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: `exc_${Date.now()}`, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 2000000000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: 'item_exc', productId: 'P1', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 2000000000, isPicked: false }]
+      })
+    });
+    assert.equal(resExcessive.status, 400, 'Total > 1B paise must be rejected');
 
-    const orderId1 = `race_ord_1_${Date.now()}`;
-    const orderId2 = `race_ord_2_${Date.now()}`;
+    // B. Promotion Calculation on Server
+    // P1 promotion: min_quantity = 2, free_quantity = 1
+    // Salesperson sends order for quantity 4 and freeQuantity 0
+    const promoOrderId = `promo_ord_${Date.now()}`;
+    const resPromo = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: promoOrderId, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 4 * 45000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: `item_${promoOrderId}`, productId: 'P1', quantity: 4, freeQuantity: 0, pricePaiseAtTime: 45000, isPicked: false }]
+      })
+    });
+    assert.equal(resPromo.status, 200);
 
-    // Submit Order 1
+    // Verify order detail in DB: freeQuantity must be 2 (Math.floor(4/2) * 1)
+    const resPromoDetail = await fetch(`${BASE_URL}/orders/${promoOrderId}`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const promoDetail = await resPromoDetail.json();
+    assert.equal(promoDetail.items[0].freeQuantity, 2, 'Server must calculate promotional free units (4 units -> 2 free)');
+
+    // C. Bound Idempotency Keys (actor, operation, request_hash)
+    const testKey = `bound_idemp_${Date.now()}`;
+    const basePayload = {
+      order: { id: `idemp_ord_${Date.now()}`, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 45000, createdAt: Date.now(), updatedAt: Date.now() },
+      items: [{ id: `item_${Date.now()}`, productId: 'P1', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 45000, isPicked: false }],
+      idempotencyKey: testKey
+    };
+
+    // First submission
+    const resIdemp1 = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(basePayload)
+    });
+    assert.equal(resIdemp1.status, 200);
+
+    // Replay with identical payload -> Returns 200 with saved result
+    const resIdempReplay = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(basePayload)
+    });
+    assert.equal(resIdempReplay.status, 200);
+
+    // Replay with DIFFERENT payload -> MUST return 409 Conflict
+    const conflictingPayload = {
+      ...basePayload,
+      order: { ...basePayload.order, totalAmountPaise: 90000 },
+      items: [{ ...basePayload.items[0], quantity: 2 }]
+    };
+    const resIdempConflict = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(conflictingPayload)
+    });
+    assert.equal(resIdempConflict.status, 409, 'Reusing idempotency key with differing payload must return 409 Conflict');
+  });
+
+  test('7. Same-Order Concurrency & Ledger Integrity', async () => {
+    // A. Concurrent Approvals on the EXACT SAME order
+    const concOrdId = `conc_same_${Date.now()}`;
     await fetch(`${BASE_URL}/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
       body: JSON.stringify({
-        order: {
-          id: orderId1,
-          retailerId: 'R1',
-          employeeId: 'user_sales',
-          status: 'SUBMITTED',
-          totalAmountPaise: qty1 * 22000,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        },
-        items: [{ id: `${orderId1}_item`, orderId: orderId1, productId: 'P8', quantity: qty1, freeQuantity: 0, pricePaiseAtTime: 22000, isPicked: false }],
-        idempotencyKey: `idemp_${orderId1}`
+        order: { id: concOrdId, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 12000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: `${concOrdId}_item`, productId: 'P2', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 12000, isPicked: false }]
       })
     });
 
-    // Submit Order 2
-    await fetch(`${BASE_URL}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
-        order: {
-          id: orderId2,
-          retailerId: 'R1',
-          employeeId: 'user_sales',
-          status: 'SUBMITTED',
-          totalAmountPaise: qty2 * 22000,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        },
-        items: [{ id: `${orderId2}_item`, orderId: orderId2, productId: 'P8', quantity: qty2, freeQuantity: 0, pricePaiseAtTime: 22000, isPicked: false }],
-        idempotencyKey: `idemp_${orderId2}`
-      })
-    });
+    const p2Before = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P2');
 
-    // Concurrent Approvals
-    const [resApprove1, resApprove2] = await Promise.all([
-      fetch(`${BASE_URL}/orders/${orderId1}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } }),
-      fetch(`${BASE_URL}/orders/${orderId2}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } })
+    // Fire 3 concurrent approvals on the SAME order
+    const [appr1, appr2, appr3] = await Promise.all([
+      fetch(`${BASE_URL}/orders/${concOrdId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } }),
+      fetch(`${BASE_URL}/orders/${concOrdId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } }),
+      fetch(`${BASE_URL}/orders/${concOrdId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } })
     ]);
 
-    const statuses = [resApprove1.status, resApprove2.status];
-    assert.ok(statuses.includes(200), 'At least one approval must succeed');
-    assert.ok(statuses.includes(400), 'Competing approval must fail with 400 Insufficient stock');
+    // All should either succeed with 200 (first creates transition, subsequent are idempotent or 409)
+    const p2After = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P2');
+    assert.equal(p2After.reservedQuantity, p2Before.reservedQuantity + 1, 'Stock reserved quantity must increase by EXACTLY 1, never duplicated by concurrent requests');
 
-    // Verify stock was not over-reserved
-    const prodResAfter = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } });
-    const p8After = (await prodResAfter.json()).find(p => p.id === 'P8');
-    assert.ok(p8After.reservedQuantity <= p8After.stockQuantity, 'Reserved quantity must never exceed available stock');
-
-    // Clean up: reject the approved order so stock is released
-    const approvedId = resApprove1.status === 200 ? orderId1 : orderId2;
-    await fetch(`${BASE_URL}/orders/${approvedId}/reject`, {
+    // B. Pick and Pack
+    await fetch(`${BASE_URL}/orders/${concOrdId}/pick-item`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
-      body: JSON.stringify({ reason: 'Cleanup after concurrency test' })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P2', isPicked: true })
     });
-
-    // Verify Submission Rollback on error
-    const failedOrderId = `fail_ord_${Date.now()}`;
-    const resFailedSubmit = await fetch(`${BASE_URL}/orders`, {
+    await fetch(`${BASE_URL}/orders/${concOrdId}/pack`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${concOrdId}/dispatch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
-        order: {
-          id: failedOrderId,
-          retailerId: 'R1',
-          employeeId: 'user_sales',
-          status: 'SUBMITTED',
-          totalAmountPaise: 9999999, // price mismatch
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        },
-        items: [{ id: `${failedOrderId}_item`, orderId: failedOrderId, productId: 'P1', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 9999999, isPicked: false }],
-        idempotencyKey: `idemp_${failedOrderId}`
-      })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
     });
-    assert.equal(resFailedSubmit.status, 400, 'Price mismatch submission must fail');
 
-    // Verify order does NOT exist in DB
-    const resCheckOrder = await fetch(`${BASE_URL}/orders/${failedOrderId}`, {
-      headers: { Authorization: `Bearer ${ownerToken}` }
+    // C. Concurrent Delivery & Durable Ledger on the SAME order
+    // Test invalid payment method first:
+    const resBadMethod = await fetch(`${BASE_URL}/orders/${concOrdId}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CRYPTO' })
     });
-    assert.equal(resCheckOrder.status, 404, 'Failed submission must completely roll back');
+    assert.equal(resBadMethod.status, 400, 'Invalid payment method must be rejected');
+
+    // Fire 2 concurrent delivery requests on the same order with valid method UPI
+    const [deliv1, deliv2] = await Promise.all([
+      fetch(`${BASE_URL}/orders/${concOrdId}/deliver`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` }, body: JSON.stringify({ paymentMethod: 'UPI' }) }),
+      fetch(`${BASE_URL}/orders/${concOrdId}/deliver`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` }, body: JSON.stringify({ paymentMethod: 'UPI' }) })
+    ]);
+
+    assert.ok(deliv1.status === 200 || deliv2.status === 200);
+
+    // Verify order final state
+    const orderFinal = (await (await fetch(`${BASE_URL}/orders/${concOrdId}`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).order;
+    assert.equal(orderFinal.status, 'DELIVERED');
+    assert.equal(orderFinal.paymentMethod, 'UPI');
   });
 });

@@ -9,20 +9,37 @@ type Bindings = {
   JWT_REFRESH_EXPIRY: string;
 };
 
-const app = new Hono<{ Bindings: Bindings }>();
+type UserPayload = {
+  sub: string;
+  sid: string;
+  company_id: string;
+  role: string;
+  name: string;
+};
 
-async function verifyPassword(plain: string, hash: string): Promise<boolean> {
-  if (hash.startsWith('$2a$') || hash.startsWith('$2b$')) {
-    try {
-      return bcrypt.compareSync(plain, hash);
-    } catch {
-      return false;
-    }
-  }
-  return plain === hash;
+type Variables = {
+  user: UserPayload;
+};
+
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+async function sha256Hex(data: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Authentication Middleware
+async function verifyPassword(plain: string, hash: string): Promise<boolean> {
+  if (!hash || (!hash.startsWith('$2a$') && !hash.startsWith('$2b$'))) {
+    return false;
+  }
+  try {
+    return bcrypt.compareSync(plain, hash);
+  } catch {
+    return false;
+  }
+}
+
+// Authentication Middleware with Live DB Permissions and Session Validation
 const authMiddleware = async (c: any, next: any) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -42,18 +59,32 @@ const authMiddleware = async (c: any, next: any) => {
   }
 
   const payload = (verified as any).payload || verified;
-  if (!payload || !payload.sub) {
-    return c.json({ error: 'Invalid token payload' }, 401);
+  if (!payload || !payload.sub || !payload.sid) {
+    return c.json({ error: 'Invalid token payload or missing session ID' }, 401);
   }
 
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < nowSec) {
     return c.json({ error: 'Invalid or expired token' }, 401);
   }
 
-  // Verify user is still active in DB
-  const user = await c.env.DB.prepare('SELECT is_active, company_id, role, full_name FROM users WHERE id = ?')
+  // 1. Session check: verify per-device server session exists, is not revoked, and is not expired
+  const session = await c.env.DB.prepare(
+    'SELECT is_revoked, expires_at FROM sessions WHERE id = ? AND user_id = ?'
+  )
+    .bind(payload.sid, payload.sub)
+    .first() as { is_revoked: number; expires_at: number } | null;
+
+  if (!session || session.is_revoked === 1 || session.expires_at <= nowSec) {
+    return c.json({ error: 'Session has been revoked or expired' }, 401);
+  }
+
+  // 2. Live database permissions check (use DB role, not stale JWT role claims)
+  const user = await c.env.DB.prepare(
+    'SELECT id, is_active, company_id, role, full_name FROM users WHERE id = ?'
+  )
     .bind(payload.sub)
-    .first() as any;
+    .first() as { id: string; is_active: number; company_id: string; role: string; full_name: string } | null;
 
   if (!user || !user.is_active) {
     return c.json({ error: 'User account disabled' }, 403);
@@ -64,14 +95,23 @@ const authMiddleware = async (c: any, next: any) => {
     return c.json({ error: 'Unauthorized tenant access' }, 403);
   }
 
-  c.set('user', payload);
+  // Set user payload using current live DB role and information
+  c.set('user', {
+    sub: user.id,
+    sid: payload.sid,
+    company_id: user.company_id,
+    role: user.role, // Live role from DB
+    name: user.full_name
+  });
+
   await next();
 };
 
 // --- AUTH ENDPOINTS ---
 
 app.post('/auth/login', async (c) => {
-  const { username, password } = await c.req.json();
+  const body = await c.req.json();
+  const { username, password, device_id } = body;
   if (!username || !password) {
     return c.json({ error: 'Missing username or password' }, 400);
   }
@@ -93,23 +133,29 @@ app.post('/auth/login', async (c) => {
     return c.json({ error: 'Invalid credentials' }, 401);
   }
 
+  const nowSec = Math.floor(Date.now() / 1000);
   const accessExpirySeconds = parseInt(c.env.JWT_ACCESS_EXPIRY || '900', 10);
+  const refreshExpirySeconds = parseInt(c.env.JWT_REFRESH_EXPIRY || '2592000', 10);
+
+  const sessionId = crypto.randomUUID();
+  const refreshToken = crypto.randomUUID();
+  const refreshTokenHash = await sha256Hex(refreshToken);
+
+  // Create explicit per-device session
+  await c.env.DB.prepare(
+    'INSERT INTO sessions (id, user_id, company_id, device_id, refresh_token_hash, is_revoked, created_at, last_active_at, expires_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)'
+  )
+    .bind(sessionId, user.id, user.company_id, device_id || 'default_device', refreshTokenHash, nowSec, nowSec, nowSec + refreshExpirySeconds)
+    .run();
+
   const accessToken = await sign({
     sub: user.id,
+    sid: sessionId,
     company_id: user.company_id,
     role: user.role,
     name: user.full_name,
-    exp: Math.floor(Date.now() / 1000) + accessExpirySeconds,
+    exp: nowSec + accessExpirySeconds,
   }, c.env.JWT_SECRET);
-
-  const refreshToken = crypto.randomUUID();
-  const refreshTokenHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(refreshToken))
-    .then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
-
-  const refreshExpirySeconds = parseInt(c.env.JWT_REFRESH_EXPIRY || '2592000', 10);
-  await c.env.DB.prepare('INSERT INTO refresh_tokens (token_hash, user_id, company_id, expires_at, created_at, revoked_at) VALUES (?, ?, ?, ?, ?, NULL)')
-    .bind(refreshTokenHash, user.id, user.company_id, Math.floor(Date.now() / 1000) + refreshExpirySeconds, Math.floor(Date.now() / 1000))
-    .run();
 
   return c.json({
     access_token: accessToken,
@@ -127,61 +173,82 @@ app.post('/auth/refresh', async (c) => {
   const { refresh_token } = await c.req.json();
   if (!refresh_token) return c.json({ error: 'Missing refresh token' }, 400);
 
-  const refreshTokenHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(refresh_token))
-    .then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
+  const refreshTokenHash = await sha256Hex(refresh_token);
+  const nowSec = Math.floor(Date.now() / 1000);
 
-  const storedToken = await c.env.DB.prepare('SELECT * FROM refresh_tokens WHERE token_hash = ?')
+  // 1. Check for token reuse in revoked_refresh_tokens
+  const revokedRecord = await c.env.DB.prepare(
+    'SELECT session_id, user_id FROM revoked_refresh_tokens WHERE token_hash = ?'
+  )
+    .bind(refreshTokenHash)
+    .first() as { session_id: string; user_id: string } | null;
+
+  if (revokedRecord) {
+    // Refresh token reuse detected! Immediately revoke the session
+    await c.env.DB.prepare('UPDATE sessions SET is_revoked = 1 WHERE id = ?')
+      .bind(revokedRecord.session_id)
+      .run();
+    return c.json({ error: 'Refresh token reuse detected. Session revoked.' }, 401);
+  }
+
+  // 2. Find active session matching this refresh token hash
+  const session = await c.env.DB.prepare(
+    'SELECT * FROM sessions WHERE refresh_token_hash = ?'
+  )
     .bind(refreshTokenHash)
     .first() as any;
 
-  if (!storedToken) {
+  if (!session) {
     return c.json({ error: 'Invalid or expired refresh token' }, 401);
   }
 
-  // Token reuse detection: if revoked_at is set, an old rotated token was presented!
-  if (storedToken.revoked_at !== null) {
-    // Invalidate all tokens for this user
-    await c.env.DB.prepare('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ?')
-      .bind(Math.floor(Date.now() / 1000), storedToken.user_id)
-      .run();
-    return c.json({ error: 'Refresh token reuse detected. All sessions revoked.' }, 401);
+  if (session.is_revoked === 1) {
+    return c.json({ error: 'Session has been revoked' }, 401);
   }
 
-  // Check expiration
-  if (storedToken.expires_at <= Math.floor(Date.now() / 1000)) {
+  if (session.expires_at <= nowSec) {
     return c.json({ error: 'Refresh token expired' }, 401);
   }
 
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?')
-    .bind(storedToken.user_id)
+    .bind(session.user_id)
     .first() as any;
 
   if (!user || !user.is_active) {
     return c.json({ error: 'User account disabled or not found' }, 403);
   }
 
-  // Rotate refresh token atomically
+  // 3. Conditional and atomic refresh token rotation
   const newRefreshToken = crypto.randomUUID();
-  const newRefreshTokenHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(newRefreshToken))
-    .then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
-
+  const newRefreshTokenHash = await sha256Hex(newRefreshToken);
   const accessExpirySeconds = parseInt(c.env.JWT_ACCESS_EXPIRY || '900', 10);
   const refreshExpirySeconds = parseInt(c.env.JWT_REFRESH_EXPIRY || '2592000', 10);
 
+  const updateResult = await c.env.DB.prepare(
+    'UPDATE sessions SET refresh_token_hash = ?, last_active_at = ?, expires_at = ? WHERE id = ? AND refresh_token_hash = ? AND is_revoked = 0'
+  )
+    .bind(newRefreshTokenHash, nowSec, nowSec + refreshExpirySeconds, session.id, refreshTokenHash)
+    .run();
+
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    return c.json({ error: 'Concurrent refresh conflict or session revoked' }, 401);
+  }
+
+  // Record old token hash in revoked_refresh_tokens
+  await c.env.DB.prepare(
+    'INSERT OR REPLACE INTO revoked_refresh_tokens (token_hash, session_id, user_id, revoked_at) VALUES (?, ?, ?, ?)'
+  )
+    .bind(refreshTokenHash, session.id, session.user_id, nowSec)
+    .run();
+
   const accessToken = await sign({
     sub: user.id,
+    sid: session.id,
     company_id: user.company_id,
     role: user.role,
     name: user.full_name,
-    exp: Math.floor(Date.now() / 1000) + accessExpirySeconds,
+    exp: nowSec + accessExpirySeconds,
   }, c.env.JWT_SECRET);
-
-  await c.env.DB.batch([
-    c.env.DB.prepare('UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ?')
-      .bind(Math.floor(Date.now() / 1000), refreshTokenHash),
-    c.env.DB.prepare('INSERT INTO refresh_tokens (token_hash, user_id, company_id, expires_at, created_at, revoked_at) VALUES (?, ?, ?, ?, ?, NULL)')
-      .bind(newRefreshTokenHash, user.id, user.company_id, Math.floor(Date.now() / 1000) + refreshExpirySeconds, Math.floor(Date.now() / 1000))
-  ]);
 
   return c.json({
     access_token: accessToken,
@@ -197,7 +264,10 @@ app.post('/auth/refresh', async (c) => {
 
 app.post('/auth/logout', authMiddleware, async (c) => {
   const user = c.get('user');
-  await c.env.DB.prepare('DELETE FROM refresh_tokens WHERE user_id = ?').bind(user.sub).run();
+  // Explicitly revoke this session
+  await c.env.DB.prepare('UPDATE sessions SET is_revoked = 1 WHERE id = ? AND company_id = ?')
+    .bind(user.sid, user.company_id)
+    .run();
   return c.json({ success: true });
 });
 
@@ -210,12 +280,17 @@ app.get('/me', authMiddleware, async (c) => {
 
 app.get('/retailers', authMiddleware, async (c) => {
   const user = c.get('user');
-  const { results } = await c.env.DB.prepare(
-    'SELECT id, name, beat_id AS beatId, address, contact_number AS contactNumber, latitude, longitude, credit_limit_paise AS creditLimitPaise, outstanding_amount_paise AS outstandingAmountPaise FROM retailers WHERE company_id = ?'
-  )
-    .bind(user.company_id)
-    .all();
 
+  let query = 'SELECT id, name, beat_id AS beatId, address, contact_number AS contactNumber, latitude, longitude, credit_limit_paise AS creditLimitPaise, outstanding_amount_paise AS outstandingAmountPaise FROM retailers WHERE company_id = ?';
+  const params: any[] = [user.company_id];
+
+  // Salesperson beat assignment check: only show retailers for beats assigned to this salesperson
+  if (user.role === 'SALESPERSON') {
+    query += ' AND beat_id IN (SELECT beat_id FROM user_beat_assignments WHERE user_id = ? AND company_id = ?)';
+    params.push(user.sub, user.company_id);
+  }
+
+  const { results } = await c.env.DB.prepare(query).bind(...params).all();
   return c.json(results);
 });
 
@@ -238,22 +313,47 @@ app.post('/orders', authMiddleware, async (c) => {
     return c.json({ error: 'Permission denied: only salesperson or owner can submit orders' }, 403);
   }
 
-  const body = await c.req.json();
+  const rawBodyText = await c.req.text();
+  let body: any;
+  try {
+    body = JSON.parse(rawBodyText);
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
   const order = body.order;
   const items = body.items || [];
-  const idempotencyKey = body.idempotencyKey || body.idempotency_key;
+  const idempotencyKey = body.idempotencyKey || body.idempotency_key || null;
 
   if (!order || !order.id || !order.retailerId || !items.length) {
     return c.json({ error: 'Invalid order structure or empty items' }, 400);
   }
 
-  // Idempotency check: if already processed, return existing order
+  // Validate bounded integers
+  if (!Number.isInteger(order.totalAmountPaise) || order.totalAmountPaise <= 0 || order.totalAmountPaise > 1000000000) {
+    return c.json({ error: 'Invalid total amount: must be positive integer bounded to 1,000,000,000 paise' }, 400);
+  }
+
+  // Idempotency check: bound to (company_id, actor_id, operation, request_hash)
+  let requestHash = '';
   if (idempotencyKey) {
-    const existing = await c.env.DB.prepare('SELECT id, status, total_amount_paise FROM orders WHERE idempotency_key = ? AND company_id = ?')
-      .bind(idempotencyKey, user.company_id)
-      .first() as any;
-    if (existing) {
-      return c.json({ success: true, orderId: existing.id, idempotent: true });
+    requestHash = await sha256Hex(rawBodyText);
+    const existingRecord = await c.env.DB.prepare(
+      'SELECT company_id, actor_id, operation, request_hash, response_body, response_status FROM idempotency_records WHERE key = ?'
+    )
+      .bind(idempotencyKey)
+      .first() as { company_id: string; actor_id: string; operation: string; request_hash: string; response_body: string; response_status: number } | null;
+
+    if (existingRecord) {
+      if (
+        existingRecord.company_id !== user.company_id ||
+        existingRecord.actor_id !== user.sub ||
+        existingRecord.operation !== 'CREATE_ORDER' ||
+        existingRecord.request_hash !== requestHash
+      ) {
+        return c.json({ error: 'Idempotency conflict: key reused with differing actor, operation, or payload' }, 409);
+      }
+      return c.json(JSON.parse(existingRecord.response_body), existingRecord.response_status as any);
     }
   }
 
@@ -266,6 +366,19 @@ app.post('/orders', authMiddleware, async (c) => {
     return c.json({ error: 'Retailer not found in this company' }, 400);
   }
 
+  // Salesperson beat assignment enforcement
+  if (user.role === 'SALESPERSON') {
+    const beatAssignment = await c.env.DB.prepare(
+      'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
+    )
+      .bind(user.sub, retailer.beat_id, user.company_id)
+      .first();
+
+    if (!beatAssignment) {
+      return c.json({ error: `Permission denied: salesperson not assigned to retailer beat ${retailer.beat_id}` }, 403);
+    }
+  }
+
   // Retailer credit limit validation
   const newOutstanding = (retailer.outstanding_amount_paise || 0) + (order.totalAmountPaise || 0);
   if (newOutstanding > retailer.credit_limit_paise) {
@@ -274,17 +387,26 @@ app.post('/orders', authMiddleware, async (c) => {
     }, 400);
   }
 
-  // Validate items, quantities, prices, and promotions
+  // Fetch active company promotions to calculate free items on server
+  const { results: promoRules } = await c.env.DB.prepare(
+    'SELECT product_id, min_quantity, free_quantity FROM promotions WHERE company_id = ? AND is_active = 1'
+  )
+    .bind(user.company_id)
+    .all();
+
+  const promoMap = new Map<string, { minQty: number; freeQty: number }>();
+  (promoRules as any[]).forEach(r => {
+    promoMap.set(r.product_id, { minQty: r.min_quantity, freeQty: r.free_quantity });
+  });
+
+  // Validate items, bounded quantities, prices, and compute promotional free units
   let computedTotalPaise = 0;
+  const processedItems: Array<{ id: string; productId: string; quantity: number; freeQuantity: number; pricePaiseAtTime: number }> = [];
+
   for (const item of items) {
     const quantity = item.quantity;
-    const freeQuantity = item.freeQuantity || 0;
-
-    if (!quantity || quantity <= 0) {
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 100000) {
       return c.json({ error: `Invalid item quantity ${quantity} for product ${item.productId}` }, 400);
-    }
-    if (freeQuantity < 0) {
-      return c.json({ error: `Invalid free quantity ${freeQuantity} for product ${item.productId}` }, 400);
     }
 
     const product = await c.env.DB.prepare('SELECT * FROM products WHERE id = ? AND company_id = ?')
@@ -295,14 +417,31 @@ app.post('/orders', authMiddleware, async (c) => {
       return c.json({ error: `Product ${item.productId} not found in this company` }, 400);
     }
 
-    // Verify price match
+    if (!Number.isInteger(item.pricePaiseAtTime) || item.pricePaiseAtTime < 0 || item.pricePaiseAtTime > 1000000000) {
+      return c.json({ error: `Invalid item price for product ${product.name}` }, 400);
+    }
+
     if (item.pricePaiseAtTime !== product.price_paise) {
       return c.json({
         error: `Price mismatch for product ${product.name}. Expected: ${product.price_paise}, Provided: ${item.pricePaiseAtTime}`
       }, 400);
     }
 
+    // Calculate free units strictly via server promotion rules
+    let calculatedFreeQuantity = 0;
+    const rule = promoMap.get(item.productId);
+    if (rule && rule.minQty > 0 && quantity >= rule.minQty) {
+      calculatedFreeQuantity = Math.floor(quantity / rule.minQty) * rule.freeQty;
+    }
+
     computedTotalPaise += (quantity * product.price_paise);
+    processedItems.push({
+      id: item.id || crypto.randomUUID(),
+      productId: item.productId,
+      quantity,
+      freeQuantity: calculatedFreeQuantity,
+      pricePaiseAtTime: item.pricePaiseAtTime
+    });
   }
 
   if (computedTotalPaise !== order.totalAmountPaise) {
@@ -316,26 +455,36 @@ app.post('/orders', authMiddleware, async (c) => {
     const statements = [
       c.env.DB.prepare(
         'INSERT INTO orders (id, company_id, retailer_id, employee_id, status, total_amount_paise, created_at, updated_at, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(order.id, user.company_id, order.retailerId, user.sub, 'SUBMITTED', order.totalAmountPaise, now, now, idempotencyKey),
+      ).bind(order.id, user.company_id, order.retailerId, user.sub, 'SUBMITTED', order.totalAmountPaise, now, now, idempotencyKey || null),
       c.env.DB.prepare(
         'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_SUBMITTED', order.id, `Total: ${order.totalAmountPaise} paise`, now)
     ];
 
-    items.forEach((item: any) => {
+    processedItems.forEach(item => {
       statements.push(
         c.env.DB.prepare(
           'INSERT INTO order_items (id, order_id, product_id, quantity, free_quantity, price_paise_at_time, is_picked) VALUES (?, ?, ?, ?, ?, ?, 0)'
-        ).bind(item.id, order.id, item.productId, item.quantity, item.freeQuantity || 0, item.pricePaiseAtTime)
+        ).bind(item.id, order.id, item.productId, item.quantity, item.freeQuantity, item.pricePaiseAtTime)
       );
     });
+
+    if (idempotencyKey) {
+      const respJson = JSON.stringify({ success: true, orderId: order.id });
+      statements.push(
+        c.env.DB.prepare(
+          'INSERT INTO idempotency_records (key, company_id, actor_id, operation, request_hash, response_body, response_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(idempotencyKey, user.company_id, user.sub, 'CREATE_ORDER', requestHash, respJson, 200, now)
+      );
+    }
 
     await c.env.DB.batch(statements);
     return c.json({ success: true, orderId: order.id });
   } catch (e: any) {
+    console.error('Order creation error:', e);
     if (e.message && e.message.includes('UNIQUE constraint failed')) {
       const existing = await c.env.DB.prepare('SELECT id FROM orders WHERE idempotency_key = ? AND company_id = ?')
-        .bind(idempotencyKey, user.company_id)
+        .bind(idempotencyKey || '', user.company_id)
         .first() as any;
       return c.json({ success: true, orderId: existing?.id, idempotent: true });
     }
@@ -352,8 +501,9 @@ app.get('/orders', authMiddleware, async (c) => {
     query += ' AND employee_id = ?';
     params.push(user.sub);
   } else if (user.role === 'DELIVERY_EXECUTIVE') {
-    query += ' AND (delivery_employee_id = ? OR status = ?)';
-    params.push(user.sub, 'OUT_FOR_DELIVERY');
+    // Delivery users must list ONLY their assigned orders
+    query += ' AND delivery_employee_id = ?';
+    params.push(user.sub);
   } else if (user.role === 'WAREHOUSE_MANAGER') {
     query += ' AND status IN (?, ?, ?, ?)';
     params.push('APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY');
@@ -396,6 +546,11 @@ app.get('/orders/:id', authMiddleware, async (c) => {
     return c.json({ error: 'Permission denied' }, 403);
   }
 
+  // Delivery executive role check: can only view orders assigned to them
+  if (user.role === 'DELIVERY_EXECUTIVE' && order.deliveryEmployeeId !== user.sub) {
+    return c.json({ error: 'Permission denied: order not assigned to you' }, 403);
+  }
+
   const { results: rawItems } = await c.env.DB.prepare(
     'SELECT id, order_id AS orderId, product_id AS productId, quantity, free_quantity AS freeQuantity, price_paise_at_time AS pricePaiseAtTime, is_picked AS isPicked FROM order_items WHERE order_id = ?'
   )
@@ -423,7 +578,6 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
-  // Idempotency: repeated approval does not duplicate side effects
   if (order.status === 'APPROVED') {
     return c.json({ success: true, idempotent: true });
   }
@@ -456,9 +610,27 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
-  const statements = [
-    c.env.DB.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?')
-      .bind('APPROVED', now, orderId),
+
+  // Atomic conditional update on status to prevent race conditions on the same order
+  const updateResult = await c.env.DB.prepare(
+    'UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status = ?'
+  )
+    .bind('APPROVED', now, orderId, 'SUBMITTED')
+    .run();
+
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    // Concurrent request changed status
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId)
+      .first() as any;
+    if (current && current.status === 'APPROVED') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: `Cannot approve order: concurrent transition occurred (status: ${current?.status})` }, 409);
+  }
+
+  // Exactly-once stock reservation execution
+  const reserveStatements = [
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_APPROVED', orderId, 'Stock reserved', now)
@@ -466,21 +638,14 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
 
   for (const item of items as any[]) {
     const required = (item.quantity || 0) + (item.free_quantity || 0);
-    statements.push(
+    reserveStatements.push(
       c.env.DB.prepare('UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ?')
         .bind(required, item.product_id, user.company_id)
     );
   }
 
-  try {
-    await c.env.DB.batch(statements);
-    return c.json({ success: true });
-  } catch (e: any) {
-    if (e.message && (e.message.includes('Insufficient stock') || e.message.includes('SQLITE_CONSTRAINT'))) {
-      return c.json({ error: 'Insufficient stock available to reserve' }, 400);
-    }
-    return c.json({ error: e.message || 'Approval failed' }, 500);
-  }
+  await c.env.DB.batch(reserveStatements);
+  return c.json({ success: true });
 });
 
 app.post('/orders/:id/reject', authMiddleware, async (c) => {
@@ -490,7 +655,8 @@ app.post('/orders/:id/reject', authMiddleware, async (c) => {
   }
 
   const orderId = c.req.param('id');
-  const { reason } = await c.req.json();
+  const body = await c.req.json();
+  const reason = body?.reason;
   if (!reason || !reason.trim()) {
     return c.json({ error: 'Rejection reason is required' }, 400);
   }
@@ -501,7 +667,6 @@ app.post('/orders/:id/reject', authMiddleware, async (c) => {
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
-  // Idempotency
   if (order.status === 'REJECTED') {
     return c.json({ success: true, idempotent: true });
   }
@@ -511,16 +676,33 @@ app.post('/orders/:id/reject', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
+  const wasApproved = order.status === 'APPROVED';
+
+  // Atomic conditional update
+  const updateResult = await c.env.DB.prepare(
+    'UPDATE orders SET status = ?, rejection_reason = ?, updated_at = ? WHERE id = ? AND status = ?'
+  )
+    .bind('REJECTED', reason, now, orderId, order.status)
+    .run();
+
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId)
+      .first() as any;
+    if (current && current.status === 'REJECTED') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: `Cannot reject order: concurrent transition occurred (status: ${current?.status})` }, 409);
+  }
+
   const statements = [
-    c.env.DB.prepare('UPDATE orders SET status = ?, rejection_reason = ?, updated_at = ? WHERE id = ?')
-      .bind('REJECTED', reason, now, orderId),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_REJECTED', orderId, `Reason: ${reason}`, now)
   ];
 
   // If order was previously APPROVED, release reserved stock
-  if (order.status === 'APPROVED') {
+  if (wasApproved) {
     const { results: items } = await c.env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?')
       .bind(orderId)
       .all();
@@ -585,7 +767,6 @@ app.post('/orders/:id/pack', authMiddleware, async (c) => {
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
-  // Idempotency
   if (order.status === 'PACKED') {
     return c.json({ success: true, idempotent: true });
   }
@@ -604,13 +785,27 @@ app.post('/orders/:id/pack', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
-  await c.env.DB.batch([
-    c.env.DB.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?')
-      .bind('PACKED', now, orderId),
-    c.env.DB.prepare(
-      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_PACKED', orderId, 'All items picked and packed', now)
-  ]);
+  const updateResult = await c.env.DB.prepare(
+    'UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status IN (?, ?)'
+  )
+    .bind('PACKED', now, orderId, 'PICKING', 'APPROVED')
+    .run();
+
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId)
+      .first() as any;
+    if (current && current.status === 'PACKED') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: `Cannot pack order: concurrent transition occurred (status: ${current?.status})` }, 409);
+  }
+
+  await c.env.DB.prepare(
+    'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  )
+    .bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_PACKED', orderId, 'All items picked and packed', now)
+    .run();
 
   return c.json({ success: true });
 });
@@ -635,17 +830,15 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
-  // Idempotency: repeated dispatch does not re-deduct stock
   if (order.status === 'OUT_FOR_DELIVERY') {
     return c.json({ success: true, idempotent: true });
   }
 
-  // Strict transition check: order must be PACKED
   if (order.status !== 'PACKED') {
     return c.json({ error: `Order must be PACKED before dispatch. Current status: ${order.status}` }, 400);
   }
 
-  // Validate delivery employee
+  // Validate delivery employee belongs to this company and has delivery role
   const deliveryEmployee = await c.env.DB.prepare('SELECT * FROM users WHERE id = ? AND company_id = ? AND role = ? AND is_active = 1')
     .bind(deliveryEmployeeId, user.company_id, 'DELIVERY_EXECUTIVE')
     .first() as any;
@@ -654,14 +847,31 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
     return c.json({ error: 'Designated delivery executive is invalid, inactive, or not in company' }, 400);
   }
 
+  const now = Date.now();
+
+  // Atomic conditional transition from PACKED -> OUT_FOR_DELIVERY
+  const updateResult = await c.env.DB.prepare(
+    'UPDATE orders SET status = ?, delivery_employee_id = ?, updated_at = ? WHERE id = ? AND status = ?'
+  )
+    .bind('OUT_FOR_DELIVERY', deliveryEmployeeId, now, orderId, 'PACKED')
+    .run();
+
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId)
+      .first() as any;
+    if (current && current.status === 'OUT_FOR_DELIVERY') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: `Cannot dispatch order: concurrent transition occurred (status: ${current?.status})` }, 409);
+  }
+
+  // Deduct inventory exactly once
   const { results: items } = await c.env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?')
     .bind(orderId)
     .all();
 
-  const now = Date.now();
   const statements = [
-    c.env.DB.prepare('UPDATE orders SET status = ?, delivery_employee_id = ?, updated_at = ? WHERE id = ?')
-      .bind('OUT_FOR_DELIVERY', deliveryEmployeeId, now, orderId),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DISPATCHED', orderId, `Assigned to: ${deliveryEmployee.full_name}`, now)
@@ -680,10 +890,7 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
     await c.env.DB.batch(statements);
     return c.json({ success: true });
   } catch (e: any) {
-    if (e.message && (e.message.includes('Stock cannot be negative') || e.message.includes('SQLITE_CONSTRAINT'))) {
-      return c.json({ error: 'Stock cannot be negative' }, 400);
-    }
-    return c.json({ error: e.message || 'Dispatch failed' }, 500);
+    return c.json({ error: e.message || 'Dispatch inventory deduction failed' }, 500);
   }
 });
 
@@ -697,13 +904,18 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
   const body = await c.req.json();
   const paymentMethod = body.paymentMethod || body.payment_method || 'CASH';
 
+  // Allowed payment methods validation
+  const ALLOWED_PAYMENT_METHODS = ['CASH', 'CREDIT', 'UPI', 'CHEQUE'];
+  if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
+    return c.json({ error: `Invalid payment method. Allowed methods: ${ALLOWED_PAYMENT_METHODS.join(', ')}` }, 400);
+  }
+
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
     .bind(orderId, user.company_id)
     .first() as any;
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
-  // Idempotency: repeated delivery does not double-post payment or credit
   if (order.status === 'DELIVERED') {
     return c.json({ success: true, idempotent: true });
   }
@@ -718,24 +930,74 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
+
+  // Atomic conditional transition from OUT_FOR_DELIVERY -> DELIVERED
+  const updateResult = await c.env.DB.prepare(
+    'UPDATE orders SET status = ?, payment_method = ?, updated_at = ? WHERE id = ? AND status = ?'
+  )
+    .bind('DELIVERED', paymentMethod, now, orderId, 'OUT_FOR_DELIVERY')
+    .run();
+
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId)
+      .first() as any;
+    if (current && current.status === 'DELIVERED') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: `Cannot deliver order: concurrent transition occurred (status: ${current?.status})` }, 409);
+  }
+
+  // Fetch retailer for ledger balance tracking
+  const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
+    .bind(order.retailer_id, user.company_id)
+    .first() as any;
+
+  const invoiceId = `inv_${crypto.randomUUID()}`;
+  const ledgerId = `led_${crypto.randomUUID()}`;
+  const newOutstanding = paymentMethod === 'CREDIT'
+    ? (retailer?.outstanding_amount_paise || 0) + order.total_amount_paise
+    : (retailer?.outstanding_amount_paise || 0);
+
   const statements = [
-    c.env.DB.prepare('UPDATE orders SET status = ?, payment_method = ?, updated_at = ? WHERE id = ?')
-      .bind('DELIVERED', paymentMethod, now, orderId),
+    // 1. Audit log
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}`, now)
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}`, now),
+
+    // 2. Durable Invoices Table
+    c.env.DB.prepare(
+      'INSERT INTO invoices (id, order_id, company_id, retailer_id, total_amount_paise, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(invoiceId, orderId, user.company_id, order.retailer_id, order.total_amount_paise, paymentMethod === 'CREDIT' ? 'ISSUED' : 'PAID', now),
+
+    // 3. Durable Payment Ledger Entry
+    c.env.DB.prepare(
+      'INSERT INTO payment_ledger (id, order_id, invoice_id, company_id, retailer_id, entry_type, amount_paise, balance_after_paise, payment_method, collected_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      ledgerId,
+      orderId,
+      invoiceId,
+      user.company_id,
+      order.retailer_id,
+      paymentMethod === 'CREDIT' ? 'CREDIT_INCREASE' : `${paymentMethod}_PAYMENT`,
+      order.total_amount_paise,
+      newOutstanding,
+      paymentMethod,
+      user.sub,
+      now
+    )
   ];
 
-  // If payment method is CREDIT, post to retailer outstanding balance
+  // If payment method is CREDIT, update retailer outstanding balance
   if (paymentMethod === 'CREDIT') {
     statements.push(
-      c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise = outstanding_amount_paise + ? WHERE id = ? AND company_id = ?')
-        .bind(order.total_amount_paise, order.retailer_id, user.company_id)
+      c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise = ? WHERE id = ? AND company_id = ?')
+        .bind(newOutstanding, order.retailer_id, user.company_id)
     );
   }
 
   await c.env.DB.batch(statements);
-  return c.json({ success: true });
+  return c.json({ success: true, invoiceId });
 });
 
 export default app;

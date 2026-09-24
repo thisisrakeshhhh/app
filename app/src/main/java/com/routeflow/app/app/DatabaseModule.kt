@@ -7,6 +7,7 @@ import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.dao.PaymentDao
 import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.dao.RetailerDao
+import com.routeflow.app.core.database.dao.SyncOutboxDao
 import com.routeflow.app.core.database.dao.VisitDao
 import dagger.Module
 import dagger.Provides
@@ -29,7 +30,7 @@ object DatabaseModule {
             RouteFlowDatabase::class.java,
             RouteFlowDatabase.DATABASE_NAME
         )
-        .addMigrations(RouteFlowDatabase.MIGRATION_4_5)
+        .addMigrations(RouteFlowDatabase.MIGRATION_4_5, RouteFlowDatabase.MIGRATION_5_6)
         .build()
     }
 
@@ -56,5 +57,10 @@ object DatabaseModule {
     @Provides
     fun providePaymentDao(database: RouteFlowDatabase): PaymentDao {
         return database.paymentDao()
+    }
+
+    @Provides
+    fun provideSyncOutboxDao(database: RouteFlowDatabase): SyncOutboxDao {
+        return database.syncOutboxDao()
     }
 }

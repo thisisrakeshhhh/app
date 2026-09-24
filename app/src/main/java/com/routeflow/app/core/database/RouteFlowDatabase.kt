@@ -32,7 +32,7 @@ import com.routeflow.app.core.database.entity.VisitEntity
         TargetEntity::class,
         SyncOutboxEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -59,6 +59,13 @@ abstract class RouteFlowDatabase : RoomDatabase() {
                         `lastError` TEXT
                     )
                 """.trimIndent())
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `sync_outbox` ADD COLUMN `userId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `sync_outbox` ADD COLUMN `companyId` TEXT NOT NULL DEFAULT ''")
             }
         }
     }

@@ -12,6 +12,12 @@ interface SyncOutboxDao {
     @Query("SELECT * FROM sync_outbox ORDER BY createdAt ASC")
     suspend fun getAllPendingSyncs(): List<SyncOutboxEntity>
 
+    @Query("SELECT * FROM sync_outbox WHERE userId = :userId AND companyId = :companyId ORDER BY createdAt ASC")
+    suspend fun getPendingSyncsForUser(userId: String, companyId: String): List<SyncOutboxEntity>
+
+    @Query("SELECT * FROM sync_outbox WHERE companyId = :companyId ORDER BY createdAt ASC")
+    suspend fun getPendingSyncsForCompany(companyId: String): List<SyncOutboxEntity>
+
     @Insert
     suspend fun insertSyncItem(item: SyncOutboxEntity)
 
