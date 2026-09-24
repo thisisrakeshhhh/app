@@ -74,7 +74,7 @@ class LoginViewModel @Inject constructor(
                     tokenStorage.saveUser(user.id, user.name, user.role, user.companyId)
 
                     // 1. Identify and preserve offline unsynced orders to protect them from deletion
-                    val pendingSyncs = database.syncOutboxDao().getAllPendingSyncs()
+                    val pendingSyncs = database.syncOutboxDao().getPendingSyncsForUser(user.id, user.companyId)
                     val preservedOrderIds = pendingSyncs.mapNotNull { syncItem ->
                         try {
                             json.decodeFromString<OrderSubmitRequest>(syncItem.payload).order.id
@@ -84,10 +84,17 @@ class LoginViewModel @Inject constructor(
                     }.distinct()
 
                     // 2. Synchronize server-authorized catalog and orders into Room cache
+                    // Fetch all network data BEFORE entering the database transaction
                     try {
                         val serverRetailers = api.getRetailers().map { it.toEntity() }
                         val serverProducts = api.getProducts().map { it.toEntity() }
                         val serverOrders = api.getOrders()
+
+                        // Fetch all order details BEFORE opening Room transaction, ensuring no silent failures
+                        val orderItemsList = serverOrders.map { orderDto ->
+                            val details = api.getOrderDetails(orderDto.id)
+                            orderDto.toEntity() to details.items.map { it.toEntity() }
+                        }
 
                         database.withTransaction {
                             database.retailerDao().deleteAllRetailers()
@@ -99,15 +106,9 @@ class LoginViewModel @Inject constructor(
                             database.productDao().insertProducts(serverProducts)
 
                             // Restore both order headers and order items
-                            serverOrders.forEach { orderDto ->
-                                database.orderDao().insertOrder(orderDto.toEntity())
-                                try {
-                                    val details = api.getOrderDetails(orderDto.id)
-                                    val items = details.items.map { it.toEntity() }
-                                    database.orderDao().insertOrderItems(items)
-                                } catch (_: Exception) {
-                                    // Order header preserved if individual detail fetch encounters transient error
-                                }
+                            orderItemsList.forEach { (orderEntity, itemEntities) ->
+                                database.orderDao().insertOrder(orderEntity)
+                                database.orderDao().insertOrderItems(itemEntities)
                             }
                         }
                     } catch (syncEx: Exception) {

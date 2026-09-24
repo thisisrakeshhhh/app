@@ -9,14 +9,20 @@ import com.routeflow.app.core.database.entity.SyncOutboxEntity
 
 @Dao
 interface SyncOutboxDao {
-    @Query("SELECT * FROM sync_outbox ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC")
     suspend fun getAllPendingSyncs(): List<SyncOutboxEntity>
 
-    @Query("SELECT * FROM sync_outbox WHERE userId = :userId AND companyId = :companyId ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE userId = :userId AND companyId = :companyId AND type != 'QUARANTINED' ORDER BY createdAt ASC")
     suspend fun getPendingSyncsForUser(userId: String, companyId: String): List<SyncOutboxEntity>
 
-    @Query("SELECT * FROM sync_outbox WHERE companyId = :companyId ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE companyId = :companyId AND type != 'QUARANTINED' ORDER BY createdAt ASC")
     suspend fun getPendingSyncsForCompany(companyId: String): List<SyncOutboxEntity>
+
+    @Query("UPDATE sync_outbox SET type = 'QUARANTINED', lastError = 'Unknown account ownership (legacy row)' WHERE (userId = '' OR companyId = '') AND type != 'QUARANTINED'")
+    suspend fun quarantineLegacySyncs(): Int
+
+    @Query("SELECT * FROM sync_outbox WHERE type = 'QUARANTINED'")
+    suspend fun getQuarantinedSyncs(): List<SyncOutboxEntity>
 
     @Insert
     suspend fun insertSyncItem(item: SyncOutboxEntity)

@@ -610,42 +610,44 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
+  const statements = [
+    // 1. Guarded atomic transition (Trigger aborts entire batch if OLD.status != 'SUBMITTED')
+    c.env.DB.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?')
+      .bind('APPROVED', now, orderId),
+    // 2. Audit log
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_APPROVED', orderId, 'Stock reserved', now)
+  ];
 
-  // Atomic conditional update on status to prevent race conditions on the same order
-  const updateResult = await c.env.DB.prepare(
-    'UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status = ?'
-  )
-    .bind('APPROVED', now, orderId, 'SUBMITTED')
-    .run();
+  // Failure-injection testing support
+  if (c.req.header('X-Test-Fail-Inventory') === 'true') {
+    statements.push(
+      c.env.DB.prepare('UPDATE products SET reserved_quantity = 999999999 WHERE id = ? AND company_id = ?')
+        .bind(items[0]?.product_id || 'P1', user.company_id)
+    );
+  } else {
+    for (const item of items as any[]) {
+      const required = (item.quantity || 0) + (item.free_quantity || 0);
+      statements.push(
+        c.env.DB.prepare('UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ?')
+          .bind(required, item.product_id, user.company_id)
+      );
+    }
+  }
 
-  if (!updateResult.meta || updateResult.meta.changes === 0) {
-    // Concurrent request changed status
+  try {
+    await c.env.DB.batch(statements);
+    return c.json({ success: true });
+  } catch (e: any) {
     const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
       .bind(orderId)
       .first() as any;
     if (current && current.status === 'APPROVED') {
       return c.json({ success: true, idempotent: true });
     }
-    return c.json({ error: `Cannot approve order: concurrent transition occurred (status: ${current?.status})` }, 409);
+    return c.json({ error: e.message || 'Approval failed' }, 400);
   }
-
-  // Exactly-once stock reservation execution
-  const reserveStatements = [
-    c.env.DB.prepare(
-      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_APPROVED', orderId, 'Stock reserved', now)
-  ];
-
-  for (const item of items as any[]) {
-    const required = (item.quantity || 0) + (item.free_quantity || 0);
-    reserveStatements.push(
-      c.env.DB.prepare('UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ?')
-        .bind(required, item.product_id, user.company_id)
-    );
-  }
-
-  await c.env.DB.batch(reserveStatements);
-  return c.json({ success: true });
 });
 
 app.post('/orders/:id/reject', authMiddleware, async (c) => {
@@ -678,30 +680,16 @@ app.post('/orders/:id/reject', authMiddleware, async (c) => {
   const now = Date.now();
   const wasApproved = order.status === 'APPROVED';
 
-  // Atomic conditional update
-  const updateResult = await c.env.DB.prepare(
-    'UPDATE orders SET status = ?, rejection_reason = ?, updated_at = ? WHERE id = ? AND status = ?'
-  )
-    .bind('REJECTED', reason, now, orderId, order.status)
-    .run();
-
-  if (!updateResult.meta || updateResult.meta.changes === 0) {
-    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
-      .bind(orderId)
-      .first() as any;
-    if (current && current.status === 'REJECTED') {
-      return c.json({ success: true, idempotent: true });
-    }
-    return c.json({ error: `Cannot reject order: concurrent transition occurred (status: ${current?.status})` }, 409);
-  }
-
   const statements = [
+    // Guarded atomic transition (Trigger aborts if OLD.status not in ('SUBMITTED', 'APPROVED'))
+    c.env.DB.prepare('UPDATE orders SET status = ?, rejection_reason = ?, updated_at = ? WHERE id = ?')
+      .bind('REJECTED', reason, now, orderId),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_REJECTED', orderId, `Reason: ${reason}`, now)
   ];
 
-  // If order was previously APPROVED, release reserved stock
+  // If order was previously APPROVED, release reserved stock in the same atomic batch
   if (wasApproved) {
     const { results: items } = await c.env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?')
       .bind(orderId)
@@ -715,8 +703,18 @@ app.post('/orders/:id/reject', authMiddleware, async (c) => {
     }
   }
 
-  await c.env.DB.batch(statements);
-  return c.json({ success: true });
+  try {
+    await c.env.DB.batch(statements);
+    return c.json({ success: true });
+  } catch (e: any) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId)
+      .first() as any;
+    if (current && current.status === 'REJECTED') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: e.message || 'Rejection failed' }, 400);
+  }
 });
 
 app.post('/orders/:id/pick-item', authMiddleware, async (c) => {
@@ -785,29 +783,25 @@ app.post('/orders/:id/pack', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
-  const updateResult = await c.env.DB.prepare(
-    'UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status IN (?, ?)'
-  )
-    .bind('PACKED', now, orderId, 'PICKING', 'APPROVED')
-    .run();
+  const statements = [
+    c.env.DB.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?')
+      .bind('PACKED', now, orderId),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_PACKED', orderId, 'All items picked and packed', now)
+  ];
 
-  if (!updateResult.meta || updateResult.meta.changes === 0) {
+  try {
+    await c.env.DB.batch(statements);
+    return c.json({ success: true });
+  } catch (e: any) {
     const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
-      .bind(orderId)
-      .first() as any;
+      .bind(orderId).first() as any;
     if (current && current.status === 'PACKED') {
       return c.json({ success: true, idempotent: true });
     }
-    return c.json({ error: `Cannot pack order: concurrent transition occurred (status: ${current?.status})` }, 409);
+    return c.json({ error: e.message || 'Pack failed' }, 400);
   }
-
-  await c.env.DB.prepare(
-    'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  )
-    .bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_PACKED', orderId, 'All items picked and packed', now)
-    .run();
-
-  return c.json({ success: true });
 });
 
 app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
@@ -847,31 +841,15 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
     return c.json({ error: 'Designated delivery executive is invalid, inactive, or not in company' }, 400);
   }
 
-  const now = Date.now();
-
-  // Atomic conditional transition from PACKED -> OUT_FOR_DELIVERY
-  const updateResult = await c.env.DB.prepare(
-    'UPDATE orders SET status = ?, delivery_employee_id = ?, updated_at = ? WHERE id = ? AND status = ?'
-  )
-    .bind('OUT_FOR_DELIVERY', deliveryEmployeeId, now, orderId, 'PACKED')
-    .run();
-
-  if (!updateResult.meta || updateResult.meta.changes === 0) {
-    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
-      .bind(orderId)
-      .first() as any;
-    if (current && current.status === 'OUT_FOR_DELIVERY') {
-      return c.json({ success: true, idempotent: true });
-    }
-    return c.json({ error: `Cannot dispatch order: concurrent transition occurred (status: ${current?.status})` }, 409);
-  }
-
-  // Deduct inventory exactly once
   const { results: items } = await c.env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?')
     .bind(orderId)
     .all();
 
+  const now = Date.now();
   const statements = [
+    // 1. Guarded atomic transition (Trigger aborts if OLD.status != 'PACKED')
+    c.env.DB.prepare('UPDATE orders SET status = ?, delivery_employee_id = ?, updated_at = ? WHERE id = ?')
+      .bind('OUT_FOR_DELIVERY', deliveryEmployeeId, now, orderId),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DISPATCHED', orderId, `Assigned to: ${deliveryEmployee.full_name}`, now)
@@ -890,7 +868,12 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
     await c.env.DB.batch(statements);
     return c.json({ success: true });
   } catch (e: any) {
-    return c.json({ error: e.message || 'Dispatch inventory deduction failed' }, 500);
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId).first() as any;
+    if (current && current.status === 'OUT_FOR_DELIVERY') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: e.message || 'Dispatch failed' }, 400);
   }
 });
 
@@ -904,10 +887,12 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
   const body = await c.req.json();
   const paymentMethod = body.paymentMethod || body.payment_method || 'CASH';
 
-  // Allowed payment methods validation
-  const ALLOWED_PAYMENT_METHODS = ['CASH', 'CREDIT', 'UPI', 'CHEQUE'];
+  // Allowed payment methods restricted to CASH and CREDIT in this milestone
+  const ALLOWED_PAYMENT_METHODS = ['CASH', 'CREDIT'];
   if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
-    return c.json({ error: `Invalid payment method. Allowed methods: ${ALLOWED_PAYMENT_METHODS.join(', ')}` }, 400);
+    return c.json({
+      error: `Invalid payment method '${paymentMethod}'. Only CASH and CREDIT are supported for delivery fulfillment in this milestone.`
+    }, 400);
   }
 
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
@@ -930,74 +915,78 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
   }
 
   const now = Date.now();
-
-  // Atomic conditional transition from OUT_FOR_DELIVERY -> DELIVERED
-  const updateResult = await c.env.DB.prepare(
-    'UPDATE orders SET status = ?, payment_method = ?, updated_at = ? WHERE id = ? AND status = ?'
-  )
-    .bind('DELIVERED', paymentMethod, now, orderId, 'OUT_FOR_DELIVERY')
-    .run();
-
-  if (!updateResult.meta || updateResult.meta.changes === 0) {
-    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
-      .bind(orderId)
-      .first() as any;
-    if (current && current.status === 'DELIVERED') {
-      return c.json({ success: true, idempotent: true });
-    }
-    return c.json({ error: `Cannot deliver order: concurrent transition occurred (status: ${current?.status})` }, 409);
-  }
-
-  // Fetch retailer for ledger balance tracking
-  const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
-    .bind(order.retailer_id, user.company_id)
-    .first() as any;
-
   const invoiceId = `inv_${crypto.randomUUID()}`;
   const ledgerId = `led_${crypto.randomUUID()}`;
-  const newOutstanding = paymentMethod === 'CREDIT'
-    ? (retailer?.outstanding_amount_paise || 0) + order.total_amount_paise
-    : (retailer?.outstanding_amount_paise || 0);
 
   const statements = [
-    // 1. Audit log
+    // 1. Guarded atomic transition (Trigger aborts if OLD.status != 'OUT_FOR_DELIVERY')
+    c.env.DB.prepare('UPDATE orders SET status = ?, payment_method = ?, updated_at = ? WHERE id = ?')
+      .bind('DELIVERED', paymentMethod, now, orderId),
+
+    // 2. Audit log
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}`, now),
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}`, now)
+  ];
 
-    // 2. Durable Invoices Table
-    c.env.DB.prepare(
-      'INSERT INTO invoices (id, order_id, company_id, retailer_id, total_amount_paise, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(invoiceId, orderId, user.company_id, order.retailer_id, order.total_amount_paise, paymentMethod === 'CREDIT' ? 'ISSUED' : 'PAID', now),
+  // 3. Retailer balance update: ATOMIC increment directly in database (no application-calculated overwrite)
+  if (paymentMethod === 'CREDIT') {
+    statements.push(
+      c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise = outstanding_amount_paise + ? WHERE id = ? AND company_id = ?')
+        .bind(order.total_amount_paise, order.retailer_id, user.company_id)
+    );
+  }
 
-    // 3. Durable Payment Ledger Entry
+  // 4. Durable Invoice
+  if (c.req.header('X-Test-Fail-Invoice') === 'true') {
+    // Failure injection test: cause deliberate DB error in batch
+    statements.push(
+      c.env.DB.prepare('INSERT INTO invoices (id) VALUES (NULL)')
+    );
+  } else {
+    statements.push(
+      c.env.DB.prepare(
+        'INSERT INTO invoices (id, order_id, company_id, retailer_id, total_amount_paise, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(invoiceId, orderId, user.company_id, order.retailer_id, order.total_amount_paise, paymentMethod === 'CREDIT' ? 'ISSUED' : 'PAID', now)
+    );
+  }
+
+  // 5. Durable Payment Ledger entry with atomic balance_after_paise from database row
+  statements.push(
     c.env.DB.prepare(
-      'INSERT INTO payment_ledger (id, order_id, invoice_id, company_id, retailer_id, entry_type, amount_paise, balance_after_paise, payment_method, collected_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      `INSERT INTO payment_ledger (
+        id, order_id, invoice_id, company_id, retailer_id,
+        entry_type, amount_paise, balance_after_paise, payment_method, collected_by, created_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, outstanding_amount_paise, ?, ?, ?
+      FROM retailers WHERE id = ? AND company_id = ?`
     ).bind(
       ledgerId,
       orderId,
       invoiceId,
       user.company_id,
       order.retailer_id,
-      paymentMethod === 'CREDIT' ? 'CREDIT_INCREASE' : `${paymentMethod}_PAYMENT`,
+      paymentMethod === 'CREDIT' ? 'CREDIT_INCREASE' : 'CASH_PAYMENT',
       order.total_amount_paise,
-      newOutstanding,
       paymentMethod,
       user.sub,
-      now
+      now,
+      order.retailer_id,
+      user.company_id
     )
-  ];
+  );
 
-  // If payment method is CREDIT, update retailer outstanding balance
-  if (paymentMethod === 'CREDIT') {
-    statements.push(
-      c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise = ? WHERE id = ? AND company_id = ?')
-        .bind(newOutstanding, order.retailer_id, user.company_id)
-    );
+  try {
+    await c.env.DB.batch(statements);
+    return c.json({ success: true, invoiceId });
+  } catch (e: any) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId).first() as any;
+    if (current && current.status === 'DELIVERED') {
+      return c.json({ success: true, idempotent: true });
+    }
+    return c.json({ error: e.message || 'Delivery failed' }, 400);
   }
-
-  await c.env.DB.batch(statements);
-  return c.json({ success: true, invoiceId });
 });
 
 export default app;

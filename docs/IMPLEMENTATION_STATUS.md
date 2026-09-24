@@ -1,107 +1,110 @@
 # RouteFlow Implementation Status
 
-## Current Stage
-**Stage 2: Backend API Contract, Token & Session Lifecycle, Stock Ledger, Concurrency, and Order Journey (Hardened & Verified)**
+## Current Status
+**Stage 2: Backend API Contract, Token & Session Lifecycle, Stock Ledger, Concurrency, and Order Journey (Hardened & In Progress — NOT Declared Complete)**
+
+> [!NOTE]
+> Per project directives, Stage 2 is not declared complete yet. All critical architectural, concurrency, ledger, and scoping gaps identified in commit `13a08c4` have been resolved and verified with automated test suites across backend and Android.
 
 ---
 
-## 1. Secrets & Credentials Isolation
-- **Rotated Development JWT Secret**: The development signing secret is stored exclusively in `.dev.vars` (gitignored).
-- **Session Revocation**: All prior development sessions and refresh tokens were invalidated in the D1 database.
-- **Strict Secrecy**: No secrets, private keys, passwords, or token strings are committed to Git, logged, or recorded in status documents.
-- **Seed Separation**: Development seed data is completely separated into `backend/seeds/dev_seeds.sql`. Production migrations (`0001_initial.sql`, `0002_seeds.sql`, `0003_order_lifecycle.sql`, `0004_security_ledger_and_sessions.sql`) contain only schema definitions, performance indices, and integrity triggers without any shared test credentials.
-- **Reference Preservation**: Existing IDs (`comp_1`, `ret_1`, `prod_1`, `prod_2`) are preserved when expanding local seed data (`R1`–`R6`, `P1`–`P10`, `comp_2`, `ret_comp2_1`, `prod_comp2_1`).
-- **No Plaintext Password Fallback**: Plaintext password comparison has been completely removed; passwords must verify against standard bcrypt hashes.
+## 1. Atomic Business Transitions & Failure Injection
+- **Guarded Atomic Batch Design**:
+  - D1 SQLite transactions execute the guarded order status transition, inventory reservation/deduction, invoice creation, payment ledger, and audit log within a single atomic `c.env.DB.batch([...])`.
+  - Database trigger `trg_order_status_transition_guard` (migration `0005_atomic_transitions_and_ledger.sql`) strictly enforces state preconditions (`SUBMITTED -> APPROVED`, `PACKED -> OUT_FOR_DELIVERY`, `OUT_FOR_DELIVERY -> DELIVERED`, `SUBMITTED -> REJECTED`). Any competing or invalid transition aborts the entire transaction via `RAISE(ABORT)`.
+  - Side effects are never applied conditionally outside the atomic transaction; only winning transitions commit inventory or financial updates.
+- **Failure Injection Verification**:
+  - Backend supports deterministic failure injection via `X-Test-Fail-Inventory` and `X-Test-Fail-Invoice` headers.
+  - End-to-end integration tests verify that a failure injected into inventory or invoice writes rolls back the entire batch, leaving the order in its original status (`SUBMITTED` or `OUT_FOR_DELIVERY`) ready for safe retry.
 
 ---
 
-## 2. Session Management & Token Revocation
-- **Per-Device Server Sessions**: The backend tracks active sessions in the `sessions` table (`id`, `user_id`, `company_id`, `device_id`, `refresh_token_hash`, `is_revoked`, `expires_at`).
-- **Session-Bound Access Tokens**: Each JWT access token embeds a session ID (`sid`). On every protected request, `authMiddleware` validates that the session exists in the database and is not revoked.
-- **Instant Logout Invalidation**: Logging out sets `is_revoked = 1` for the session in the database. Protected requests presenting the old access token are immediately rejected with HTTP 401.
-- **Conditional & Atomic Refresh Rotation**: Refresh rotation uses conditional SQL (`UPDATE sessions SET refresh_token_hash = ?, ... WHERE id = ? AND refresh_token_hash = ? AND is_revoked = 0`), ensuring concurrent refresh calls cannot both succeed.
-- **Reuse Detection Revocation**: Old refresh token hashes are archived in `revoked_refresh_tokens`. If a previously used refresh token is presented, the entire session is immediately revoked and all associated tokens return HTTP 401.
-- **Live Database Permissions**: `authMiddleware` queries the user record directly from the database on every authenticated request, guaranteeing that permission or role changes are enforced immediately rather than relying on stale JWT claims.
+## 2. Concurrent Retailer Balance Updates
+- **Elimination of Read-Modify-Write Races**:
+  - Application-level balance reads and overwrites have been replaced with atomic SQL credit increments:
+    `UPDATE retailers SET outstanding_amount_paise = outstanding_amount_paise + ? WHERE id = ?`.
+  - The payment ledger entry records `balance_after_paise` directly via subquery from `retailers.outstanding_amount_paise` within the same atomic batch.
+- **Concurrent Delivery Test**:
+  - Integration suite executes concurrent deliveries of two distinct orders ($₹150$ and $₹250$) to the same retailer starting at $₹1,000$.
+  - Verification confirms no lost updates: final retailer outstanding balance is exactly $₹1,400$, and both ledger entries accurately reflect the sequential balances.
 
 ---
 
-## 3. Assignment Permissions & Multi-Tenant Isolation
-- **Delivery Order Scoping**:
-  - Delivery executives list only orders explicitly assigned to them (`delivery_employee_id = ?`).
-  - Order details (`GET /orders/:id`) and delivery completion (`POST /orders/:id/deliver`) enforce that the requesting delivery executive matches `delivery_employee_id`, returning HTTP 403 Forbidden for unassigned drivers.
-  - Tested with two delivery accounts (`user_delivery` and `user_delivery_2`): driver 2 cannot view, read, or fulfill driver 1's assigned order.
-- **Salesperson Beat Assignment**:
-  - Salespersons are assigned to specific beats via `user_beat_assignments`.
-  - `GET /retailers` filters retailers by assigned beats for salespersons.
-  - `POST /orders` validates that the salesperson is assigned to the retailer's beat before allowing order creation.
-- **Multi-Tenant Isolation (Two Companies)**:
-  - Tested with `comp_1` and `comp_2`. Retailer lists, product catalogs, and order endpoints strictly isolate company data. Cross-company order creation or viewing is rejected.
+## 3. Account-Scoped Synchronization & Outbox Quarantine
+- **Worker Credential Binding**:
+  - `OrderSyncWorker` binds explicitly to target `(userId, companyId)` passed via input data, with fallback to active `tokenStorage`.
+  - Pre-request credentials check: the worker validates that active session credentials match the target credentials both at worker start and before dispatching each individual network request. If a mid-run account switch occurs, the worker terminates safely without transmitting data under the wrong identity.
+- **Legacy Outbox Quarantine**:
+  - Outbox entries lacking explicit user/company ownership are quarantined via `SyncOutboxDao.quarantineLegacySyncs()` (`type = 'QUARANTINED'`), preventing cross-account contamination.
+- **Account Switch Unit Test (`AccountScopedSyncTest.kt`)**:
+  - Verifies Account A queues an offline order.
+  - Switch to Account B: B's worker does not process Account A's order; A's order remains safely pending in outbox.
+  - Stale worker for Account A invoked while Account B is active aborts without submitting.
+  - Switch back to Account A: A's order is submitted exactly once and removed from outbox.
 
 ---
 
-## 4. Same-Order Concurrency & Ledger Integrity
-- **Atomic Preconditions on Transitions**:
-  - `/orders/:id/approve`: Conditional transition (`UPDATE orders SET status = 'APPROVED' WHERE id = ? AND status = 'SUBMITTED'`). Stock reservation executes only if the transition is won (`meta.changes === 1`). Concurrent approval requests do not double-reserve stock.
-  - `/orders/:id/dispatch`: Conditional transition (`UPDATE orders SET status = 'OUT_FOR_DELIVERY' WHERE id = ? AND status = 'PACKED'`). Inventory deduction executes exactly once.
-  - `/orders/:id/deliver`: Conditional transition (`UPDATE orders SET status = 'DELIVERED' WHERE id = ? AND status = 'OUT_FOR_DELIVERY'`).
-- **Durable Invoices and Payment Ledger**:
-  - Delivery completion records durable entries in `invoices` and `payment_ledger`.
-  - Allowed payment methods (`CASH`, `CREDIT`, `UPI`, `CHEQUE`) are enforced; unknown methods return HTTP 400.
-  - `CREDIT` payments update retailer outstanding balances and create `CREDIT_INCREASE` ledger records; `CASH`, `UPI`, and `CHEQUE` payments record respective ledger entries with balance tracking.
-- **Bound Idempotency Records**:
-  - Idempotency keys are bound in `idempotency_records` to `(company_id, actor_id, operation, request_hash)`.
-  - Re-submitting with conflicting payloads returns HTTP 409 Conflict.
-- **Server-Calculated Promotions**:
-  - Promotional free quantities are computed server-side from active `promotions` rules (e.g. product `P1` buy 2 get 1 free), overriding client inputs.
-- **Bounded Integer Validation**:
-  - Order quantities, unit prices, and total amounts are strictly validated as positive bounded integers (quantities $\le 100,000$; amounts $\le 1,000,000,000$ paise).
+## 4. Initial Cache Loading & Transaction Safety
+- **Network-First Loading**:
+  - `LoginViewModel` fetches all network data (retailers, products, orders list, and each order's line-item details) into in-memory structures *before* opening the Room transaction.
+  - Order-detail fetch failures are no longer swallowed; failures bubble up to `_state.errorMessage`, preventing insertion of half-complete records lacking line items.
+- **Isolated Room Transaction**:
+  - `database.withTransaction` executes purely local database operations (deletions, entity insertions) without holding database locks over network I/O.
+  - Unsynced orders are preserved using user-scoped queries: `getPendingSyncsForUser(user.id, user.companyId)`.
 
 ---
 
-## 5. Android Cache Safety & Outbox Scoping
-- **Safe Selective Order Deletion**:
-  - In `LoginViewModel`, pending offline orders in `sync_outbox` are identified before cache refresh.
-  - `OrderDao.clearOrdersExcept(preservedOrderIds)` preserves unsynced offline orders and their items during login cache synchronization.
-- **Restoration of Order Items with Headers**:
-  - When caching server orders in `LoginViewModel` and `NetworkOrderRepository.syncOrdersFromServer()`, full line items are fetched via `getOrderDetails()` and inserted alongside order headers.
-- **Sync Failure Visibility**:
-  - `LoginViewModel` does not swallow catalog synchronization failures silently; failures update `LoginState.errorMessage` with a recoverable error message.
-- **Scoped Sync Outbox**:
-  - `SyncOutboxEntity` includes `userId` and `companyId`, migrated in Room version 6 (`MIGRATION_5_6`).
-  - `SyncOutboxDao` provides scoped query helpers `getPendingSyncsForUser` and `getPendingSyncsForCompany`.
+## 5. Promotion Alignment & Payment Settlement Accuracy
+- **Agreed Promotion Restored**:
+  - Premium Tea (`P1`) promotion is configured as BUY 10 GET 1 FREE (`min_quantity: 10, free_quantity: 1`) consistently across database seeds, backend promotion engine, Android DTOs, and integration tests.
+- **Restricted Payment Settlement**:
+  - Delivery payments in Stage 2 are strictly restricted to `CASH` (immediate settlement, invoice status `PAID`) and `CREDIT` (retailer balance increment, invoice status `ISSUED`).
+  - Unverified payment methods (`UPI`, `CHEQUE`, `BITCOIN`, etc.) return HTTP 400 Bad Request.
 
 ---
 
-## 6. Verification Results
-
-### Backend Verification
-1. **TypeScript Typecheck**:
-   - `npm run typecheck` (`tsc --noEmit`): **SUCCESS** (0 errors).
-2. **Database Migrations & Seeding**:
-   - `npx wrangler d1 migrations apply routeflow-db --local`: **SUCCESS** (Migration `0004` applied).
-   - `npm run seed:local`: **SUCCESS** (`dev_seeds.sql` applied with multi-tenant and multi-delivery data).
-3. **Integration Test Suite**:
-   - `npm test` (`node --test test/integration.test.mjs`): **PASS** (7 suites, 7 passed, 0 failed in 3.98s).
-     - *Suite 1*: Valid logins across all active roles and multi-company setup.
-     - *Suite 2*: Auth security: rejections for invalid, disabled users, and tampered tokens.
-     - *Suite 3*: Session revocation: old access token rejected after logout and refresh reuse; atomic conditional refresh.
-     - *Suite 4*: Multi-tenant isolation between `comp_1` and `comp_2`.
-     - *Suite 5*: Assignment permissions: two delivery accounts scoping and salesperson beat checks.
-     - *Suite 6*: Server validation, promotions calculation, bounded integers, and bound idempotency keys (409 on conflict).
-     - *Suite 7*: Same-order concurrency and durable ledger integrity.
-
-### Android Application Verification
-1. **Compilation**:
-   - `.\gradlew.bat compileDebugSources --no-daemon`: **BUILD SUCCESSFUL**.
-2. **Unit Tests**:
-   - `.\gradlew.bat testDebugUnitTest --no-daemon`: **BUILD SUCCESSFUL**.
-3. **Lint**:
-   - `.\gradlew.bat lintDebug --no-daemon`: **BUILD SUCCESSFUL**.
-4. **Assembly**:
-   - `.\gradlew.bat assembleDebug --no-daemon`: **BUILD SUCCESSFUL** (APK generated).
+## 6. Secrets, Sessions & Permissions Hardening
+- **Secrets Isolation**:
+  - Development signing secret resides strictly in `.dev.vars` (gitignored). No secrets, keys, or passwords appear in Git, logs, or status documents.
+- **Session Revocation**:
+  - Per-device server sessions tracked in `sessions` table.
+  - Instant invalidation on logout (`is_revoked = 1`). Requests with old access tokens return HTTP 401.
+  - Atomic refresh token rotation with reuse detection revoking the entire session.
+  - Plaintext password fallback completely removed.
+- **Assignment Permissions**:
+  - Delivery users list and read only orders assigned to them.
+  - Salesperson beat assignments enforced on retailer listings and order creation.
+  - Permissions evaluated against live database state on every request.
 
 ---
 
-## 7. Operational Boundaries & Scope Notes
-- **Pending Physical Multi-Device Tests**: While multi-delivery and multi-tenant flows are verified via automated API integration tests, simultaneous physical multi-device live sync remains subject to hardware availability.
-- **Stage 3 Scope**: Physical disconnected Wi-Fi endurance, background WorkManager scheduled sync, and live GPS route optimization.
+## 7. Verification Results
+
+### Backend Integration Tests (`npm test`)
+```
+TAP version 13
+# Subtest: RouteFlow API End-to-End Integration Suite
+    ok 1 - 1. Auth: Valid logins across all active roles and multi-company setup
+    ok 2 - 2. Auth Security: Rejections for invalid, disabled users, and tampered tokens
+    ok 3 - 3. Session Revocation: Old access token rejected after logout and refresh token reuse
+    ok 4 - 4. Multi-Tenant Isolation (Two Companies)
+    ok 5 - 5. Assignment Permissions: Two Delivery Accounts & Salesperson Beat Checks
+    ok 6 - 6. Restored Promotion (BUY 10 GET 1 FREE) & Bound Idempotency Keys
+    ok 7 - 7. Atomic Transitions with Failure Injection and Rollback Verification
+    ok 8 - 8. Concurrent Retailer Balance Updates (Two Different Orders to Same Retailer)
+    ok 9 - 9. Payment Settlement Accuracy (Restricted to CASH and CREDIT in Stage 2)
+1..9
+# tests 9 | suites 1 | pass 9 | fail 0 | duration_ms 3162.797
+```
+
+### Android Application Verification (`gradlew`)
+- **Unit Tests**: `.\gradlew.bat testDebugUnitTest --no-daemon` — **BUILD SUCCESSFUL** (All unit tests including `AccountScopedSyncTest` passed).
+- **Lint**: `.\gradlew.bat lintDebug --no-daemon` — **BUILD SUCCESSFUL**.
+- **Compilation & Assembly**: `.\gradlew.bat assembleDebug --no-daemon` — **BUILD SUCCESSFUL** (Debug APK generated).
+
+---
+
+## 8. Remaining Scope & Next Steps
+- **Stage 2 Status**: In progress / hardening phase. Not declared complete yet.
+- **Subsequent Stages**:
+  - Stage 3: Offline multi-stop delivery reconciliation, real hardware multi-device sync, and GPS route optimization.

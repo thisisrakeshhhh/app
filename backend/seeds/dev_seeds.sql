@@ -62,5 +62,5 @@ VALUES
 -- 6. Promotions Rules
 INSERT OR REPLACE INTO promotions (id, company_id, product_id, min_quantity, free_quantity, is_active)
 VALUES
-  ('promo_p1', 'comp_1', 'P1', 2, 1, 1),
+  ('promo_p1', 'comp_1', 'P1', 10, 1, 1),
   ('promo_prod1', 'comp_1', 'prod_1', 5, 1, 1);
