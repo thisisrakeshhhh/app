@@ -38,7 +38,8 @@ class ShopVisitViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val sessionRepository: SessionRepository,
     private val retailerRepository: RetailerRepository,
-    private val visitDao: VisitDao
+    private val visitDao: VisitDao,
+    private val api: com.routeflow.app.core.network.api.RouteFlowApi
 ) : ViewModel() {
 
     private val retailerId: String = checkNotNull(savedStateHandle["retailerId"])
@@ -87,10 +88,33 @@ class ShopVisitViewModel @Inject constructor(
         }
     }
 
-    fun checkOut() {
+    fun checkOut(notes: String? = null, noOrderReason: String? = null) {
         viewModelScope.launch {
             val activeVisit = state.value.activeVisit ?: return@launch
-            visitDao.completeVisit(activeVisit.id, System.currentTimeMillis())
+            val checkOutTime = System.currentTimeMillis()
+            visitDao.completeVisit(activeVisit.id, checkOutTime)
+
+            try {
+                val durationSec = (checkOutTime - activeVisit.checkInTime) / 1000
+                api.submitVisit(
+                    com.routeflow.app.core.network.dto.VisitDto(
+                        id = activeVisit.id,
+                        retailerId = activeVisit.retailerId,
+                        checkInTime = activeVisit.checkInTime,
+                        checkOutTime = checkOutTime,
+                        latitude = activeVisit.latitude,
+                        longitude = activeVisit.longitude,
+                        accuracy = activeVisit.accuracy,
+                        durationSeconds = durationSec,
+                        status = "COMPLETED",
+                        noOrderReason = noOrderReason,
+                        notes = notes,
+                        idempotencyKey = "visit_${activeVisit.id}"
+                    )
+                )
+            } catch (_: Exception) {
+                // Preserved safely in Room
+            }
         }
     }
 }

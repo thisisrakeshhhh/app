@@ -32,6 +32,9 @@ data class DeliveryItemState(
 
 data class DeliveryDetailState(
     val isLoading: Boolean = false,
+    val isOtpLoading: Boolean = false,
+    val otpSentMessage: String? = null,
+    val serverDebugOtp: String? = null,
     val error: String? = null,
     val success: Boolean = false
 )
@@ -49,7 +52,7 @@ class DeliveryViewModel @Inject constructor(
         DeliveryHomeState(
             assignedCount = orders.count { it.status == "OUT_FOR_DELIVERY" },
             completedCount = orders.count { it.status == "DELIVERED" },
-            paymentsCollectedPaise = 0 // TODO: Real calculation from payments table
+            paymentsCollectedPaise = 0
         )
     }.stateIn(
         scope = viewModelScope,
@@ -75,12 +78,40 @@ class DeliveryViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
-    fun markDelivered(orderId: String, method: String) {
+    fun requestOtp(orderId: String) {
+        if (_detailState.value.isOtpLoading) return
+        _detailState.update { it.copy(isOtpLoading = true, error = null, otpSentMessage = null) }
+        viewModelScope.launch {
+            val result = orderRepository.requestDeliveryOtp(orderId)
+            _detailState.update {
+                if (result.isSuccess) {
+                    val resp = result.getOrNull()
+                    it.copy(
+                        isOtpLoading = false,
+                        otpSentMessage = resp?.message ?: "OTP sent to retailer",
+                        serverDebugOtp = resp?.debugOtp
+                    )
+                } else {
+                    it.copy(
+                        isOtpLoading = false,
+                        error = result.exceptionOrNull()?.message ?: "Failed to request OTP"
+                    )
+                }
+            }
+        }
+    }
+
+    fun markDelivered(orderId: String, method: String, otp: String, recipientName: String) {
         if (_detailState.value.isLoading) return
         
         _detailState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
-            val result = orderRepository.completeDelivery(orderId, method)
+            val result = orderRepository.completeDelivery(
+                orderId = orderId,
+                paymentMethod = method,
+                otp = otp,
+                recipientName = recipientName
+            )
             _detailState.update {
                 if (result.isSuccess) {
                     it.copy(isLoading = false, success = true)

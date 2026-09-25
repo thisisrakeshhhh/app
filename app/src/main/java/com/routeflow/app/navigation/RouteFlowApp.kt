@@ -48,7 +48,11 @@ import com.routeflow.app.feature.delivery.DeliveryListScreen
 import com.routeflow.app.feature.delivery.DeliveryViewModel
 import com.routeflow.app.feature.owner.OrderApprovalScreen
 import com.routeflow.app.feature.owner.OrderApprovalViewModel
+import com.routeflow.app.feature.owner.OwnerEmployeesScreen
 import com.routeflow.app.feature.owner.OwnerHomeScreen
+import com.routeflow.app.feature.owner.OwnerMasterViewModel
+import com.routeflow.app.feature.owner.OwnerProductsScreen
+import com.routeflow.app.feature.owner.OwnerRetailersScreen
 import com.routeflow.app.feature.owner.OwnerViewModel
 import com.routeflow.app.feature.sales.OrderBookingScreen
 import com.routeflow.app.feature.sales.OrderBookingViewModel
@@ -66,6 +70,9 @@ import com.routeflow.app.feature.warehouse.WarehouseViewModel
 private const val DEMO_LOGIN_ROUTE = "demo-login"
 private const val REAL_LOGIN_ROUTE = "login"
 private const val OWNER_APPROVALS = "owner/approvals"
+private const val OWNER_PRODUCTS = "owner/products"
+private const val OWNER_RETAILERS = "owner/retailers"
+private const val OWNER_EMPLOYEES = "owner/employees"
 private const val WAREHOUSE_PICKING = "warehouse/picking"
 private const val DELIVERY_LIST = "delivery/list"
 private const val DELIVERY_DETAIL = "delivery/detail/{orderId}"
@@ -102,17 +109,21 @@ fun RouteFlowApp(
     LaunchedEffect(employee) {
         if (employee == null) {
             navController.navigate(startRoute) {
-                popUpTo(0) { inclusive = true }
+                popUpTo(startRoute) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
 
     LaunchedEffect(destination) {
         val targetRoute = destination?.route
-        if (targetRoute != null && (navController.currentDestination?.route == DEMO_LOGIN_ROUTE || navController.currentDestination?.route == REAL_LOGIN_ROUTE || navController.currentDestination == null)) {
-            navController.navigate(targetRoute) {
-                popUpTo(navController.currentDestination?.id ?: 0) { inclusive = true }
-                launchSingleTop = true
+        if (targetRoute != null) {
+            val curr = navController.currentDestination?.route
+            if (curr == DEMO_LOGIN_ROUTE || curr == REAL_LOGIN_ROUTE || curr == null) {
+                navController.navigate(targetRoute) {
+                    popUpTo(startRoute) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }
@@ -214,7 +225,10 @@ fun RouteFlowApp(
                     OwnerHomeScreen(
                         employee = employee,
                         state = ownerState,
-                        onViewApprovals = { navController.navigate(OWNER_APPROVALS) }
+                        onViewApprovals = { navController.navigate(OWNER_APPROVALS) },
+                        onViewProducts = { navController.navigate(OWNER_PRODUCTS) },
+                        onViewRetailers = { navController.navigate(OWNER_RETAILERS) },
+                        onViewEmployees = { navController.navigate(OWNER_EMPLOYEES) }
                     )
                 }
             }
@@ -229,6 +243,43 @@ fun RouteFlowApp(
                 )
             }
 
+            composable(OWNER_PRODUCTS) {
+                val viewModel: OwnerMasterViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerProductsScreen(
+                    state = state,
+                    onCreateProduct = viewModel::createProduct,
+                    onUpdateProduct = viewModel::updateProduct,
+                    onAdjustStock = viewModel::adjustStock,
+                    onClearMessages = viewModel::clearMessages,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_RETAILERS) {
+                val viewModel: OwnerMasterViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerRetailersScreen(
+                    state = state,
+                    onCreateRetailer = viewModel::createRetailer,
+                    onUpdateRetailer = viewModel::updateRetailer,
+                    onClearMessages = viewModel::clearMessages,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_EMPLOYEES) {
+                val viewModel: OwnerMasterViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerEmployeesScreen(
+                    state = state,
+                    onCreateEmployee = viewModel::createEmployee,
+                    onDeactivateEmployee = viewModel::deactivateEmployee,
+                    onClearMessages = viewModel::clearMessages,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             composable(RoleDestination.SALES.route) {
                 if (employee != null) {
                     val salesViewModel: SalesViewModel = hiltViewModel()
@@ -236,7 +287,8 @@ fun RouteFlowApp(
                     SalesHomeScreen(
                         employee = employee,
                         state = salesState,
-                        onStartVisits = { navController.navigate(SALES_RETAILER_LIST) }
+                        onStartVisits = { navController.navigate(SALES_RETAILER_LIST) },
+                        onSyncNow = salesViewModel::syncNow
                     )
                 }
             }
@@ -359,8 +411,11 @@ fun RouteFlowApp(
                         retailerName = item.retailerName,
                         amountPaise = item.order.totalAmountPaise,
                         detailState = detailState,
-                        onDeliver = { method ->
-                            viewModel.markDelivered(item.order.id, method)
+                        onDeliver = { method, otp, recipientName ->
+                            viewModel.markDelivered(item.order.id, method, otp, recipientName)
+                        },
+                        onRequestOtp = {
+                            viewModel.requestOtp(item.order.id)
                         },
                         onClearError = viewModel::clearError
                     )
@@ -374,14 +429,9 @@ fun RouteFlowApp(
                 }
             }
         }
-    // Registered after NavHost: Back leaves the demo workspace and clears its role.
-    BackHandler(enabled = employee != null) {
-        if (navController.previousBackStackEntry != null) {
-            navController.popBackStack()
-        } else {
-            isDemoMode = false
-            onDemoLogout()
-        }
+    // Registered after NavHost: Back navigates back within the app stack
+    BackHandler(enabled = employee != null && navController.previousBackStackEntry != null) {
+        navController.popBackStack()
     }
     }
 }

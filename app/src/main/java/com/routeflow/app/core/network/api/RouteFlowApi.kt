@@ -70,4 +70,42 @@ interface RouteFlowApi {
 
     @POST("orders/{id}/deliver")
     suspend fun completeDelivery(@Path("id") orderId: String, @Body request: DeliveryCompletionRequest): StatusResponse
+
+    @POST("orders/{id}/request-otp")
+    suspend fun requestDeliveryOtp(@Path("id") orderId: String): com.routeflow.app.core.network.dto.OtpResponse
+
+    // --- Master Data Endpoints ---
+    @POST("products")
+    suspend fun createProduct(@Body request: com.routeflow.app.core.network.dto.CreateProductRequest): StatusResponse
+
+    @retrofit2.http.PUT("products/{id}")
+    suspend fun updateProduct(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.UpdateProductRequest): StatusResponse
+
+    @POST("inventory/adjust")
+    suspend fun adjustInventory(@Body request: com.routeflow.app.core.network.dto.StockAdjustmentRequest): com.routeflow.app.core.network.dto.StockAdjustmentResponse
+
+    @POST("retailers")
+    suspend fun createRetailer(@Body request: com.routeflow.app.core.network.dto.CreateRetailerRequest): StatusResponse
+
+    @retrofit2.http.PUT("retailers/{id}")
+    suspend fun updateRetailer(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.UpdateRetailerRequest): StatusResponse
+
+    @GET("employees")
+    suspend fun getEmployees(): List<com.routeflow.app.core.network.dto.EmployeeDto>
+
+    @POST("employees")
+    suspend fun createEmployee(@Body request: com.routeflow.app.core.network.dto.CreateEmployeeRequest): StatusResponse
+
+    @retrofit2.http.PUT("employees/{id}/deactivate")
+    suspend fun deactivateEmployee(@Path("id") id: String): StatusResponse
+
+    // --- Visits & Stock Checks ---
+    @POST("visits")
+    suspend fun submitVisit(@Body request: com.routeflow.app.core.network.dto.VisitDto): StatusResponse
+
+    @GET("visits")
+    suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto>
+
+    @POST("stock-checks")
+    suspend fun submitStockCheck(@Body request: com.routeflow.app.core.network.dto.StockCheckDto): StatusResponse
 }

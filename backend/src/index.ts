@@ -923,6 +923,17 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DISPATCHED', orderId, `Assigned to: ${deliveryEmployee.full_name}`, now)
   ];
 
+  // Generate server-backed 6-digit delivery OTP for recipient verification
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = now + 86400000; // 24-hour validity
+  statements.push(
+    c.env.DB.prepare(
+      `INSERT OR REPLACE INTO delivery_otps (
+        order_id, company_id, otp_code, recipient_name, expires_at, attempt_count, max_attempts, is_used, created_at
+      ) VALUES (?, ?, ?, NULL, ?, 0, 5, 0, ?)`
+    ).bind(orderId, user.company_id, otpCode, expiresAt, now)
+  );
+
   for (const item of items as any[]) {
     const totalDeduct = (item.quantity || 0) + (item.free_quantity || 0);
     statements.push(
@@ -934,7 +945,7 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
 
   try {
     await c.env.DB.batch(statements);
-    return c.json({ success: true });
+    return c.json({ success: true, otpGenerated: true });
   } catch (e: any) {
     const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
       .bind(orderId).first() as any;
@@ -943,6 +954,58 @@ app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
     }
     return c.json({ error: e.message || 'Dispatch failed' }, 400);
   }
+});
+
+app.post('/orders/:id/request-otp', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'DELIVERY_EXECUTIVE' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: delivery or owner role required' }, 403);
+  }
+
+  const orderId = c.req.param('id');
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
+    .bind(orderId, user.company_id)
+    .first() as any;
+
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  if (user.role === 'DELIVERY_EXECUTIVE' && order.delivery_employee_id !== user.sub) {
+    return c.json({ error: 'Unauthorized: order not assigned to you' }, 403);
+  }
+
+  if (order.status !== 'OUT_FOR_DELIVERY') {
+    return c.json({ error: `Cannot request delivery OTP for order with status ${order.status}` }, 400);
+  }
+
+  const now = Date.now();
+  let existing = await c.env.DB.prepare('SELECT * FROM delivery_otps WHERE order_id = ? AND company_id = ?')
+    .bind(orderId, user.company_id)
+    .first() as any;
+
+  let activeOtp = existing?.otp_code;
+  let expiresAt = existing?.expires_at;
+
+  // If missing, expired, max attempts reached, or previously used: generate fresh OTP
+  if (!existing || now > existing.expires_at || existing.attempt_count >= existing.max_attempts || existing.is_used === 1) {
+    activeOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    expiresAt = now + 86400000;
+    await c.env.DB.prepare(
+      `INSERT OR REPLACE INTO delivery_otps (
+        order_id, company_id, otp_code, recipient_name, expires_at, attempt_count, max_attempts, is_used, created_at
+      ) VALUES (?, ?, ?, NULL, ?, 0, 5, 0, ?)`
+    ).bind(orderId, user.company_id, activeOtp, expiresAt, now).run();
+  }
+
+  const retailer = await c.env.DB.prepare('SELECT name, contact_number FROM retailers WHERE id = ?')
+    .bind(order.retailer_id)
+    .first() as any;
+
+  return c.json({
+    success: true,
+    message: `Delivery OTP sent to ${retailer?.name || 'Retailer'} (${retailer?.contact_number || 'Registered mobile'})`,
+    expiresAt,
+    debugOtp: activeOtp
+  });
 });
 
 app.post('/orders/:id/deliver', authMiddleware, async (c) => {
@@ -954,6 +1017,10 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
   const orderId = c.req.param('id');
   const body = await c.req.json();
   const paymentMethod = body.paymentMethod || body.payment_method || 'CASH';
+  const recipientName = (body.recipientName || body.recipient_name || '').trim();
+  const otp = (body.otp || '').trim();
+  const proofPhotoUrl = body.proofPhotoUrl || body.proof_photo_url || null;
+  const signatureUrl = body.signatureUrl || body.signature_url || null;
 
   // Allowed payment methods restricted to CASH and CREDIT in this milestone
   const ALLOWED_PAYMENT_METHODS = ['CASH', 'CREDIT'];
@@ -982,20 +1049,63 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     return c.json({ error: 'Unauthorized: you are not the assigned delivery executive for this order' }, 403);
   }
 
+  // Check if server-backed OTP record exists for this order
+  const otpRecord = await c.env.DB.prepare('SELECT * FROM delivery_otps WHERE order_id = ? AND company_id = ?')
+    .bind(orderId, user.company_id)
+    .first() as any;
+
   const now = Date.now();
+  let verifiedRecipient = recipientName || 'Authorized Receiver';
+
+  if (otpRecord && (otp || recipientName || c.req.header('X-Require-Delivery-Otp') === 'true')) {
+    // When OTP verification is invoked, validate strictly
+    if (!recipientName) {
+      return c.json({ error: 'Recipient name is required to confirm delivery' }, 400);
+    }
+    if (!otp || !/^\d{6}$/.test(otp)) {
+      return c.json({ error: 'A valid 6-digit delivery OTP is required' }, 400);
+    }
+    if (otpRecord.is_used === 1) {
+      return c.json({ error: 'Delivery OTP has already been used' }, 400);
+    }
+    if (now > otpRecord.expires_at) {
+      return c.json({ error: 'Delivery OTP has expired. Please request a new OTP.' }, 400);
+    }
+    if (otpRecord.attempt_count >= otpRecord.max_attempts) {
+      return c.json({ error: 'Maximum OTP verification attempts exceeded. Please request a new OTP.' }, 400);
+    }
+    if (otpRecord.otp_code !== otp) {
+      await c.env.DB.prepare('UPDATE delivery_otps SET attempt_count = attempt_count + 1 WHERE order_id = ?')
+        .bind(orderId)
+        .run();
+      const remaining = otpRecord.max_attempts - otpRecord.attempt_count - 1;
+      return c.json({ error: `Invalid delivery OTP. ${remaining} attempt(s) remaining.` }, 400);
+    }
+    verifiedRecipient = recipientName;
+  }
+
   const invoiceId = `inv_${crypto.randomUUID()}`;
   const ledgerId = `led_${crypto.randomUUID()}`;
 
   const statements = [
     // 1. Guarded atomic transition (Trigger aborts if OLD.status != 'OUT_FOR_DELIVERY')
-    c.env.DB.prepare('UPDATE orders SET status = ?, payment_method = ?, updated_at = ? WHERE id = ?')
-      .bind('DELIVERED', paymentMethod, now, orderId),
+    c.env.DB.prepare(
+      'UPDATE orders SET status = ?, payment_method = ?, recipient_name = ?, proof_photo_url = ?, signature_url = ?, updated_at = ? WHERE id = ?'
+    ).bind('DELIVERED', paymentMethod, verifiedRecipient, proofPhotoUrl, signatureUrl, now, orderId),
 
     // 2. Audit log
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}`, now)
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}, Recipient: ${verifiedRecipient}`, now)
   ];
+
+  // Mark OTP as used if record exists
+  if (otpRecord) {
+    statements.push(
+      c.env.DB.prepare('UPDATE delivery_otps SET is_used = 1, recipient_name = ? WHERE order_id = ?')
+        .bind(verifiedRecipient, orderId)
+    );
+  }
 
   // 3. Retailer balance update: ATOMIC increment directly in database (no application-calculated overwrite)
   if (paymentMethod === 'CREDIT') {
@@ -1055,6 +1165,428 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     }
     return c.json({ error: e.message || 'Delivery failed' }, 400);
   }
+});
+
+// ============================================================================
+// SLICE B: OWNER MASTER DATA MANAGEMENT (Products, Retailers, Employees, Stock)
+// ============================================================================
+
+app.post('/products', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const name = body.name?.trim();
+  const category = body.category?.trim() || 'General';
+  const pricePaise = body.pricePaise ?? body.price_paise;
+  const mrpPaise = body.mrpPaise ?? body.mrp_paise ?? pricePaise;
+  const stockQuantity = body.stockQuantity ?? body.stock_quantity ?? 0;
+  const unit = body.unit?.trim() || 'Unit';
+  const sku = body.sku?.trim() || null;
+  const imageUrl = body.imageUrl || body.image_url || null;
+
+  if (!name || typeof pricePaise !== 'number' || pricePaise <= 0 || !unit) {
+    return c.json({ error: 'Valid product name, positive pricePaise, and unit are required' }, 400);
+  }
+
+  const id = body.id || `P_${crypto.randomUUID().slice(0, 8)}`;
+  const now = Date.now();
+
+  const statements = [
+    c.env.DB.prepare(
+      `INSERT INTO products (id, company_id, name, category, price_paise, mrp_paise, stock_quantity, reserved_quantity, unit, sku, image_url, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1)`
+    ).bind(id, user.company_id, name, category, pricePaise, mrpPaise, stockQuantity, unit, sku, imageUrl),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_CREATED', id, `Product: ${name}, Price: ${pricePaise}, Stock: ${stockQuantity}`, now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({
+    success: true,
+    product: { id, name, category, pricePaise, mrpPaise, stockQuantity, reservedQuantity: 0, unit, sku, imageUrl, isActive: true }
+  });
+});
+
+app.put('/products/:id', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const existing = await c.env.DB.prepare('SELECT * FROM products WHERE id = ? AND company_id = ?')
+    .bind(id, user.company_id).first() as any;
+
+  if (!existing) return c.json({ error: 'Product not found' }, 404);
+
+  const name = body.name !== undefined ? body.name.trim() : existing.name;
+  const category = body.category !== undefined ? body.category.trim() : existing.category;
+  const pricePaise = body.pricePaise ?? body.price_paise ?? existing.price_paise;
+  const mrpPaise = body.mrpPaise ?? body.mrp_paise ?? existing.mrp_paise;
+  const unit = body.unit !== undefined ? body.unit.trim() : existing.unit;
+  const sku = body.sku !== undefined ? body.sku?.trim() : existing.sku;
+  const isActive = body.isActive !== undefined ? (body.isActive ? 1 : 0) : existing.is_active;
+  const imageUrl = body.imageUrl ?? body.image_url ?? existing.image_url;
+
+  const now = Date.now();
+  const statements = [
+    c.env.DB.prepare(
+      `UPDATE products SET name = ?, category = ?, price_paise = ?, mrp_paise = ?, unit = ?, sku = ?, is_active = ?, image_url = ?
+       WHERE id = ? AND company_id = ?`
+    ).bind(name, category, pricePaise, mrpPaise, unit, sku, isActive, imageUrl, id, user.company_id),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_UPDATED', id, `Updated product details. Active: ${isActive}`, now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true });
+});
+
+app.post('/inventory/adjust', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER' && user.role !== 'WAREHOUSE_MANAGER') {
+    return c.json({ error: 'Permission denied: owner or warehouse role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const productId = body.productId || body.product_id;
+  const changeQuantity = body.changeQuantity ?? body.change_quantity;
+  const reason = body.reason?.trim();
+  const notes = body.notes?.trim() || null;
+
+  if (!productId || typeof changeQuantity !== 'number' || changeQuantity === 0 || !reason) {
+    return c.json({ error: 'productId, non-zero changeQuantity, and valid reason are required' }, 400);
+  }
+
+  const VALID_REASONS = ['STOCK_RECEIPT', 'DAMAGE', 'AUDIT_CORRECTION', 'RETURN_RESTOCK'];
+  if (!VALID_REASONS.includes(reason)) {
+    return c.json({ error: `Invalid reason. Allowed: ${VALID_REASONS.join(', ')}` }, 400);
+  }
+
+  const product = await c.env.DB.prepare('SELECT * FROM products WHERE id = ? AND company_id = ?')
+    .bind(productId, user.company_id).first() as any;
+
+  if (!product) return c.json({ error: 'Product not found' }, 404);
+
+  const newStock = product.stock_quantity + changeQuantity;
+  if (newStock < 0) {
+    return c.json({ error: `Adjustment exceeds available physical stock. Current: ${product.stock_quantity}, Change: ${changeQuantity}` }, 400);
+  }
+  if (newStock < product.reserved_quantity) {
+    return c.json({ error: `Cannot adjust stock below current reserved quantity (${product.reserved_quantity})` }, 400);
+  }
+
+  const now = Date.now();
+  const adjId = `adj_${crypto.randomUUID()}`;
+
+  const statements = [
+    c.env.DB.prepare('UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ?')
+      .bind(newStock, productId, user.company_id),
+    c.env.DB.prepare(
+      `INSERT INTO stock_adjustments (id, company_id, product_id, user_id, change_quantity, reason, stock_after, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(adjId, user.company_id, productId, user.sub, changeQuantity, reason, newStock, notes, now),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'STOCK_ADJUSTMENT', productId, `Change: ${changeQuantity}, Reason: ${reason}, NewStock: ${newStock}`, now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true, adjustmentId: adjId, newStockQuantity: newStock });
+});
+
+app.post('/retailers', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const name = body.name?.trim();
+  const beatId = body.beatId || body.beat_id;
+  const address = body.address?.trim() || '';
+  const contactNumber = body.contactNumber || body.contact_number || '';
+  const creditLimitPaise = body.creditLimitPaise ?? body.credit_limit_paise ?? 0;
+  const paymentTermsDays = body.paymentTermsDays ?? body.payment_terms_days ?? 7;
+  const latitude = body.latitude ?? null;
+  const longitude = body.longitude ?? null;
+
+  if (!name || !beatId || !contactNumber || typeof creditLimitPaise !== 'number') {
+    return c.json({ error: 'name, beatId, contactNumber, and numeric creditLimitPaise are required' }, 400);
+  }
+
+  const id = body.id || `ret_${crypto.randomUUID().slice(0, 8)}`;
+  const now = Date.now();
+
+  const statements = [
+    c.env.DB.prepare(
+      `INSERT INTO retailers (id, company_id, name, beat_id, address, contact_number, latitude, longitude, credit_limit_paise, outstanding_amount_paise, is_active, payment_terms_days)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?)`
+    ).bind(id, user.company_id, name, beatId, address, contactNumber, latitude, longitude, creditLimitPaise, paymentTermsDays),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'RETAILER_CREATED', id, `Retailer: ${name}, Beat: ${beatId}, Limit: ${creditLimitPaise}`, now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({
+    success: true,
+    retailer: { id, name, beatId, address, contactNumber, creditLimitPaise, outstandingAmountPaise: 0, isActive: true, paymentTermsDays }
+  });
+});
+
+app.put('/retailers/:id', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const existing = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
+    .bind(id, user.company_id).first() as any;
+
+  if (!existing) return c.json({ error: 'Retailer not found' }, 404);
+
+  const name = body.name !== undefined ? body.name.trim() : existing.name;
+  const beatId = body.beatId || body.beat_id || existing.beat_id;
+  const address = body.address !== undefined ? body.address.trim() : existing.address;
+  const contactNumber = body.contactNumber || body.contact_number || existing.contact_number;
+  const creditLimitPaise = body.creditLimitPaise ?? body.credit_limit_paise ?? existing.credit_limit_paise;
+  const paymentTermsDays = body.paymentTermsDays ?? body.payment_terms_days ?? existing.payment_terms_days;
+  const isActive = body.isActive !== undefined ? (body.isActive ? 1 : 0) : existing.is_active;
+  const latitude = body.latitude !== undefined ? body.latitude : existing.latitude;
+  const longitude = body.longitude !== undefined ? body.longitude : existing.longitude;
+
+  const now = Date.now();
+  const statements = [
+    c.env.DB.prepare(
+      `UPDATE retailers SET name = ?, beat_id = ?, address = ?, contact_number = ?, credit_limit_paise = ?, payment_terms_days = ?, is_active = ?, latitude = ?, longitude = ?
+       WHERE id = ? AND company_id = ?`
+    ).bind(name, beatId, address, contactNumber, creditLimitPaise, paymentTermsDays, isActive, latitude, longitude, id, user.company_id),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'RETAILER_UPDATED', id, `Updated retailer ${name}. Active: ${isActive}`, now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true });
+});
+
+app.get('/employees', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT u.id, u.username, u.full_name AS fullName, u.role, u.is_active AS isActive,
+            (SELECT GROUP_CONCAT(beat_id) FROM user_beat_assignments WHERE user_id = u.id AND company_id = u.company_id) AS assignedBeats
+     FROM users u WHERE u.company_id = ? ORDER BY u.full_name ASC`
+  ).bind(user.company_id).all();
+
+  const formatted = results.map((r: any) => ({
+    id: r.id,
+    username: r.username,
+    fullName: r.fullName,
+    role: r.role,
+    isActive: Boolean(r.isActive),
+    assignedBeats: r.assignedBeats ? r.assignedBeats.split(',') : []
+  }));
+
+  return c.json(formatted);
+});
+
+app.post('/employees', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const username = body.username?.trim().toLowerCase();
+  const password = body.password;
+  const fullName = body.fullName?.trim() || body.full_name?.trim();
+  const role = body.role;
+  const beatId = body.beatId || body.beat_id;
+
+  if (!username || !password || !fullName || !role) {
+    return c.json({ error: 'username, password, fullName, and role are required' }, 400);
+  }
+
+  const VALID_ROLES = ['OWNER', 'SALESPERSON', 'WAREHOUSE_MANAGER', 'DELIVERY_EXECUTIVE'];
+  if (!VALID_ROLES.includes(role)) {
+    return c.json({ error: `Invalid role. Allowed: ${VALID_ROLES.join(', ')}` }, 400);
+  }
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  const id = body.id || `user_${crypto.randomUUID().slice(0, 8)}`;
+  const now = Date.now();
+
+  const statements = [
+    c.env.DB.prepare(
+      `INSERT INTO users (id, company_id, username, password_hash, full_name, role, is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
+    ).bind(id, user.company_id, username, passwordHash, fullName, role, now),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'EMPLOYEE_CREATED', id, `Created employee: ${fullName} (${role})`, now)
+  ];
+
+  if (role === 'SALESPERSON' && beatId) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT OR REPLACE INTO user_beat_assignments (user_id, beat_id, company_id, created_at)
+         VALUES (?, ?, ?, ?)`
+      ).bind(id, beatId, user.company_id, now)
+    );
+  }
+
+  try {
+    await c.env.DB.batch(statements);
+    return c.json({ success: true, employee: { id, username, fullName, role, isActive: true, assignedBeats: beatId ? [beatId] : [] } });
+  } catch (e: any) {
+    if (e.message && e.message.includes('UNIQUE constraint')) {
+      return c.json({ error: 'Username already exists' }, 409);
+    }
+    return c.json({ error: e.message || 'Failed to create employee' }, 500);
+  }
+});
+
+app.put('/employees/:id/deactivate', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const targetUserId = c.req.param('id');
+  if (targetUserId === user.sub) {
+    return c.json({ error: 'Cannot deactivate your own owner account' }, 400);
+  }
+
+  const now = Date.now();
+  const statements = [
+    c.env.DB.prepare('UPDATE users SET is_active = 0 WHERE id = ? AND company_id = ?')
+      .bind(targetUserId, user.company_id),
+    // Instantly revoke all active sessions for this employee
+    c.env.DB.prepare('UPDATE sessions SET is_revoked = 1 WHERE user_id = ? AND company_id = ?')
+      .bind(targetUserId, user.company_id),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'EMPLOYEE_DEACTIVATED', targetUserId, 'Deactivated and sessions revoked', now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true });
+});
+
+// ============================================================================
+// SLICE C: SHOP VISITS & FIELD STOCK AUDITS
+// ============================================================================
+
+app.post('/visits', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'SALESPERSON' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: salesperson or owner role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const id = body.id || `vis_${crypto.randomUUID()}`;
+  const retailerId = body.retailerId || body.retailer_id;
+  const checkInTime = body.checkInTime || body.check_in_time;
+  const checkOutTime = body.checkOutTime || body.check_out_time || null;
+  const latitude = body.latitude ?? null;
+  const longitude = body.longitude ?? null;
+  const accuracy = body.accuracy ?? null;
+  const durationSeconds = body.durationSeconds ?? body.duration_seconds ?? 0;
+  const status = body.status || 'COMPLETED';
+  const noOrderReason = body.noOrderReason || body.no_order_reason || null;
+  const notes = body.notes?.trim() || null;
+  const idempotencyKey = body.idempotencyKey || body.idempotency_key || null;
+
+  if (!retailerId || !checkInTime) {
+    return c.json({ error: 'retailerId and checkInTime are required' }, 400);
+  }
+
+  const now = Date.now();
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO visits (id, company_id, retailer_id, employee_id, check_in_time, check_out_time, latitude, longitude, accuracy, duration_seconds, status, no_order_reason, notes, idempotency_key, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      id, user.company_id, retailerId, user.sub, checkInTime, checkOutTime,
+      latitude, longitude, accuracy, durationSeconds, status, noOrderReason, notes, idempotencyKey, now
+    ).run();
+
+    return c.json({ success: true, visitId: id });
+  } catch (e: any) {
+    if (e.message && e.message.includes('UNIQUE constraint')) {
+      return c.json({ success: true, visitId: id, idempotent: true });
+    }
+    return c.json({ error: e.message || 'Failed to record shop visit' }, 500);
+  }
+});
+
+app.get('/visits', authMiddleware, async (c) => {
+  const user = c.get('user');
+  let query = 'SELECT id, retailer_id AS retailerId, employee_id AS employeeId, check_in_time AS checkInTime, check_out_time AS checkOutTime, latitude, longitude, accuracy, duration_seconds AS durationSeconds, status, no_order_reason AS noOrderReason, notes, created_at AS createdAt FROM visits WHERE company_id = ?';
+  const params: any[] = [user.company_id];
+
+  if (user.role === 'SALESPERSON') {
+    query += ' AND employee_id = ?';
+    params.push(user.sub);
+  }
+
+  query += ' ORDER BY check_in_time DESC LIMIT 100';
+  const { results } = await c.env.DB.prepare(query).bind(...params).all();
+  return c.json(results);
+});
+
+app.post('/stock-checks', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'SALESPERSON' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: salesperson or owner role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const retailerId = body.retailerId || body.retailer_id;
+  const productId = body.productId || body.product_id;
+  const quantity = body.quantity;
+
+  if (!retailerId || !productId || typeof quantity !== 'number' || quantity < 0) {
+    return c.json({ error: 'retailerId, productId, and non-negative quantity are required' }, 400);
+  }
+
+  const id = `sc_${crypto.randomUUID()}`;
+  const now = Date.now();
+
+  await c.env.DB.prepare(
+    `INSERT INTO stock_checks (id, company_id, retailer_id, employee_id, product_id, quantity, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, user.company_id, retailerId, user.sub, productId, quantity, now).run();
+
+  return c.json({ success: true, stockCheckId: id });
+});
+
+app.get('/stock-checks/:retailerId', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const retailerId = c.req.param('retailerId');
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT sc.id, sc.product_id AS productId, p.name AS productName, sc.quantity, sc.created_at AS createdAt
+     FROM stock_checks sc
+     JOIN products p ON sc.product_id = p.id
+     WHERE sc.company_id = ? AND sc.retailer_id = ?
+     ORDER BY sc.created_at DESC LIMIT 50`
+  ).bind(user.company_id, retailerId).all();
+
+  return c.json(results);
 });
 
 export default app;

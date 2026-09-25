@@ -170,13 +170,62 @@ class NetworkOrderRepository @Inject constructor(
         Result.failure(e)
     }
 
-    override suspend fun completeDelivery(orderId: String, paymentMethod: String): Result<Unit> = try {
-        val response = api.completeDelivery(orderId, DeliveryCompletionRequest(paymentMethod = paymentMethod))
+    override suspend fun requestDeliveryOtp(orderId: String): Result<com.routeflow.app.core.network.dto.OtpResponse> = try {
+        Result.success(api.requestDeliveryOtp(orderId))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun completeDelivery(
+        orderId: String,
+        paymentMethod: String,
+        otp: String,
+        recipientName: String,
+        proofPhotoUrl: String?,
+        signatureUrl: String?
+    ): Result<Unit> = try {
+        val response = api.completeDelivery(
+            orderId,
+            DeliveryCompletionRequest(
+                paymentMethod = paymentMethod,
+                otp = otp,
+                recipientName = recipientName,
+                proofPhotoUrl = proofPhotoUrl,
+                signatureUrl = signatureUrl
+            )
+        )
         if (response.success) {
             database.orderDao().updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
             Result.success(Unit)
         } else {
             Result.failure(Exception(response.message ?: "Delivery completion failed"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun syncPendingOrders(): Result<Int> = try {
+        val currentUserId = tokenStorage.getUserId() ?: ""
+        val currentCompanyId = tokenStorage.getCompanyId() ?: ""
+        if (currentUserId.isBlank() || currentCompanyId.isBlank()) {
+            Result.failure(IllegalStateException("No active authenticated session"))
+        } else {
+            val pendingSyncs = database.syncOutboxDao().getPendingSyncsForUser(currentUserId, currentCompanyId)
+                .filter { it.type != "PERMANENT_FAILURE" && it.type != "QUARANTINED" }
+            var count = 0
+            for (item in pendingSyncs) {
+                if (item.type == "ORDER_SUBMISSION") {
+                    val request = json.decodeFromString<OrderSubmitRequest>(item.payload)
+                    val resp = api.submitOrder(request)
+                    if (resp.success) {
+                        database.syncOutboxDao().deleteSyncItem(item)
+                        database.orderDao().insertOrder(request.order.toEntity())
+                        database.orderDao().insertOrderItems(request.items.map { it.toEntity() })
+                        count++
+                    }
+                }
+            }
+            Result.success(count)
         }
     } catch (e: Exception) {
         Result.failure(e)

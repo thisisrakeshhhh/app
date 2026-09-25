@@ -119,7 +119,17 @@ class OfflineOrderRepository @Inject constructor(
     override suspend fun getDeliveryExecutives(): Result<List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto>> =
         Result.success(emptyList())
 
-    override suspend fun completeDelivery(orderId: String, paymentMethod: String): Result<Unit> = try {
+    override suspend fun requestDeliveryOtp(orderId: String): Result<com.routeflow.app.core.network.dto.OtpResponse> =
+        Result.success(com.routeflow.app.core.network.dto.OtpResponse(success = true, debugOtp = "123456", message = "Offline demo OTP"))
+
+    override suspend fun completeDelivery(
+        orderId: String,
+        paymentMethod: String,
+        otp: String,
+        recipientName: String,
+        proofPhotoUrl: String?,
+        signatureUrl: String?
+    ): Result<Unit> = try {
         database.withTransaction {
             val order = database.orderDao().getOrderById(orderId).first()
                 ?: throw Exception("Order not found")
@@ -162,4 +172,6 @@ class OfflineOrderRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun syncPendingOrders(): Result<Int> = Result.success(0)
 }

@@ -22,15 +22,22 @@ import androidx.compose.ui.unit.dp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.domain.model.Employee
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import com.routeflow.app.core.design.OrderSyncBadge
+import com.routeflow.app.core.design.RFColors
 
 @Composable
 fun SalesHomeScreen(
     employee: Employee,
     state: SalesHomeState,
     onStartVisits: () -> Unit,
+    onSyncNow: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -46,6 +53,54 @@ fun SalesHomeScreen(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.secondary
         )
+
+        if (state.pendingSyncCount > 0 || state.isSyncing) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("offline_sync_card"),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = if (state.isSyncing) "Syncing with server..." else "${state.pendingSyncCount} order(s) pending sync",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF92400E)
+                        )
+                        Text(
+                            text = if (state.isSyncing) "Uploading queued orders to warehouse" else "Saved locally. Tap to upload immediately.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFB45309)
+                        )
+                    }
+                    Button(
+                        onClick = onSyncNow,
+                        enabled = !state.isSyncing,
+                        modifier = Modifier.testTag("sync_now_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                    ) {
+                        if (state.isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Sync Now", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth(),

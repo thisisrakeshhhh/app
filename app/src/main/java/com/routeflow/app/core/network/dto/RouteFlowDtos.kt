@@ -14,8 +14,8 @@ data class RetailerDto(
     val beatId: String,
     val address: String,
     val contactNumber: String,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val creditLimitPaise: Long,
     val outstandingAmountPaise: Long
 )
@@ -26,8 +26,8 @@ fun RetailerDto.toEntity(): RetailerEntity = RetailerEntity(
     beatId = beatId,
     address = address,
     contactNumber = contactNumber,
-    latitude = latitude,
-    longitude = longitude,
+    latitude = latitude ?: 0.0,
+    longitude = longitude ?: 0.0,
     creditLimitPaise = creditLimitPaise,
     outstandingAmountPaise = outstandingAmountPaise
 )
@@ -221,7 +221,19 @@ data class DispatchOrderRequest(
 
 @Serializable
 data class DeliveryCompletionRequest(
-    val paymentMethod: String = "CASH"
+    val paymentMethod: String = "CASH",
+    val otp: String = "",
+    val recipientName: String = "",
+    val proofPhotoUrl: String? = null,
+    val signatureUrl: String? = null
+)
+
+@Serializable
+data class OtpResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val expiresAt: Long? = null,
+    val debugOtp: String? = null
 )
 
 @Serializable
@@ -235,5 +247,116 @@ data class DeliveryExecutiveDto(
     val fullName: String,
     val username: String,
     val isActive: Boolean = true
+)
+
+@Serializable
+data class CreateProductRequest(
+    val id: String? = null,
+    val name: String,
+    val category: String = "General",
+    val pricePaise: Long,
+    val mrpPaise: Long? = null,
+    val stockQuantity: Int = 0,
+    val unit: String,
+    val sku: String? = null,
+    val imageUrl: String? = null
+)
+
+@Serializable
+data class UpdateProductRequest(
+    val name: String? = null,
+    val category: String? = null,
+    val pricePaise: Long? = null,
+    val mrpPaise: Long? = null,
+    val unit: String? = null,
+    val sku: String? = null,
+    val isActive: Boolean? = null,
+    val imageUrl: String? = null
+)
+
+@Serializable
+data class StockAdjustmentRequest(
+    val productId: String,
+    val changeQuantity: Int,
+    val reason: String,
+    val notes: String? = null
+)
+
+@Serializable
+data class StockAdjustmentResponse(
+    val success: Boolean,
+    val adjustmentId: String? = null,
+    val newStockQuantity: Int? = null,
+    val message: String? = null
+)
+
+@Serializable
+data class CreateRetailerRequest(
+    val id: String? = null,
+    val name: String,
+    val beatId: String,
+    val address: String,
+    val contactNumber: String,
+    val creditLimitPaise: Long,
+    val paymentTermsDays: Int = 7,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
+@Serializable
+data class UpdateRetailerRequest(
+    val name: String? = null,
+    val beatId: String? = null,
+    val address: String? = null,
+    val contactNumber: String? = null,
+    val creditLimitPaise: Long? = null,
+    val paymentTermsDays: Int? = null,
+    val isActive: Boolean? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
+@Serializable
+data class EmployeeDto(
+    val id: String,
+    val username: String,
+    val fullName: String,
+    val role: String,
+    val isActive: Boolean = true,
+    val assignedBeats: List<String> = emptyList()
+)
+
+@Serializable
+data class CreateEmployeeRequest(
+    val id: String? = null,
+    val username: String,
+    val password: String,
+    val fullName: String,
+    val role: String,
+    val beatId: String? = null
+)
+
+@Serializable
+data class VisitDto(
+    val id: String,
+    val retailerId: String,
+    val checkInTime: Long,
+    val checkOutTime: Long? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val accuracy: Float? = null,
+    val durationSeconds: Long = 0,
+    val status: String = "COMPLETED",
+    val noOrderReason: String? = null,
+    val notes: String? = null,
+    val idempotencyKey: String? = null
+)
+
+@Serializable
+data class StockCheckDto(
+    val id: String? = null,
+    val retailerId: String,
+    val productId: String,
+    val quantity: Int
 )
 

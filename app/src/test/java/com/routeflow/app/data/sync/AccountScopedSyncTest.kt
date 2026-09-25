@@ -279,5 +279,19 @@ class AccountScopedSyncTest {
         override suspend fun dispatchOrder(orderId: String, request: DispatchOrderRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun getDeliveryExecutives(): List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto> = emptyList()
         override suspend fun completeDelivery(orderId: String, request: DeliveryCompletionRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun requestDeliveryOtp(orderId: String): com.routeflow.app.core.network.dto.OtpResponse =
+            com.routeflow.app.core.network.dto.OtpResponse(success = true, debugOtp = "123456")
+        override suspend fun createProduct(request: com.routeflow.app.core.network.dto.CreateProductRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun updateProduct(id: String, request: com.routeflow.app.core.network.dto.UpdateProductRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun adjustInventory(request: com.routeflow.app.core.network.dto.StockAdjustmentRequest): com.routeflow.app.core.network.dto.StockAdjustmentResponse =
+            com.routeflow.app.core.network.dto.StockAdjustmentResponse(success = true, newStockQuantity = 100)
+        override suspend fun createRetailer(request: com.routeflow.app.core.network.dto.CreateRetailerRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun updateRetailer(id: String, request: com.routeflow.app.core.network.dto.UpdateRetailerRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun getEmployees(): List<com.routeflow.app.core.network.dto.EmployeeDto> = emptyList()
+        override suspend fun createEmployee(request: com.routeflow.app.core.network.dto.CreateEmployeeRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun deactivateEmployee(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun submitVisit(request: com.routeflow.app.core.network.dto.VisitDto): StatusResponse = StatusResponse(success = true)
+        override suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto> = emptyList()
+        override suspend fun submitStockCheck(request: com.routeflow.app.core.network.dto.StockCheckDto): StatusResponse = StatusResponse(success = true)
     }
 }

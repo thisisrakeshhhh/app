@@ -697,4 +697,322 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const startAgainBody = await resStartAgain.json();
     assert.equal(startAgainBody.idempotent, true);
   });
+
+  test('12. Server-Validated Delivery OTP & Recipient Proof Workflow', async () => {
+    const otpOrd = `otp_ord_${Date.now()}`;
+    // 1. Submit and approve an order
+    await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: otpOrd, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 45000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: `${otpOrd}_i1`, productId: 'P1', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 45000, isPicked: false }]
+      })
+    });
+
+    await fetch(`${BASE_URL}/orders/${otpOrd}/approve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+
+    // Start picking and pack
+    await fetch(`${BASE_URL}/orders/${otpOrd}/start-picking`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+
+    await fetch(`${BASE_URL}/orders/${otpOrd}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P1', isPicked: true })
+    });
+
+    await fetch(`${BASE_URL}/orders/${otpOrd}/pack`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+
+    // Dispatch order to Suresh Yadav (user_delivery) -> auto-generates 6-digit OTP
+    const resDispatch = await fetch(`${BASE_URL}/orders/${otpOrd}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
+    });
+    assert.equal(resDispatch.status, 200);
+
+    // Request/retrieve OTP via endpoint
+    const resReqOtp = await fetch(`${BASE_URL}/orders/${otpOrd}/request-otp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${deliveryToken}` }
+    });
+    assert.equal(resReqOtp.status, 200);
+    const otpData = await resReqOtp.json();
+    assert.ok(otpData.debugOtp, 'Server must provide 6-digit OTP');
+    const validOtp = otpData.debugOtp;
+    assert.equal(validOtp.length, 6);
+
+    // Rejection 1: Delivery attempt missing recipient name
+    const resNoRecipient = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CASH', otp: validOtp, recipientName: '' })
+    });
+    assert.equal(resNoRecipient.status, 400, 'Empty recipient name must be rejected');
+
+    // Rejection 2: Incorrect OTP (attempt 1) -> 400 with remaining attempts
+    const resWrongOtp = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CASH', otp: '000000', recipientName: 'Sharma Ji' })
+    });
+    assert.equal(resWrongOtp.status, 400);
+    const wrongBody = await resWrongOtp.json();
+    assert.ok(wrongBody.error.includes('attempt(s) remaining'));
+
+    // Rejection 3: Malformed OTP (e.g. 4 digits or non-digits)
+    const resShortOtp = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CASH', otp: '4829', recipientName: 'Sharma Ji' })
+    });
+    assert.equal(resShortOtp.status, 400, '4-digit OTP must be rejected as invalid format');
+
+    // Successful Delivery with valid server OTP and recipient name
+    const resSuccessDeliver = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({
+        paymentMethod: 'CASH',
+        otp: validOtp,
+        recipientName: 'Ramesh Sharma (Owner)',
+        proofPhotoUrl: 'https://r2.routeflow.internal/proofs/ord1.jpg',
+        signatureUrl: 'https://r2.routeflow.internal/signatures/ord1.png'
+      })
+    });
+    assert.equal(resSuccessDeliver.status, 200, 'Delivery with valid OTP and recipient must succeed');
+
+    // Verification: Order details reflect delivered status and recipient name
+    const resOrder = await fetch(`${BASE_URL}/orders/${otpOrd}`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    const orderData = await resOrder.json();
+    assert.equal(orderData.order.status, 'DELIVERED');
+    assert.equal(orderData.order.paymentMethod, 'CASH');
+
+    // Duplicate delivery attempt -> idempotent 200
+    const resDupDeliver = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CASH', otp: validOtp, recipientName: 'Ramesh Sharma (Owner)' })
+    });
+    assert.equal(resDupDeliver.status, 200);
+    assert.equal((await resDupDeliver.json()).idempotent, true);
+  });
+
+  test('13. Owner Master Data: Product CRUD, Price Preservation, and Audited Stock Adjustments', async () => {
+    // 1. Salesperson/Warehouse cannot create product (403)
+    const resSalesCreate = await fetch(`${BASE_URL}/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({ name: 'Unauthorized Biscuit', pricePaise: 5000, unit: 'Pack' })
+    });
+    assert.equal(resSalesCreate.status, 403);
+
+    // 2. Owner creates new product
+    const newProdId = `prod_test_${Date.now()}`;
+    const resOwnerCreate = await fetch(`${BASE_URL}/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        id: newProdId,
+        name: 'Jaipur Special Masala Tea',
+        category: 'Beverages',
+        pricePaise: 35000,
+        mrpPaise: 40000,
+        stockQuantity: 50,
+        unit: '500g Jar',
+        sku: 'JAI-TEA-500'
+      })
+    });
+    assert.equal(resOwnerCreate.status, 200);
+
+    // 3. Audited Stock Adjustment (Stock Receipt: +25 units)
+    const resStockReceipt = await fetch(`${BASE_URL}/inventory/adjust`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        productId: newProdId,
+        changeQuantity: 25,
+        reason: 'STOCK_RECEIPT',
+        notes: 'Inbound shipment PO-8821'
+      })
+    });
+    assert.equal(resStockReceipt.status, 200);
+    const receiptData = await resStockReceipt.json();
+    assert.equal(receiptData.newStockQuantity, 75);
+
+    // Negative stock adjustment rejected
+    const resExcessDeduct = await fetch(`${BASE_URL}/inventory/adjust`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        productId: newProdId,
+        changeQuantity: -100,
+        reason: 'DAMAGE'
+      })
+    });
+    assert.equal(resExcessDeduct.status, 400);
+
+    // 4. Owner updates product price (to 38,000 paise)
+    const resUpdatePrice = await fetch(`${BASE_URL}/products/${newProdId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ pricePaise: 38000 })
+    });
+    assert.equal(resUpdatePrice.status, 200);
+  });
+
+  test('14. Owner Master Data: Retailer Creation/Editing, Employee Onboarding & Instant Session Revocation', async () => {
+    // 1. Owner creates new retailer
+    const newRetId = `ret_test_${Date.now()}`;
+    const resCreateRet = await fetch(`${BASE_URL}/retailers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        id: newRetId,
+        name: 'Kripa Super Store',
+        beatId: 'BEAT-04',
+        address: 'Plot 12, Tonk Road, Jaipur',
+        contactNumber: '9829988776',
+        creditLimitPaise: 1500000,
+        paymentTermsDays: 14
+      })
+    });
+    assert.equal(resCreateRet.status, 200);
+
+    // 2. Owner updates retailer credit limit
+    const resUpdateRet = await fetch(`${BASE_URL}/retailers/${newRetId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ creditLimitPaise: 2000000 })
+    });
+    assert.equal(resUpdateRet.status, 200);
+
+    // 3. Owner onboards a new salesperson
+    const newEmpUser = `sales_new_${Date.now()}`;
+    const resCreateEmp = await fetch(`${BASE_URL}/employees`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        username: newEmpUser,
+        password: 'Password@123',
+        fullName: 'Vikram Choudhary',
+        role: 'SALESPERSON',
+        beatId: 'BEAT-04'
+      })
+    });
+    assert.equal(resCreateEmp.status, 200);
+    const empData = await resCreateEmp.json();
+    const newEmpId = empData.employee.id;
+
+    // Login with the newly created employee
+    const resNewLogin = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: newEmpUser, password: 'Password@123' })
+    });
+    assert.equal(resNewLogin.status, 200);
+    const newEmpToken = (await resNewLogin.json()).access_token;
+
+    // New employee can view retailers in assigned beat
+    const resRetCheck = await fetch(`${BASE_URL}/retailers`, {
+      headers: { Authorization: `Bearer ${newEmpToken}` }
+    });
+    assert.equal(resRetCheck.status, 200);
+
+    // 4. Owner deactivates employee -> session must be instantly revoked
+    const resDeact = await fetch(`${BASE_URL}/employees/${newEmpId}/deactivate`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(resDeact.status, 200);
+
+    // Deactivated user's active access token must now return 401 Unauthorized
+    const resPostDeact = await fetch(`${BASE_URL}/retailers`, {
+      headers: { Authorization: `Bearer ${newEmpToken}` }
+    });
+    assert.equal(resPostDeact.status, 401, 'Revoked employee session must return 401');
+  });
+
+  test('15. Field Operations: Shop Visit Synchronization and In-Store Stock Audit', async () => {
+    // 1. Salesperson records completed shop visit
+    const visitId = `vis_${Date.now()}`;
+    const now = Date.now();
+    const resVisit = await fetch(`${BASE_URL}/visits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        id: visitId,
+        retailerId: 'R1',
+        checkInTime: now - 900000, // 15 mins ago
+        checkOutTime: now,
+        latitude: 26.8521,
+        longitude: 75.7645,
+        accuracy: 8.5,
+        durationSeconds: 900,
+        status: 'COMPLETED',
+        notes: 'Owner verified stock, placed weekly order',
+        idempotencyKey: `idemp_${visitId}`
+      })
+    });
+    assert.equal(resVisit.status, 200);
+    const visitBody = await resVisit.json();
+    assert.equal(visitBody.success, true);
+
+    // Idempotent duplicate submission
+    const resDupVisit = await fetch(`${BASE_URL}/visits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        id: visitId,
+        retailerId: 'R1',
+        checkInTime: now - 900000,
+        idempotencyKey: `idemp_${visitId}`
+      })
+    });
+    assert.equal(resDupVisit.status, 200);
+    assert.equal((await resDupVisit.json()).idempotent, true);
+
+    // 2. Salesperson lists visits
+    const resGetVisits = await fetch(`${BASE_URL}/visits`, {
+      headers: { Authorization: `Bearer ${salesToken}` }
+    });
+    assert.equal(resGetVisits.status, 200);
+    const visits = await resGetVisits.json();
+    assert.ok(visits.some(v => v.id === visitId));
+
+    // 3. Salesperson records in-store stock check for retailer R1
+    const resStockCheck = await fetch(`${BASE_URL}/stock-checks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        retailerId: 'R1',
+        productId: 'P1',
+        quantity: 8 // Retailer has 8 units remaining on shelf
+      })
+    });
+    assert.equal(resStockCheck.status, 200);
+    const scBody = await resStockCheck.json();
+    assert.ok(scBody.stockCheckId);
+
+    // Read back in-store stock check
+    const resGetSc = await fetch(`${BASE_URL}/stock-checks/R1`, {
+      headers: { Authorization: `Bearer ${salesToken}` }
+    });
+    assert.equal(resGetSc.status, 200);
+    const scList = await resGetSc.json();
+    assert.ok(scList.length > 0);
+    assert.equal(scList[0].productId, 'P1');
+    assert.equal(scList[0].quantity, 8);
+  });
 });

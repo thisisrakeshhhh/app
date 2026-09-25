@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -25,6 +26,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -51,14 +53,17 @@ fun DeliveryDetailScreen(
     retailerName: String,
     amountPaise: Long,
     detailState: DeliveryDetailState,
-    onDeliver: (String) -> Unit,
+    onDeliver: (paymentMethod: String, otp: String, recipientName: String) -> Unit,
+    onRequestOtp: () -> Unit = {},
     onClearError: () -> Unit = {}
 ) {
+    var recipientName by remember { mutableStateOf("") }
     var deliveryCode by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("CASH") }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
-    val isCodeValid = deliveryCode.trim() == "4829"
+
+    val isFormValid = recipientName.trim().isNotEmpty() && deliveryCode.trim().length == 6
 
     Column(
         modifier = Modifier
@@ -67,7 +72,7 @@ fun DeliveryDetailScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .imePadding()
             .navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Column {
             Text(orderId, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
@@ -103,37 +108,100 @@ fun DeliveryDetailScreen(
             }
         }
 
+        if (detailState.otpSentMessage != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("otp_sent_card"),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                border = BorderStroke(1.dp, RFColors.Primary)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = RFColors.Primary)
+                    Text(
+                        text = detailState.otpSentMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RFColors.Primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Receiver & Delivery Proof", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
+                OutlinedTextField(
+                    value = recipientName,
+                    onValueChange = {
+                        recipientName = it
+                        if (detailState.error != null) onClearError()
+                    },
+                    label = { Text("Receiver / Store Person Name *") },
+                    placeholder = { Text("e.g. Ramesh Kumar (Store Manager)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("recipient_name_input"),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Verification Proof", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            deliveryCode = "4829"
-                            if (detailState.error != null) onClearError()
-                        },
-                        modifier = Modifier.testTag("fill_demo_otp_button")
+                    Text("Delivery OTP (6 digits)", style = MaterialTheme.typography.labelMedium)
+                    OutlinedButton(
+                        onClick = onRequestOtp,
+                        enabled = !detailState.isOtpLoading,
+                        modifier = Modifier.testTag("request_otp_button")
                     ) {
-                        Text("Fill Demo OTP (4829)", style = MaterialTheme.typography.labelSmall)
+                        if (detailState.isOtpLoading) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Request / Resend OTP", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
+
+                if (detailState.serverDebugOtp != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                deliveryCode = detailState.serverDebugOtp
+                                if (detailState.error != null) onClearError()
+                            },
+                            modifier = Modifier.testTag("use_received_otp_chip")
+                        ) {
+                            Text("Use Received OTP: ${detailState.serverDebugOtp}", style = MaterialTheme.typography.labelSmall, color = RFColors.Primary)
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = deliveryCode,
                     onValueChange = {
-                        deliveryCode = it
-                        if (detailState.error != null) onClearError()
+                        if (it.length <= 6) {
+                            deliveryCode = it
+                            if (detailState.error != null) onClearError()
+                        }
                     },
-                    label = { Text("Delivery Code") },
+                    label = { Text("6-digit Server OTP *") },
                     supportingText = {
-                        Text("Demo mock OTP: 4829 (Server-validated proof pending)")
+                        Text("Ask the retailer for the 6-digit code received via SMS/notification")
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -145,8 +213,7 @@ fun DeliveryDetailScreen(
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = { focusManager.clearFocus() }
-                    ),
-                    isError = deliveryCode.isNotEmpty() && !isCodeValid
+                    )
                 )
             }
         }
@@ -182,14 +249,14 @@ fun DeliveryDetailScreen(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
 
         Button(
             onClick = {
                 focusManager.clearFocus()
-                onDeliver(paymentMethod)
+                onDeliver(paymentMethod, deliveryCode.trim(), recipientName.trim())
             },
-            enabled = isCodeValid && !detailState.isLoading,
+            enabled = isFormValid && !detailState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
