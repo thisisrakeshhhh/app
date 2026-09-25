@@ -306,7 +306,10 @@ fun RouteFlowApp(
                     onTogglePicked = viewModel::toggleItemPicked,
                     onStartPicking = viewModel::startPicking,
                     onPacked = viewModel::markPacked,
-                    onDispatch = viewModel::dispatchOrder,
+                    onOpenDispatch = viewModel::openDispatchDialog,
+                    onSelectDeliveryExecutive = viewModel::selectDeliveryExecutive,
+                    onConfirmDispatch = viewModel::confirmDispatch,
+                    onDismissDispatch = viewModel::dismissDispatchDialog,
                     onErrorShown = viewModel::clearError
                 )
             }

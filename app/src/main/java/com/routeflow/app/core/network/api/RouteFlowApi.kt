@@ -53,6 +53,12 @@ interface RouteFlowApi {
     @POST("orders/{id}/reject")
     suspend fun rejectOrder(@Path("id") orderId: String, @Body request: OrderRejectionRequest): StatusResponse
 
+    @GET("delivery-executives")
+    suspend fun getDeliveryExecutives(): List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto>
+
+    @POST("orders/{id}/start-picking")
+    suspend fun startPicking(@Path("id") orderId: String): StatusResponse
+
     @POST("orders/{id}/pick-item")
     suspend fun pickItem(@Path("id") orderId: String, @Body request: ItemPickRequest): StatusResponse
 

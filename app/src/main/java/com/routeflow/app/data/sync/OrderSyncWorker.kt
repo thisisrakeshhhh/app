@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.network.api.RouteFlowApi
 import com.routeflow.app.core.network.dto.OrderSubmitRequest
+import com.routeflow.app.core.network.dto.toEntity
 import com.routeflow.app.core.security.TokenStorage
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -41,41 +42,91 @@ class OrderSyncWorker @AssistedInject constructor(
             return Result.success()
         }
 
-        // 4. Query only this account's operations
-        val pendingSyncs = database.syncOutboxDao().getPendingSyncsForUser(targetUserId, targetCompanyId)
+        // 4. Process all pending syncs for this account
+        var hasRetryableError = false
 
-        var hasError = false
+        while (true) {
+            val pendingSyncs = database.syncOutboxDao().getPendingSyncsForUser(targetUserId, targetCompanyId)
+                .filter { it.type != "PERMANENT_FAILURE" && it.type != "QUARANTINED" }
 
-        for (syncItem in pendingSyncs) {
-            // Guard against mid-request account switch: stop if active credentials changed
-            if (tokenStorage.getUserId() != targetUserId || tokenStorage.getCompanyId() != targetCompanyId) {
-                return Result.success()
-            }
+            if (pendingSyncs.isEmpty()) break
 
-            try {
-                when (syncItem.type) {
-                    "ORDER_SUBMISSION" -> {
-                        val request = json.decodeFromString<OrderSubmitRequest>(syncItem.payload)
-                        val response = api.submitOrder(request)
-                        if (response.success) {
-                            database.syncOutboxDao().deleteSyncItem(syncItem)
-                        } else {
-                            hasError = true
+            for (syncItem in pendingSyncs) {
+                // Guard against mid-request account switch: stop if active credentials changed
+                if (tokenStorage.getUserId() != targetUserId || tokenStorage.getCompanyId() != targetCompanyId) {
+                    return Result.success()
+                }
+
+                try {
+                    when (syncItem.type) {
+                        "ORDER_SUBMISSION" -> {
+                            val request = json.decodeFromString<OrderSubmitRequest>(syncItem.payload)
+                            val response = api.submitOrder(request)
+                            if (response.success) {
+                                database.syncOutboxDao().deleteSyncItem(syncItem)
+                                database.orderDao().insertOrder(request.order.toEntity())
+                                database.orderDao().insertOrderItems(request.items.map { it.toEntity() })
+                            } else {
+                                hasRetryableError = true
+                                database.syncOutboxDao().updateSyncItem(
+                                    syncItem.copy(
+                                        retryCount = syncItem.retryCount + 1,
+                                        lastError = response.message ?: "Submission unacknowledged"
+                                    )
+                                )
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    val isPermanent = if (e is retrofit2.HttpException) {
+                        val code = e.code()
+                        code in listOf(400, 403, 409, 422)
+                    } else false
+
+                    val errorMsg = if (e is retrofit2.HttpException) {
+                        try {
+                            val errBody = e.response()?.errorBody()?.string()
+                            if (!errBody.isNullOrBlank()) {
+                                val errJson = org.json.JSONObject(errBody)
+                                errJson.optString("error", errBody)
+                            } else {
+                                "HTTP ${e.code()}: ${e.message()}"
+                            }
+                        } catch (_: Exception) {
+                            "HTTP ${e.code()}: ${e.message()}"
+                        }
+                    } else {
+                        e.message ?: "Sync error"
+                    }
+
+                    if (isPermanent) {
+                        // Do not retry permanently invalid requests indefinitely
+                        database.syncOutboxDao().updateSyncItem(
+                            syncItem.copy(
+                                type = "PERMANENT_FAILURE",
+                                lastError = errorMsg
+                            )
+                        )
+                        try {
+                            val request = json.decodeFromString<OrderSubmitRequest>(syncItem.payload)
+                            database.orderDao().updateOrderStatus(request.order.id, "NEEDS_ATTENTION", System.currentTimeMillis())
+                        } catch (_: Exception) {}
+                    } else {
+                        hasRetryableError = true
+                        database.syncOutboxDao().updateSyncItem(
+                            syncItem.copy(
+                                retryCount = syncItem.retryCount + 1,
+                                lastError = errorMsg
+                            )
+                        )
+                    }
                 }
-            } catch (e: Exception) {
-                hasError = true
-                database.syncOutboxDao().updateSyncItem(
-                    syncItem.copy(
-                        retryCount = syncItem.retryCount + 1,
-                        lastError = e.message
-                    )
-                )
             }
+
+            if (hasRetryableError) break
         }
 
-        return if (hasError) Result.retry() else Result.success()
+        return if (hasRetryableError) Result.retry() else Result.success()
     }
 
     companion object {

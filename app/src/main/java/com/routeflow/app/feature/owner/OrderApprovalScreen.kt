@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
+import com.routeflow.app.core.design.OrderSyncBadge
 import com.routeflow.app.core.design.RouteFlowStatus
 
 @Composable
@@ -61,9 +62,12 @@ private fun OrderApprovalCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text(detail.order.id, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(detail.order.id, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        OrderSyncBadge(state = detail.syncState, errorMessage = detail.syncError)
+                    }
                     Text(detail.retailerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 Text(CurrencyFormatter.formatPaise(detail.order.totalAmountPaise), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)

@@ -636,4 +636,65 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
       assert.equal(p2AfterRace.reservedQuantity, p2BeforeRace.reservedQuantity, 'Stock NOT reserved when rejection wins race');
     }
   });
+
+  test('11. Delivery Executive Listing & Start Picking Transition', async () => {
+    // 1. Warehouse user fetches delivery executives
+    const resDev = await fetch(`${BASE_URL}/delivery-executives`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(resDev.status, 200);
+    const executives = await resDev.json();
+    assert.ok(Array.isArray(executives));
+    assert.ok(executives.length >= 2, 'Should return at least 2 delivery executives in comp_1');
+    const userDelivery = executives.find(e => e.id === 'user_delivery');
+    assert.ok(userDelivery, 'user_delivery must be present');
+    assert.equal(userDelivery.fullName, 'Suresh Yadav');
+
+    // Cross-company delivery user should NOT be in comp_1 list
+    const crossCompanyUser = executives.find(e => e.id === 'user_delivery_comp2');
+    assert.equal(crossCompanyUser, undefined, 'Cross-company delivery user must not appear');
+
+    // 2. Start picking transition
+    const pickOrd = `pick_start_${Date.now()}`;
+    await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: pickOrd, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 12000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: `${pickOrd}_item`, productId: 'P2', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 12000, isPicked: false }]
+      })
+    });
+
+    // Attempt start-picking BEFORE approval -> should fail 400
+    const resPremature = await fetch(`${BASE_URL}/orders/${pickOrd}/start-picking`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(resPremature.status, 400);
+
+    // Approve the order
+    await fetch(`${BASE_URL}/orders/${pickOrd}/approve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+
+    // Start picking -> should succeed
+    const resStart = await fetch(`${BASE_URL}/orders/${pickOrd}/start-picking`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(resStart.status, 200);
+    const startBody = await resStart.json();
+    assert.equal(startBody.success, true);
+    assert.equal(startBody.status, 'PICKING');
+
+    // Idempotent second call -> should also return 200 with idempotent flag
+    const resStartAgain = await fetch(`${BASE_URL}/orders/${pickOrd}/start-picking`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(resStartAgain.status, 200);
+    const startAgainBody = await resStartAgain.json();
+    assert.equal(startAgainBody.idempotent, true);
+  });
 });

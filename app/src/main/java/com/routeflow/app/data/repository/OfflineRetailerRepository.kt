@@ -11,6 +11,11 @@ import javax.inject.Inject
 class OfflineRetailerRepository @Inject constructor(
     private val retailerDao: RetailerDao
 ) : RetailerRepository {
+    override fun getAllRetailers(): Flow<List<Retailer>> =
+        retailerDao.getAllRetailers().map { entities ->
+            entities.map { it.asDomainModel() }
+        }
+
     override fun getRetailersByBeat(beatId: String): Flow<List<Retailer>> =
         retailerDao.getRetailersByBeat(beatId).map { entities ->
             entities.map { it.asDomainModel() }

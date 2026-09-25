@@ -191,7 +191,8 @@ data class OrderSubmitRequest(
 data class OrderSubmitResponse(
     val success: Boolean,
     val orderId: String,
-    val idempotent: Boolean = false
+    val idempotent: Boolean = false,
+    val message: String? = null
 )
 
 @Serializable
@@ -227,3 +228,12 @@ data class DeliveryCompletionRequest(
 data class OrderRejectionRequest(
     val reason: String
 )
+
+@Serializable
+data class DeliveryExecutiveDto(
+    val id: String,
+    val fullName: String,
+    val username: String,
+    val isActive: Boolean = true
+)
+

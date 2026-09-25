@@ -274,8 +274,10 @@ class AccountScopedSyncTest {
         override suspend fun approveOrder(orderId: String): StatusResponse = StatusResponse(success = true)
         override suspend fun rejectOrder(orderId: String, request: OrderRejectionRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun pickItem(orderId: String, request: ItemPickRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun startPicking(orderId: String): StatusResponse = StatusResponse(success = true)
         override suspend fun packOrder(orderId: String): StatusResponse = StatusResponse(success = true)
         override suspend fun dispatchOrder(orderId: String, request: DispatchOrderRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun getDeliveryExecutives(): List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto> = emptyList()
         override suspend fun completeDelivery(orderId: String, request: DeliveryCompletionRequest): StatusResponse = StatusResponse(success = true)
     }
 }

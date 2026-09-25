@@ -42,4 +42,6 @@ service-account*.json
 node_modules/
 **/node_modules/
 *.png
+*.sqlite
+*.db
 

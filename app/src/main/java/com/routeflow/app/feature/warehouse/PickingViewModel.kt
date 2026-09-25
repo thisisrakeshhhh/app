@@ -22,6 +22,9 @@ import javax.inject.Inject
 
 data class PickingState(
     val orders: List<PickingOrderDetailState> = emptyList(),
+    val deliveryExecutives: List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto> = emptyList(),
+    val selectedDeliveryExecutiveMap: Map<String, String> = emptyMap(),
+    val dispatchDialogOrderId: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -47,12 +50,57 @@ class PickingViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _error = MutableStateFlow<String?>(null)
+    private val _deliveryExecutives = MutableStateFlow<List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto>>(emptyList())
+    private val _selectedDeliveryExecutives = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val _dispatchDialogOrderId = MutableStateFlow<String?>(null)
+
+    init {
+        loadDeliveryExecutives()
+    }
+
+    fun loadDeliveryExecutives() {
+        viewModelScope.launch {
+            val result = orderRepository.getDeliveryExecutives()
+            if (result.isSuccess) {
+                val list = result.getOrNull().orEmpty()
+                _deliveryExecutives.value = list
+                // Pre-select first executive if available and not yet selected
+                if (list.isNotEmpty()) {
+                    _selectedDeliveryExecutives.update { current ->
+                        val updated = current.toMutableMap()
+                        state.value.orders.forEach { orderState ->
+                            if (!updated.containsKey(orderState.order.id)) {
+                                updated[orderState.order.id] = list.first().id
+                            }
+                        }
+                        updated
+                    }
+                }
+            }
+        }
+    }
+
+    private data class PickingUiInternalState(
+        val executives: List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto> = emptyList(),
+        val selectedExecs: Map<String, String> = emptyMap(),
+        val dialogOrderId: String? = null,
+        val error: String? = null
+    )
+
+    private val _uiInternalState = combine(
+        _deliveryExecutives,
+        _selectedDeliveryExecutives,
+        _dispatchDialogOrderId,
+        _error
+    ) { executives, selectedExecs, dialogOrderId, error ->
+        PickingUiInternalState(executives, selectedExecs, dialogOrderId, error)
+    }
 
     val state: StateFlow<PickingState> = combine(
         orderRepository.getAllOrders(),
         productRepository.getAllProducts(),
-        _error
-    ) { orders, products, error ->
+        _uiInternalState
+    ) { orders, products, uiState ->
         val details = orders.filter { 
             it.status == "APPROVED" || it.status == "PICKING" || it.status == "PACKED" 
         }.map { order ->
@@ -67,7 +115,14 @@ class PickingViewModel @Inject constructor(
                 allPicked = items.all { it.isPicked }
             )
         }
-        PickingState(orders = details, error = error)
+        PickingState(
+            orders = details,
+            deliveryExecutives = uiState.executives,
+            selectedDeliveryExecutiveMap = uiState.selectedExecs,
+            dispatchDialogOrderId = uiState.dialogOrderId,
+            isLoading = false,
+            error = uiState.error
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -79,14 +134,20 @@ class PickingViewModel @Inject constructor(
         val item = order?.items?.find { it.item.productId == productId }
         if (item != null) {
             viewModelScope.launch {
-                orderRepository.updateItemPickingStatus(orderId, productId, !item.isPicked)
+                val result = orderRepository.updateItemPickingStatus(orderId, productId, !item.isPicked)
+                if (result.isFailure) {
+                    _error.value = result.exceptionOrNull()?.message ?: "Failed to update item picking status"
+                }
             }
         }
     }
 
     fun startPicking(orderId: String) {
         viewModelScope.launch {
-            orderRepository.startPicking(orderId)
+            val result = orderRepository.startPicking(orderId)
+            if (result.isFailure) {
+                _error.value = result.exceptionOrNull()?.message ?: "Failed to start picking on server"
+            }
         }
     }
 
@@ -97,15 +158,46 @@ class PickingViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            orderRepository.markPacked(orderId)
+            val result = orderRepository.markPacked(orderId)
+            if (result.isFailure) {
+                _error.value = result.exceptionOrNull()?.message ?: "Failed to pack order on server"
+            }
         }
     }
 
-    fun dispatchOrder(orderId: String) {
+    fun openDispatchDialog(orderId: String) {
+        _dispatchDialogOrderId.value = orderId
+        // If delivery executives list is empty, retry fetching
+        if (_deliveryExecutives.value.isEmpty()) {
+            loadDeliveryExecutives()
+        }
+    }
+
+    fun dismissDispatchDialog() {
+        _dispatchDialogOrderId.value = null
+    }
+
+    fun selectDeliveryExecutive(orderId: String, employeeId: String) {
+        _selectedDeliveryExecutives.update { current ->
+            current + (orderId to employeeId)
+        }
+    }
+
+    fun confirmDispatch(orderId: String) {
+        val executiveId = _selectedDeliveryExecutives.value[orderId] 
+            ?: _deliveryExecutives.value.firstOrNull()?.id
+
+        if (executiveId.isNullOrBlank()) {
+            _error.value = "Please select a delivery executive to dispatch"
+            return
+        }
+
         viewModelScope.launch {
-            val result = orderRepository.dispatchOrder(orderId)
-            if (result.isFailure) {
-                _error.value = result.exceptionOrNull()?.message
+            val result = orderRepository.dispatchOrder(orderId, executiveId)
+            if (result.isSuccess) {
+                _dispatchDialogOrderId.value = null
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "Failed to dispatch order"
             }
         }
     }

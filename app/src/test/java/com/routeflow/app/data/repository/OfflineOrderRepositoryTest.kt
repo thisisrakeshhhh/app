@@ -72,7 +72,7 @@ class OfflineOrderRepositoryTest {
         repository.approveOrder(orderId)
         database.orderDao().updateOrderStatus(orderId, "PACKED", 0) // Skip picking for test
         
-        val result = repository.dispatchOrder(orderId)
+        val result = repository.dispatchOrder(orderId, "E_DELIVERY")
         assertTrue(result.isSuccess)
         
         val product = database.productDao().getAllProducts().first().first()

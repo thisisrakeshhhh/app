@@ -18,6 +18,8 @@ class OfflineOrderRepository @Inject constructor(
     override fun getAllOrders(): Flow<List<OrderEntity>> = database.orderDao().getAllOrders()
     override fun getOrderById(orderId: String): Flow<OrderEntity?> = database.orderDao().getOrderById(orderId)
     override fun getItemsForOrder(orderId: String): Flow<List<OrderItemEntity>> = database.orderDao().getItemsForOrder(orderId)
+    override fun getPendingSyncOutbox(): Flow<List<com.routeflow.app.core.database.entity.SyncOutboxEntity>> =
+        database.syncOutboxDao().observeAllPendingSyncs()
 
     override suspend fun createOrder(order: OrderEntity, items: List<OrderItemEntity>): Result<Unit> {
         return try {
@@ -82,7 +84,7 @@ class OfflineOrderRepository @Inject constructor(
         Result.failure(e)
     }
 
-    override suspend fun dispatchOrder(orderId: String): Result<Unit> = try {
+    override suspend fun dispatchOrder(orderId: String, deliveryEmployeeId: String): Result<Unit> = try {
         database.withTransaction {
             val order = database.orderDao().getOrderById(orderId).first()
                 ?: throw Exception("Order not found")
@@ -113,6 +115,9 @@ class OfflineOrderRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun getDeliveryExecutives(): Result<List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto>> =
+        Result.success(emptyList())
 
     override suspend fun completeDelivery(orderId: String, paymentMethod: String): Result<Unit> = try {
         database.withTransaction {

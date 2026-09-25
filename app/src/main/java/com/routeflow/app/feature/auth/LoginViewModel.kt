@@ -36,6 +36,7 @@ class LoginViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val tokenStorage: TokenStorage,
     private val database: RouteFlowDatabase,
+    private val syncManager: com.routeflow.app.data.sync.SyncManager,
     private val json: Json
 ) : ViewModel() {
 
@@ -74,7 +75,7 @@ class LoginViewModel @Inject constructor(
                     tokenStorage.saveUser(user.id, user.name, user.role, user.companyId)
 
                     // 1. Identify and preserve offline unsynced orders to protect them from deletion
-                    val pendingSyncs = database.syncOutboxDao().getPendingSyncsForUser(user.id, user.companyId)
+                    val pendingSyncs = database.syncOutboxDao().getAllPendingSyncs()
                     val preservedOrderIds = pendingSyncs.mapNotNull { syncItem ->
                         try {
                             json.decodeFromString<OrderSubmitRequest>(syncItem.payload).order.id
@@ -94,6 +95,11 @@ class LoginViewModel @Inject constructor(
                         val orderItemsList = serverOrders.map { orderDto ->
                             val details = api.getOrderDetails(orderDto.id)
                             orderDto.toEntity() to details.items.map { it.toEntity() }
+                        }
+
+                        // Verify account context has not switched mid-fetch before writing to Room
+                        if (tokenStorage.getUserId() != user.id || tokenStorage.getCompanyId() != user.companyId) {
+                            return@launch
                         }
 
                         database.withTransaction {
@@ -129,6 +135,7 @@ class LoginViewModel @Inject constructor(
                             role = role
                         )
                     )
+                    syncManager.scheduleSync(user.id, user.companyId)
                     _state.update { it.copy(isLoading = false, isLoggedIn = true) }
                 } else {
                     _state.update { it.copy(isLoading = false, errorMessage = "User data missing") }

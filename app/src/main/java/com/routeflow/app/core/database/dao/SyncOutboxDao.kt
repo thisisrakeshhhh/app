@@ -6,9 +6,13 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.routeflow.app.core.database.entity.SyncOutboxEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SyncOutboxDao {
+    @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC")
+    fun observeAllPendingSyncs(): Flow<List<SyncOutboxEntity>>
+
     @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC")
     suspend fun getAllPendingSyncs(): List<SyncOutboxEntity>
 

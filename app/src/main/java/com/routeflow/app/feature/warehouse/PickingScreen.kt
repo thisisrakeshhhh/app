@@ -37,7 +37,10 @@ fun PickingScreen(
     onTogglePicked: (String, String) -> Unit,
     onStartPicking: (String) -> Unit,
     onPacked: (String) -> Unit,
-    onDispatch: (String) -> Unit,
+    onOpenDispatch: (String) -> Unit,
+    onSelectDeliveryExecutive: (String, String) -> Unit,
+    onConfirmDispatch: (String) -> Unit,
+    onDismissDispatch: () -> Unit,
     onErrorShown: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -47,6 +50,56 @@ fun PickingScreen(
             snackbarHostState.showSnackbar(it)
             onErrorShown()
         }
+    }
+
+    if (state.dispatchDialogOrderId != null) {
+        val orderId = state.dispatchDialogOrderId
+        val selectedId = state.selectedDeliveryExecutiveMap[orderId] 
+            ?: state.deliveryExecutives.firstOrNull()?.id
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onDismissDispatch,
+            title = { Text("Assign Delivery Executive", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Select a delivery driver for order $orderId:", style = MaterialTheme.typography.bodyMedium)
+                    if (state.deliveryExecutives.isEmpty()) {
+                        Text("No active delivery executives found.", color = MaterialTheme.colorScheme.error)
+                    } else {
+                        state.deliveryExecutives.forEach { exec ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                androidx.compose.material3.RadioButton(
+                                    selected = selectedId == exec.id,
+                                    onClick = { onSelectDeliveryExecutive(orderId, exec.id) }
+                                )
+                                Column(Modifier.padding(start = 8.dp)) {
+                                    Text(exec.fullName, fontWeight = FontWeight.SemiBold)
+                                    Text("@${exec.username}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onConfirmDispatch(orderId) },
+                    enabled = !selectedId.isNullOrBlank()
+                ) {
+                    Text("Confirm & Dispatch")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = onDismissDispatch) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Column {
@@ -63,7 +116,7 @@ fun PickingScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(state.orders) { detail ->
-                    PickingOrderCard(detail, onTogglePicked, onStartPicking, onPacked, onDispatch)
+                    PickingOrderCard(detail, onTogglePicked, onStartPicking, onPacked, onOpenDispatch)
                 }
             }
         }
@@ -77,7 +130,7 @@ private fun PickingOrderCard(
     onTogglePicked: (String, String) -> Unit,
     onStartPicking: (String) -> Unit,
     onPacked: (String) -> Unit,
-    onDispatch: (String) -> Unit
+    onOpenDispatch: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -133,11 +186,12 @@ private fun PickingOrderCard(
                     }
                 }
                 "PACKED" -> {
-                    Button(onClick = { onDispatch(detail.order.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Dispatch (Assign Suresh)")
+                    Button(onClick = { onOpenDispatch(detail.order.id) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Dispatch Order (Select Driver)")
                     }
                 }
             }
         }
     }
 }
+

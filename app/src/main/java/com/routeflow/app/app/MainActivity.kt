@@ -18,6 +18,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     private val demoViewModel: DemoLoginViewModel by viewModels()
     @Inject lateinit var tokenStorage: TokenStorage
+    @Inject lateinit var syncManager: com.routeflow.app.data.sync.SyncManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,22 +37,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        val userId = tokenStorage.getUserId()
-        val companyId = tokenStorage.getCompanyId()
-        if (!userId.isNullOrBlank() && !companyId.isNullOrBlank()) {
-            val syncRequest = androidx.work.OneTimeWorkRequestBuilder<com.routeflow.app.data.sync.OrderSyncWorker>()
-                .setInputData(
-                    androidx.work.workDataOf(
-                        com.routeflow.app.data.sync.OrderSyncWorker.KEY_USER_ID to userId,
-                        com.routeflow.app.data.sync.OrderSyncWorker.KEY_COMPANY_ID to companyId
-                    )
-                )
-                .build()
-            androidx.work.WorkManager.getInstance(this).enqueueUniqueWork(
-                "order_sync_${userId}_${companyId}",
-                androidx.work.ExistingWorkPolicy.REPLACE,
-                syncRequest
-            )
-        }
+        syncManager.scheduleSync()
     }
 }

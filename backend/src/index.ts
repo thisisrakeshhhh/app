@@ -311,6 +311,28 @@ app.get('/products', authMiddleware, async (c) => {
   return c.json(results);
 });
 
+app.get('/delivery-executives', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: warehouse or owner role required' }, 403);
+  }
+
+  const { results } = await c.env.DB.prepare(
+    'SELECT id, full_name AS fullName, username, is_active FROM users WHERE company_id = ? AND role = ? AND is_active = 1'
+  )
+    .bind(user.company_id, 'DELIVERY_EXECUTIVE')
+    .all();
+
+  const formatted = results.map((r: any) => ({
+    id: r.id,
+    fullName: r.fullName,
+    username: r.username,
+    isActive: Boolean(r.is_active)
+  }));
+
+  return c.json(formatted);
+});
+
 // --- ORDER LIFECYCLE ---
 
 app.post('/orders', authMiddleware, async (c) => {
@@ -721,6 +743,40 @@ app.post('/orders/:id/reject', authMiddleware, async (c) => {
     }
     return c.json({ error: e.message || 'Rejection failed' }, 400);
   }
+});
+
+app.post('/orders/:id/start-picking', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: warehouse role required' }, 403);
+  }
+
+  const orderId = c.req.param('id');
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
+    .bind(orderId, user.company_id)
+    .first() as any;
+
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  // Idempotent if already in PICKING
+  if (order.status === 'PICKING') {
+    return c.json({ success: true, idempotent: true, status: 'PICKING' });
+  }
+
+  if (order.status !== 'APPROVED') {
+    return c.json({ error: `Cannot start picking for order with status ${order.status}` }, 400);
+  }
+
+  const now = Date.now();
+  await c.env.DB.batch([
+    c.env.DB.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status = ?')
+      .bind('PICKING', now, orderId, 'APPROVED'),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_PICKING_STARTED', orderId, 'Picking started by warehouse', now)
+  ]);
+
+  return c.json({ success: true, status: 'PICKING' });
 });
 
 app.post('/orders/:id/pick-item', authMiddleware, async (c) => {

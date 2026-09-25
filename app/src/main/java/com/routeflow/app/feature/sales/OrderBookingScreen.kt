@@ -62,7 +62,12 @@ fun OrderBookingScreen(
                 }
             }
             
-            CartSummary(state.cartTotalPaise, state.cart.isNotEmpty(), onSubmit)
+            CartSummary(
+                totalPaise = state.cartTotalPaise,
+                hasItems = state.cart.isNotEmpty(),
+                isSubmitting = state.isSubmitting,
+                onSubmit = onSubmit
+            )
         }
     }
 }
@@ -138,15 +143,29 @@ private fun ProductCard(item: ProductItemState, quantity: Int, onQuantityChange:
 }
 
 @Composable
-private fun CartSummary(totalPaise: Long, hasItems: Boolean, onSubmit: () -> Unit) {
+private fun CartSummary(
+    totalPaise: Long,
+    hasItems: Boolean,
+    isSubmitting: Boolean,
+    onSubmit: () -> Unit
+) {
     Surface(shadowElevation = 8.dp, tonalElevation = 2.dp) {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("Total Amount", style = MaterialTheme.typography.labelSmall)
                 Text(CurrencyFormatter.formatPaise(totalPaise), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
             }
-            Button(onClick = onSubmit, enabled = hasItems, modifier = Modifier.height(56.dp).padding(start = 16.dp)) {
-                Text("Submit Order")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isSubmitting) {
+                    com.routeflow.app.core.design.OrderSyncBadge(state = com.routeflow.app.domain.model.OrderSyncState.SYNCING)
+                }
+                Button(
+                    onClick = onSubmit,
+                    enabled = hasItems && !isSubmitting,
+                    modifier = Modifier.height(56.dp)
+                ) {
+                    Text(if (isSubmitting) "Submitting…" else "Submit Order")
+                }
             }
         }
     }

@@ -22,17 +22,24 @@ import androidx.compose.ui.unit.dp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.domain.model.Employee
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.routeflow.app.core.design.OrderSyncBadge
+
 @Composable
 fun SalesHomeScreen(
     employee: Employee,
     state: SalesHomeState,
     onStartVisits: () -> Unit,
 ) {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Text(
             text = "Hello, ${employee.name}",
@@ -91,7 +98,35 @@ fun SalesHomeScreen(
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        if (state.recentOrders.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Recent Orders & Sync Status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                state.recentOrders.forEach { order ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(order.id, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    OrderSyncBadge(state = order.syncState, errorMessage = order.syncError)
+                                }
+                                Text(order.retailerName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            }
+                            Text(CurrencyFormatter.formatPaise(order.totalAmountPaise), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         Button(
             onClick = onStartVisits,

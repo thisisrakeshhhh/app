@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface RetailerDao {
+    @Query("SELECT * FROM retailers")
+    fun getAllRetailers(): Flow<List<RetailerEntity>>
+
     @Query("SELECT * FROM retailers WHERE beatId = :beatId")
     fun getRetailersByBeat(beatId: String): Flow<List<RetailerEntity>>
 

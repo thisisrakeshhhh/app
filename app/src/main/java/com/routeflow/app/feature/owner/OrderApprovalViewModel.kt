@@ -31,7 +31,9 @@ data class OrderApprovalState(
 data class OrderDetailState(
     val order: OrderEntity,
     val items: List<OrderItemWithProduct>,
-    val retailerName: String
+    val retailerName: String,
+    val syncState: com.routeflow.app.domain.model.OrderSyncState = com.routeflow.app.domain.model.OrderSyncState.SYNCED,
+    val syncError: String? = null
 )
 
 data class OrderItemWithProduct(
@@ -51,14 +53,32 @@ class OrderApprovalViewModel @Inject constructor(
     val state: StateFlow<OrderApprovalState> = combine(
         orderRepository.getAllOrders(),
         productRepository.getAllProducts(),
+        orderRepository.getPendingSyncOutbox(),
         _uiState
-    ) { orders, products, uiState ->
-        val details = orders.filter { it.status == "SUBMITTED" }.map { order ->
+    ) { orders, products, pendingSyncs, uiState ->
+        val details = orders.filter { it.status == "SUBMITTED" || it.status == "NEEDS_ATTENTION" }.map { order ->
             val items = orderRepository.getItemsForOrder(order.id).first().map { item ->
                 OrderItemWithProduct(item, products.find { it.id == item.productId })
             }
             val retailer = retailerRepository.getRetailerById(order.retailerId).first()
-            OrderDetailState(order, items, retailer?.name ?: "Unknown Retailer")
+            val outboxItem = pendingSyncs.firstOrNull { it.payload.contains(order.id) }
+            val (syncState, syncError) = when {
+                order.status == "NEEDS_ATTENTION" ->
+                    com.routeflow.app.domain.model.OrderSyncState.NEEDS_ATTENTION to (order.rejectionReason ?: outboxItem?.lastError ?: "Validation failure")
+                outboxItem != null && outboxItem.type == "PERMANENT_FAILURE" ->
+                    com.routeflow.app.domain.model.OrderSyncState.NEEDS_ATTENTION to (outboxItem.lastError ?: "Permanent failure")
+                outboxItem != null ->
+                    com.routeflow.app.domain.model.OrderSyncState.SAVED_OFFLINE to outboxItem.lastError
+                else ->
+                    com.routeflow.app.domain.model.OrderSyncState.SYNCED to null
+            }
+            OrderDetailState(
+                order = order,
+                items = items,
+                retailerName = retailer?.name ?: "Unknown Retailer",
+                syncState = syncState,
+                syncError = syncError
+            )
         }
         uiState.copy(orders = details, isLoading = false)
     }.stateIn(

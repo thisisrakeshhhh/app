@@ -12,6 +12,7 @@ import com.routeflow.app.core.database.entity.OrderItemEntity
 import com.routeflow.app.core.database.entity.SyncOutboxEntity
 import com.routeflow.app.core.network.api.RouteFlowApi
 import com.routeflow.app.core.network.dto.DeliveryCompletionRequest
+import com.routeflow.app.core.network.dto.DeliveryExecutiveDto
 import com.routeflow.app.core.network.dto.DispatchOrderRequest
 import com.routeflow.app.core.network.dto.ItemPickRequest
 import com.routeflow.app.core.network.dto.OrderRejectionRequest
@@ -33,12 +34,15 @@ class NetworkOrderRepository @Inject constructor(
     private val database: RouteFlowDatabase,
     private val api: RouteFlowApi,
     private val tokenStorage: TokenStorage,
+    private val syncManager: com.routeflow.app.data.sync.SyncManager,
     private val json: Json
 ) : OrderRepository {
 
     override fun getAllOrders(): Flow<List<OrderEntity>> = database.orderDao().getAllOrders()
     override fun getOrderById(orderId: String): Flow<OrderEntity?> = database.orderDao().getOrderById(orderId)
     override fun getItemsForOrder(orderId: String): Flow<List<OrderItemEntity>> = database.orderDao().getItemsForOrder(orderId)
+    override fun getPendingSyncOutbox(): Flow<List<com.routeflow.app.core.database.entity.SyncOutboxEntity>> =
+        database.syncOutboxDao().observeAllPendingSyncs()
 
     override suspend fun createOrder(order: OrderEntity, items: List<OrderItemEntity>): Result<Unit> {
         return try {
@@ -77,20 +81,8 @@ class NetworkOrderRepository @Inject constructor(
                     }
                 }
             } catch (_: Exception) {
-                // Background worker will retry from outbox when connectivity is available
-                val syncRequest = OneTimeWorkRequestBuilder<OrderSyncWorker>()
-                    .setInputData(
-                        workDataOf(
-                            OrderSyncWorker.KEY_USER_ID to currentUserId,
-                            OrderSyncWorker.KEY_COMPANY_ID to currentCompanyId
-                        )
-                    )
-                    .build()
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    "order_sync_${currentUserId}_${currentCompanyId}",
-                    ExistingWorkPolicy.REPLACE,
-                    syncRequest
-                )
+                // Centralized sync scheduling without cancelling active workers
+                syncManager.scheduleSync(currentUserId, currentCompanyId)
             }
 
             Result.success(Unit)
@@ -124,9 +116,13 @@ class NetworkOrderRepository @Inject constructor(
     }
 
     override suspend fun startPicking(orderId: String): Result<Unit> = try {
-        // Warehouse begins picking - locally reflects transition
-        database.orderDao().updateOrderStatus(orderId, "PICKING", System.currentTimeMillis())
-        Result.success(Unit)
+        val response = api.startPicking(orderId)
+        if (response.success) {
+            database.orderDao().updateOrderStatus(orderId, "PICKING", System.currentTimeMillis())
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception(response.message ?: "Failed to start picking"))
+        }
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -156,15 +152,20 @@ class NetworkOrderRepository @Inject constructor(
         Result.failure(e)
     }
 
-    override suspend fun dispatchOrder(orderId: String): Result<Unit> = try {
-        // Assign default or designated delivery executive
-        val response = api.dispatchOrder(orderId, DispatchOrderRequest(deliveryEmployeeId = "user_delivery"))
+    override suspend fun dispatchOrder(orderId: String, deliveryEmployeeId: String): Result<Unit> = try {
+        val response = api.dispatchOrder(orderId, DispatchOrderRequest(deliveryEmployeeId = deliveryEmployeeId))
         if (response.success) {
             database.orderDao().updateOrderStatus(orderId, "OUT_FOR_DELIVERY", System.currentTimeMillis())
             Result.success(Unit)
         } else {
             Result.failure(Exception(response.message ?: "Dispatch failed"))
         }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getDeliveryExecutives(): Result<List<DeliveryExecutiveDto>> = try {
+        Result.success(api.getDeliveryExecutives())
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -182,20 +183,35 @@ class NetworkOrderRepository @Inject constructor(
     }
 
     suspend fun syncOrdersFromServer(): Result<Unit> = try {
+        val currentUserId = tokenStorage.getUserId() ?: ""
+        val currentCompanyId = tokenStorage.getCompanyId() ?: ""
+
         val ordersDto = api.getOrders()
-        database.withTransaction {
-            ordersDto.forEach { orderDto ->
-                database.orderDao().insertOrder(orderDto.toEntity())
-                try {
-                    val details = api.getOrderDetails(orderDto.id)
-                    val items = details.items.map { it.toEntity() }
-                    database.orderDao().insertOrderItems(items)
-                } catch (_: Exception) {
-                    // Header preserved even if details fetch fails
+        // 1. Fetch details outside any transaction
+        val orderWithItemsList = ordersDto.map { orderDto ->
+            val items = try {
+                api.getOrderDetails(orderDto.id).items.map { it.toEntity() }
+            } catch (_: Exception) {
+                emptyList()
+            }
+            orderDto.toEntity() to items
+        }
+
+        // 2. Verify account context has not switched mid-fetch
+        if (tokenStorage.getUserId() != currentUserId || tokenStorage.getCompanyId() != currentCompanyId) {
+            Result.failure(IllegalStateException("Account switched during orders fetch"))
+        } else {
+            // 3. Short atomic Room transaction
+            database.withTransaction {
+                orderWithItemsList.forEach { (orderEntity, itemEntities) ->
+                    database.orderDao().insertOrder(orderEntity)
+                    if (itemEntities.isNotEmpty()) {
+                        database.orderDao().insertOrderItems(itemEntities)
+                    }
                 }
             }
+            Result.success(Unit)
         }
-        Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
     }
