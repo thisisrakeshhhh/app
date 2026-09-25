@@ -1,0 +1,127 @@
+<resources>
+    <string name="app_name">RouteFlow</string>
+    <string name="app_tagline">गोदाम एवं वितरण प्रबंधन प्रणाली</string>
+
+    <!-- Authentication & Common -->
+    <string name="login_title">रूटफ्लो लॉगिन</string>
+    <string name="username">उपयोगकर्ता नाम</string>
+    <string name="password">पासवर्ड</string>
+    <string name="login_button">लॉगिन करें</string>
+    <string name="logging_in">लॉगिन हो रहा है…</string>
+    <string name="logout">लॉगआउट</string>
+    <string name="cancel">रद्द करें</string>
+    <string name="save">सुरक्षित करें</string>
+    <string name="submit">जमा करें</string>
+    <string name="confirm">पुष्टि करें</string>
+    <string name="back">पीछे</string>
+    <string name="retry">पुनः प्रयास करें</string>
+    <string name="refresh">ताज़ा करें</string>
+    <string name="loading">लोड हो रहा है…</string>
+    <string name="error">त्रुटि</string>
+    <string name="success">सफल</string>
+    <string name="search">खोजें</string>
+    <string name="all">सभी</string>
+    <string name="status">स्थिति</string>
+    <string name="date">तारीख</string>
+    <string name="actions">कार्रवाई</string>
+    <string name="notes">टिप्पणी</string>
+    <string name="optional">वैकल्पिक</string>
+    <string name="required">आवश्यक</string>
+
+    <!-- Roles -->
+    <string name="role_owner">मालिक / डिस्ट्रीब्यूटर</string>
+    <string name="role_salesperson">सेल्समैन / विक्रेता</string>
+    <string name="role_warehouse">गोदाम प्रबंधक (वेयरहाउस)</string>
+    <string name="role_delivery">डिलीवरी कर्मी</string>
+
+    <!-- Owner Dashboard & Tabs -->
+    <string name="owner_dashboard">डिस्ट्रीब्यूटर डैशबोर्ड</string>
+    <string name="owner_tab_approvals">लंबित स्वीकृतियां</string>
+    <string name="owner_tab_products">उत्पाद एवं स्टॉक</string>
+    <string name="owner_tab_retailers">दुकानदार सूची (रिटेलर)</string>
+    <string name="owner_tab_employees">कर्मचारी एवं टीम</string>
+    <string name="owner_pending_approvals_count">%1$d लंबित स्वीकृतियां</string>
+    <string name="owner_total_outstanding">कुल बकाया राशि: ₹%1$s</string>
+    <string name="owner_approve_order">ऑर्डर स्वीकृत करें</string>
+    <string name="owner_reject_order">ऑर्डर अस्वीकृत करें</string>
+    <string name="owner_rejection_reason">अस्वीकृति का कारण</string>
+    <string name="owner_credit_warning">दुकानदार की क्रेडिट लिमिट समाप्त हो गई है</string>
+
+    <!-- Product & Stock Management -->
+    <string name="product_name">उत्पाद का नाम</string>
+    <string name="product_sku">एसकेयू / कोड</string>
+    <string name="product_category">श्रेणी</string>
+    <string name="product_unit">इकाई (जैसे 1 किलो पैकेट, बॉक्स)</string>
+    <string name="product_price">थोक मूल्य (₹)</string>
+    <string name="product_mrp">एमआरपी (₹)</string>
+    <string name="product_stock">उपलब्ध स्टॉक</string>
+    <string name="product_reserved">आरक्षित स्टॉक</string>
+    <string name="product_add_new">नया उत्पाद जोड़ें</string>
+    <string name="product_adjust_stock">स्टॉक समायोजन</string>
+    <string name="product_stock_adjustment">स्टॉक बदलाव</string>
+    <string name="stock_receipt">स्टॉक आवक (नया माल)</string>
+    <string name="damage">खराब / डैमेज माल</string>
+    <string name="audit_correction">ऑडिट सुधार</string>
+    <string name="return_restock">वापसी माल पुनः स्टॉक</string>
+    <string name="quantity_change">मात्रा (बढ़ाने के लिए +, घटाने के लिए -)</string>
+
+    <!-- Retailer & Beat Management -->
+    <string name="retailer_name">दुकानदार / फर्म का नाम</string>
+    <string name="retailer_contact">संपर्क मोबाइल नंबर</string>
+    <string name="retailer_address">दुकान का पता</string>
+    <string name="retailer_beat">निर्धारित बीट</string>
+    <string name="retailer_credit_limit">उधार सीमा (क्रेडिट लिमिट ₹)</string>
+    <string name="retailer_outstanding">बकाया राशि</string>
+    <string name="retailer_payment_terms">भुगतान अवधि (दिन)</string>
+    <string name="retailer_add_new">नया दुकानदार जोड़ें</string>
+    <string name="retailer_active">सक्रिय</string>
+    <string name="retailer_inactive">निष्क्रिय</string>
+
+    <!-- Employee Management -->
+    <string name="employee_name">पूरा नाम</string>
+    <string name="employee_role">पद / भूमिका</string>
+    <string name="employee_add_new">नया कर्मचारी जोड़ें</string>
+    <string name="employee_deactivate">कर्मचारी खाता बंद करें</string>
+    <string name="employee_deactivate_confirm">क्या आप इस कर्मचारी का खाता बंद करना चाहते हैं? सभी सक्रिय सत्र तुरंत समाप्त हो जाएंगे।</string>
+
+    <!-- Salesperson Daily Experience -->
+    <string name="sales_today_shops">आज की दुकानें</string>
+    <string name="sales_check_in">दुकान पर चेक-इन</string>
+    <string name="sales_check_out">चेक-आउट</string>
+    <string name="sales_in_store_stock">दुकान में स्टॉक जांच</string>
+    <string name="sales_book_order">नया ऑर्डर बुक करें</string>
+    <string name="sales_no_order_reason">ऑर्डर न मिलने का कारण</string>
+    <string name="sales_visit_recorded">दुकान दौरा सफलतापूर्वक दर्ज हुआ</string>
+    <string name="sales_order_total">कुल ऑर्डर राशि: ₹%1$s</string>
+    <string name="sales_add_item">सामान जोड़ें</string>
+    <string name="sales_free_items">मुफ्त प्रचार सामग्री (ऑफर)</string>
+
+    <!-- Warehouse Daily Experience -->
+    <string name="warehouse_picking_queue">पिकिंग एवं पैकिंग कतार</string>
+    <string name="warehouse_start_picking">पिकिंग शुरू करें</string>
+    <string name="warehouse_item_picked">सामान पैक हो गया</string>
+    <string name="warehouse_pack_order">ऑर्डर पैक करें</string>
+    <string name="warehouse_all_items_packed">सभी सामान सत्यापित एवं पैक हो गए हैं</string>
+    <string name="warehouse_dispatch_order">ऑर्डर डिस्पैच करें</string>
+    <string name="warehouse_select_driver">डिलीवरी कर्मी चुनें</string>
+    <string name="warehouse_driver_assigned">ऑर्डर डिस्पैच हुआ और ड्राइवर नियुक्त किया गया</string>
+
+    <!-- Delivery Executive Daily Experience -->
+    <string name="delivery_assigned_stops">सौंपी गई डिलीवरी</string>
+    <string name="delivery_completed_stops">पूर्ण डिलीवरी</string>
+    <string name="delivery_pending">लंबित डिलीवरी</string>
+    <string name="delivery_out_for_delivery">डिलीवरी के लिए रवाना</string>
+    <string name="delivery_detail_title">डिलीवरी पुष्टि</string>
+    <string name="delivery_receiver_name">सामान प्राप्तकर्ता / मैनेजर का नाम *</string>
+    <string name="delivery_otp_label">डिलीवरी ओटीपी (6 अंक) *</string>
+    <string name="delivery_request_otp">दुकानदार को ओटीपी भेजें</string>
+    <string name="delivery_resend_otp">ओटीपी पुनः भेजें</string>
+    <string name="delivery_otp_help">दुकानदार से उनके पंजीकृत मोबाइल पर आया 6-अंकीय कोड पूछें</string>
+    <string name="delivery_payment_method">भुगतान का तरीका</string>
+    <string name="payment_cash">नकद भुगतान (कैश)</string>
+    <string name="payment_credit">उधार (खाते में दर्ज)</string>
+    <string name="delivery_confirm_button">डिलीवरी पूर्ण करें एवं बिल जारी करें</string>
+    <string name="delivery_success">डिलीवरी सफलतापूर्वक पूर्ण हुई</string>
+    <string name="delivery_proof_photo">दुकान / सामान का फोटो</string>
+    <string name="delivery_signature">प्राप्तकर्ता के हस्ताक्षर</string>
+</resources>

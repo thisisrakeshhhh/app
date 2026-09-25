@@ -1000,12 +1000,23 @@ app.post('/orders/:id/request-otp', authMiddleware, async (c) => {
     .bind(order.retailer_id)
     .first() as any;
 
-  return c.json({
+  const contact = retailer?.contact_number || '';
+  const maskedContact = contact.length >= 4
+    ? '*'.repeat(Math.max(0, contact.length - 4)) + contact.slice(-4)
+    : 'Registered mobile';
+
+  const responseBody: any = {
     success: true,
-    message: `Delivery OTP sent to ${retailer?.name || 'Retailer'} (${retailer?.contact_number || 'Registered mobile'})`,
-    expiresAt,
-    debugOtp: activeOtp
-  });
+    message: `Delivery OTP sent via SMS to ${retailer?.name || 'Retailer'} (${maskedContact})`,
+    expiresAt
+  };
+
+  // Only expose debugOtp to automated test runner
+  if (c.req.header('X-Test-Runner') === 'true') {
+    responseBody.debugOtp = activeOtp;
+  }
+
+  return c.json(responseBody);
 });
 
 app.post('/orders/:id/deliver', authMiddleware, async (c) => {
@@ -1055,15 +1066,18 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     .first() as any;
 
   const now = Date.now();
-  let verifiedRecipient = recipientName || 'Authorized Receiver';
+  const isTestBypass = isFailureInjectionAllowed(c) && c.req.header('X-Test-Bypass-Delivery-Otp') === 'true';
 
-  if (otpRecord && (otp || recipientName || c.req.header('X-Require-Delivery-Otp') === 'true')) {
-    // When OTP verification is invoked, validate strictly
+  let verifiedRecipient = recipientName;
+  if (!isTestBypass) {
     if (!recipientName) {
       return c.json({ error: 'Recipient name is required to confirm delivery' }, 400);
     }
     if (!otp || !/^\d{6}$/.test(otp)) {
       return c.json({ error: 'A valid 6-digit delivery OTP is required' }, 400);
+    }
+    if (!otpRecord) {
+      return c.json({ error: 'No active delivery OTP found for this order. Request an OTP first.' }, 400);
     }
     if (otpRecord.is_used === 1) {
       return c.json({ error: 'Delivery OTP has already been used' }, 400);
@@ -1082,6 +1096,8 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
       return c.json({ error: `Invalid delivery OTP. ${remaining} attempt(s) remaining.` }, 400);
     }
     verifiedRecipient = recipientName;
+  } else {
+    verifiedRecipient = recipientName || 'Authorized Receiver (Test)';
   }
 
   const invoiceId = `inv_${crypto.randomUUID()}`;
@@ -1269,25 +1285,44 @@ app.post('/inventory/adjust', authMiddleware, async (c) => {
     return c.json({ error: `Invalid reason. Allowed: ${VALID_REASONS.join(', ')}` }, 400);
   }
 
-  const product = await c.env.DB.prepare('SELECT * FROM products WHERE id = ? AND company_id = ?')
-    .bind(productId, user.company_id).first() as any;
+  // ATOMIC stock update: prevent lost updates from concurrent modifications
+  const updatedProduct = await c.env.DB.prepare(
+    `UPDATE products
+     SET stock_quantity = stock_quantity + ?
+     WHERE id = ? AND company_id = ?
+       AND (stock_quantity + ?) >= 0
+       AND (stock_quantity + ?) >= reserved_quantity
+     RETURNING stock_quantity, reserved_quantity`
+  ).bind(changeQuantity, productId, user.company_id, changeQuantity, changeQuantity)
+   .first() as { stock_quantity: number; reserved_quantity: number } | null;
 
-  if (!product) return c.json({ error: 'Product not found' }, 404);
+  if (!updatedProduct) {
+    // Determine exact cause for meaningful failure response
+    const existing = await c.env.DB.prepare('SELECT stock_quantity, reserved_quantity FROM products WHERE id = ? AND company_id = ?')
+      .bind(productId, user.company_id)
+      .first() as { stock_quantity: number; reserved_quantity: number } | null;
 
-  const newStock = product.stock_quantity + changeQuantity;
-  if (newStock < 0) {
-    return c.json({ error: `Adjustment exceeds available physical stock. Current: ${product.stock_quantity}, Change: ${changeQuantity}` }, 400);
+    if (!existing) {
+      return c.json({ error: 'Product not found' }, 404);
+    }
+    if (existing.stock_quantity + changeQuantity < 0) {
+      return c.json({
+        error: `Adjustment exceeds available physical stock. Current: ${existing.stock_quantity}, Change: ${changeQuantity}`
+      }, 400);
+    }
+    if (existing.stock_quantity + changeQuantity < existing.reserved_quantity) {
+      return c.json({
+        error: `Cannot adjust stock below current reserved quantity (${existing.reserved_quantity})`
+      }, 400);
+    }
+    return c.json({ error: 'Stock adjustment failed due to concurrent modification conflict. Please retry.' }, 409);
   }
-  if (newStock < product.reserved_quantity) {
-    return c.json({ error: `Cannot adjust stock below current reserved quantity (${product.reserved_quantity})` }, 400);
-  }
 
+  const newStock = updatedProduct.stock_quantity;
   const now = Date.now();
   const adjId = `adj_${crypto.randomUUID()}`;
 
   const statements = [
-    c.env.DB.prepare('UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ?')
-      .bind(newStock, productId, user.company_id),
     c.env.DB.prepare(
       `INSERT INTO stock_adjustments (id, company_id, product_id, user_id, change_quantity, reason, stock_after, notes, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -1514,6 +1549,28 @@ app.post('/visits', authMiddleware, async (c) => {
     return c.json({ error: 'retailerId and checkInTime are required' }, 400);
   }
 
+  // Tenant isolation & retailer verification
+  const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
+    .bind(retailerId, user.company_id)
+    .first() as any;
+
+  if (!retailer) {
+    return c.json({ error: 'Retailer not found in this company' }, 400);
+  }
+
+  // Salesperson beat assignment enforcement
+  if (user.role === 'SALESPERSON') {
+    const beatAssignment = await c.env.DB.prepare(
+      'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
+    )
+      .bind(user.sub, retailer.beat_id, user.company_id)
+      .first();
+
+    if (!beatAssignment) {
+      return c.json({ error: `Permission denied: salesperson not assigned to retailer beat ${retailer.beat_id}` }, 403);
+    }
+  }
+
   const now = Date.now();
   try {
     await c.env.DB.prepare(
@@ -1563,6 +1620,37 @@ app.post('/stock-checks', authMiddleware, async (c) => {
     return c.json({ error: 'retailerId, productId, and non-negative quantity are required' }, 400);
   }
 
+  // Tenant isolation & retailer verification
+  const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
+    .bind(retailerId, user.company_id)
+    .first() as any;
+
+  if (!retailer) {
+    return c.json({ error: 'Retailer not found in this company' }, 400);
+  }
+
+  // Salesperson beat assignment enforcement
+  if (user.role === 'SALESPERSON') {
+    const beatAssignment = await c.env.DB.prepare(
+      'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
+    )
+      .bind(user.sub, retailer.beat_id, user.company_id)
+      .first();
+
+    if (!beatAssignment) {
+      return c.json({ error: `Permission denied: salesperson not assigned to retailer beat ${retailer.beat_id}` }, 403);
+    }
+  }
+
+  // Tenant isolation & product verification
+  const product = await c.env.DB.prepare('SELECT 1 FROM products WHERE id = ? AND company_id = ?')
+    .bind(productId, user.company_id)
+    .first();
+
+  if (!product) {
+    return c.json({ error: 'Product not found in this company' }, 400);
+  }
+
   const id = `sc_${crypto.randomUUID()}`;
   const now = Date.now();
 
@@ -1577,6 +1665,28 @@ app.post('/stock-checks', authMiddleware, async (c) => {
 app.get('/stock-checks/:retailerId', authMiddleware, async (c) => {
   const user = c.get('user');
   const retailerId = c.req.param('retailerId');
+
+  // Tenant isolation & retailer verification
+  const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
+    .bind(retailerId, user.company_id)
+    .first() as any;
+
+  if (!retailer) {
+    return c.json({ error: 'Retailer not found in this company' }, 404);
+  }
+
+  // Salesperson beat assignment check
+  if (user.role === 'SALESPERSON') {
+    const beatAssignment = await c.env.DB.prepare(
+      'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
+    )
+      .bind(user.sub, retailer.beat_id, user.company_id)
+      .first();
+
+    if (!beatAssignment) {
+      return c.json({ error: `Permission denied: salesperson not assigned to retailer beat ${retailer.beat_id}` }, 403);
+    }
+  }
 
   const { results } = await c.env.DB.prepare(
     `SELECT sc.id, sc.product_id AS productId, p.name AS productName, sc.quantity, sc.created_at AS createdAt

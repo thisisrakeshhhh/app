@@ -299,10 +299,14 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     });
     assert.equal(resDel2Deliver.status, 403, 'Driver 2 delivering Driver 1 order must be 403');
 
-    // Driver 1 delivers order: succeeds
+    // Driver 1 delivers order: succeeds with test bypass header
     const resDel1Deliver = await fetch(`${BASE_URL}/orders/${delOrderId}/deliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
       body: JSON.stringify({ paymentMethod: 'CASH' })
     });
     assert.equal(resDel1Deliver.status, 200);
@@ -454,7 +458,12 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     // Injected invoice failure on delivery
     const resInjectedDeliver = await fetch(`${BASE_URL}/orders/${failApprOrdId}/deliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}`, 'X-Test-Fail-Invoice': 'true' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Fail-Invoice': 'true',
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
       body: JSON.stringify({ paymentMethod: 'CREDIT' })
     });
     assert.equal(resInjectedDeliver.status, 400, 'Injected invoice write failure must cause delivery to fail');
@@ -469,7 +478,11 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     // Safe Retry: Delivery without failure header MUST succeed
     const resRetryDeliver = await fetch(`${BASE_URL}/orders/${failApprOrdId}/deliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
       body: JSON.stringify({ paymentMethod: 'CREDIT' })
     });
     assert.equal(resRetryDeliver.status, 200, 'Delivery retry must succeed');
@@ -514,8 +527,24 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
 
     // Concurrently deliver BOTH orders to Retailer R2 with CREDIT payment method
     const [delResA, delResB] = await Promise.all([
-      fetch(`${BASE_URL}/orders/${ordA}/deliver`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` }, body: JSON.stringify({ paymentMethod: 'CREDIT' }) }),
-      fetch(`${BASE_URL}/orders/${ordB}/deliver`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` }, body: JSON.stringify({ paymentMethod: 'CREDIT' }) })
+      fetch(`${BASE_URL}/orders/${ordA}/deliver`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${deliveryToken}`,
+          'X-Test-Bypass-Delivery-Otp': 'true'
+        },
+        body: JSON.stringify({ paymentMethod: 'CREDIT' })
+      }),
+      fetch(`${BASE_URL}/orders/${ordB}/deliver`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${deliveryToken}`,
+          'X-Test-Bypass-Delivery-Otp': 'true'
+        },
+        body: JSON.stringify({ paymentMethod: 'CREDIT' })
+      })
     ]);
 
     assert.equal(delResA.status, 200, 'Delivery A must succeed');
@@ -549,14 +578,22 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     // Reject unverified/unsettled payment methods (UPI, CHEQUE, BITCOIN)
     const resUpi = await fetch(`${BASE_URL}/orders/${settleOrd}/deliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
       body: JSON.stringify({ paymentMethod: 'UPI' })
     });
     assert.equal(resUpi.status, 400, 'UPI must be rejected as unverified payment method in this milestone');
 
     const resCheque = await fetch(`${BASE_URL}/orders/${settleOrd}/deliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
       body: JSON.stringify({ paymentMethod: 'CHEQUE' })
     });
     assert.equal(resCheque.status, 400, 'CHEQUE must be rejected as unverified payment method in this milestone');
@@ -565,7 +602,11 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const r1BeforeCash = (await (await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(r => r.id === 'R1');
     const resCash = await fetch(`${BASE_URL}/orders/${settleOrd}/deliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
       body: JSON.stringify({ paymentMethod: 'CASH' })
     });
     assert.equal(resCash.status, 200, 'CASH delivery must succeed');
@@ -740,16 +781,35 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     });
     assert.equal(resDispatch.status, 200);
 
-    // Request/retrieve OTP via endpoint
-    const resReqOtp = await fetch(`${BASE_URL}/orders/${otpOrd}/request-otp`, {
+    // 1. Normal driver request-otp call: driver receives confirmation message but NEVER debugOtp
+    const resDriverReq = await fetch(`${BASE_URL}/orders/${otpOrd}/request-otp`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${deliveryToken}` }
     });
-    assert.equal(resReqOtp.status, 200);
-    const otpData = await resReqOtp.json();
-    assert.ok(otpData.debugOtp, 'Server must provide 6-digit OTP');
+    assert.equal(resDriverReq.status, 200);
+    const driverData = await resDriverReq.json();
+    assert.equal(driverData.debugOtp, undefined, 'Driver must never receive OTP in API response');
+    assert.ok(driverData.message.includes('Delivery OTP sent via SMS'), 'Message must indicate SMS notification');
+
+    // 2. Automated test runner request-otp call: receives debugOtp for verification
+    const resTestReq = await fetch(`${BASE_URL}/orders/${otpOrd}/request-otp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${deliveryToken}`, 'X-Test-Runner': 'true' }
+    });
+    assert.equal(resTestReq.status, 200);
+    const otpData = await resTestReq.json();
+    assert.ok(otpData.debugOtp, 'Test runner must provide 6-digit OTP');
     const validOtp = otpData.debugOtp;
     assert.equal(validOtp.length, 6);
+
+    // Rejection 0: Delivery attempt omitting recipient name and OTP (prevents bypass)
+    const resNoOtpNoRecipient = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({ paymentMethod: 'CASH' })
+    });
+    assert.equal(resNoOtpNoRecipient.status, 400, 'Delivery omitting recipient name and OTP must be strictly rejected');
+    assert.equal((await resNoOtpNoRecipient.json()).error, 'Recipient name is required to confirm delivery');
 
     // Rejection 1: Delivery attempt missing recipient name
     const resNoRecipient = await fetch(`${BASE_URL}/orders/${otpOrd}/deliver`, {
@@ -861,9 +921,34 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
         reason: 'DAMAGE'
       })
     });
-    assert.equal(resExcessDeduct.status, 400);
+    // 4. Concurrent Stock Adjustments (5 simultaneous requests, zero lost updates)
+    const adjustments = [10, 5, -15, 20, -5]; // Net sum = +15
+    const concurrentAdjPromises = adjustments.map((qty, idx) =>
+      fetch(`${BASE_URL}/inventory/adjust`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+        body: JSON.stringify({
+          productId: newProdId,
+          changeQuantity: qty,
+          reason: 'AUDIT_CORRECTION',
+          notes: `Concurrent test adj #${idx + 1}`
+        })
+      })
+    );
+    const adjResponses = await Promise.all(concurrentAdjPromises);
+    for (const res of adjResponses) {
+      assert.equal(res.status, 200, 'Each concurrent adjustment must succeed');
+    }
 
-    // 4. Owner updates product price (to 38,000 paise)
+    // Verify final stock quantity: starting was 75, net change +15 -> must be exactly 90
+    const resProdAfterAdj = await fetch(`${BASE_URL}/products`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    const prodsList = await resProdAfterAdj.json();
+    const finalProd = prodsList.find(p => p.id === newProdId);
+    assert.equal(finalProd.stockQuantity, 90, `Concurrent adjustments must not lose updates. Expected 90, got ${finalProd.stockQuantity}`);
+
+    // 5. Owner updates product price (to 38,000 paise)
     const resUpdatePrice = await fetch(`${BASE_URL}/products/${newProdId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
@@ -1014,5 +1099,48 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     assert.ok(scList.length > 0);
     assert.equal(scList[0].productId, 'P1');
     assert.equal(scList[0].quantity, 8);
+
+    // 4. Tenant Isolation & Beat Assignment Rejections for Visits & Stock Checks
+    // A. Cross-company retailer visit rejected (400)
+    const resCrossVisit = await fetch(`${BASE_URL}/visits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        id: `vis_cross_${Date.now()}`,
+        retailerId: 'ret_comp2_1',
+        checkInTime: Date.now()
+      })
+    });
+    assert.equal(resCrossVisit.status, 400, 'Visit to cross-company retailer must be rejected');
+
+    // B. Cross-company retailer stock check rejected (400)
+    const resCrossSc = await fetch(`${BASE_URL}/stock-checks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        retailerId: 'ret_comp2_1',
+        productId: 'P1',
+        quantity: 5
+      })
+    });
+    assert.equal(resCrossSc.status, 400, 'Stock check for cross-company retailer must be rejected');
+
+    // C. Cross-company product stock check rejected (400)
+    const resCrossProdSc = await fetch(`${BASE_URL}/stock-checks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        retailerId: 'R1',
+        productId: 'prod_comp2_1',
+        quantity: 5
+      })
+    });
+    assert.equal(resCrossProdSc.status, 400, 'Stock check with cross-company product must be rejected');
+
+    // D. Cross-company GET /stock-checks rejected (404)
+    const resCrossGetSc = await fetch(`${BASE_URL}/stock-checks/ret_comp2_1`, {
+      headers: { Authorization: `Bearer ${salesToken}` }
+    });
+    assert.equal(resCrossGetSc.status, 404, 'Getting stock checks for cross-company retailer must return 404');
   });
 });

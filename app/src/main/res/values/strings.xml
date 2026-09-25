@@ -1,3 +1,127 @@
 <resources>
     <string name="app_name">RouteFlow</string>
+    <string name="app_tagline">Warehouse &amp; Distribution Operations</string>
+
+    <!-- Authentication & Common -->
+    <string name="login_title">RouteFlow Login</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login_button">Sign In</string>
+    <string name="logging_in">Signing in…</string>
+    <string name="logout">Logout</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="submit">Submit</string>
+    <string name="confirm">Confirm</string>
+    <string name="back">Back</string>
+    <string name="retry">Retry</string>
+    <string name="refresh">Refresh</string>
+    <string name="loading">Loading…</string>
+    <string name="error">Error</string>
+    <string name="success">Success</string>
+    <string name="search">Search</string>
+    <string name="all">All</string>
+    <string name="status">Status</string>
+    <string name="date">Date</string>
+    <string name="actions">Actions</string>
+    <string name="notes">Notes</string>
+    <string name="optional">Optional</string>
+    <string name="required">Required</string>
+
+    <!-- Roles -->
+    <string name="role_owner">Owner / Distributor</string>
+    <string name="role_salesperson">Salesperson</string>
+    <string name="role_warehouse">Warehouse Manager</string>
+    <string name="role_delivery">Delivery Executive</string>
+
+    <!-- Owner Dashboard & Tabs -->
+    <string name="owner_dashboard">Distributor Dashboard</string>
+    <string name="owner_tab_approvals">Pending Approvals</string>
+    <string name="owner_tab_products">Products &amp; Stock</string>
+    <string name="owner_tab_retailers">Retailer Directory</string>
+    <string name="owner_tab_employees">Staff &amp; Team</string>
+    <string name="owner_pending_approvals_count">%1$d Pending Approvals</string>
+    <string name="owner_total_outstanding">Total Outstanding: ₹%1$s</string>
+    <string name="owner_approve_order">Approve Order</string>
+    <string name="owner_reject_order">Reject Order</string>
+    <string name="owner_rejection_reason">Rejection Reason</string>
+    <string name="owner_credit_warning">Credit limit exceeded for retailer</string>
+
+    <!-- Product & Stock Management -->
+    <string name="product_name">Product Name</string>
+    <string name="product_sku">SKU / Code</string>
+    <string name="product_category">Category</string>
+    <string name="product_unit">Unit (e.g. 1kg Pack, Box)</string>
+    <string name="product_price">Wholesale Price (₹)</string>
+    <string name="product_mrp">MRP (₹)</string>
+    <string name="product_stock">Current Stock</string>
+    <string name="product_reserved">Reserved</string>
+    <string name="product_add_new">Add New Product</string>
+    <string name="product_adjust_stock">Adjust Stock</string>
+    <string name="product_stock_adjustment">Stock Adjustment</string>
+    <string name="stock_receipt">Stock Receipt (Inbound)</string>
+    <string name="damage">Damaged Stock</string>
+    <string name="audit_correction">Audit Correction</string>
+    <string name="return_restock">Customer Return Restock</string>
+    <string name="quantity_change">Quantity (+ for addition, - for reduction)</string>
+
+    <!-- Retailer & Beat Management -->
+    <string name="retailer_name">Retailer / Store Name</string>
+    <string name="retailer_contact">Contact Mobile</string>
+    <string name="retailer_address">Shop Address</string>
+    <string name="retailer_beat">Assigned Beat</string>
+    <string name="retailer_credit_limit">Credit Limit (₹)</string>
+    <string name="retailer_outstanding">Outstanding Balance</string>
+    <string name="retailer_payment_terms">Payment Terms (Days)</string>
+    <string name="retailer_add_new">Onboard New Retailer</string>
+    <string name="retailer_active">Active</string>
+    <string name="retailer_inactive">Inactive</string>
+
+    <!-- Employee Management -->
+    <string name="employee_name">Full Name</string>
+    <string name="employee_role">Role</string>
+    <string name="employee_add_new">Add Team Member</string>
+    <string name="employee_deactivate">Deactivate Staff</string>
+    <string name="employee_deactivate_confirm">Are you sure you want to deactivate this account? All active sessions will be terminated immediately.</string>
+
+    <!-- Salesperson Daily Experience -->
+    <string name="sales_today_shops">Today\'s Assigned Shops</string>
+    <string name="sales_check_in">Check In to Shop</string>
+    <string name="sales_check_out">Check Out</string>
+    <string name="sales_in_store_stock">In-Store Stock Audit</string>
+    <string name="sales_book_order">Book New Order</string>
+    <string name="sales_no_order_reason">Reason for No Order</string>
+    <string name="sales_visit_recorded">Shop visit recorded successfully</string>
+    <string name="sales_order_total">Order Total: ₹%1$s</string>
+    <string name="sales_add_item">Add Product</string>
+    <string name="sales_free_items">Free Promotional Units</string>
+
+    <!-- Warehouse Daily Experience -->
+    <string name="warehouse_picking_queue">Picking &amp; Packing Queue</string>
+    <string name="warehouse_start_picking">Start Picking</string>
+    <string name="warehouse_item_picked">Item Picked</string>
+    <string name="warehouse_pack_order">Pack Order</string>
+    <string name="warehouse_all_items_packed">All items verified and packed</string>
+    <string name="warehouse_dispatch_order">Dispatch Order</string>
+    <string name="warehouse_select_driver">Assign Delivery Executive</string>
+    <string name="warehouse_driver_assigned">Order dispatched and driver assigned</string>
+
+    <!-- Delivery Executive Daily Experience -->
+    <string name="delivery_assigned_stops">Assigned Deliveries</string>
+    <string name="delivery_completed_stops">Completed Deliveries</string>
+    <string name="delivery_pending">Pending Delivery</string>
+    <string name="delivery_out_for_delivery">Out for Delivery</string>
+    <string name="delivery_detail_title">Confirm Delivery</string>
+    <string name="delivery_receiver_name">Receiver / Store Manager Name *</string>
+    <string name="delivery_otp_label">Delivery OTP (6 digits) *</string>
+    <string name="delivery_request_otp">Send OTP to Retailer</string>
+    <string name="delivery_resend_otp">Resend OTP</string>
+    <string name="delivery_otp_help">Ask retailer for the 6-digit code sent to their registered mobile</string>
+    <string name="delivery_payment_method">Payment Method</string>
+    <string name="payment_cash">Cash on Delivery</string>
+    <string name="payment_credit">Credit (Bill to Account)</string>
+    <string name="delivery_confirm_button">Confirm Delivery &amp; Issue Invoice</string>
+    <string name="delivery_success">Delivery confirmed successfully</string>
+    <string name="delivery_proof_photo">Store / Proof Photo</string>
+    <string name="delivery_signature">Receiver Signature</string>
 </resources>
