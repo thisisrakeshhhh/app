@@ -7,6 +7,8 @@ type Bindings = {
   JWT_SECRET: string;
   JWT_ACCESS_EXPIRY: string;
   JWT_REFRESH_EXPIRY: string;
+  ENVIRONMENT?: string;
+  ENABLE_TEST_FAILURE_INJECTION?: string;
 };
 
 type UserPayload = {
@@ -22,6 +24,10 @@ type Variables = {
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+function isFailureInjectionAllowed(c: any): boolean {
+  return c.env.ENVIRONMENT === 'development' && c.env.ENABLE_TEST_FAILURE_INJECTION === 'true';
+}
 
 async function sha256Hex(data: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
@@ -620,8 +626,8 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_APPROVED', orderId, 'Stock reserved', now)
   ];
 
-  // Failure-injection testing support
-  if (c.req.header('X-Test-Fail-Inventory') === 'true') {
+  // Failure-injection testing support (only enabled in local development test environment)
+  if (isFailureInjectionAllowed(c) && c.req.header('X-Test-Fail-Inventory') === 'true') {
     statements.push(
       c.env.DB.prepare('UPDATE products SET reserved_quantity = 999999999 WHERE id = ? AND company_id = ?')
         .bind(items[0]?.product_id || 'P1', user.company_id)
@@ -724,7 +730,13 @@ app.post('/orders/:id/pick-item', authMiddleware, async (c) => {
   }
 
   const orderId = c.req.param('id');
-  const { productId, isPicked } = await c.req.json();
+  const body = await c.req.json();
+  const productId = body.productId || body.product_id;
+  const isPicked = body.isPicked !== undefined ? body.isPicked : (body.is_picked !== undefined ? body.is_picked : true);
+
+  if (!productId) {
+    return c.json({ error: 'productId is required' }, 400);
+  }
 
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
     .bind(orderId, user.company_id)

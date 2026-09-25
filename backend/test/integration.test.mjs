@@ -573,4 +573,67 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const r1AfterCash = (await (await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(r => r.id === 'R1');
     assert.equal(r1AfterCash.outstandingAmountPaise, r1BeforeCash.outstandingAmountPaise, 'CASH payment must NOT increase outstanding balance');
   });
+
+  test('10. Same-Order Concurrency: Duplicate Requests & Approval vs Rejection Race', async () => {
+    // Part A: Duplicate Concurrent Approval on the SAME order
+    const dupApprOrd = `dup_appr_${Date.now()}`;
+    await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: dupApprOrd, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 12000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: `${dupApprOrd}_item`, productId: 'P2', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 12000, isPicked: false }]
+      })
+    });
+
+    const p2Initial = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P2');
+
+    // Fire two concurrent approval requests on the SAME order
+    const [resAppr1, resAppr2] = await Promise.all([
+      fetch(`${BASE_URL}/orders/${dupApprOrd}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } }),
+      fetch(`${BASE_URL}/orders/${dupApprOrd}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } })
+    ]);
+
+    // Both should return 200 (one is winning transition, other is idempotent)
+    assert.equal(resAppr1.status, 200);
+    assert.equal(resAppr2.status, 200);
+
+    // Stock reserved quantity MUST increase by exactly 1 (not 2!)
+    const p2AfterDup = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P2');
+    assert.equal(p2AfterDup.reservedQuantity, p2Initial.reservedQuantity + 1, 'Concurrent duplicate approvals must NOT reserve stock twice');
+
+    // Part B: Approval vs Rejection Race on the SAME submitted order
+    const raceOrd = `race_ord_${Date.now()}`;
+    await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        order: { id: raceOrd, retailerId: 'R1', employeeId: 'user_sales', status: 'SUBMITTED', totalAmountPaise: 12000, createdAt: Date.now(), updatedAt: Date.now() },
+        items: [{ id: `${raceOrd}_item`, productId: 'P2', quantity: 1, freeQuantity: 0, pricePaiseAtTime: 12000, isPicked: false }]
+      })
+    });
+
+    const p2BeforeRace = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P2');
+
+    // Race approve and reject simultaneously
+    const [resRaceAppr, resRaceRej] = await Promise.all([
+      fetch(`${BASE_URL}/orders/${raceOrd}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } }),
+      fetch(`${BASE_URL}/orders/${raceOrd}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+        body: JSON.stringify({ reason: 'Raced rejection' })
+      })
+    ]);
+
+    // Check final order status
+    const raceOrderFinal = (await (await fetch(`${BASE_URL}/orders/${raceOrd}`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).order;
+    assert.ok(raceOrderFinal.status === 'APPROVED' || raceOrderFinal.status === 'REJECTED', `Status must be APPROVED or REJECTED, was ${raceOrderFinal.status}`);
+
+    const p2AfterRace = (await (await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${ownerToken}` } })).json()).find(p => p.id === 'P2');
+    if (raceOrderFinal.status === 'APPROVED') {
+      assert.equal(p2AfterRace.reservedQuantity, p2BeforeRace.reservedQuantity + 1, 'Stock reserved when approval wins race');
+    } else {
+      assert.equal(p2AfterRace.reservedQuantity, p2BeforeRace.reservedQuantity, 'Stock NOT reserved when rejection wins race');
+    }
+  });
 });

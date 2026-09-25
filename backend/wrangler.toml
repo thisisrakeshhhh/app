@@ -11,3 +11,4 @@ database_id = "placeholder-id" # To be filled after database creation
 JWT_ACCESS_EXPIRY = "900" # 15 minutes
 JWT_REFRESH_EXPIRY = "2592000" # 30 days
 ENVIRONMENT = "development"
+ENABLE_TEST_FAILURE_INJECTION = "true"

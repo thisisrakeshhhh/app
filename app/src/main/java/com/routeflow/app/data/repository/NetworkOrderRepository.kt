@@ -1,6 +1,11 @@
 package com.routeflow.app.data.repository
 
+import android.content.Context
 import androidx.room.withTransaction
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.core.database.entity.OrderItemEntity
@@ -14,7 +19,9 @@ import com.routeflow.app.core.network.dto.OrderSubmitRequest
 import com.routeflow.app.core.network.dto.toDto
 import com.routeflow.app.core.network.dto.toEntity
 import com.routeflow.app.core.security.TokenStorage
+import com.routeflow.app.data.sync.OrderSyncWorker
 import com.routeflow.app.domain.repository.OrderRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -22,6 +29,7 @@ import java.util.UUID
 import javax.inject.Inject
 
 class NetworkOrderRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val database: RouteFlowDatabase,
     private val api: RouteFlowApi,
     private val tokenStorage: TokenStorage,
@@ -69,7 +77,20 @@ class NetworkOrderRepository @Inject constructor(
                     }
                 }
             } catch (_: Exception) {
-                // Background worker will retry from outbox
+                // Background worker will retry from outbox when connectivity is available
+                val syncRequest = OneTimeWorkRequestBuilder<OrderSyncWorker>()
+                    .setInputData(
+                        workDataOf(
+                            OrderSyncWorker.KEY_USER_ID to currentUserId,
+                            OrderSyncWorker.KEY_COMPANY_ID to currentCompanyId
+                        )
+                    )
+                    .build()
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    "order_sync_${currentUserId}_${currentCompanyId}",
+                    ExistingWorkPolicy.REPLACE,
+                    syncRequest
+                )
             }
 
             Result.success(Unit)

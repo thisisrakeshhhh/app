@@ -7,6 +7,7 @@ import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.core.database.entity.OrderItemEntity
 import com.routeflow.app.domain.model.Product
+import com.routeflow.app.domain.repository.OrderRepository
 import com.routeflow.app.domain.repository.ProductRepository
 import com.routeflow.app.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,7 +53,7 @@ class OrderBookingViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val sessionRepository: SessionRepository,
     private val productRepository: ProductRepository,
-    private val orderDao: OrderDao
+    private val orderRepository: OrderRepository
 ) : ViewModel() {
 
     private val retailerId: String = checkNotNull(savedStateHandle["retailerId"])
@@ -164,7 +165,7 @@ class OrderBookingViewModel @Inject constructor(
                 updatedAt = now
             )
             
-            orderDao.createOrderWithItems(order, orderItems)
+            orderRepository.createOrder(order, orderItems)
             _orderSubmittedId.value = orderId
             _isSubmitting.value = false
         }

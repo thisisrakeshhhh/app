@@ -78,29 +78,82 @@
 
 ---
 
-## 7. Verification Results
+## 7. Verification Evidence
 
-### Backend Integration Tests (`npm test`)
-```
-TAP version 13
-# Subtest: RouteFlow API End-to-End Integration Suite
-    ok 1 - 1. Auth: Valid logins across all active roles and multi-company setup
-    ok 2 - 2. Auth Security: Rejections for invalid, disabled users, and tampered tokens
-    ok 3 - 3. Session Revocation: Old access token rejected after logout and refresh token reuse
-    ok 4 - 4. Multi-Tenant Isolation (Two Companies)
-    ok 5 - 5. Assignment Permissions: Two Delivery Accounts & Salesperson Beat Checks
-    ok 6 - 6. Restored Promotion (BUY 10 GET 1 FREE) & Bound Idempotency Keys
-    ok 7 - 7. Atomic Transitions with Failure Injection and Rollback Verification
-    ok 8 - 8. Concurrent Retailer Balance Updates (Two Different Orders to Same Retailer)
-    ok 9 - 9. Payment Settlement Accuracy (Restricted to CASH and CREDIT in Stage 2)
-1..9
-# tests 9 | suites 1 | pass 9 | fail 0 | duration_ms 3162.797
-```
+### A. Unit Tests (Android JUnit / Robolectric)
+- **Command**: `.\gradlew.bat testDebugUnitTest --no-daemon`
+- **Result**: **BUILD SUCCESSFUL** (36s)
+- **Summary**: **19 tests run across 6 suites, 0 failures, 0 errors, 0 skipped** (total duration: 2.974s).
+- **`AccountScopedSyncTest` Evidence**:
+  - `testLegacyOutboxRows_areQuarantinedAndNotSubmitted` (0.416s) — **PASSED**
+  - `testAccountSwitch_doesNotProcessOtherAccountsOrders_andProcessesOnSwitchBack` (0.080s) — **PASSED**
+  - Verified XML report: `app/build/test-results/testDebugUnitTest/TEST-com.routeflow.app.data.sync.AccountScopedSyncTest.xml`.
 
-### Android Application Verification (`gradlew`)
-- **Unit Tests**: `.\gradlew.bat testDebugUnitTest --no-daemon` — **BUILD SUCCESSFUL** (All unit tests including `AccountScopedSyncTest` passed).
-- **Lint**: `.\gradlew.bat lintDebug --no-daemon` — **BUILD SUCCESSFUL**.
-- **Compilation & Assembly**: `.\gradlew.bat assembleDebug --no-daemon` — **BUILD SUCCESSFUL** (Debug APK generated).
+### B. Backend Verification (`npm run typecheck` & `npm test`)
+- **TypeScript**: `npm run typecheck` (`tsc --noEmit`) — **SUCCESS** (0 errors).
+- **Integration Test Suite**: `node --test test/integration.test.mjs` — **PASS** (10 of 10 suites passed, 3444ms):
+  ```
+  TAP version 13
+  # Subtest: RouteFlow API End-to-End Integration Suite
+      ok 1 - 1. Auth: Valid logins across all active roles and multi-company setup
+      ok 2 - 2. Auth Security: Rejections for invalid, disabled users, and tampered tokens
+      ok 3 - 3. Session Revocation: Old access token rejected after logout and refresh token reuse
+      ok 4 - 4. Multi-Tenant Isolation (Two Companies)
+      ok 5 - 5. Assignment Permissions: Two Delivery Accounts & Salesperson Beat Checks
+      ok 6 - 6. Restored Promotion (BUY 10 GET 1 FREE) & Bound Idempotency Keys
+      ok 7 - 7. Atomic Transitions with Failure Injection and Rollback Verification
+      ok 8 - 8. Concurrent Retailer Balance Updates (Two Different Orders to Same Retailer)
+      ok 9 - 9. Payment Settlement Accuracy (Restricted to CASH and CREDIT in Stage 2)
+      ok 10 - 10. Same-Order Concurrency: Duplicate Requests & Approval vs Rejection Race
+  1..10
+  # tests 10 | suites 1 | pass 10 | fail 0 | duration_ms 3444.9631
+  ```
+- **Coverage Highlights**:
+  - *Atomic rollback*: Tested via `X-Test-Fail-Inventory` and `X-Test-Fail-Invoice`. State remains unchanged and retryable.
+  - *Simultaneous credit deliveries*: Concurrent delivery of two orders ($₹150$ and $₹250$) to the same retailer accurately increments balance without lost updates.
+  - *Same-order duplicate requests*: Concurrent approvals on the same order reserve stock exactly once.
+  - *Approval vs Rejection race*: Racing approval against rejection on the same submitted order commits exactly one terminal transition and reserves stock only if approval won.
+  - *Agreed promotion*: Premium Tea `P1` verified as BUY 10 GET 1 FREE.
+
+### C. Android Packaging
+- **`.\gradlew.bat lintDebug --no-daemon`**: **BUILD SUCCESSFUL** (15s, 0 lint errors).
+- **`.\gradlew.bat assembleDebug --no-daemon`**: **BUILD SUCCESSFUL** (15s).
+- **Output Artifact**: `app/build/outputs/apk/debug/app-debug.apk` (21,687,859 bytes).
+
+### D. Physical-Phone Verification Status (Vivo 1935 / 4bc99b28)
+- **Host & Network Setup**:
+  - Persistent background ADB daemon (`adb -P 5037 nodaemon server`) running on port 5037.
+  - Active ADB reverse tunnel (`adb reverse tcp:8787 tcp:8787`).
+  - Local Wrangler development backend running on `http://127.0.0.1:8787`.
+  - Android application compiled with `androidx.hilt:hilt-compiler:1.2.0` KSP processor, custom `HiltWorkerFactory` provider, and cleartext development security config for `127.0.0.1`.
+- **Physical Device Workflow Verification**:
+  1. **Real Server Login & Session Restoration**:
+     - Logged into physical device as Salesperson (`sales` / `password123`, `comp_1`).
+     - Session securely persisted in encrypted preferences and validated against server sessions table.
+     - Survives app force-stop and cold restarts without session loss.
+  2. **Offline Resilience & Outbox Durability**:
+     - Severed API connectivity on device (`adb reverse --remove tcp:8787`).
+     - Created order `ORD-264989` offline (Retailer `R2` Gupta Provision Store, 10 units Premium Tea + 1 free promotional unit, ₹4,500.00).
+     - Order safely queued into local Room `sync_outbox` with UUID idempotency key `b30131d3-a3b8-49bb-8905-b2442f3ab554`.
+     - Force-stopped app and restarted; verified pending order remained intact in SQLite outbox.
+  3. **Automatic Worker Synchronization**:
+     - Restored connectivity (`adb reverse tcp:8787 tcp:8787`) and refreshed session.
+     - `OrderSyncWorker` picked up the pending outbox entry, verified active `(userId, companyId)` match, and submitted to backend.
+     - Server verified idempotency key, processed order, and returned HTTP 200.
+     - Outbox entry purged on phone upon server confirmation; verified `sync_outbox` is empty.
+  4. **Promotional Rule Verification on Live Server**:
+     - Cloudflare D1 query verified `ORD-264989` in `orders` and `order_items` tables with `quantity = 10` and `free_quantity = 1` (buy 10, get 1 free promotional rule verified on live server).
+  5. **Complete Order Lifecycle Execution**:
+     - **Owner Approval**: Order `ORD-264989` approved via API (`POST /orders/ORD-264989/approve`); inventory atomically reserved 11 units (`reserved_quantity = 11`, `stock_quantity = 97`).
+     - **Warehouse Pick & Pack**: Item `P1` picked (`POST /orders/ORD-264989/pick-item`) and packed (`POST /orders/ORD-264989/pack`). Guards verified: packing rejected if items unpicked; dispatch rejected if order not packed.
+     - **Dispatch**: Order dispatched (`POST /orders/ORD-264989/dispatch`) assigned to `user_delivery`. Inventory atomically decremented from 97 to 86 (`stock_quantity = 86`, `reserved_quantity = 0`).
+     - **Delivery Assignment Enforcement**: Tested unassigned delivery executive (`user_delivery_2`), which was rejected with HTTP 403 Forbidden.
+     - **Delivery Completion & Financial Settlement**: Delivered by assigned executive `user_delivery` with payment method `CREDIT`. Live D1 database verified:
+       - Order status: `DELIVERED`.
+       - Invoice issued: `inv_c532c94b-fbe5-4254-9e50-1a2cb5dccf7c` for `450000` paise (₹4,500.00).
+       - Retailer `R2` outstanding balance atomically updated from `558000` to `1008000` paise (₹10,080.00).
+       - Durable payment ledger record: `led_ce111114-5f69-4560-971a-041894798389` (`CREDIT_INCREASE`, amount `450000`, balance after `1008000`).
+- **Simultaneous Two-Device Testing**: **PENDING** (Marked pending due to single phone hardware constraint).
 
 ---
 
