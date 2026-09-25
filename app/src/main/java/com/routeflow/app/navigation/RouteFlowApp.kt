@@ -44,7 +44,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -488,10 +490,37 @@ fun RouteFlowApp(
             }
 
             composable(SALES_COLLECTIONS) {
-                val viewModel: RetailerListViewModel = hiltViewModel()
-                val salesListState by viewModel.state.collectAsStateWithLifecycle()
+                val collectionsVm: com.routeflow.app.feature.sales.SalesCollectionsViewModel = hiltViewModel()
+                val collectionsState by collectionsVm.uiState.collectAsStateWithLifecycle()
+                val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+                val scope = rememberCoroutineScope()
+
+                LaunchedEffect(Unit) {
+                    collectionsVm.eventFlow.collect { event ->
+                        when (event) {
+                            is com.routeflow.app.feature.sales.CollectionEvent.Success -> {
+                                val badge = if (event.isConfirmed) "✓ Confirmed" else "⏳ Pending sync"
+                                scope.launch { snackbarHostState.showSnackbar("$badge — ${event.message}. Receipt: ${event.receiptId}") }
+                            }
+                            is com.routeflow.app.feature.sales.CollectionEvent.Error ->
+                                scope.launch { snackbarHostState.showSnackbar("Error: ${event.error}") }
+                        }
+                    }
+                }
+
                 SalesCollectionsScreen(
-                    retailers = salesListState.retailers.map { it.retailer }
+                    retailers = collectionsState.retailers,
+                    onCollectPayment = { retailerId, amountPaise, method, reference ->
+                        val retailer = collectionsState.retailers.find { it.id == retailerId }
+                        collectionsVm.recordCollection(
+                            retailerId = retailerId,
+                            retailerName = retailer?.name ?: retailerId,
+                            amountPaise = amountPaise,
+                            paymentMethod = method,
+                            receiptId = reference.takeIf { it.isNotBlank() },
+                            notes = null
+                        )
+                    }
                 )
             }
 
@@ -620,14 +649,7 @@ fun RouteFlowApp(
             }
 
             composable(DELIVERY_HANDOVER) {
-                val viewModel: DeliveryViewModel = hiltViewModel()
-                val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
-                val deliveredOrders = listState.filter { it.order.status == "DELIVERED" }
-                val totalCollectedPaise = deliveredOrders.sumOf { it.order.totalAmountPaise }
-                DeliveryHandoverScreen(
-                    collectedCashPaise = totalCollectedPaise,
-                    deliveredCount = deliveredOrders.size
-                )
+                DeliveryHandoverScreen()
             }
 
             composable(DELIVERY_PROFILE) {

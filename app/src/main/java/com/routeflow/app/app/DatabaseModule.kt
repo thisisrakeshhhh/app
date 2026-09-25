@@ -30,7 +30,12 @@ object DatabaseModule {
             RouteFlowDatabase::class.java,
             RouteFlowDatabase.DATABASE_NAME
         )
-        .addMigrations(RouteFlowDatabase.MIGRATION_4_5, RouteFlowDatabase.MIGRATION_5_6)
+        .addMigrations(
+            RouteFlowDatabase.MIGRATION_4_5,
+            RouteFlowDatabase.MIGRATION_5_6,
+            RouteFlowDatabase.MIGRATION_6_7
+        )
+        .fallbackToDestructiveMigration()
         .build()
     }
 
@@ -62,5 +67,15 @@ object DatabaseModule {
     @Provides
     fun provideSyncOutboxDao(database: RouteFlowDatabase): SyncOutboxDao {
         return database.syncOutboxDao()
+    }
+
+    @Provides
+    fun provideShiftLocationDao(database: RouteFlowDatabase): com.routeflow.app.core.database.dao.ShiftLocationDao {
+        return database.shiftLocationDao()
+    }
+
+    @Provides
+    fun provideCollectionRecordDao(database: RouteFlowDatabase): com.routeflow.app.core.database.dao.CollectionRecordDao {
+        return database.collectionRecordDao()
     }
 }

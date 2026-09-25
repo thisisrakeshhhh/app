@@ -164,4 +164,52 @@
     <string name="location_discrepancy_alert">स्थान अंतर (> 500 मी. दुकान से दूर)</string>
     <string name="verified_gps_location">जीपीएस स्थान सत्यापित</string>
     <string name="switch_language">Language / भाषा बदलें</string>
+
+    <!-- Collections (Hindi) -->
+    <string name="collections_title">वसूली / कलेक्शन</string>
+    <string name="collections_total_outstanding">आज की बीट का कुल बकाया</string>
+    <string name="collections_shops_with_balance">%1$d दुकानों पर बकाया राशि</string>
+    <string name="collections_retailer_balances">दुकानदार बकाया सूची</string>
+    <string name="collections_collect_button">वसूली करें</string>
+    <string name="collections_collect_from">%1$s से वसूली</string>
+    <string name="collections_outstanding_due">बकाया राशि: ₹%1$s</string>
+    <string name="collections_amount_label">वसूली राशि (₹) *</string>
+    <string name="collections_payment_mode">भुगतान का तरीका:</string>
+    <string name="collections_receipt_ref">रसीद / रेफरेंस नंबर (वैकल्पिक)</string>
+    <string name="collections_record_button">रसीद दर्ज करें</string>
+    <string name="collections_confirmed_badge">✓ सर्वर पर दर्ज</string>
+    <string name="collections_pending_badge">⏳ सिंक बाकी है</string>
+
+    <!-- Cash Handover (Hindi) -->
+    <string name="handover_title">नकद जमा (हैंडओवर)</string>
+    <string name="handover_cash_to_hand_over">कैशियर को देने योग्य नकद</string>
+    <string name="handover_collected">वसूला: ₹%1$s</string>
+    <string name="handover_settled">निपटा: ₹%1$s</string>
+    <string name="handover_pending_approval">हैंडओवर अनुमोदन प्रतीक्षित</string>
+    <string name="handover_awaiting_owner">मालिक की पुष्टि का इंतजार है</string>
+    <string name="handover_submit_button">नकद जमा करें (मिलान के लिए)</string>
+    <string name="handover_submit_title">नकद हैंडओवर जमा करें</string>
+    <string name="handover_notes_label">टिप्पणी (वैकल्पिक)</string>
+    <string name="handover_recent_title">हाल के हैंडओवर</string>
+    <string name="handover_discrepancy">अंतर राशि: %1$s</string>
+    <string name="handover_submitted_success">₹%1$s का हैंडओवर जमा हुआ। मालिक की पुष्टि का इंतजार है।</string>
+    <string name="handover_duplicate_error">एक हैंडओवर अनुरोध पहले से लंबित है। मालिक की पुष्टि का इंतजार करें।</string>
+
+    <!-- Returns Inspection (Hindi) -->
+    <string name="returns_title">माल वापसी जाँच</string>
+    <string name="returns_no_pending">कोई लंबित माल वापसी जाँच नहीं</string>
+    <string name="returns_none_message">सभी माल वापसी की जाँच हो चुकी है या आज कोई वापसी नहीं है।</string>
+    <string name="returns_inspect_button">जाँच करें</string>
+    <string name="returns_inspect_title">माल वापसी जाँचें</string>
+    <string name="returns_saleable_label">बिकने योग्य</string>
+    <string name="returns_damaged_label">खराब / डैमेज</string>
+    <string name="returns_approve_button">स्वीकृत करें</string>
+    <string name="returns_reject_button">अस्वीकृत करें</string>
+    <string name="returns_inspection_notes">जाँच टिप्पणी (वैकल्पिक)</string>
+    <string name="returns_approved_success">माल वापसी स्वीकृत हुई।</string>
+    <string name="returns_credit_note">क्रेडिट नोट: ₹%1$s</string>
+
+    <!-- Shift Tracking (Hindi) -->
+    <string name="tracking_location_saved">स्थान ऑफलाइन सहेजा — कनेक्ट होने पर अपलोड होगा</string>
+    <string name="tracking_shift_queued">शिफ्ट समाप्ति सहेजी गई। GPS ट्रैकिंग बंद। ऑनलाइन होने पर सिंक होगा।</string>
 </resources>

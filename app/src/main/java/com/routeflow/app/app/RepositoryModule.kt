@@ -62,4 +62,16 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindFieldOperationsRepository(repository: NetworkFieldOperationsRepository): FieldOperationsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCollectionRepository(repository: com.routeflow.app.data.repository.OfflineCollectionRepository): com.routeflow.app.domain.repository.CollectionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHandoverRepository(repository: com.routeflow.app.data.repository.NetworkHandoverRepository): com.routeflow.app.domain.repository.HandoverRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindReturnRepository(repository: com.routeflow.app.data.repository.NetworkReturnRepository): com.routeflow.app.domain.repository.ReturnRepository
 }

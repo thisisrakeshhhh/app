@@ -396,6 +396,7 @@ data class AssignBeatRequest(
 
 @Serializable
 data class LocationPoint(
+    val id: String? = null,
     val latitude: Double,
     val longitude: Double,
     val accuracy: Float,
@@ -489,4 +490,187 @@ data class CheckoutVisitRequest(
     val noOrderReason: String? = null,
     val notes: String? = null
 )
+
+// --- Collections ---
+
+@Serializable
+data class RecordCollectionRequest(
+    val retailerId: String,
+    val amountPaise: Long,
+    val paymentMethod: String,
+    val receiptId: String? = null,
+    val notes: String? = null,
+    val idempotencyKey: String? = null
+)
+
+@Serializable
+data class RecordCollectionResponse(
+    val success: Boolean,
+    val collectionId: String? = null,
+    val receiptId: String? = null,
+    val balanceAfterPaise: Long = 0,
+    val idempotent: Boolean = false
+)
+
+@Serializable
+data class CollectionDto(
+    val id: String,
+    val company_id: String = "",
+    val retailer_id: String,
+    val retailer_name: String? = null,
+    val collected_by: String,
+    val collected_by_name: String? = null,
+    val amount_paise: Long,
+    val payment_method: String,
+    val receipt_id: String,
+    val notes: String? = null,
+    val created_at: Long
+)
+
+@Serializable
+data class CollectionsListResponse(
+    val collections: List<CollectionDto>
+)
+
+// --- Cash Handover ---
+
+@Serializable
+data class CashHandoverDto(
+    val id: String,
+    val company_id: String = "",
+    val user_id: String,
+    val employee_name: String? = null,
+    val employee_role: String? = null,
+    val amount_paise: Long,
+    val status: String,
+    val submitted_at: Long,
+    val acknowledged_at: Long? = null,
+    val acknowledged_by: String? = null,
+    val received_amount_paise: Long? = null,
+    val discrepancy_paise: Long? = null,
+    val notes: String? = null
+)
+
+@Serializable
+data class CashHandoverSummaryResponse(
+    val cashHeldPaise: Long,
+    val totalCollectedPaise: Long,
+    val totalSettledPaise: Long,
+    val pendingHandover: CashHandoverDto? = null,
+    val recentHandovers: List<CashHandoverDto> = emptyList()
+)
+
+@Serializable
+data class SubmitHandoverRequest(
+    val amountPaise: Long,
+    val notes: String? = null
+)
+
+@Serializable
+data class SubmitHandoverResponse(
+    val success: Boolean,
+    val handoverId: String? = null,
+    val status: String? = null,
+    val amountPaise: Long = 0
+)
+
+@Serializable
+data class OwnerHandoversResponse(
+    val handovers: List<CashHandoverDto>
+)
+
+@Serializable
+data class AcknowledgeHandoverRequest(
+    val action: String,
+    val receivedAmountPaise: Long? = null,
+    val notes: String? = null
+)
+
+@Serializable
+data class AcknowledgeHandoverResponse(
+    val success: Boolean,
+    val status: String,
+    val receivedAmountPaise: Long? = null,
+    val discrepancyPaise: Long? = null
+)
+
+// --- Returns Workflow ---
+
+@Serializable
+data class ReturnItemRequest(
+    val productId: String,
+    val requestedQuantity: Int
+)
+
+@Serializable
+data class CreateReturnRequest(
+    val orderId: String,
+    val items: List<ReturnItemRequest>,
+    val notes: String? = null
+)
+
+@Serializable
+data class CreateReturnResponse(
+    val success: Boolean,
+    val returnId: String? = null,
+    val status: String? = null
+)
+
+@Serializable
+data class ReturnItemDto(
+    val id: String,
+    val return_id: String,
+    val product_id: String,
+    val product_name: String? = null,
+    val product_hindi_name: String? = null,
+    val sku: String? = null,
+    val requested_quantity: Int,
+    val saleable_quantity: Int = 0,
+    val damaged_quantity: Int = 0,
+    val unit_price_paise: Long
+)
+
+@Serializable
+data class ReturnRequestDto(
+    val id: String,
+    val company_id: String = "",
+    val order_id: String,
+    val retailer_id: String,
+    val retailer_name: String? = null,
+    val created_by: String,
+    val created_by_name: String? = null,
+    val status: String,
+    val created_at: Long,
+    val inspected_at: Long? = null,
+    val inspected_by: String? = null,
+    val notes: String? = null,
+    val items: List<ReturnItemDto> = emptyList()
+)
+
+@Serializable
+data class PendingReturnsResponse(
+    val returns: List<ReturnRequestDto>
+)
+
+@Serializable
+data class InspectItemRequest(
+    val productId: String,
+    val saleableQuantity: Int,
+    val damagedQuantity: Int
+)
+
+@Serializable
+data class InspectReturnRequest(
+    val action: String,
+    val items: List<InspectItemRequest>? = null,
+    val notes: String? = null
+)
+
+@Serializable
+data class InspectReturnResponse(
+    val success: Boolean,
+    val status: String,
+    val totalCreditNotePaise: Long = 0
+)
+
 

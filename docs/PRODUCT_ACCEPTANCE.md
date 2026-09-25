@@ -36,7 +36,7 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 | Feature | Screen Exists? | Navigation Works? | API / DB Connected? | Permissions Enforced? | Offline Behavior? | EN/HI Wired? | Verified in App? | Remaining Work |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **5-Tab Navigation** (Home, Orders, Business, Team, Activity) | Yes (`RouteFlowApp`) | Yes | Yes | Yes (OWNER role required) | Read-only cache | Yes | Yes | Complete. |
-| **Pending Order Approvals** | Yes (`OrderApprovalScreen`) | Yes | Yes (`POST /orders/:id/approve`, `POST /orders/:id/reject`) | Yes (OWNER only) | Approvals queued online | Yes | Yes | Credit limit alert banner on approval detail. |
+| **Pending Order Approvals** | Yes (`OrderApprovalScreen`) | Yes | Yes (`POST /orders/:id/approve`, `POST /orders/:id/reject`) | Yes (OWNER only) | Approvals queued online | Yes | Yes | Complete. |
 | **Product Master Setup** (SKU, category, unit, wholesale price, MRP, Hindi name) | Yes (`OwnerProductsScreen`) | Yes | Yes (`GET/POST/PUT /products`) | Yes (OWNER only) | Cached in Room | Yes | Yes | Complete. |
 | **Stock Adjustment & Receipts** | Yes (`OwnerProductsScreen` dialog) | Yes | Yes (`POST /inventory/adjust`) | Yes (OWNER / WAREHOUSE) | Queued if offline | Yes | Yes | Complete with idempotency key. |
 | **Retailer Master & Onboarding** (Beat, credit limit, location, terms) | Yes (`OwnerRetailersScreen`) | Yes | Yes (`GET/POST/PUT /retailers`) | Yes (OWNER only) | Cached in Room | Yes | Yes | Complete. |
@@ -44,6 +44,7 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 | **Beat Master Setup** (Name, shops, visit order, assigned salesperson) | Yes (`OwnerBeatsScreen`) | Yes | Yes (`GET/POST /beats`, `/assign`) | Yes (OWNER only) | Cached in Room | Yes | Yes | Complete. |
 | **Team Location & Shift Monitor** | Yes (`OwnerTeamScreen`) | Yes | Yes (`GET /team/status`) | Yes (OWNER only) | Live polling / cached | Yes | Yes | Complete. |
 | **Daily Field Activity Review** (Planned vs completed, duration, exceptions) | Yes (`OwnerFieldActivityScreen`) | Yes | Yes (`GET /owner/visits/daily`) | Yes (OWNER only) | Cached | Yes | Yes | Complete. |
+| **Cash Handover Acknowledgement** | In Progress (`OwnerBusinessHubScreen`) | Partial | Implemented (`GET /owner/handovers`, `POST /owner/handovers/:id/acknowledge`) | Yes (OWNER only) | Server-confirmed | Not yet wired | **Not yet device-verified** | Wire owner handover list and acknowledge dialog into `OwnerBusinessHubScreen` or a dedicated sub-screen. |
 
 ---
 
@@ -52,12 +53,12 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 | Feature | Screen Exists? | Navigation Works? | API / DB Connected? | Permissions Enforced? | Offline Behavior? | EN/HI Wired? | Verified in App? | Remaining Work |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **5-Tab Navigation** (Today, Shops, Orders, Collections, Profile) | Yes (`RouteFlowApp`) | Yes | Yes | Yes (SALESPERSON) | Full offline | Yes | Yes | Complete. |
-| **Start / End Shift** | Yes (`SalesTodayScreen`) | Yes | Yes (`POST /shifts/start`, `/end`) | Yes (SALESPERSON) | Foreground location tracking | Yes | Yes | Complete. |
+| **Start / End Shift & Durable Tracking** | Yes (`SalesTodayScreen`) | Yes | Implemented (`POST /shifts/start`, `/end`, `/locations`) | Yes (SALESPERSON) | Room `shift_locations_outbox` with stable IDs; offline end queued to sync_outbox | Yes (EN+HI) | **Not yet device-verified** | Device verification: end shift offline → GPS stops immediately → reconnect → pending points upload. |
 | **Today's Assigned Shops** | Yes (`SalesTodayScreen`, `SalesHomeScreen`) | Yes | Yes (`GET /retailers`, `/beats`) | Yes (Filtered by assigned beat) | Full Room cache | Yes | Yes | Complete with visit status indicators. |
 | **Shop Visit Check-In / Check-Out** | Yes (`ShopVisitScreen`, `SalesTodayScreen`) | Yes | Yes (`POST /visits`, `/checkout`) | Yes (Assigned beat only, single active visit rule) | Room entity + outbox sync | Yes | Yes | Complete. |
 | **In-Store Stock Audit** | Yes (`ShopVisitScreen`) | Yes | Yes (`POST /stock-checks`) | Yes (Assigned beat only) | Room entity + outbox sync | Yes | Yes | Complete. |
 | **Order Booking & Schemes** | Yes (`OrderBookingScreen`) | Yes | Yes (`POST /orders`) | Yes (Assigned beat only) | Room entity + WorkManager durable sync | Yes | Yes | Complete. |
-| **Order History & Sync Status** | Yes (`SalesHomeScreen`) | Yes | Yes (`GET /orders`) | Yes | Room queries | Yes | Yes | Complete. |
+| **Payment Collections** | Yes (`SalesCollectionsScreen`) | Yes | Implemented (`POST /collections`) | Yes (SALESPERSON) | Room outbox + sync_outbox for offline | Yes (EN+HI) | **Not yet device-verified** | Device verification required: record collection offline, restart, reconnect, verify ledger. |
 
 ---
 
@@ -69,7 +70,7 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 | **Picking & Packing Queue** | Yes (`PickingScreen`) | Yes | Yes (`POST /orders/:id/start-picking`, `/pick-item`, `/pack`) | Yes (WAREHOUSE) | Queue cached locally | Yes | Yes | Complete. |
 | **Driver Assignment & Dispatch** | Yes (`WarehouseHomeScreen`) | Yes | Yes (`POST /orders/:id/dispatch`) | Yes (Active drivers in company only) | Requires online check | Yes | Yes | Complete. |
 | **Stock Receipts & Batch Intake** | Yes (`WarehouseStockScreen`) | Yes | Yes (`POST /inventory/adjust`) | Yes | Queued | Yes | Yes | Complete. |
-| **Return Inspection & Restock** | Yes (`WarehouseReturnsScreen`) | Yes | Yes (`POST /inventory/adjust`) | Yes | Queued | Yes | Yes | Complete. |
+| **Return Inspection & Disposition** | Yes (`WarehouseReturnsScreen`) | Yes | Implemented (`GET /returns/pending`, `POST /returns/:id/inspect`) | Yes (WAREHOUSE) | Server-confirmed; no local queue | Yes (EN+HI) | **Not yet device-verified** | Device verification required: create return, inspect, verify stock and credit-note effects exactly once. |
 
 ---
 
@@ -81,7 +82,7 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 | **Assigned Deliveries & Trip Navigation** | Yes (`DeliveryListScreen`) | Yes | Yes (`GET /orders`) | Yes (Assigned orders only) | Full Room cache | Yes | Yes | Complete. |
 | **Delivery Confirmation & Mandatory OTP** | Yes (`DeliveryDetailScreen`) | Yes | Yes (`POST /orders/:id/deliver`) | Yes (Strict OTP + recipient name) | Must be online to verify OTP | Yes | Yes | Complete. |
 | **Payment Collection** (CASH / CREDIT) | Yes (`DeliveryDetailScreen`) | Yes | Yes (`POST /orders/:id/deliver`) | Yes | Ledger created in atomic batch | Yes | Yes | Complete. |
-| **Cash Handover & Shift Settlement** | Yes (`DeliveryHandoverScreen`) | Yes | Yes (Summary & reconciliation) | Yes (DELIVERY) | Local cache | Yes | Yes | Complete. |
+| **Cash Handover & Shift Settlement** | Yes (`DeliveryHandoverScreen`) | Yes | Implemented (`GET /handovers/summary`, `POST /handovers/request`) | Yes (DELIVERY) | Local summary cache, server-confirmed | Yes (EN+HI) | **Not yet device-verified** | Device verification required: submit handover, owner approve, confirm remaining cash = 0. |
 
 ---
 

@@ -138,4 +138,34 @@ interface RouteFlowApi {
     // --- Daily Activity Review ---
     @GET("owner/visits/daily")
     suspend fun getDailyVisits(@retrofit2.http.Query("date") date: String? = null): List<com.routeflow.app.core.network.dto.DailyVisitDto>
+
+    // --- Collections ---
+    @POST("collections")
+    suspend fun recordCollection(@Body request: com.routeflow.app.core.network.dto.RecordCollectionRequest): com.routeflow.app.core.network.dto.RecordCollectionResponse
+
+    @GET("collections")
+    suspend fun getCollections(@retrofit2.http.Query("retailerId") retailerId: String? = null): com.routeflow.app.core.network.dto.CollectionsListResponse
+
+    // --- Cash Handover ---
+    @GET("handovers/summary")
+    suspend fun getHandoverSummary(): com.routeflow.app.core.network.dto.CashHandoverSummaryResponse
+
+    @POST("handovers/request")
+    suspend fun submitHandoverRequest(@Body request: com.routeflow.app.core.network.dto.SubmitHandoverRequest): com.routeflow.app.core.network.dto.SubmitHandoverResponse
+
+    @GET("owner/handovers")
+    suspend fun getOwnerHandovers(): com.routeflow.app.core.network.dto.OwnerHandoversResponse
+
+    @POST("owner/handovers/{id}/acknowledge")
+    suspend fun acknowledgeHandover(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.AcknowledgeHandoverRequest): com.routeflow.app.core.network.dto.AcknowledgeHandoverResponse
+
+    // --- Returns ---
+    @POST("returns")
+    suspend fun createReturn(@Body request: com.routeflow.app.core.network.dto.CreateReturnRequest): com.routeflow.app.core.network.dto.CreateReturnResponse
+
+    @GET("returns/pending")
+    suspend fun getPendingReturns(): com.routeflow.app.core.network.dto.PendingReturnsResponse
+
+    @POST("returns/{id}/inspect")
+    suspend fun inspectReturn(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.InspectReturnRequest): com.routeflow.app.core.network.dto.InspectReturnResponse
 }

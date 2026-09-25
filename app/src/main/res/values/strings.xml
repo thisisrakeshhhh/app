@@ -164,4 +164,53 @@
     <string name="location_discrepancy_alert">Location Discrepancy (> 500m from shop)</string>
     <string name="verified_gps_location">GPS Location Verified</string>
     <string name="switch_language">Language / भाषा</string>
+
+    <!-- Collections -->
+    <string name="collections_title">Collections</string>
+    <string name="collections_total_outstanding">Total Beat Outstanding</string>
+    <string name="collections_shops_with_balance">%1$d shops with pending balances</string>
+    <string name="collections_retailer_balances">Retailer Balances</string>
+    <string name="collections_collect_button">Collect</string>
+    <string name="collections_collect_from">Collect from %1$s</string>
+    <string name="collections_outstanding_due">Outstanding Due: ₹%1$s</string>
+    <string name="collections_amount_label">Collection Amount (₹) *</string>
+    <string name="collections_payment_mode">Payment Mode:</string>
+    <string name="collections_receipt_ref">Receipt / Ref Number (Optional)</string>
+    <string name="collections_record_button">Record Receipt</string>
+    <string name="collections_confirmed_badge">✓ Confirmed</string>
+    <string name="collections_pending_badge">⏳ Pending sync</string>
+
+    <!-- Cash Handover -->
+    <string name="handover_title">Cash Handover</string>
+    <string name="handover_cash_to_hand_over">Cash to Hand Over</string>
+    <string name="handover_collected">Collected: ₹%1$s</string>
+    <string name="handover_settled">Settled: ₹%1$s</string>
+    <string name="handover_pending_approval">Handover Pending Approval</string>
+    <string name="handover_awaiting_owner">Awaiting owner acknowledgement</string>
+    <string name="handover_submit_button">Submit Handover for Reconciliation</string>
+    <string name="handover_submit_title">Submit Cash Handover</string>
+    <string name="handover_notes_label">Notes (optional)</string>
+    <string name="handover_recent_title">Recent Handovers</string>
+    <string name="handover_discrepancy">Discrepancy: %1$s</string>
+    <string name="handover_submitted_success">Handover of ₹%1$s submitted. Awaiting owner confirmation.</string>
+    <string name="handover_duplicate_error">A handover request is already pending. Wait for the owner to acknowledge it.</string>
+
+    <!-- Returns Inspection -->
+    <string name="returns_title">Returns Inspection</string>
+    <string name="returns_no_pending">No pending return inspections</string>
+    <string name="returns_none_message">All returns have been inspected or there are no returns today.</string>
+    <string name="returns_inspect_button">Inspect Return</string>
+    <string name="returns_inspect_title">Inspect Return</string>
+    <string name="returns_saleable_label">Saleable</string>
+    <string name="returns_damaged_label">Damaged</string>
+    <string name="returns_approve_button">Approve</string>
+    <string name="returns_reject_button">Reject</string>
+    <string name="returns_inspection_notes">Inspection notes (optional)</string>
+    <string name="returns_approved_success">Return approved.</string>
+    <string name="returns_credit_note">Credit note: ₹%1$s</string>
+
+    <!-- Shift Tracking -->
+    <string name="tracking_location_saved">Location saved offline — will sync when connected</string>
+    <string name="tracking_shift_queued">Shift end saved. GPS tracking stopped. Will sync when online.</string>
 </resources>
+

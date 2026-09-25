@@ -1143,4 +1143,306 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     });
     assert.equal(resCrossGetSc.status, 404, 'Getting stock checks for cross-company retailer must return 404');
   });
+
+  test('16. Collections & Payment Ledger: Partial collection, durable ledger and idempotency', async () => {
+    // Check initial retailer outstanding balance
+    const resRetBefore = await fetch(`${BASE_URL}/retailers`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    const retListBefore = await resRetBefore.json();
+    const r1Before = retListBefore.find(r => r.id === 'R1');
+    const initialBal = r1Before.outstandingAmountPaise;
+
+    const collectionAmount = 50000; // ₹500
+    const testIdempotencyKey = `col_test_${Date.now()}`;
+
+    // 1. Salesperson records a partial CASH collection for R1
+    const resCol = await fetch(`${BASE_URL}/collections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        retailerId: 'R1',
+        amountPaise: collectionAmount,
+        paymentMethod: 'CASH',
+        receiptId: 'REC-TEST-001',
+        notes: 'Partial collection by salesperson',
+        idempotencyKey: testIdempotencyKey
+      })
+    });
+    assert.equal(resCol.status, 200, 'Recording collection should succeed');
+    const colData = await resCol.json();
+    assert.ok(colData.success);
+    assert.equal(colData.balanceAfterPaise, initialBal - collectionAmount);
+    assert.equal(colData.receiptId, 'REC-TEST-001');
+
+    // 2. Retry with same idempotency key must not double-decrement
+    const resColRetry = await fetch(`${BASE_URL}/collections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        retailerId: 'R1',
+        amountPaise: collectionAmount,
+        paymentMethod: 'CASH',
+        receiptId: 'REC-TEST-001',
+        idempotencyKey: testIdempotencyKey
+      })
+    });
+    assert.equal(resColRetry.status, 200);
+    const retryData = await resColRetry.json();
+    assert.ok(retryData.idempotent);
+    assert.equal(retryData.balanceAfterPaise, initialBal - collectionAmount);
+
+    // 3. Verify collections list
+    const resList = await fetch(`${BASE_URL}/collections?retailerId=R1`, {
+      headers: { Authorization: `Bearer ${salesToken}` }
+    });
+    assert.equal(resList.status, 200);
+    const listData = await resList.json();
+    const found = listData.collections.find(c => c.id === colData.collectionId);
+    assert.ok(found, 'Recorded collection must appear in collections list');
+    assert.equal(found.amount_paise, collectionAmount);
+  });
+
+  test('17. Cash Handover: Request, calculation from ledger, owner acknowledgement and reconciliation', async () => {
+    // 0. Ensure clean state: reject any leftover pending handover for clean test run
+    const resClean = await fetch(`${BASE_URL}/owner/handovers`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    if (resClean.ok) {
+      const cleanList = await resClean.json();
+      for (const h of cleanList.handovers || []) {
+        if (h.status === 'PENDING') {
+          await fetch(`${BASE_URL}/owner/handovers/${h.id}/acknowledge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+            body: JSON.stringify({ action: 'REJECT', notes: 'Cleanup prior test runs' })
+          });
+        }
+      }
+    }
+
+    // 1. Salesperson checks cash summary
+    const resSummBefore = await fetch(`${BASE_URL}/handovers/summary`, {
+      headers: { Authorization: `Bearer ${salesToken}` }
+    });
+    assert.equal(resSummBefore.status, 200);
+    const summBefore = await resSummBefore.json();
+    assert.ok(summBefore.cashHeldPaise >= 50000, 'Cash held must reflect at least the ₹500 collected');
+
+    // 2. Attempt handover exceeding cash held should fail
+    const resOver = await fetch(`${BASE_URL}/handovers/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        amountPaise: summBefore.cashHeldPaise + 100000,
+        notes: 'Excessive handover'
+      })
+    });
+    assert.equal(resOver.status, 400, 'Handover exceeding cash held must be rejected');
+
+    // 3. Submit valid handover request for ₹300 (30000 paise)
+    const handoverAmt = 30000;
+    const resReq = await fetch(`${BASE_URL}/handovers/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        amountPaise: handoverAmt,
+        notes: 'Evening cash handover'
+      })
+    });
+    assert.equal(resReq.status, 200);
+    const reqData = await resReq.json();
+    assert.ok(reqData.handoverId);
+    assert.equal(reqData.status, 'PENDING');
+
+    // 4. Duplicate request while pending must fail
+    const resDup = await fetch(`${BASE_URL}/handovers/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        amountPaise: 10000
+      })
+    });
+    assert.equal(resDup.status, 400, 'Duplicate handover while pending must be rejected');
+
+    // 5. Owner views pending handovers
+    const resOwnerList = await fetch(`${BASE_URL}/owner/handovers`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(resOwnerList.status, 200);
+    const ownerList = await resOwnerList.json();
+    const pendingHnd = ownerList.handovers.find(h => h.id === reqData.handoverId);
+    assert.ok(pendingHnd, 'Owner must see pending handover');
+    assert.equal(pendingHnd.amount_paise, handoverAmt);
+
+    // 6. Owner acknowledges handover with ₹20 discrepancy (received ₹280 = 28000 paise)
+    const receivedAmt = 28000;
+    const resAck = await fetch(`${BASE_URL}/owner/handovers/${reqData.handoverId}/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        action: 'ACCEPT',
+        receivedAmountPaise: receivedAmt,
+        notes: '₹20 shortage noted'
+      })
+    });
+    assert.equal(resAck.status, 200);
+    const ackData = await resAck.json();
+    assert.equal(ackData.status, 'ACCEPTED');
+    assert.equal(ackData.discrepancyPaise, -2000);
+
+    // 7. Verify cash held is now reduced by the settled amount
+    const resSummAfter = await fetch(`${BASE_URL}/handovers/summary`, {
+      headers: { Authorization: `Bearer ${salesToken}` }
+    });
+    const summAfter = await resSummAfter.json();
+    assert.equal(summAfter.cashHeldPaise, summBefore.cashHeldPaise - receivedAmt);
+  });
+
+  test('18. Returns Workflow: Delivered order linking, inspection disposition, atomic stock & credit effect', async () => {
+    // 1. Create a quick order for return test
+    const returnOrderId = `ord_ret_${Date.now()}`;
+    const returnOrder = {
+      order: {
+        id: returnOrderId,
+        retailerId: 'R1',
+        employeeId: 'user_sales',
+        status: 'SUBMITTED',
+        totalAmountPaise: 135000,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      },
+      items: [{ id: `item_ret_${Date.now()}`, productId: 'P1', quantity: 3, freeQuantity: 0, pricePaiseAtTime: 45000, isPicked: false }]
+    };
+    const resOrder = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(returnOrder)
+    });
+    assert.equal(resOrder.status, 200, 'Order creation should succeed');
+    const orderId = returnOrderId;
+
+    // Approve
+    const resAppr = await fetch(`${BASE_URL}/orders/${orderId}/approve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    const apprData = await resAppr.json();
+    assert.equal(resAppr.status, 200, `Approval failed: ${JSON.stringify(apprData)}`);
+
+    // Start picking & pick item
+    await fetch(`${BASE_URL}/orders/${orderId}/start-picking`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    await fetch(`${BASE_URL}/orders/${orderId}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P1', isPicked: true })
+    });
+    const resPack = await fetch(`${BASE_URL}/orders/${orderId}/pack`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(resPack.status, 200);
+
+    // Dispatch
+    const resDisp = await fetch(`${BASE_URL}/orders/${orderId}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
+    });
+    assert.equal(resDisp.status, 200);
+
+    // Request OTP & Deliver with CREDIT
+    const resOtp = await fetch(`${BASE_URL}/orders/${orderId}/request-otp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${deliveryToken}`, 'X-Test-Runner': 'true' }
+    });
+    const otpData = await resOtp.json();
+    const resDel = await fetch(`${BASE_URL}/orders/${orderId}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({
+        otp: otpData.debugOtp,
+        recipientName: 'Test Recipient',
+        paymentMethod: 'CREDIT'
+      })
+    });
+    assert.equal(resDel.status, 200);
+
+    // Check P1 stock and R1 balance before return
+    const resP1Before = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const p1ListBefore = await resP1Before.json();
+    const p1Before = p1ListBefore.find(p => p.id === 'P1');
+    const p1StockBefore = p1Before.stockQuantity;
+
+    const resR1Before = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r1ListBefore = await resR1Before.json();
+    const r1Before = r1ListBefore.find(r => r.id === 'R1');
+    const r1BalBefore = r1Before.outstandingAmountPaise;
+
+    // 2. Submit return request for 2 units of P1 (Order has 3 units)
+    const resRetReq = await fetch(`${BASE_URL}/returns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        orderId: orderId,
+        items: [{ productId: 'P1', requestedQuantity: 2 }],
+        notes: 'Damaged packaging during transit'
+      })
+    });
+    assert.equal(resRetReq.status, 200);
+    const retReqData = await resRetReq.json();
+    assert.ok(retReqData.returnId);
+
+    // 3. Warehouse manager retrieves pending returns
+    const resPendingRet = await fetch(`${BASE_URL}/returns/pending`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(resPendingRet.status, 200);
+    const pendingList = await resPendingRet.json();
+    const foundReturn = pendingList.returns.find(r => r.id === retReqData.returnId);
+    assert.ok(foundReturn, 'Warehouse must see pending return');
+    assert.equal(foundReturn.items[0].requested_quantity, 2);
+
+    // 4. Warehouse inspects: 1 saleable (restocked), 1 damaged (not restocked), total 2 credited
+    const resInspect = await fetch(`${BASE_URL}/returns/${retReqData.returnId}/inspect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        action: 'APPROVE',
+        items: [{ productId: 'P1', saleableQuantity: 1, damagedQuantity: 1 }],
+        notes: '1 unit restocked to shelf, 1 written off as damaged packaging'
+      })
+    });
+    const inspectData = await resInspect.json();
+    assert.equal(resInspect.status, 200, `Inspection failed: ${JSON.stringify(inspectData)}`);
+    assert.equal(inspectData.status, 'APPROVED');
+    assert.ok(inspectData.totalCreditNotePaise > 0);
+
+    // 5. Verify atomic stock effect: P1 stock increased by exactly 1 (saleable)
+    const resP1After = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const p1ListAfter = await resP1After.json();
+    const p1After = p1ListAfter.find(p => p.id === 'P1');
+    assert.equal(p1After.stockQuantity, p1StockBefore + 1, 'Stock must increase by saleable quantity');
+
+    // 6. Verify atomic credit note effect: R1 balance decreased by credit note amount
+    const resR1After = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r1ListAfter = await resR1After.json();
+    const r1After = r1ListAfter.find(r => r.id === 'R1');
+    assert.equal(r1After.outstandingAmountPaise, r1BalBefore - inspectData.totalCreditNotePaise, 'Retailer balance must decrease by credit note amount');
+
+    // 7. Double inspection rejected (cannot process twice)
+    const resInspectAgain = await fetch(`${BASE_URL}/returns/${retReqData.returnId}/inspect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        action: 'APPROVE',
+        items: [{ productId: 'P1', saleableQuantity: 3, damagedQuantity: 1 }]
+      })
+    });
+    assert.equal(resInspectAgain.status, 400, 'Cannot inspect already processed return');
+  });
 });
+

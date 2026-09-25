@@ -76,6 +76,38 @@ class OrderSyncWorker @AssistedInject constructor(
                                 )
                             }
                         }
+                        "SHIFT_END" -> {
+                            val request = json.decodeFromString<com.routeflow.app.core.network.dto.EndShiftRequest>(syncItem.payload)
+                            val response = api.endShift(request)
+                            if (response.success) {
+                                database.syncOutboxDao().deleteSyncItem(syncItem)
+                            } else {
+                                hasRetryableError = true
+                                database.syncOutboxDao().updateSyncItem(
+                                    syncItem.copy(
+                                        retryCount = syncItem.retryCount + 1,
+                                        lastError = response.message ?: "End shift unacknowledged"
+                                    )
+                                )
+                            }
+                        }
+                        "COLLECTION_RECORD" -> {
+                            val request = json.decodeFromString<com.routeflow.app.core.network.dto.RecordCollectionRequest>(syncItem.payload)
+                            val response = api.recordCollection(request)
+                            if (response.success) {
+                                database.syncOutboxDao().deleteSyncItem(syncItem)
+                                database.collectionRecordDao().markSynced(syncItem.idempotencyKey.removePrefix("col_idemp_"))
+                                database.retailerDao().updateOutstanding(request.retailerId, response.balanceAfterPaise)
+                            } else {
+                                hasRetryableError = true
+                                database.syncOutboxDao().updateSyncItem(
+                                    syncItem.copy(
+                                        retryCount = syncItem.retryCount + 1,
+                                        lastError = "Collection upload rejected by server"
+                                    )
+                                )
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     val isPermanent = if (e is retrofit2.HttpException) {

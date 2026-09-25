@@ -16,26 +16,31 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.routeflow.app.R
 import com.routeflow.app.app.MainActivity
+import com.routeflow.app.core.database.dao.ShiftLocationDao
+import com.routeflow.app.core.database.entity.ShiftLocationEntity
 import com.routeflow.app.core.network.api.RouteFlowApi
 import com.routeflow.app.core.network.dto.LocationPoint
 import com.routeflow.app.core.network.dto.ShiftLocationsRequest
+import com.routeflow.app.core.security.TokenStorage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class ShiftTrackingService : Service(), LocationListener {
 
     @Inject lateinit var api: RouteFlowApi
+    @Inject lateinit var shiftLocationDao: ShiftLocationDao
+    @Inject lateinit var tokenStorage: TokenStorage
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var locationManager: LocationManager? = null
     private var activeShiftId: String? = null
-    private val breadcrumbBuffer = mutableListOf<LocationPoint>()
 
     override fun onCreate() {
         super.onCreate()
@@ -88,50 +93,63 @@ class ShiftTrackingService : Service(), LocationListener {
     }
 
     override fun onLocationChanged(location: Location) {
-        val point = LocationPoint(
+        val shiftId = activeShiftId ?: return
+        val userId = tokenStorage.getUserId() ?: ""
+        val companyId = tokenStorage.getCompanyId() ?: ""
+        val pointId = "loc_${UUID.randomUUID()}"
+        val point = ShiftLocationEntity(
+            id = pointId,
+            shiftId = shiftId,
+            userId = userId,
+            companyId = companyId,
             latitude = location.latitude,
             longitude = location.longitude,
             accuracy = location.accuracy,
-            timestamp = location.time.takeIf { it > 0 } ?: System.currentTimeMillis()
+            timestamp = location.time.takeIf { it > 0 } ?: System.currentTimeMillis(),
+            isSynced = false
         )
 
-        synchronized(breadcrumbBuffer) {
-            breadcrumbBuffer.add(point)
-            if (breadcrumbBuffer.size >= BATCH_UPLOAD_SIZE) {
-                flushBuffer()
-            }
+        serviceScope.launch {
+            shiftLocationDao.insertLocation(point)
+            flushPendingLocations(shiftId)
         }
     }
 
-    private fun flushBuffer() {
-        val shiftId = activeShiftId ?: return
-        val toSend: List<LocationPoint>
-        synchronized(breadcrumbBuffer) {
-            if (breadcrumbBuffer.isEmpty()) return
-            toSend = breadcrumbBuffer.toList()
-            breadcrumbBuffer.clear()
-        }
-
-        serviceScope.launch {
-            try {
-                api.uploadShiftLocations(
-                    ShiftLocationsRequest(shiftId = shiftId, points = toSend)
+    private suspend fun flushPendingLocations(shiftId: String) {
+        try {
+            val pending = shiftLocationDao.getPendingLocations(shiftId, limit = 50)
+            if (pending.isEmpty()) return
+            val toSend = pending.map {
+                LocationPoint(
+                    id = it.id,
+                    latitude = it.latitude,
+                    longitude = it.longitude,
+                    accuracy = it.accuracy,
+                    timestamp = it.timestamp
                 )
-            } catch (_: Exception) {
-                // If offline, re-buffer up to limit to prevent memory leak
-                synchronized(breadcrumbBuffer) {
-                    if (breadcrumbBuffer.size < 500) {
-                        breadcrumbBuffer.addAll(0, toSend)
-                    }
-                }
             }
+            val resp = api.uploadShiftLocations(
+                ShiftLocationsRequest(shiftId = shiftId, points = toSend)
+            )
+            if (resp.success) {
+                shiftLocationDao.markSynced(pending.map { it.id })
+                val sevenDaysAgo = System.currentTimeMillis() - 7 * 24 * 3600 * 1000L
+                shiftLocationDao.deleteSynced(sevenDaysAgo)
+            }
+        } catch (_: Exception) {
+            // Unsent locations remain in SQLite shift_locations_outbox with isSynced = false
         }
     }
 
     private fun stopTracking() {
         try {
             locationManager?.removeUpdates(this)
-            flushBuffer()
+            val shiftId = activeShiftId
+            if (shiftId != null) {
+                serviceScope.launch {
+                    flushPendingLocations(shiftId)
+                }
+            }
         } catch (_: Exception) {}
         activeShiftId = null
     }
