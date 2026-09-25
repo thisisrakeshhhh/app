@@ -59,14 +59,14 @@ class DeliveryViewModel @Inject constructor(
 
     val deliveryList: StateFlow<List<DeliveryItemState>> = combine(
         orderRepository.getAllOrders(),
-        retailerRepository.getRetailersByBeat("BEAT-04")
+        retailerRepository.getAllRetailers()
     ) { orders, retailers ->
         orders.filter { it.status == "OUT_FOR_DELIVERY" }.map { order ->
             val retailer = retailers.find { it.id == order.retailerId }
             DeliveryItemState(
                 order = order,
-                retailerName = retailer?.name ?: "Unknown",
-                retailerAddress = retailer?.address ?: "Unknown"
+                retailerName = retailer?.name ?: "Retailer ${order.retailerId}",
+                retailerAddress = retailer?.address ?: "Address not available"
             )
         }
     }.stateIn(
@@ -89,6 +89,10 @@ class DeliveryViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun clearError() {
+        _detailState.update { it.copy(error = null) }
     }
 
     fun resetDetailState() {

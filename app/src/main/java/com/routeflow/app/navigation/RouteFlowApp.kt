@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -357,10 +358,19 @@ fun RouteFlowApp(
                         orderId = item.order.id,
                         retailerName = item.retailerName,
                         amountPaise = item.order.totalAmountPaise,
+                        detailState = detailState,
                         onDeliver = { method ->
                             viewModel.markDelivered(item.order.id, method)
-                        }
+                        },
+                        onClearError = viewModel::clearError
                     )
+                } else if (!detailState.success) {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
         }
