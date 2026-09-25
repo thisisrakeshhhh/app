@@ -292,6 +292,18 @@ class AccountScopedSyncTest {
         override suspend fun deactivateEmployee(id: String): StatusResponse = StatusResponse(success = true)
         override suspend fun submitVisit(request: com.routeflow.app.core.network.dto.VisitDto): StatusResponse = StatusResponse(success = true)
         override suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto> = emptyList()
+        override suspend fun checkoutVisit(visitId: String, request: com.routeflow.app.core.network.dto.CheckoutVisitRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun submitStockCheck(request: com.routeflow.app.core.network.dto.StockCheckDto): StatusResponse = StatusResponse(success = true)
+        override suspend fun getBeats(): List<com.routeflow.app.core.network.dto.BeatDto> = emptyList()
+        override suspend fun createBeat(request: com.routeflow.app.core.network.dto.CreateBeatRequest): com.routeflow.app.core.network.dto.CreateBeatResponse =
+            com.routeflow.app.core.network.dto.CreateBeatResponse(success = true)
+        override suspend fun assignBeat(beatId: String, request: com.routeflow.app.core.network.dto.AssignBeatRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun startShift(request: com.routeflow.app.core.network.dto.StartShiftRequest): com.routeflow.app.core.network.dto.ShiftResponse =
+            com.routeflow.app.core.network.dto.ShiftResponse(success = true)
+        override suspend fun endShift(request: com.routeflow.app.core.network.dto.EndShiftRequest): com.routeflow.app.core.network.dto.ShiftResponse =
+            com.routeflow.app.core.network.dto.ShiftResponse(success = true)
+        override suspend fun uploadShiftLocations(request: com.routeflow.app.core.network.dto.ShiftLocationsRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun getTeamStatus(): List<com.routeflow.app.core.network.dto.TeamMemberStatusDto> = emptyList()
+        override suspend fun getDailyVisits(date: String?): List<com.routeflow.app.core.network.dto.DailyVisitDto> = emptyList()
     }
 }

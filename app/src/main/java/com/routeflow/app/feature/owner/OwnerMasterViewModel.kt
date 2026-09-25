@@ -2,6 +2,8 @@ package com.routeflow.app.feature.owner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.routeflow.app.core.network.dto.BeatDto
+import com.routeflow.app.core.network.dto.CreateBeatRequest
 import com.routeflow.app.core.network.dto.CreateEmployeeRequest
 import com.routeflow.app.core.network.dto.CreateProductRequest
 import com.routeflow.app.core.network.dto.CreateRetailerRequest
@@ -11,6 +13,7 @@ import com.routeflow.app.core.network.dto.UpdateProductRequest
 import com.routeflow.app.core.network.dto.UpdateRetailerRequest
 import com.routeflow.app.domain.model.Product
 import com.routeflow.app.domain.model.Retailer
+import com.routeflow.app.domain.repository.BeatRepository
 import com.routeflow.app.domain.repository.EmployeeRepository
 import com.routeflow.app.domain.repository.ProductRepository
 import com.routeflow.app.domain.repository.RetailerRepository
@@ -28,6 +31,7 @@ data class OwnerMasterState(
     val products: List<Product> = emptyList(),
     val retailers: List<Retailer> = emptyList(),
     val employees: List<EmployeeDto> = emptyList(),
+    val beats: List<BeatDto> = emptyList(),
     val isLoading: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null
@@ -37,22 +41,26 @@ data class OwnerMasterState(
 class OwnerMasterViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val retailerRepository: RetailerRepository,
-    private val employeeRepository: EmployeeRepository
+    private val employeeRepository: EmployeeRepository,
+    private val beatRepository: BeatRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(OwnerMasterState())
     private val _employees = MutableStateFlow<List<EmployeeDto>>(emptyList())
+    private val _beats = MutableStateFlow<List<BeatDto>>(emptyList())
 
     val state: StateFlow<OwnerMasterState> = combine(
         _state,
         productRepository.getAllProducts(),
         retailerRepository.getAllRetailers(),
-        _employees
-    ) { baseState, products, retailers, employees ->
+        _employees,
+        _beats
+    ) { baseState, products, retailers, employees, beats ->
         baseState.copy(
             products = products,
             retailers = retailers,
-            employees = employees
+            employees = employees,
+            beats = beats
         )
     }.stateIn(
         scope = viewModelScope,
@@ -70,6 +78,10 @@ class OwnerMasterViewModel @Inject constructor(
             val empResult = employeeRepository.getCompanyEmployees()
             if (empResult.isSuccess) {
                 _employees.value = empResult.getOrNull() ?: emptyList()
+            }
+            val beatResult = beatRepository.getBeats()
+            if (beatResult.isSuccess) {
+                _beats.value = beatResult.getOrNull() ?: emptyList()
             }
             productRepository.syncProductsFromServer()
             retailerRepository.syncRetailersFromServer()
@@ -255,6 +267,44 @@ class OwnerMasterViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, successMessage = "Deactivated '$name' - session revoked immediately") }
             } else {
                 _state.update { it.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to deactivate staff") }
+            }
+        }
+    }
+
+    fun createBeat(name: String, description: String?, workingDays: List<String>) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = beatRepository.createBeat(
+                CreateBeatRequest(name = name, description = description, workingDays = workingDays)
+            )
+            if (result.isSuccess) {
+                val beatResult = beatRepository.getBeats()
+                if (beatResult.isSuccess) {
+                    _beats.value = beatResult.getOrNull() ?: emptyList()
+                }
+                _state.update { it.copy(isLoading = false, successMessage = "Beat '$name' created") }
+            } else {
+                _state.update { it.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to create beat") }
+            }
+        }
+    }
+
+    fun assignBeat(beatId: String, userId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = beatRepository.assignBeat(beatId, userId)
+            if (result.isSuccess) {
+                val beatResult = beatRepository.getBeats()
+                if (beatResult.isSuccess) {
+                    _beats.value = beatResult.getOrNull() ?: emptyList()
+                }
+                val empResult = employeeRepository.getCompanyEmployees()
+                if (empResult.isSuccess) {
+                    _employees.value = empResult.getOrNull() ?: emptyList()
+                }
+                _state.update { it.copy(isLoading = false, successMessage = "Salesperson assigned to beat") }
+            } else {
+                _state.update { it.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to assign beat") }
             }
         }
     }

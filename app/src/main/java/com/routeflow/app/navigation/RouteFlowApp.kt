@@ -1,15 +1,38 @@
 package com.routeflow.app.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AssignmentReturn
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,10 +42,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,76 +61,110 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.routeflow.app.R
 import com.routeflow.app.core.design.RFColors
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import com.routeflow.app.domain.model.EmployeeRole
 import com.routeflow.app.feature.auth.DemoLoginScreen
 import com.routeflow.app.feature.auth.DemoLoginState
 import com.routeflow.app.feature.auth.DemoLoginViewModel
 import com.routeflow.app.feature.auth.LoginScreen
 import com.routeflow.app.feature.auth.LoginViewModel
 import com.routeflow.app.feature.delivery.DeliveryDetailScreen
+import com.routeflow.app.feature.delivery.DeliveryHandoverScreen
 import com.routeflow.app.feature.delivery.DeliveryHomeScreen
 import com.routeflow.app.feature.delivery.DeliveryListScreen
+import com.routeflow.app.feature.delivery.DeliveryProfileScreen
 import com.routeflow.app.feature.delivery.DeliveryViewModel
 import com.routeflow.app.feature.owner.OrderApprovalScreen
 import com.routeflow.app.feature.owner.OrderApprovalViewModel
+import com.routeflow.app.feature.owner.OwnerBeatsScreen
+import com.routeflow.app.feature.owner.OwnerBusinessHubScreen
 import com.routeflow.app.feature.owner.OwnerEmployeesScreen
+import com.routeflow.app.feature.owner.OwnerFieldActivityScreen
+import com.routeflow.app.feature.owner.OwnerFieldActivityViewModel
 import com.routeflow.app.feature.owner.OwnerHomeScreen
 import com.routeflow.app.feature.owner.OwnerMasterViewModel
 import com.routeflow.app.feature.owner.OwnerProductsScreen
 import com.routeflow.app.feature.owner.OwnerRetailersScreen
+import com.routeflow.app.feature.owner.OwnerTeamScreen
+import com.routeflow.app.feature.owner.OwnerTeamViewModel
 import com.routeflow.app.feature.owner.OwnerViewModel
 import com.routeflow.app.feature.sales.OrderBookingScreen
 import com.routeflow.app.feature.sales.OrderBookingViewModel
 import com.routeflow.app.feature.sales.RetailerListScreen
 import com.routeflow.app.feature.sales.RetailerListViewModel
+import com.routeflow.app.feature.sales.SalesCollectionsScreen
 import com.routeflow.app.feature.sales.SalesHomeScreen
+import com.routeflow.app.feature.sales.SalesProfileScreen
+import com.routeflow.app.feature.sales.SalesTodayScreen
+import com.routeflow.app.feature.sales.SalesTodayViewModel
 import com.routeflow.app.feature.sales.SalesViewModel
 import com.routeflow.app.feature.sales.ShopVisitScreen
 import com.routeflow.app.feature.sales.ShopVisitViewModel
 import com.routeflow.app.feature.warehouse.PickingScreen
 import com.routeflow.app.feature.warehouse.PickingViewModel
 import com.routeflow.app.feature.warehouse.WarehouseHomeScreen
+import com.routeflow.app.feature.warehouse.WarehouseReturnsScreen
+import com.routeflow.app.feature.warehouse.WarehouseStockScreen
 import com.routeflow.app.feature.warehouse.WarehouseViewModel
 
 private const val DEMO_LOGIN_ROUTE = "demo-login"
 private const val REAL_LOGIN_ROUTE = "login"
+
+// Owner Routes
 private const val OWNER_APPROVALS = "owner/approvals"
+private const val OWNER_BUSINESS_HUB = "owner/business"
 private const val OWNER_PRODUCTS = "owner/products"
 private const val OWNER_RETAILERS = "owner/retailers"
 private const val OWNER_EMPLOYEES = "owner/employees"
-private const val WAREHOUSE_PICKING = "warehouse/picking"
-private const val DELIVERY_LIST = "delivery/list"
-private const val DELIVERY_DETAIL = "delivery/detail/{orderId}"
+private const val OWNER_BEATS = "owner/beats"
+private const val OWNER_TEAM = "owner/team"
+private const val OWNER_ACTIVITY = "owner/activity"
+
+// Sales Routes
+private const val SALES_TODAY = "sales/today"
 private const val SALES_RETAILER_LIST = "sales/retailers"
 private const val SALES_SHOP_VISIT = "sales/visit/{retailerId}"
 private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
-private const val SALES_STOCK_CHECK = "sales/stock-check"
+private const val SALES_COLLECTIONS = "sales/collections"
+private const val SALES_PROFILE = "sales/profile"
+
+// Warehouse Routes
+private const val WAREHOUSE_PICKING = "warehouse/picking"
+private const val WAREHOUSE_STOCK = "warehouse/stock"
+private const val WAREHOUSE_RETURNS = "warehouse/returns"
+
+// Delivery Routes
+private const val DELIVERY_LIST = "delivery/list"
+private const val DELIVERY_DETAIL = "delivery/detail/{orderId}"
+private const val DELIVERY_HANDOVER = "delivery/handover"
+private const val DELIVERY_PROFILE = "delivery/profile"
+
+private data class NavItem(
+    val route: String,
+    val labelRes: Int,
+    val icon: ImageVector
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteFlowApp(
+    activeEmployee: com.routeflow.app.domain.model.Employee? = null,
     demoState: DemoLoginState,
     onDemoLogout: () -> Unit,
     onToggleReset: (Boolean) -> Unit,
     onConfirmReset: () -> Unit,
+    currentLanguage: String = "en",
+    onLanguageChange: (String) -> Unit = {}
 ) {
     val navController = rememberNavController()
-    
-    // We'll use a mix of demo and real state for now as requested.
-    // Real login state handled inside composable via hiltViewModel for now, 
-    // or passed down if MainActivity handles both.
-    
-    val employee = demoState.activeEmployee
+    val employee = activeEmployee ?: demoState.activeEmployee
     val destination = employee?.let { RoleDestination.forRole(it.role) }
-    
+
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
     var isDemoMode by remember { mutableStateOf(false) }
-
     val startRoute = if (isDemoMode) DEMO_LOGIN_ROUTE else REAL_LOGIN_ROUTE
 
     // Centralized state-driven navigation
@@ -137,9 +199,42 @@ fun RouteFlowApp(
                 TextButton(onConfirmReset) { Text("Reset everything", color = RFColors.Error) }
             },
             dismissButton = {
-                TextButton(onClick = { onToggleReset(false) }) { Text("Cancel") }
+                TextButton(onClick = { onToggleReset(false) }) { Text(stringResource(R.string.cancel)) }
             }
         )
+    }
+
+    // Role-specific 5 bottom navigation tabs
+    val bottomNavItems = remember(employee?.role) {
+        when (employee?.role) {
+            EmployeeRole.OWNER -> listOf(
+                NavItem(RoleDestination.OWNER.route, R.string.tab_home, Icons.Default.Home),
+                NavItem(OWNER_APPROVALS, R.string.tab_orders, Icons.Default.CheckCircle),
+                NavItem(OWNER_BUSINESS_HUB, R.string.tab_business, Icons.Default.Business),
+                NavItem(OWNER_TEAM, R.string.tab_team, Icons.Default.People),
+                NavItem(OWNER_ACTIVITY, R.string.tab_reports, Icons.Default.Assessment)
+            )
+            EmployeeRole.SALESPERSON -> listOf(
+                NavItem(SALES_TODAY, R.string.tab_today, Icons.Default.Today),
+                NavItem(SALES_RETAILER_LIST, R.string.tab_shops, Icons.Default.Store),
+                NavItem(RoleDestination.SALES.route, R.string.tab_order_booking, Icons.Default.ShoppingCart),
+                NavItem(SALES_COLLECTIONS, R.string.tab_collections, Icons.Default.Payments),
+                NavItem(SALES_PROFILE, R.string.tab_profile, Icons.Default.Person)
+            )
+            EmployeeRole.WAREHOUSE_MANAGER -> listOf(
+                NavItem(RoleDestination.WAREHOUSE.route, R.string.tab_queue, Icons.Default.ListAlt),
+                NavItem(WAREHOUSE_STOCK, R.string.tab_stock, Icons.Default.Inventory2),
+                NavItem(WAREHOUSE_PICKING, R.string.tab_picking, Icons.Default.Checklist),
+                NavItem(WAREHOUSE_RETURNS, R.string.tab_returns, Icons.Default.AssignmentReturn)
+            )
+            EmployeeRole.DELIVERY_EXECUTIVE -> listOf(
+                NavItem(RoleDestination.DELIVERY.route, R.string.tab_trips, Icons.Default.Route),
+                NavItem(DELIVERY_LIST, R.string.tab_deliveries, Icons.Default.LocalShipping),
+                NavItem(DELIVERY_HANDOVER, R.string.tab_cash, Icons.Default.AccountBalanceWallet),
+                NavItem(DELIVERY_PROFILE, R.string.tab_profile, Icons.Default.Person)
+            )
+            null -> emptyList()
+        }
     }
 
     Scaffold(
@@ -162,11 +257,23 @@ fun RouteFlowApp(
                             }
                         },
                         actions = {
-                            TextButton(onClick = { 
+                            // Quick language switch button
+                            TextButton(onClick = {
+                                onLanguageChange(if (currentLanguage == "en") "hi" else "en")
+                            }) {
+                                Text(
+                                    text = if (currentLanguage == "en") "हिन्दी" else "EN",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.Primary
+                                )
+                            }
+
+                            TextButton(onClick = {
                                 isDemoMode = false
-                                onDemoLogout() 
+                                onDemoLogout()
                             }, Modifier.testTag("logout")) {
-                                Text("Logout", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.logout), style = MaterialTheme.typography.labelMedium)
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
@@ -174,17 +281,34 @@ fun RouteFlowApp(
                             titleContentColor = RFColors.TextPrimary,
                         )
                     )
-                    Surface(color = Color(0xFFEFF6FF)) {
-                        Text(
-                            text = "Demo data only · Wholesale Distribution",
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = RFColors.Accent
+                }
+            }
+        },
+        bottomBar = {
+            if (employee != null && bottomNavItems.isNotEmpty()) {
+                NavigationBar(containerColor = Color.White) {
+                    bottomNavItems.forEach { item ->
+                        val selected = currentRoute == item.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(destination?.route ?: item.route) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelSmall) }
                         )
                     }
                 }
             }
-        },
+        }
     ) { padding ->
         NavHost(
             navController = navController,
@@ -194,7 +318,7 @@ fun RouteFlowApp(
             composable(REAL_LOGIN_ROUTE) {
                 val viewModel: LoginViewModel = hiltViewModel()
                 val loginState by viewModel.state.collectAsStateWithLifecycle()
-                
+
                 LoginScreen(
                     state = loginState,
                     onUsernameChange = viewModel::onUsernameChange,
@@ -218,6 +342,9 @@ fun RouteFlowApp(
                 )
             }
 
+            // ==========================================
+            // OWNER DESTINATIONS
+            // ==========================================
             composable(RoleDestination.OWNER.route) {
                 if (employee != null) {
                     val viewModel: OwnerViewModel = hiltViewModel()
@@ -240,6 +367,18 @@ fun RouteFlowApp(
                     state = approvalState,
                     onApprove = viewModel::approveOrder,
                     onReject = viewModel::rejectOrder
+                )
+            }
+
+            composable(OWNER_BUSINESS_HUB) {
+                val viewModel: OwnerMasterViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerBusinessHubScreen(
+                    state = state,
+                    onNavigateProducts = { navController.navigate(OWNER_PRODUCTS) },
+                    onNavigateRetailers = { navController.navigate(OWNER_RETAILERS) },
+                    onNavigateBeats = { navController.navigate(OWNER_BEATS) },
+                    onNavigateEmployees = { navController.navigate(OWNER_EMPLOYEES) }
                 )
             }
 
@@ -280,6 +419,40 @@ fun RouteFlowApp(
                 )
             }
 
+            composable(OWNER_BEATS) {
+                val viewModel: OwnerMasterViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerBeatsScreen(
+                    state = state,
+                    onCreateBeat = viewModel::createBeat,
+                    onAssignSalesperson = viewModel::assignBeat,
+                    onClearMessages = viewModel::clearMessages,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_TEAM) {
+                val viewModel: OwnerTeamViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerTeamScreen(
+                    state = state,
+                    onRefresh = viewModel::refresh
+                )
+            }
+
+            composable(OWNER_ACTIVITY) {
+                val viewModel: OwnerFieldActivityViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerFieldActivityScreen(
+                    state = state,
+                    onRefresh = viewModel::refresh,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ==========================================
+            // SALESPERSON DESTINATIONS
+            // ==========================================
             composable(RoleDestination.SALES.route) {
                 if (employee != null) {
                     val salesViewModel: SalesViewModel = hiltViewModel()
@@ -287,10 +460,22 @@ fun RouteFlowApp(
                     SalesHomeScreen(
                         employee = employee,
                         state = salesState,
-                        onStartVisits = { navController.navigate(SALES_RETAILER_LIST) },
+                        onStartVisits = { navController.navigate(SALES_TODAY) },
                         onSyncNow = salesViewModel::syncNow
                     )
                 }
+            }
+
+            composable(SALES_TODAY) {
+                val viewModel: SalesTodayViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                SalesTodayScreen(
+                    state = state,
+                    onStartShift = { viewModel.startShift() },
+                    onEndShift = { viewModel.endShift() },
+                    onRetailerClick = { id -> navController.navigate("sales/visit/$id") },
+                    onClearMessages = viewModel::clearMessages
+                )
             }
 
             composable(SALES_RETAILER_LIST) {
@@ -300,6 +485,27 @@ fun RouteFlowApp(
                     state = salesListState,
                     onRetailerClick = { id -> navController.navigate("sales/visit/$id") }
                 )
+            }
+
+            composable(SALES_COLLECTIONS) {
+                val viewModel: RetailerListViewModel = hiltViewModel()
+                val salesListState by viewModel.state.collectAsStateWithLifecycle()
+                SalesCollectionsScreen(
+                    retailers = salesListState.retailers.map { it.retailer }
+                )
+            }
+
+            composable(SALES_PROFILE) {
+                if (employee != null) {
+                    val salesViewModel: SalesViewModel = hiltViewModel()
+                    SalesProfileScreen(
+                        employee = employee,
+                        currentLanguage = currentLanguage,
+                        onLanguageChange = onLanguageChange,
+                        onSyncNow = salesViewModel::syncNow,
+                        onLogout = onDemoLogout
+                    )
+                }
             }
 
             composable(
@@ -313,7 +519,7 @@ fun RouteFlowApp(
                     onCheckIn = viewModel::checkIn,
                     onCheckOut = viewModel::checkOut,
                     onCreateOrder = { navController.navigate("sales/order/${visitState.retailer?.id}") },
-                    onStockCheck = { /* TODO */ }
+                    onStockCheck = { /* Handled in visit */ }
                 )
             }
 
@@ -323,10 +529,10 @@ fun RouteFlowApp(
             ) {
                 val viewModel: OrderBookingViewModel = hiltViewModel()
                 val orderState by viewModel.state.collectAsStateWithLifecycle()
-                
+
                 if (orderState.orderSubmittedId != null) {
                     LaunchedEffect(orderState.orderSubmittedId) {
-                        navController.popBackStack(SALES_RETAILER_LIST, inclusive = false)
+                        navController.popBackStack(SALES_TODAY, inclusive = false)
                     }
                 } else {
                     OrderBookingScreen(
@@ -339,6 +545,9 @@ fun RouteFlowApp(
                 }
             }
 
+            // ==========================================
+            // WAREHOUSE DESTINATIONS
+            // ==========================================
             composable(RoleDestination.WAREHOUSE.route) {
                 if (employee != null) {
                     val viewModel: WarehouseViewModel = hiltViewModel()
@@ -367,6 +576,28 @@ fun RouteFlowApp(
                 )
             }
 
+            composable(WAREHOUSE_STOCK) {
+                val viewModel: OwnerMasterViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                WarehouseStockScreen(
+                    products = state.products,
+                    onAdjustStock = { pId, qty, reason, notes ->
+                        viewModel.adjustStock(pId, "ADDITION", qty, reason, notes ?: "")
+                    }
+                )
+            }
+
+            composable(WAREHOUSE_RETURNS) {
+                WarehouseReturnsScreen(
+                    currentLanguage = currentLanguage,
+                    onLanguageChange = onLanguageChange,
+                    onLogout = onDemoLogout
+                )
+            }
+
+            // ==========================================
+            // DELIVERY DESTINATIONS
+            // ==========================================
             composable(RoleDestination.DELIVERY.route) {
                 if (employee != null) {
                     val viewModel: DeliveryViewModel = hiltViewModel()
@@ -388,6 +619,31 @@ fun RouteFlowApp(
                 )
             }
 
+            composable(DELIVERY_HANDOVER) {
+                val viewModel: DeliveryViewModel = hiltViewModel()
+                val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
+                val deliveredOrders = listState.filter { it.order.status == "DELIVERED" }
+                val totalCollectedPaise = deliveredOrders.sumOf { it.order.totalAmountPaise }
+                DeliveryHandoverScreen(
+                    collectedCashPaise = totalCollectedPaise,
+                    deliveredCount = deliveredOrders.size
+                )
+            }
+
+            composable(DELIVERY_PROFILE) {
+                if (employee != null) {
+                    DeliveryProfileScreen(
+                        employee = employee,
+                        isOnShift = false,
+                        onStartShift = {},
+                        onEndShift = {},
+                        currentLanguage = currentLanguage,
+                        onLanguageChange = onLanguageChange,
+                        onLogout = onDemoLogout
+                    )
+                }
+            }
+
             composable(
                 route = DELIVERY_DETAIL,
                 arguments = listOf(navArgument("orderId") { type = NavType.StringType })
@@ -397,7 +653,7 @@ fun RouteFlowApp(
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
                 val detailState by viewModel.detailState.collectAsStateWithLifecycle()
                 val item = listState.find { it.order.id == orderId }
-                
+
                 LaunchedEffect(detailState.success) {
                     if (detailState.success) {
                         viewModel.resetDetailState()
@@ -420,7 +676,7 @@ fun RouteFlowApp(
                         onClearError = viewModel::clearError
                     )
                 } else if (!detailState.success) {
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
@@ -429,9 +685,10 @@ fun RouteFlowApp(
                 }
             }
         }
-    // Registered after NavHost: Back navigates back within the app stack
-    BackHandler(enabled = employee != null && navController.previousBackStackEntry != null) {
-        navController.popBackStack()
-    }
+
+        // Registered after NavHost: Back navigates back within the app stack
+        BackHandler(enabled = employee != null && navController.previousBackStackEntry != null) {
+            navController.popBackStack()
+        }
     }
 }

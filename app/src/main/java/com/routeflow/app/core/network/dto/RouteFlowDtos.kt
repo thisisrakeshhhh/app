@@ -253,6 +253,7 @@ data class DeliveryExecutiveDto(
 data class CreateProductRequest(
     val id: String? = null,
     val name: String,
+    val hindiName: String? = null,
     val category: String = "General",
     val pricePaise: Long,
     val mrpPaise: Long? = null,
@@ -265,6 +266,7 @@ data class CreateProductRequest(
 @Serializable
 data class UpdateProductRequest(
     val name: String? = null,
+    val hindiName: String? = null,
     val category: String? = null,
     val pricePaise: Long? = null,
     val mrpPaise: Long? = null,
@@ -279,7 +281,8 @@ data class StockAdjustmentRequest(
     val productId: String,
     val changeQuantity: Int,
     val reason: String,
-    val notes: String? = null
+    val notes: String? = null,
+    val idempotencyKey: String? = null
 )
 
 @Serializable
@@ -287,6 +290,7 @@ data class StockAdjustmentResponse(
     val success: Boolean,
     val adjustmentId: String? = null,
     val newStockQuantity: Int? = null,
+    val idempotent: Boolean = false,
     val message: String? = null
 )
 
@@ -358,5 +362,131 @@ data class StockCheckDto(
     val retailerId: String,
     val productId: String,
     val quantity: Int
+)
+
+@Serializable
+data class BeatDto(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val workingDays: List<String> = emptyList(),
+    val isActive: Boolean = true,
+    val retailerCount: Int = 0,
+    val assignedSalespeople: List<String> = emptyList()
+)
+
+@Serializable
+data class CreateBeatRequest(
+    val id: String? = null,
+    val name: String,
+    val description: String? = null,
+    val workingDays: List<String> = emptyList()
+)
+
+@Serializable
+data class CreateBeatResponse(
+    val success: Boolean,
+    val beat: BeatDto? = null
+)
+
+@Serializable
+data class AssignBeatRequest(
+    val userId: String
+)
+
+@Serializable
+data class LocationPoint(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float,
+    val timestamp: Long
+)
+
+@Serializable
+data class ShiftLocationsRequest(
+    val shiftId: String,
+    val points: List<LocationPoint>
+)
+
+@Serializable
+data class StartShiftRequest(
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
+@Serializable
+data class EndShiftRequest(
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
+@Serializable
+data class ShiftDto(
+    val id: String,
+    val status: String,
+    val startTime: Long,
+    val endTime: Long? = null
+)
+
+@Serializable
+data class ShiftResponse(
+    val success: Boolean,
+    val shift: ShiftDto? = null,
+    val idempotent: Boolean = false,
+    val message: String? = null
+)
+
+@Serializable
+data class TeamLocationDto(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float,
+    val timestamp: Long,
+    val isStale: Boolean = false
+)
+
+@Serializable
+data class TeamMemberStatusDto(
+    val id: String,
+    val fullName: String,
+    val role: String,
+    val shiftStatus: String,
+    val shiftStartTime: Long? = null,
+    val shiftEndTime: Long? = null,
+    val lastLocation: TeamLocationDto? = null,
+    val assignedBeats: List<String> = emptyList(),
+    val completedStops: Int = 0,
+    val totalStops: Int = 0,
+    val lastSyncTime: Long? = null
+)
+
+@Serializable
+data class DailyVisitDto(
+    val id: String,
+    val retailerId: String,
+    val retailerName: String,
+    val beatId: String,
+    val employeeId: String,
+    val employeeName: String,
+    val checkInTime: Long,
+    val checkOutTime: Long? = null,
+    val durationSeconds: Long = 0,
+    val status: String,
+    val noOrderReason: String? = null,
+    val notes: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val accuracy: Float? = null,
+    val locationDiscrepancy: Boolean = false,
+    val ordersCount: Int = 0,
+    val stockChecksCount: Int = 0
+)
+
+@Serializable
+data class CheckoutVisitRequest(
+    val checkOutTime: Long = System.currentTimeMillis(),
+    val durationSeconds: Long = 0,
+    val noOrderReason: String? = null,
+    val notes: String? = null
 )
 

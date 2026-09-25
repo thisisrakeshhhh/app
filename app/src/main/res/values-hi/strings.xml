@@ -124,4 +124,44 @@
     <string name="delivery_success">डिलीवरी सफलतापूर्वक पूर्ण हुई</string>
     <string name="delivery_proof_photo">दुकान / सामान का फोटो</string>
     <string name="delivery_signature">प्राप्तकर्ता के हस्ताक्षर</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_home">होम</string>
+    <string name="tab_orders">ऑर्डर</string>
+    <string name="tab_business">व्यापार</string>
+    <string name="tab_team">टीम</string>
+    <string name="tab_reports">गतिविधि</string>
+    <string name="tab_today">आज</string>
+    <string name="tab_shops">दुकानें</string>
+    <string name="tab_order_booking">बुकिंग</string>
+    <string name="tab_collections">उगाही</string>
+    <string name="tab_profile">प्रोफ़ाइल</string>
+    <string name="tab_queue">कतार</string>
+    <string name="tab_stock">स्टॉक</string>
+    <string name="tab_picking">पिकिंग</string>
+    <string name="tab_dispatch">डिस्पैच</string>
+    <string name="tab_returns">वापसी</string>
+    <string name="tab_trips">ट्रिप्स</string>
+    <string name="tab_deliveries">डिलीवरी</string>
+    <string name="tab_confirm">पुष्टि</string>
+    <string name="tab_cash">रोकड़ सुपुर्दगी</string>
+
+    <!-- Shifts & Beats -->
+    <string name="start_shift">ड्यूटी / शिफ्ट शुरू करें</string>
+    <string name="end_shift">ड्यूटी / शिफ्ट समाप्त करें</string>
+    <string name="on_shift">ड्यूटी पर उपस्थित</string>
+    <string name="off_shift">ड्यूटी समाप्त</string>
+    <string name="gps_tracking_active">लाइव जीपीएस ट्रैकिंग चालू है</string>
+    <string name="shift_started_success">शिफ्ट सफलतापूर्वक शुरू हुई</string>
+    <string name="shift_ended_success">शिफ्ट समाप्त हो गई</string>
+    <string name="owner_tab_beats">बीट्स एवं इलाके</string>
+    <string name="beat_name">बीट / इलाके का नाम</string>
+    <string name="working_days">कार्य दिवस</string>
+    <string name="create_beat">बीट जोड़ें</string>
+    <string name="assign_salesperson">सेल्समैन नियुक्त करें</string>
+    <string name="team_monitor_title">फील्ड टीम लाइव मॉनिटर</string>
+    <string name="daily_field_activity_title">दैनिक फील्ड गतिविधि समीक्षा</string>
+    <string name="location_discrepancy_alert">स्थान अंतर (> 500 मी. दुकान से दूर)</string>
+    <string name="verified_gps_location">जीपीएस स्थान सत्यापित</string>
+    <string name="switch_language">Language / भाषा बदलें</string>
 </resources>

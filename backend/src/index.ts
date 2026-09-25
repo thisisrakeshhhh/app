@@ -287,7 +287,7 @@ app.get('/me', authMiddleware, async (c) => {
 app.get('/retailers', authMiddleware, async (c) => {
   const user = c.get('user');
 
-  let query = 'SELECT id, name, beat_id AS beatId, address, contact_number AS contactNumber, latitude, longitude, credit_limit_paise AS creditLimitPaise, outstanding_amount_paise AS outstandingAmountPaise FROM retailers WHERE company_id = ?';
+  let query = 'SELECT id, name, beat_id AS beatId, address, contact_number AS contactNumber, latitude, longitude, credit_limit_paise AS creditLimitPaise, outstanding_amount_paise AS outstandingAmountPaise, is_active AS isActive, payment_terms_days AS paymentTermsDays FROM retailers WHERE company_id = ?';
   const params: any[] = [user.company_id];
 
   // Salesperson beat assignment check: only show retailers for beats assigned to this salesperson
@@ -297,18 +297,18 @@ app.get('/retailers', authMiddleware, async (c) => {
   }
 
   const { results } = await c.env.DB.prepare(query).bind(...params).all();
-  return c.json(results);
+  return c.json(results.map((r: any) => ({ ...r, isActive: Boolean(r.isActive) })));
 });
 
 app.get('/products', authMiddleware, async (c) => {
   const user = c.get('user');
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name, category, price_paise AS pricePaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, image_url AS imageUrl FROM products WHERE company_id = ?'
+    'SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise, mrp_paise AS mrpPaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, sku, image_url AS imageUrl, is_active AS isActive FROM products WHERE company_id = ?'
   )
     .bind(user.company_id)
     .all();
 
-  return c.json(results);
+  return c.json(results.map((p: any) => ({ ...p, isActive: Boolean(p.isActive) })));
 });
 
 app.get('/delivery-executives', authMiddleware, async (c) => {
@@ -1011,8 +1011,8 @@ app.post('/orders/:id/request-otp', authMiddleware, async (c) => {
     expiresAt
   };
 
-  // Only expose debugOtp to automated test runner
-  if (c.req.header('X-Test-Runner') === 'true') {
+  // Only expose debugOtp to automated test runner when test failure injection is enabled in development
+  if (isFailureInjectionAllowed(c) && c.req.header('X-Test-Runner') === 'true') {
     responseBody.debugOtp = activeOtp;
   }
 
@@ -1208,13 +1208,14 @@ app.post('/products', authMiddleware, async (c) => {
   }
 
   const id = body.id || `P_${crypto.randomUUID().slice(0, 8)}`;
+  const hindiName = body.hindiName?.trim() || body.hindi_name?.trim() || null;
   const now = Date.now();
 
   const statements = [
     c.env.DB.prepare(
-      `INSERT INTO products (id, company_id, name, category, price_paise, mrp_paise, stock_quantity, reserved_quantity, unit, sku, image_url, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1)`
-    ).bind(id, user.company_id, name, category, pricePaise, mrpPaise, stockQuantity, unit, sku, imageUrl),
+      `INSERT INTO products (id, company_id, name, hindi_name, category, price_paise, mrp_paise, stock_quantity, reserved_quantity, unit, sku, image_url, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1)`
+    ).bind(id, user.company_id, name, hindiName, category, pricePaise, mrpPaise, stockQuantity, unit, sku, imageUrl),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_CREATED', id, `Product: ${name}, Price: ${pricePaise}, Stock: ${stockQuantity}`, now)
@@ -1223,7 +1224,7 @@ app.post('/products', authMiddleware, async (c) => {
   await c.env.DB.batch(statements);
   return c.json({
     success: true,
-    product: { id, name, category, pricePaise, mrpPaise, stockQuantity, reservedQuantity: 0, unit, sku, imageUrl, isActive: true }
+    product: { id, name, hindiName, category, pricePaise, mrpPaise, stockQuantity, reservedQuantity: 0, unit, sku, imageUrl, isActive: true }
   });
 });
 
@@ -1241,6 +1242,7 @@ app.put('/products/:id', authMiddleware, async (c) => {
   if (!existing) return c.json({ error: 'Product not found' }, 404);
 
   const name = body.name !== undefined ? body.name.trim() : existing.name;
+  const hindiName = body.hindiName !== undefined ? body.hindiName.trim() : (body.hindi_name !== undefined ? body.hindi_name.trim() : existing.hindi_name);
   const category = body.category !== undefined ? body.category.trim() : existing.category;
   const pricePaise = body.pricePaise ?? body.price_paise ?? existing.price_paise;
   const mrpPaise = body.mrpPaise ?? body.mrp_paise ?? existing.mrp_paise;
@@ -1252,9 +1254,9 @@ app.put('/products/:id', authMiddleware, async (c) => {
   const now = Date.now();
   const statements = [
     c.env.DB.prepare(
-      `UPDATE products SET name = ?, category = ?, price_paise = ?, mrp_paise = ?, unit = ?, sku = ?, is_active = ?, image_url = ?
+      `UPDATE products SET name = ?, hindi_name = ?, category = ?, price_paise = ?, mrp_paise = ?, unit = ?, sku = ?, is_active = ?, image_url = ?
        WHERE id = ? AND company_id = ?`
-    ).bind(name, category, pricePaise, mrpPaise, unit, sku, isActive, imageUrl, id, user.company_id),
+    ).bind(name, hindiName, category, pricePaise, mrpPaise, unit, sku, isActive, imageUrl, id, user.company_id),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_UPDATED', id, `Updated product details. Active: ${isActive}`, now)
@@ -1275,6 +1277,7 @@ app.post('/inventory/adjust', authMiddleware, async (c) => {
   const changeQuantity = body.changeQuantity ?? body.change_quantity;
   const reason = body.reason?.trim();
   const notes = body.notes?.trim() || null;
+  const idempotencyKey = body.idempotencyKey || body.idempotency_key || null;
 
   if (!productId || typeof changeQuantity !== 'number' || changeQuantity === 0 || !reason) {
     return c.json({ error: 'productId, non-zero changeQuantity, and valid reason are required' }, 400);
@@ -1283,6 +1286,22 @@ app.post('/inventory/adjust', authMiddleware, async (c) => {
   const VALID_REASONS = ['STOCK_RECEIPT', 'DAMAGE', 'AUDIT_CORRECTION', 'RETURN_RESTOCK'];
   if (!VALID_REASONS.includes(reason)) {
     return c.json({ error: `Invalid reason. Allowed: ${VALID_REASONS.join(', ')}` }, 400);
+  }
+
+  // Idempotency check: retrying a stock receipt must not add the same stock twice
+  if (idempotencyKey) {
+    const existingAdj = await c.env.DB.prepare(
+      'SELECT id, stock_after FROM stock_adjustments WHERE company_id = ? AND idempotency_key = ?'
+    ).bind(user.company_id, idempotencyKey).first() as any;
+
+    if (existingAdj) {
+      return c.json({
+        success: true,
+        adjustmentId: existingAdj.id,
+        newStockQuantity: existingAdj.stock_after,
+        idempotent: true
+      });
+    }
   }
 
   // ATOMIC stock update: prevent lost updates from concurrent modifications
@@ -1324,9 +1343,9 @@ app.post('/inventory/adjust', authMiddleware, async (c) => {
 
   const statements = [
     c.env.DB.prepare(
-      `INSERT INTO stock_adjustments (id, company_id, product_id, user_id, change_quantity, reason, stock_after, notes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(adjId, user.company_id, productId, user.sub, changeQuantity, reason, newStock, notes, now),
+      `INSERT INTO stock_adjustments (id, company_id, product_id, user_id, change_quantity, reason, stock_after, notes, idempotency_key, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(adjId, user.company_id, productId, user.sub, changeQuantity, reason, newStock, notes, idempotencyKey, now),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'STOCK_ADJUSTMENT', productId, `Change: ${changeQuantity}, Reason: ${reason}, NewStock: ${newStock}`, now)
@@ -1569,6 +1588,19 @@ app.post('/visits', authMiddleware, async (c) => {
     if (!beatAssignment) {
       return c.json({ error: `Permission denied: salesperson not assigned to retailer beat ${retailer.beat_id}` }, 403);
     }
+
+    // Prevent second active visit until current visit is resolved
+    if (status === 'ACTIVE') {
+      const activeVisit = await c.env.DB.prepare(
+        "SELECT v.id, r.name AS retailerName FROM visits v JOIN retailers r ON v.retailer_id = r.id WHERE v.employee_id = ? AND v.company_id = ? AND v.status = 'ACTIVE' AND v.id != ?"
+      ).bind(user.sub, user.company_id, id).first() as any;
+
+      if (activeVisit) {
+        return c.json({
+          error: `Active visit already in progress at '${activeVisit.retailerName}'. Please check out before starting a new visit.`
+        }, 400);
+      }
+    }
   }
 
   const now = Date.now();
@@ -1697,6 +1729,359 @@ app.get('/stock-checks/:retailerId', authMiddleware, async (c) => {
   ).bind(user.company_id, retailerId).all();
 
   return c.json(results);
+});
+
+app.put('/visits/:id/checkout', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'SALESPERSON' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: salesperson or owner role required' }, 403);
+  }
+
+  const visitId = c.req.param('id');
+  const body = await c.req.json();
+  const checkOutTime = body.checkOutTime || body.check_out_time || Date.now();
+  const durationSeconds = body.durationSeconds ?? body.duration_seconds ?? 0;
+  const noOrderReason = body.noOrderReason || body.no_order_reason || null;
+  const notes = body.notes?.trim() || null;
+
+  const visit = await c.env.DB.prepare('SELECT * FROM visits WHERE id = ? AND company_id = ?')
+    .bind(visitId, user.company_id).first() as any;
+
+  if (!visit) {
+    return c.json({ error: 'Visit not found' }, 404);
+  }
+
+  if (user.role === 'SALESPERSON' && visit.employee_id !== user.sub) {
+    return c.json({ error: 'Unauthorized: cannot checkout another salesperson visit' }, 403);
+  }
+
+  await c.env.DB.prepare(
+    `UPDATE visits
+     SET check_out_time = ?, duration_seconds = ?, status = 'COMPLETED', no_order_reason = ?, notes = ?
+     WHERE id = ? AND company_id = ?`
+  ).bind(checkOutTime, durationSeconds, noOrderReason, notes, visitId, user.company_id).run();
+
+  return c.json({ success: true });
+});
+
+// ============================================================================
+// BEATS & TERRITORY MANAGEMENT
+// ============================================================================
+
+app.get('/beats', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const { results } = await c.env.DB.prepare(
+    `SELECT b.id, b.name, b.description, b.working_days AS workingDays, b.is_active AS isActive,
+            (SELECT COUNT(*) FROM retailers r WHERE r.beat_id = b.id AND r.company_id = b.company_id AND r.is_active = 1) AS retailerCount,
+            (SELECT GROUP_CONCAT(u.full_name) FROM user_beat_assignments uba JOIN users u ON uba.user_id = u.id WHERE uba.beat_id = b.id AND uba.company_id = b.company_id) AS assignedSalespeople
+     FROM beats b
+     WHERE b.company_id = ?
+     ORDER BY b.name ASC`
+  ).bind(user.company_id).all();
+
+  const formatted = results.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    workingDays: r.workingDays ? r.workingDays.split(',') : [],
+    isActive: Boolean(r.isActive),
+    retailerCount: r.retailerCount || 0,
+    assignedSalespeople: r.assignedSalespeople ? r.assignedSalespeople.split(',') : []
+  }));
+
+  return c.json(formatted);
+});
+
+app.post('/beats', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const body = await c.req.json();
+  const id = body.id?.trim() || `BEAT-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+  const name = body.name?.trim();
+  const description = body.description?.trim() || null;
+  const workingDays = Array.isArray(body.workingDays) ? body.workingDays.join(',') : (body.workingDays || 'MON,TUE,WED,THU,FRI,SAT');
+  const now = Date.now();
+
+  if (!name) {
+    return c.json({ error: 'Beat name is required' }, 400);
+  }
+
+  await c.env.DB.prepare(
+    `INSERT INTO beats (id, company_id, name, description, working_days, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, 1, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description, working_days = excluded.working_days`
+  ).bind(id, user.company_id, name, description, workingDays, now).run();
+
+  return c.json({ success: true, beat: { id, name, description, workingDays: workingDays.split(','), isActive: true } });
+});
+
+app.post('/beats/:id/assign', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const beatId = c.req.param('id');
+  const body = await c.req.json();
+  const userId = body.userId || body.user_id;
+
+  if (!userId) {
+    return c.json({ error: 'userId is required' }, 400);
+  }
+
+  const targetUser = await c.env.DB.prepare('SELECT id FROM users WHERE id = ? AND company_id = ? AND role = ? AND is_active = 1')
+    .bind(userId, user.company_id, 'SALESPERSON')
+    .first();
+
+  if (!targetUser) {
+    return c.json({ error: 'Invalid or inactive salesperson in this company' }, 400);
+  }
+
+  await c.env.DB.prepare(
+    'INSERT OR REPLACE INTO user_beat_assignments (user_id, beat_id, company_id, created_at) VALUES (?, ?, ?, ?)'
+  ).bind(userId, beatId, user.company_id, Date.now()).run();
+
+  return c.json({ success: true });
+});
+
+// ============================================================================
+// FIELD SHIFTS & TEAM LOCATION TRACKING
+// ============================================================================
+
+app.post('/shifts/start', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'SALESPERSON' && user.role !== 'DELIVERY_EXECUTIVE') {
+    return c.json({ error: 'Permission denied: field role required' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const lat = body.latitude ?? null;
+  const lng = body.longitude ?? null;
+  const now = Date.now();
+
+  const activeShift = await c.env.DB.prepare(
+    'SELECT * FROM shifts WHERE user_id = ? AND company_id = ? AND status = ? ORDER BY start_time DESC LIMIT 1'
+  ).bind(user.sub, user.company_id, 'ON_SHIFT').first() as any;
+
+  if (activeShift) {
+    return c.json({
+      success: true,
+      idempotent: true,
+      shift: {
+        id: activeShift.id,
+        status: activeShift.status,
+        startTime: activeShift.start_time
+      }
+    });
+  }
+
+  const shiftId = `shift_${crypto.randomUUID()}`;
+  await c.env.DB.prepare(
+    `INSERT INTO shifts (id, company_id, user_id, status, start_time, start_latitude, start_longitude, created_at)
+     VALUES (?, ?, ?, 'ON_SHIFT', ?, ?, ?, ?)`
+  ).bind(shiftId, user.company_id, user.sub, now, lat, lng, now).run();
+
+  return c.json({
+    success: true,
+    shift: {
+      id: shiftId,
+      status: 'ON_SHIFT',
+      startTime: now
+    }
+  });
+});
+
+app.post('/shifts/end', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'SALESPERSON' && user.role !== 'DELIVERY_EXECUTIVE') {
+    return c.json({ error: 'Permission denied: field role required' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const lat = body.latitude ?? null;
+  const lng = body.longitude ?? null;
+  const now = Date.now();
+
+  const activeShift = await c.env.DB.prepare(
+    'SELECT * FROM shifts WHERE user_id = ? AND company_id = ? AND status = ? ORDER BY start_time DESC LIMIT 1'
+  ).bind(user.sub, user.company_id, 'ON_SHIFT').first() as any;
+
+  if (!activeShift) {
+    return c.json({ error: 'No active shift found to end' }, 400);
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE shifts SET status = ?, end_time = ?, end_latitude = ?, end_longitude = ? WHERE id = ?'
+  ).bind('OFF_SHIFT', now, lat, lng, activeShift.id).run();
+
+  return c.json({
+    success: true,
+    shift: {
+      id: activeShift.id,
+      status: 'OFF_SHIFT',
+      startTime: activeShift.start_time,
+      endTime: now
+    }
+  });
+});
+
+app.post('/shifts/locations', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json();
+  const shiftId = body.shiftId || body.shift_id;
+  const points = body.points || [];
+
+  if (!shiftId || !Array.isArray(points) || points.length === 0) {
+    return c.json({ error: 'shiftId and points array required' }, 400);
+  }
+
+  const statements = points.map((p: any) =>
+    c.env.DB.prepare(
+      `INSERT INTO shift_locations (id, shift_id, company_id, user_id, latitude, longitude, accuracy, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      `loc_${crypto.randomUUID()}`,
+      shiftId,
+      user.company_id,
+      user.sub,
+      p.latitude,
+      p.longitude,
+      p.accuracy ?? 10.0,
+      p.timestamp || Date.now()
+    )
+  );
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true, count: points.length });
+});
+
+app.get('/team/status', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const { results: employees } = await c.env.DB.prepare(
+    `SELECT u.id, u.full_name AS fullName, u.role, u.is_active AS isActive,
+            (SELECT GROUP_CONCAT(beat_id) FROM user_beat_assignments WHERE user_id = u.id AND company_id = u.company_id) AS assignedBeats
+     FROM users u
+     WHERE u.company_id = ? AND u.role IN ('SALESPERSON', 'DELIVERY_EXECUTIVE') AND u.is_active = 1
+     ORDER BY u.full_name ASC`
+  ).bind(user.company_id).all();
+
+  const now = Date.now();
+  const teamStatusList = [];
+
+  for (const emp of employees as any[]) {
+    const shift = await c.env.DB.prepare(
+      'SELECT id, status, start_time AS startTime, end_time AS endTime FROM shifts WHERE user_id = ? AND company_id = ? ORDER BY start_time DESC LIMIT 1'
+    ).bind(emp.id, user.company_id).first() as any;
+
+    const lastLoc = await c.env.DB.prepare(
+      'SELECT latitude, longitude, accuracy, timestamp FROM shift_locations WHERE user_id = ? AND company_id = ? ORDER BY timestamp DESC LIMIT 1'
+    ).bind(emp.id, user.company_id).first() as any;
+
+    let completedStops = 0;
+    let totalStops = 0;
+
+    if (emp.role === 'SALESPERSON') {
+      const beatList = emp.assignedBeats ? emp.assignedBeats.split(',') : [];
+      if (beatList.length > 0) {
+        const total = await c.env.DB.prepare(
+          `SELECT COUNT(*) AS count FROM retailers WHERE company_id = ? AND is_active = 1 AND beat_id IN (${beatList.map(() => '?').join(',')})`
+        ).bind(user.company_id, ...beatList).first() as any;
+        totalStops = total?.count || 0;
+      }
+
+      const completed = await c.env.DB.prepare(
+        'SELECT COUNT(DISTINCT retailer_id) AS count FROM visits WHERE employee_id = ? AND company_id = ? AND check_in_time >= ?'
+      ).bind(emp.id, user.company_id, now - 86400000).first() as any;
+      completedStops = completed?.count || 0;
+    } else {
+      const assigned = await c.env.DB.prepare(
+        "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'DELIVERED' THEN 1 ELSE 0 END) AS done FROM orders WHERE delivery_employee_id = ? AND company_id = ? AND status IN ('OUT_FOR_DELIVERY', 'DELIVERED')"
+      ).bind(emp.id, user.company_id).first() as any;
+      totalStops = assigned?.total || 0;
+      completedStops = assigned?.done || 0;
+    }
+
+    const isStale = lastLoc ? (now - lastLoc.timestamp > 1800000) : true;
+
+    teamStatusList.push({
+      id: emp.id,
+      fullName: emp.fullName,
+      role: emp.role,
+      shiftStatus: shift?.status === 'ON_SHIFT' ? 'ON_SHIFT' : 'OFF_SHIFT',
+      shiftStartTime: shift?.startTime || null,
+      shiftEndTime: shift?.endTime || null,
+      lastLocation: lastLoc ? {
+        latitude: lastLoc.latitude,
+        longitude: lastLoc.longitude,
+        accuracy: lastLoc.accuracy,
+        timestamp: lastLoc.timestamp,
+        isStale
+      } : null,
+      assignedBeats: emp.assignedBeats ? emp.assignedBeats.split(',') : [],
+      completedStops,
+      totalStops,
+      lastSyncTime: lastLoc?.timestamp || shift?.startTime || null
+    });
+  }
+
+  return c.json(teamStatusList);
+});
+
+// ============================================================================
+// OWNER DAILY FIELD ACTIVITY REVIEW
+// ============================================================================
+
+app.get('/owner/visits/daily', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const dateParam = c.req.query('date');
+  const targetDate = dateParam ? new Date(dateParam) : new Date();
+  const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()).getTime();
+  const endOfDay = startOfDay + 86400000;
+
+  const { results: visits } = await c.env.DB.prepare(
+    `SELECT v.id, v.retailer_id AS retailerId, r.name AS retailerName, r.beat_id AS beatId,
+            v.employee_id AS employeeId, u.full_name AS employeeName,
+            v.check_in_time AS checkInTime, v.check_out_time AS checkOutTime,
+            v.duration_seconds AS durationSeconds, v.status, v.no_order_reason AS noOrderReason,
+            v.notes, v.latitude, v.longitude, v.accuracy,
+            r.latitude AS retailerLat, r.longitude AS retailerLng,
+            (SELECT COUNT(*) FROM orders o WHERE o.retailer_id = v.retailer_id AND o.created_at BETWEEN v.check_in_time AND coalesce(v.check_out_time, v.check_in_time + 3600000)) AS ordersCount,
+            (SELECT COUNT(*) FROM stock_checks sc WHERE sc.retailer_id = v.retailer_id AND sc.created_at BETWEEN v.check_in_time AND coalesce(v.check_out_time, v.check_in_time + 3600000)) AS stockChecksCount
+     FROM visits v
+     JOIN retailers r ON v.retailer_id = r.id
+     JOIN users u ON v.employee_id = u.id
+     WHERE v.company_id = ? AND v.check_in_time BETWEEN ? AND ?
+     ORDER BY v.check_in_time DESC`
+  ).bind(user.company_id, startOfDay, endOfDay).all();
+
+  const formatted = visits.map((v: any) => {
+    let locationDiscrepancy = false;
+    if (v.latitude && v.longitude && v.retailerLat && v.retailerLng) {
+      const dLat = (v.latitude - v.retailerLat) * 111000;
+      const dLng = (v.longitude - v.retailerLng) * 111000 * Math.cos(v.retailerLat * Math.PI / 180);
+      const distM = Math.sqrt(dLat * dLat + dLng * dLng);
+      if (distM > 500) {
+        locationDiscrepancy = true;
+      }
+    }
+    return {
+      ...v,
+      locationDiscrepancy
+    };
+  });
+
+  return c.json(formatted);
 });
 
 export default app;

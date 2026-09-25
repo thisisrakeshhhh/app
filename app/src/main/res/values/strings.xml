@@ -124,4 +124,44 @@
     <string name="delivery_success">Delivery confirmed successfully</string>
     <string name="delivery_proof_photo">Store / Proof Photo</string>
     <string name="delivery_signature">Receiver Signature</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_orders">Orders</string>
+    <string name="tab_business">Business</string>
+    <string name="tab_team">Team</string>
+    <string name="tab_reports">Activity</string>
+    <string name="tab_today">Today</string>
+    <string name="tab_shops">Shops</string>
+    <string name="tab_order_booking">Booking</string>
+    <string name="tab_collections">Collections</string>
+    <string name="tab_profile">Profile</string>
+    <string name="tab_queue">Queue</string>
+    <string name="tab_stock">Stock</string>
+    <string name="tab_picking">Picking</string>
+    <string name="tab_dispatch">Dispatch</string>
+    <string name="tab_returns">Returns</string>
+    <string name="tab_trips">Trips</string>
+    <string name="tab_deliveries">Deliveries</string>
+    <string name="tab_confirm">Confirm</string>
+    <string name="tab_cash">Handover</string>
+
+    <!-- Shifts & Beats -->
+    <string name="start_shift">Start Duty / Shift</string>
+    <string name="end_shift">End Duty / Shift</string>
+    <string name="on_shift">On Duty</string>
+    <string name="off_shift">Off Duty</string>
+    <string name="gps_tracking_active">Live GPS Tracking Active</string>
+    <string name="shift_started_success">Shift started successfully</string>
+    <string name="shift_ended_success">Shift ended successfully</string>
+    <string name="owner_tab_beats">Beats &amp; Territories</string>
+    <string name="beat_name">Beat / Area Name</string>
+    <string name="working_days">Working Days</string>
+    <string name="create_beat">Add Beat</string>
+    <string name="assign_salesperson">Assign Salesperson</string>
+    <string name="team_monitor_title">Team Live Monitor</string>
+    <string name="daily_field_activity_title">Daily Field Activity Review</string>
+    <string name="location_discrepancy_alert">Location Discrepancy (> 500m from shop)</string>
+    <string name="verified_gps_location">GPS Location Verified</string>
+    <string name="switch_language">Language / भाषा</string>
 </resources>

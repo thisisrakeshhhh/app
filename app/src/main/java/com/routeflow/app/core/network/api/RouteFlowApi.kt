@@ -106,6 +106,36 @@ interface RouteFlowApi {
     @GET("visits")
     suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto>
 
+    @retrofit2.http.PUT("visits/{id}/checkout")
+    suspend fun checkoutVisit(@Path("id") visitId: String, @Body request: com.routeflow.app.core.network.dto.CheckoutVisitRequest): StatusResponse
+
     @POST("stock-checks")
     suspend fun submitStockCheck(@Body request: com.routeflow.app.core.network.dto.StockCheckDto): StatusResponse
+
+    // --- Beats & Territory ---
+    @GET("beats")
+    suspend fun getBeats(): List<com.routeflow.app.core.network.dto.BeatDto>
+
+    @POST("beats")
+    suspend fun createBeat(@Body request: com.routeflow.app.core.network.dto.CreateBeatRequest): com.routeflow.app.core.network.dto.CreateBeatResponse
+
+    @POST("beats/{id}/assign")
+    suspend fun assignBeat(@Path("id") beatId: String, @Body request: com.routeflow.app.core.network.dto.AssignBeatRequest): StatusResponse
+
+    // --- Shifts & Location Tracking ---
+    @POST("shifts/start")
+    suspend fun startShift(@Body request: com.routeflow.app.core.network.dto.StartShiftRequest): com.routeflow.app.core.network.dto.ShiftResponse
+
+    @POST("shifts/end")
+    suspend fun endShift(@Body request: com.routeflow.app.core.network.dto.EndShiftRequest): com.routeflow.app.core.network.dto.ShiftResponse
+
+    @POST("shifts/locations")
+    suspend fun uploadShiftLocations(@Body request: com.routeflow.app.core.network.dto.ShiftLocationsRequest): StatusResponse
+
+    @GET("team/status")
+    suspend fun getTeamStatus(): List<com.routeflow.app.core.network.dto.TeamMemberStatusDto>
+
+    // --- Daily Activity Review ---
+    @GET("owner/visits/daily")
+    suspend fun getDailyVisits(@retrofit2.http.Query("date") date: String? = null): List<com.routeflow.app.core.network.dto.DailyVisitDto>
 }
