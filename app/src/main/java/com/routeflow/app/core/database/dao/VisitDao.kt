@@ -15,6 +15,12 @@ interface VisitDao {
     @Query("SELECT * FROM visits WHERE employeeId = :employeeId ORDER BY checkInTime DESC")
     fun getVisitsByEmployee(employeeId: String): Flow<List<VisitEntity>>
 
+    @Query("SELECT * FROM visits WHERE employeeId=:userId AND companyId=:companyId AND status='ACTIVE' LIMIT 1")
+    suspend fun activeForAccount(userId: String, companyId: String): VisitEntity?
+
+    @Query("SELECT * FROM visits WHERE id=:id")
+    suspend fun getVisit(id: String): VisitEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVisit(visit: VisitEntity)
 

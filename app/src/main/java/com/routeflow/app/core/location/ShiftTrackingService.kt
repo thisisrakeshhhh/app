@@ -1,228 +1,98 @@
-package com.routeflow.app.core.location
+﻿package com.routeflow.app.core.location
 
 import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
-import android.content.Context
-import android.content.Intent
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Build
-import android.os.IBinder
+import android.app.*
+import android.content.*
+import android.location.*
+import android.os.*
 import androidx.core.app.NotificationCompat
+import androidx.room.withTransaction
 import com.routeflow.app.R
 import com.routeflow.app.app.MainActivity
-import com.routeflow.app.core.database.dao.ShiftLocationDao
+import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.entity.ShiftLocationEntity
-import com.routeflow.app.core.network.api.RouteFlowApi
-import com.routeflow.app.core.network.dto.LocationPoint
-import com.routeflow.app.core.network.dto.ShiftLocationsRequest
 import com.routeflow.app.core.security.TokenStorage
+import com.routeflow.app.data.sync.SyncManager
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.UUID
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class ShiftTrackingService : Service(), LocationListener {
-
-    @Inject lateinit var api: RouteFlowApi
-    @Inject lateinit var shiftLocationDao: ShiftLocationDao
-    @Inject lateinit var tokenStorage: TokenStorage
-
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var locationManager: LocationManager? = null
-    private var activeShiftId: String? = null
-
-    override fun onCreate() {
-        super.onCreate()
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-        createNotificationChannel()
-    }
-
+    @Inject lateinit var db: RouteFlowDatabase
+    @Inject lateinit var tokens: TokenStorage
+    @Inject lateinit var sync: SyncManager
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var manager: LocationManager? = null
+    private var shiftId: String? = null
+    private var userId: String? = null
+    private var companyId: String? = null
+    override fun onCreate() { super.onCreate(); manager = getSystemService(LocationManager::class.java) }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action
-        if (action == ACTION_STOP_TRACKING) {
-            stopTracking()
-            stopSelf()
-            return START_NOT_STICKY
+        val id = intent?.getStringExtra("shiftId") ?: run { stopSelf(); return START_NOT_STICKY }
+        shiftId = id; userId = tokens.getUserId(); companyId = tokens.getCompanyId()
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel("rf_shift_tracking", getString(R.string.tracking_title), NotificationManager.IMPORTANCE_LOW))
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        startForeground(9110, NotificationCompat.Builder(this, "rf_shift_tracking").setContentTitle(getString(R.string.tracking_title))
+            .setContentText(getString(R.string.tracking_notice)).setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).setContentIntent(open).build())
+        scope.launch {
+            val shift = db.fieldRecordDao().getShift(id)
+            if (shift == null || shift.status != "ON_SHIFT" || shift.userId != userId || shift.companyId != companyId) {
+                stopSelf(); return@launch
+            }
+            withContext(Dispatchers.Main) { beginUpdates() }
         }
-
-        val shiftId = intent?.getStringExtra(EXTRA_SHIFT_ID)
-        if (shiftId != null) {
-            activeShiftId = shiftId
-            startForeground(NOTIFICATION_ID, buildForegroundNotification())
-            startLocationUpdates()
-        }
-
-        return START_STICKY
+        return START_NOT_STICKY
     }
-
     @SuppressLint("MissingPermission")
-    private fun startLocationUpdates() {
+    private fun beginUpdates() {
         try {
-            locationManager?.let { lm ->
-                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                    lm.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER,
-                        MIN_TIME_MS,
-                        MIN_DISTANCE_M,
-                        this
-                    )
-                }
-                if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                    lm.requestLocationUpdates(
-                        LocationManager.NETWORK_PROVIDER,
-                        MIN_TIME_MS,
-                        MIN_DISTANCE_M,
-                        this
-                    )
+            var available = false
+            for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+                if (manager?.isProviderEnabled(provider) == true) {
+                    manager?.requestLocationUpdates(provider, 30000L, 20f, this, Looper.getMainLooper()); available = true
                 }
             }
-        } catch (_: SecurityException) {
-            stopSelf()
-        }
+            trackingState.value = if (available) "WAITING" else "UNAVAILABLE"
+        } catch (_: SecurityException) { trackingState.value = "UNAVAILABLE"; stopSelf() }
     }
-
     override fun onLocationChanged(location: Location) {
-        val shiftId = activeShiftId ?: return
-        val userId = tokenStorage.getUserId() ?: ""
-        val companyId = tokenStorage.getCompanyId() ?: ""
-        val pointId = "loc_${UUID.randomUUID()}"
-        val point = ShiftLocationEntity(
-            id = pointId,
-            shiftId = shiftId,
-            userId = userId,
-            companyId = companyId,
-            latitude = location.latitude,
-            longitude = location.longitude,
-            accuracy = location.accuracy,
-            timestamp = location.time.takeIf { it > 0 } ?: System.currentTimeMillis(),
-            isSynced = false
-        )
-
-        serviceScope.launch {
-            shiftLocationDao.insertLocation(point)
-            flushPendingLocations(shiftId)
+        val id = shiftId ?: return
+        val user = userId ?: return; val company = companyId ?: return
+        if (tokens.getUserId() != user || tokens.getCompanyId() != company) { stopSelf(); return }
+        if (stoppedAt.value > 0L) return
+        val capturedAt = location.time
+        scope.launch {
+            db.withTransaction {
+                val shift = db.fieldRecordDao().getShift(id) ?: return@withTransaction
+                if (shift.status != "ON_SHIFT" || shift.userId != user || shift.companyId != company || capturedAt < shift.startTime || capturedAt > System.currentTimeMillis() + 60000 || stoppedAt.value > 0) return@withTransaction
+                db.shiftLocationDao().insertLocation(ShiftLocationEntity(UUID.randomUUID().toString(), id, user, company,
+                    location.latitude, location.longitude, location.accuracy, capturedAt, false))
+                trackingState.value = "ACTIVE"
+                lastPointTime.value = capturedAt
+            }
+            sync.scheduleSync(user, company)
         }
     }
-
-    private suspend fun flushPendingLocations(shiftId: String) {
-        try {
-            val pending = shiftLocationDao.getPendingLocations(shiftId, limit = 50)
-            if (pending.isEmpty()) return
-            val toSend = pending.map {
-                LocationPoint(
-                    id = it.id,
-                    latitude = it.latitude,
-                    longitude = it.longitude,
-                    accuracy = it.accuracy,
-                    timestamp = it.timestamp
-                )
-            }
-            val resp = api.uploadShiftLocations(
-                ShiftLocationsRequest(shiftId = shiftId, points = toSend)
-            )
-            if (resp.success) {
-                shiftLocationDao.markSynced(pending.map { it.id })
-                val sevenDaysAgo = System.currentTimeMillis() - 7 * 24 * 3600 * 1000L
-                shiftLocationDao.deleteSynced(sevenDaysAgo)
-            }
-        } catch (_: Exception) {
-            // Unsent locations remain in SQLite shift_locations_outbox with isSynced = false
-        }
-    }
-
-    private fun stopTracking() {
-        try {
-            locationManager?.removeUpdates(this)
-            val shiftId = activeShiftId
-            if (shiftId != null) {
-                serviceScope.launch {
-                    flushPendingLocations(shiftId)
-                }
-            }
-        } catch (_: Exception) {}
-        activeShiftId = null
-    }
-
-    override fun onDestroy() {
-        stopTracking()
-        serviceScope.cancel()
-        super.onDestroy()
-    }
-
+    override fun onProviderDisabled(provider: String) { trackingState.value = "UNAVAILABLE" }
+    override fun onDestroy() { manager?.removeUpdates(this); scope.cancel(); if (trackingState.value != "UNAVAILABLE") trackingState.value = "STOPPED"; super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "RouteFlow Active Shift",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows active shift GPS tracking status"
-            }
-            val nm = getSystemService(NotificationManager::class.java)
-            nm?.createNotificationChannel(channel)
-        }
-    }
-
-    private fun buildForegroundNotification(): Notification {
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("RouteFlow Shift Active")
-            .setContentText("Location tracking enabled for your shift")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .build()
-    }
-
     companion object {
-        const val ACTION_START_TRACKING = "com.routeflow.app.START_TRACKING"
-        const val ACTION_STOP_TRACKING = "com.routeflow.app.STOP_TRACKING"
-        const val EXTRA_SHIFT_ID = "extra_shift_id"
-        private const val CHANNEL_ID = "rf_shift_tracking"
-        private const val NOTIFICATION_ID = 9110
-        private const val MIN_TIME_MS = 15000L // 15 seconds
-        private const val MIN_DISTANCE_M = 10f  // 10 meters
-        private const val BATCH_UPLOAD_SIZE = 4 // Flush every 4 points (~1 minute)
-
+        val trackingState = MutableStateFlow("STOPPED")
+        val lastPointTime = MutableStateFlow(0L)
+        private val stoppedAt = MutableStateFlow(0L)
         fun start(context: Context, shiftId: String) {
-            val intent = Intent(context, ShiftTrackingService::class.java).apply {
-                action = ACTION_START_TRACKING
-                putExtra(EXTRA_SHIFT_ID, shiftId)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            stoppedAt.value = 0; trackingState.value = "WAITING"
+            try { context.startForegroundService(Intent(context, ShiftTrackingService::class.java).putExtra("shiftId", shiftId)) }
+            catch (_: Exception) { trackingState.value = "UNAVAILABLE" }
         }
-
         fun stop(context: Context) {
-            val intent = Intent(context, ShiftTrackingService::class.java).apply {
-                action = ACTION_STOP_TRACKING
-            }
-            context.startService(intent)
+            stoppedAt.value = System.currentTimeMillis()
+            trackingState.value = "STOPPED"
+            context.stopService(Intent(context, ShiftTrackingService::class.java))
         }
     }
 }

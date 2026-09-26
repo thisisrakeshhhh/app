@@ -15,5 +15,7 @@ data class CollectionRecordEntity(
     val collectedBy: String,
     val companyId: String,
     val timestamp: Long,
+    @androidx.room.ColumnInfo(defaultValue = "'ENTERED'") val paymentState: String = "ENTERED",
+    val serverId: String? = null,
     val isSynced: Boolean = false
 )

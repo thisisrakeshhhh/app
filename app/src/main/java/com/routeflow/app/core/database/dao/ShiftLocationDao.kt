@@ -17,6 +17,9 @@ interface ShiftLocationDao {
     @Query("SELECT * FROM shift_locations_outbox WHERE shiftId = :shiftId AND isSynced = 0 ORDER BY timestamp ASC LIMIT :limit")
     suspend fun getPendingLocations(shiftId: String, limit: Int = 50): List<ShiftLocationEntity>
 
+    @Query("SELECT * FROM shift_locations_outbox WHERE userId=:userId AND companyId=:companyId AND isSynced=0 ORDER BY timestamp,id LIMIT :limit")
+    suspend fun getPendingForAccount(userId: String, companyId: String, limit: Int = 50): List<ShiftLocationEntity>
+
     @Query("UPDATE shift_locations_outbox SET isSynced = 1 WHERE id IN (:ids)")
     suspend fun markSynced(ids: List<String>)
 

@@ -230,6 +230,7 @@ data class DeliveryCompletionRequest(
 
 @Serializable
 data class OtpResponse(
+    val deliveryStatus: String = "UNAVAILABLE",
     val success: Boolean,
     val message: String? = null,
     val expiresAt: Long? = null,
@@ -358,6 +359,7 @@ data class VisitDto(
 
 @Serializable
 data class StockCheckDto(
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val id: String? = null,
     val retailerId: String,
     val productId: String,
@@ -411,12 +413,18 @@ data class ShiftLocationsRequest(
 
 @Serializable
 data class StartShiftRequest(
+    val shiftId: String = java.util.UUID.randomUUID().toString(),
+    val startTime: Long = System.currentTimeMillis(),
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val latitude: Double? = null,
     val longitude: Double? = null
 )
 
 @Serializable
 data class EndShiftRequest(
+    val shiftId: String = "",
+    val endTime: Long = System.currentTimeMillis(),
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val latitude: Double? = null,
     val longitude: Double? = null
 )
@@ -495,6 +503,8 @@ data class CheckoutVisitRequest(
 
 @Serializable
 data class RecordCollectionRequest(
+    val reference: String? = null,
+    val allocations: List<InvoiceAllocation>? = null,
     val retailerId: String,
     val amountPaise: Long,
     val paymentMethod: String,
@@ -505,6 +515,8 @@ data class RecordCollectionRequest(
 
 @Serializable
 data class RecordCollectionResponse(
+    val status: String = "ENTERED",
+    val unappliedPaise: Long = 0,
     val success: Boolean,
     val collectionId: String? = null,
     val receiptId: String? = null,
@@ -514,6 +526,9 @@ data class RecordCollectionResponse(
 
 @Serializable
 data class CollectionDto(
+    val status: String = "ENTERED",
+    val unapplied_paise: Long = 0,
+    val reference: String? = null,
     val id: String,
     val company_id: String = "",
     val retailer_id: String,
@@ -536,6 +551,8 @@ data class CollectionsListResponse(
 
 @Serializable
 data class CashHandoverDto(
+    val expected_amount_paise: Long? = null,
+    val resolution_notes: String? = null,
     val id: String,
     val company_id: String = "",
     val user_id: String,
@@ -562,6 +579,7 @@ data class CashHandoverSummaryResponse(
 
 @Serializable
 data class SubmitHandoverRequest(
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val amountPaise: Long,
     val notes: String? = null
 )
@@ -581,6 +599,7 @@ data class OwnerHandoversResponse(
 
 @Serializable
 data class AcknowledgeHandoverRequest(
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val action: String,
     val receivedAmountPaise: Long? = null,
     val notes: String? = null
@@ -598,12 +617,14 @@ data class AcknowledgeHandoverResponse(
 
 @Serializable
 data class ReturnItemRequest(
+    val freeQuantity: Int = 0,
     val productId: String,
     val requestedQuantity: Int
 )
 
 @Serializable
 data class CreateReturnRequest(
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val orderId: String,
     val items: List<ReturnItemRequest>,
     val notes: String? = null
@@ -618,6 +639,7 @@ data class CreateReturnResponse(
 
 @Serializable
 data class ReturnItemDto(
+    val free_quantity: Int = 0,
     val id: String,
     val return_id: String,
     val product_id: String,
@@ -654,6 +676,8 @@ data class PendingReturnsResponse(
 
 @Serializable
 data class InspectItemRequest(
+    val saleableFreeQuantity: Int = 0,
+    val damagedFreeQuantity: Int = 0,
     val productId: String,
     val saleableQuantity: Int,
     val damagedQuantity: Int
@@ -661,6 +685,7 @@ data class InspectItemRequest(
 
 @Serializable
 data class InspectReturnRequest(
+    val idempotencyKey: String = java.util.UUID.randomUUID().toString(),
     val action: String,
     val items: List<InspectItemRequest>? = null,
     val notes: String? = null
@@ -674,3 +699,22 @@ data class InspectReturnResponse(
 )
 
 
+
+@Serializable
+data class InvoiceAllocation(val invoiceId: String, val amountPaise: Long)
+@Serializable
+data class CollectionReviewRequest(val action: String, val reason: String, val idempotencyKey: String = java.util.UUID.randomUUID().toString(), val allocations: List<InvoiceAllocation>? = null)
+@Serializable
+data class ReturnActionRequest(val notes: String, val action: String = "APPROVE", val idempotencyKey: String = java.util.UUID.randomUUID().toString())
+@Serializable
+data class ClosingRequest(val businessDate: String, val notes: String, val idempotencyKey: String = java.util.UUID.randomUUID().toString())
+@Serializable
+data class EmployeeCashDto(val id: String, val full_name: String, val cashHeldPaise: Long, val totalCollectedPaise: Long, val totalSettledPaise: Long)
+@Serializable
+data class ClosingDto(val id: String, val business_date: String, val closed_at: Long, val snapshot: String, val notes: String)
+@Serializable
+data class ClosingResponse(val balances: List<EmployeeCashDto> = emptyList(), val closings: List<ClosingDto> = emptyList())
+@Serializable
+data class ShiftPauseRequest(val shiftId: String, val timestamp: Long = System.currentTimeMillis(), val idempotencyKey: String = java.util.UUID.randomUUID().toString())
+@Serializable
+data class VisitCheckoutEvent(val visitId: String, val request: CheckoutVisitRequest)

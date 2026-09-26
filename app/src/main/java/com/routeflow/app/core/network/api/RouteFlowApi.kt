@@ -45,7 +45,7 @@ interface RouteFlowApi {
     suspend fun getOrderDetails(@Path("id") orderId: String): OrderDetailsResponse
 
     @POST("orders")
-    suspend fun submitOrder(@Body request: OrderSubmitRequest): OrderSubmitResponse
+    suspend fun submitOrder(@Body request: OrderSubmitRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): OrderSubmitResponse
 
     @POST("orders/{id}/approve")
     suspend fun approveOrder(@Path("id") orderId: String): StatusResponse
@@ -101,16 +101,16 @@ interface RouteFlowApi {
 
     // --- Visits & Stock Checks ---
     @POST("visits")
-    suspend fun submitVisit(@Body request: com.routeflow.app.core.network.dto.VisitDto): StatusResponse
+    suspend fun submitVisit(@Body request: com.routeflow.app.core.network.dto.VisitDto, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): StatusResponse
 
     @GET("visits")
     suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto>
 
     @retrofit2.http.PUT("visits/{id}/checkout")
-    suspend fun checkoutVisit(@Path("id") visitId: String, @Body request: com.routeflow.app.core.network.dto.CheckoutVisitRequest): StatusResponse
+    suspend fun checkoutVisit(@Path("id") visitId: String, @Body request: com.routeflow.app.core.network.dto.CheckoutVisitRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): StatusResponse
 
     @POST("stock-checks")
-    suspend fun submitStockCheck(@Body request: com.routeflow.app.core.network.dto.StockCheckDto): StatusResponse
+    suspend fun submitStockCheck(@Body request: com.routeflow.app.core.network.dto.StockCheckDto, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): StatusResponse
 
     // --- Beats & Territory ---
     @GET("beats")
@@ -124,13 +124,13 @@ interface RouteFlowApi {
 
     // --- Shifts & Location Tracking ---
     @POST("shifts/start")
-    suspend fun startShift(@Body request: com.routeflow.app.core.network.dto.StartShiftRequest): com.routeflow.app.core.network.dto.ShiftResponse
+    suspend fun startShift(@Body request: com.routeflow.app.core.network.dto.StartShiftRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.ShiftResponse
 
     @POST("shifts/end")
-    suspend fun endShift(@Body request: com.routeflow.app.core.network.dto.EndShiftRequest): com.routeflow.app.core.network.dto.ShiftResponse
+    suspend fun endShift(@Body request: com.routeflow.app.core.network.dto.EndShiftRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.ShiftResponse
 
     @POST("shifts/locations")
-    suspend fun uploadShiftLocations(@Body request: com.routeflow.app.core.network.dto.ShiftLocationsRequest): StatusResponse
+    suspend fun uploadShiftLocations(@Body request: com.routeflow.app.core.network.dto.ShiftLocationsRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): StatusResponse
 
     @GET("team/status")
     suspend fun getTeamStatus(): List<com.routeflow.app.core.network.dto.TeamMemberStatusDto>
@@ -141,7 +141,7 @@ interface RouteFlowApi {
 
     // --- Collections ---
     @POST("collections")
-    suspend fun recordCollection(@Body request: com.routeflow.app.core.network.dto.RecordCollectionRequest): com.routeflow.app.core.network.dto.RecordCollectionResponse
+    suspend fun recordCollection(@Body request: com.routeflow.app.core.network.dto.RecordCollectionRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.RecordCollectionResponse
 
     @GET("collections")
     suspend fun getCollections(@retrofit2.http.Query("retailerId") retailerId: String? = null): com.routeflow.app.core.network.dto.CollectionsListResponse
@@ -151,7 +151,7 @@ interface RouteFlowApi {
     suspend fun getHandoverSummary(): com.routeflow.app.core.network.dto.CashHandoverSummaryResponse
 
     @POST("handovers/request")
-    suspend fun submitHandoverRequest(@Body request: com.routeflow.app.core.network.dto.SubmitHandoverRequest): com.routeflow.app.core.network.dto.SubmitHandoverResponse
+    suspend fun submitHandoverRequest(@Body request: com.routeflow.app.core.network.dto.SubmitHandoverRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.SubmitHandoverResponse
 
     @GET("owner/handovers")
     suspend fun getOwnerHandovers(): com.routeflow.app.core.network.dto.OwnerHandoversResponse
@@ -168,4 +168,17 @@ interface RouteFlowApi {
 
     @POST("returns/{id}/inspect")
     suspend fun inspectReturn(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.InspectReturnRequest): com.routeflow.app.core.network.dto.InspectReturnResponse
+
+    @GET("owner/closing")
+    suspend fun getClosing(): com.routeflow.app.core.network.dto.ClosingResponse = error("Not implemented")
+    @POST("owner/closing")
+    suspend fun closeDay(@Body request: com.routeflow.app.core.network.dto.ClosingRequest): StatusResponse = error("Not implemented")
+    @POST("collections/{id}/review")
+    suspend fun reviewCollection(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.CollectionReviewRequest): StatusResponse = error("Not implemented")
+    @POST("returns/{id}/{step}")
+    suspend fun returnAction(@Path("id") id: String, @Path("step") step: String, @Body request: com.routeflow.app.core.network.dto.ReturnActionRequest): StatusResponse = error("Not implemented")
+    @POST("shifts/{action}")
+    suspend fun pauseShift(@Path("action") action: String, @Body request: com.routeflow.app.core.network.dto.ShiftPauseRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.ShiftResponse = error("Not implemented")
+    @GET("shifts/current")
+    suspend fun currentShift(): com.routeflow.app.core.network.dto.ShiftResponse = error("Not implemented")
 }

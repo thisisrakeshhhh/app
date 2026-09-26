@@ -10,16 +10,16 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SyncOutboxDao {
-    @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC, id ASC")
     fun observeAllPendingSyncs(): Flow<List<SyncOutboxEntity>>
 
-    @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE type != 'QUARANTINED' ORDER BY createdAt ASC, id ASC")
     suspend fun getAllPendingSyncs(): List<SyncOutboxEntity>
 
-    @Query("SELECT * FROM sync_outbox WHERE userId = :userId AND companyId = :companyId AND type != 'QUARANTINED' ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE userId = :userId AND companyId = :companyId AND type != 'QUARANTINED' ORDER BY createdAt ASC, id ASC")
     suspend fun getPendingSyncsForUser(userId: String, companyId: String): List<SyncOutboxEntity>
 
-    @Query("SELECT * FROM sync_outbox WHERE companyId = :companyId AND type != 'QUARANTINED' ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_outbox WHERE companyId = :companyId AND type != 'QUARANTINED' ORDER BY createdAt ASC, id ASC")
     suspend fun getPendingSyncsForCompany(companyId: String): List<SyncOutboxEntity>
 
     @Query("UPDATE sync_outbox SET type = 'QUARANTINED', lastError = 'Unknown account ownership (legacy row)' WHERE (userId = '' OR companyId = '') AND type != 'QUARANTINED'")
@@ -27,6 +27,12 @@ interface SyncOutboxDao {
 
     @Query("SELECT * FROM sync_outbox WHERE type = 'QUARANTINED'")
     suspend fun getQuarantinedSyncs(): List<SyncOutboxEntity>
+
+    @Query("SELECT * FROM sync_outbox WHERE userId=:userId AND companyId=:companyId AND type != 'QUARANTINED' ORDER BY createdAt,id")
+    fun observeForAccount(userId: String, companyId: String): Flow<List<SyncOutboxEntity>>
+
+    @Query("UPDATE sync_outbox SET syncState='SAVED_OFFLINE', lastError=NULL WHERE id=:id AND userId=:userId AND companyId=:companyId AND type NOT IN ('PERMANENT_FAILURE','QUARANTINED')")
+    suspend fun retry(id: Long, userId: String, companyId: String)
 
     @Insert
     suspend fun insertSyncItem(item: SyncOutboxEntity)

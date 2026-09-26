@@ -13,5 +13,8 @@ data class VisitEntity(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val accuracy: Float? = null,
+    @androidx.room.ColumnInfo(defaultValue = "''") val companyId: String = "",
+    val notes: String? = null,
+    val noOrderReason: String? = null,
     val status: String // ACTIVE, COMPLETED
 )

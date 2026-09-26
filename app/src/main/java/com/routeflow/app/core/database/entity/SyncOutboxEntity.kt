@@ -13,5 +13,6 @@ data class SyncOutboxEntity(
     val companyId: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val retryCount: Int = 0,
+    @androidx.room.ColumnInfo(defaultValue = "'SAVED_OFFLINE'") val syncState: String = "SAVED_OFFLINE",
     val lastError: String? = null
 )

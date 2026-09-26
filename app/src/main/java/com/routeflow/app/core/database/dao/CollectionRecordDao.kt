@@ -12,11 +12,14 @@ interface CollectionRecordDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCollection(collection: CollectionRecordEntity)
 
-    @Query("SELECT * FROM collection_records WHERE companyId = :companyId ORDER BY timestamp DESC")
-    fun observeCollections(companyId: String): Flow<List<CollectionRecordEntity>>
+    @Query("SELECT * FROM collection_records WHERE companyId = :companyId AND collectedBy = :userId ORDER BY timestamp DESC")
+    fun observeCollections(companyId: String, userId: String): Flow<List<CollectionRecordEntity>>
 
     @Query("SELECT * FROM collection_records WHERE isSynced = 0 AND companyId = :companyId ORDER BY timestamp ASC")
     suspend fun getPendingCollections(companyId: String): List<CollectionRecordEntity>
+
+    @Query("UPDATE collection_records SET isSynced = 1, paymentState = :state, serverId = :serverId, receiptId = :receiptId WHERE id = :id")
+    suspend fun confirm(id: String, state: String, serverId: String?, receiptId: String)
 
     @Query("UPDATE collection_records SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)

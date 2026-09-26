@@ -28,6 +28,11 @@ class AuthInterceptor @Inject constructor(
         }
 
         val accessToken = tokenStorage.getAccessToken()
+        val originUser = tokenStorage.getUserId()
+        val originCompany = tokenStorage.getCompanyId()
+        val origin = "$originUser:$originCompany"
+        val requiredOrigin = originalRequest.header("X-RouteFlow-Account")
+        if (requiredOrigin != null && requiredOrigin != origin) throw java.io.IOException("ACCOUNT_CHANGED")
         val authenticatedRequest = if (accessToken != null) {
             originalRequest.newBuilder()
                 .header("Authorization", "Bearer $accessToken")
@@ -44,6 +49,9 @@ class AuthInterceptor @Inject constructor(
             if (!refreshToken.isNullOrBlank()) {
                 val newAccessToken = synchronized(refreshLock) {
                     val currentAccessToken = tokenStorage.getAccessToken()
+                    if (tokenStorage.getUserId() != originUser || tokenStorage.getCompanyId() != originCompany) {
+                        return@synchronized null
+                    }
                     // If another thread already refreshed the token, use the updated one
                     if (currentAccessToken != null && currentAccessToken != accessToken) {
                         currentAccessToken
@@ -68,7 +76,7 @@ class AuthInterceptor @Inject constructor(
                                     val json = JSONObject(bodyStr)
                                     val refreshedAccess = json.optString("access_token")
                                     val refreshedRefresh = json.optString("refresh_token")
-                                    if (refreshedAccess.isNotBlank()) {
+                                    if (refreshedAccess.isNotBlank() && tokenStorage.getUserId() == originUser && tokenStorage.getCompanyId() == originCompany) {
                                         tokenStorage.saveTokens(
                                             refreshedAccess,
                                             if (refreshedRefresh.isNotBlank()) refreshedRefresh else refreshToken
@@ -87,7 +95,7 @@ class AuthInterceptor @Inject constructor(
                     }
                 }
 
-                if (newAccessToken != null) {
+                if (newAccessToken != null && tokenStorage.getUserId() == originUser && tokenStorage.getCompanyId() == originCompany) {
                     response.close()
                     val retryRequest = originalRequest.newBuilder()
                         .header("Authorization", "Bearer $newAccessToken")

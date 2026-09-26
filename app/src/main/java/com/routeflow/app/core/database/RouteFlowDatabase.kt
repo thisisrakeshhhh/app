@@ -36,9 +36,11 @@ import com.routeflow.app.core.database.entity.VisitEntity
         TargetEntity::class,
         SyncOutboxEntity::class,
         ShiftLocationEntity::class,
+        com.routeflow.app.core.database.entity.LocalShiftEntity::class,
+        com.routeflow.app.core.database.entity.FieldRecordEntity::class,
         CollectionRecordEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -51,8 +53,23 @@ abstract class RouteFlowDatabase : RoomDatabase() {
     abstract fun shiftLocationDao(): ShiftLocationDao
     abstract fun collectionRecordDao(): CollectionRecordDao
 
+    abstract fun fieldRecordDao(): com.routeflow.app.core.database.dao.FieldRecordDao
+
     companion object {
         const val DATABASE_NAME = "routeflow_db"
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE visits ADD COLUMN companyId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE visits ADD COLUMN notes TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN noOrderReason TEXT")
+                db.execSQL("ALTER TABLE sync_outbox ADD COLUMN syncState TEXT NOT NULL DEFAULT 'SAVED_OFFLINE'")
+                db.execSQL("ALTER TABLE collection_records ADD COLUMN paymentState TEXT NOT NULL DEFAULT 'ENTERED'")
+                db.execSQL("ALTER TABLE collection_records ADD COLUMN serverId TEXT")
+                db.execSQL("CREATE TABLE IF NOT EXISTS local_shifts (id TEXT NOT NULL PRIMARY KEY, userId TEXT NOT NULL, companyId TEXT NOT NULL, status TEXT NOT NULL, startTime INTEGER NOT NULL, endTime INTEGER)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS field_records (id TEXT NOT NULL PRIMARY KEY, userId TEXT NOT NULL, companyId TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, createdAt INTEGER NOT NULL)")
+            }
+        }
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {

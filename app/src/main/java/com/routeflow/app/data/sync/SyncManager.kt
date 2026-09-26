@@ -33,6 +33,7 @@ class SyncManager @Inject constructor(
 
         val uniqueWorkName = "order_sync_${targetUserId}_${targetCompanyId}"
         val syncRequest = OneTimeWorkRequestBuilder<OrderSyncWorker>()
+            .setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
             .setBackoffCriteria(
                 BackoffPolicy.EXPONENTIAL,
                 10,
@@ -51,5 +52,10 @@ class SyncManager @Inject constructor(
             ExistingWorkPolicy.KEEP,
             syncRequest
         )
+        val periodic = androidx.work.PeriodicWorkRequestBuilder<OrderSyncWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
+            .setInputData(workDataOf(OrderSyncWorker.KEY_USER_ID to targetUserId, OrderSyncWorker.KEY_COMPANY_ID to targetCompanyId))
+            .build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork("${uniqueWorkName}_recovery", androidx.work.ExistingPeriodicWorkPolicy.KEEP, periodic)
     }
 }
