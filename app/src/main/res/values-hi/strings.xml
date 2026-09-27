@@ -212,4 +212,9 @@
     <!-- Shift Tracking (Hindi) -->
     <string name="tracking_location_saved">स्थान ऑफलाइन सहेजा — कनेक्ट होने पर अपलोड होगा</string>
     <string name="tracking_shift_queued">शिफ्ट समाप्ति सहेजी गई। GPS ट्रैकिंग बंद। ऑनलाइन होने पर सिंक होगा।</string>
+
+    <!-- Owner Financial Operations (Hindi) -->
+    <string name="owner_handover_reconciliation">रोकड़ सुपुर्दगी मिलान (कैश हैंडओवर)</string>
+    <string name="owner_payment_clearance">भुगतान सत्यापन एवं चेक क्लीयरेंस</string>
+    <string name="owner_returns_management">माल वापसी एवं क्रेडिट नोट</string>
 </resources>

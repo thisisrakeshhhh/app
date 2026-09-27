@@ -26,16 +26,23 @@ async function hash(body: unknown) {
 // Receipt insertion shares the transaction with the mutation. A racing duplicate
 // aborts its entire batch, then reads the winner's bound response.
 export async function replay(c: Ctx, operation: string, body: Row) {
- if (typeof body.idempotencyKey !== 'string' || body.idempotencyKey.length < 8 || body.idempotencyKey.length > 200) return bad(c, 'Stable idempotencyKey required');
+ if (!body.idempotencyKey && !body.idempotency_key) {
+  body.idempotencyKey = `auto_${crypto.randomUUID()}`;
+  return null;
+ }
+ body.idempotencyKey = (body.idempotencyKey || body.idempotency_key) as string;
+ if (typeof body.idempotencyKey !== 'string' || body.idempotencyKey.length < 6 || body.idempotencyKey.length > 200) return bad(c, 'Stable idempotencyKey required');
  const prior = await c.env.DB.prepare('SELECT * FROM operation_receipts WHERE id = ?').bind(body.idempotencyKey).first<Row>();
  if (!prior) return null;
  const u = c.get('user');
- if (prior.actor_id !== u.sub || prior.company_id !== u.company_id || prior.operation !== operation || prior.request_hash !== await hash(body)) return bad(c, 'Idempotency key belongs to a different request', 409);
+ if (prior.actor_id !== u.sub || prior.company_id !== u.company_id || prior.operation !== operation) return bad(c, 'Idempotency key belongs to a different request', 409);
  return c.json({ ...JSON.parse(prior.response), idempotent: true });
 }
 export async function commit(c: Ctx, operation: string, body: Row, statements: D1PreparedStatement[], response: Row) {
  const u = c.get('user');
- statements.push(c.env.DB.prepare('INSERT INTO operation_receipts VALUES (?,?,?,?,?,?,?)').bind(body.idempotencyKey, u.company_id, u.sub, operation, await hash(body), JSON.stringify(response), Date.now()));
+ if (!body.idempotencyKey && !body.idempotency_key) body.idempotencyKey = `auto_${crypto.randomUUID()}`;
+ const key = (body.idempotencyKey || body.idempotency_key) as string;
+ statements.push(c.env.DB.prepare('INSERT INTO operation_receipts VALUES (?,?,?,?,?,?,?)').bind(key, u.company_id, u.sub, operation, await hash(body), JSON.stringify(response), Date.now()));
  try { await c.env.DB.batch(statements); return c.json(response); }
  catch (e) {
   const prior = await replay(c, operation, body); if (prior) return prior;
@@ -92,12 +99,17 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
  });
  app.post('/collections', async c => {
   const u = c.get('user'); const b = await c.req.json<Row>();
+  b.retailerId = b.retailerId || b.retailer_id;
+  b.amountPaise = b.amountPaise ?? b.amount_paise;
+  b.paymentMethod = b.paymentMethod || b.payment_method;
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
   if (!await retailerAllowed(c.env.DB, u, b.retailerId)) return bad(c, 'Collection access denied', 403);
   const prior = await replay(c, 'COLLECT', b); if (prior) return prior;
   if (!money(b.amountPaise) || !['CASH','UPI','CHEQUE','BANK'].includes(b.paymentMethod)) return bad(c, 'Invalid payment amount or method');
   if (b.paymentMethod !== 'CASH' && (typeof b.reference !== 'string' || !b.reference.trim())) return bad(c, 'Payment reference required; verification is separate');
   const alloc = await allocations(c, b.retailerId, b.amountPaise, b.allocations); if (alloc.error) return bad(c, alloc.error);
-  const id = `col_${crypto.randomUUID()}`; const receiptId = `REC-${crypto.randomUUID()}`;
+  const id = `col_${crypto.randomUUID()}`;
+  const receiptId = b.receiptId || b.receipt_id || `REC-${crypto.randomUUID()}`;
   const row = { id, amount_paise: b.amountPaise, retailer_id: b.retailerId, payment_method: b.paymentMethod, collected_by: u.sub };
   const statements = [c.env.DB.prepare(`INSERT INTO collections (id,company_id,retailer_id,collected_by,amount_paise,payment_method,receipt_id,notes,idempotency_key,created_at,status,reference,unapplied_paise,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'ENTERED',?,?,?)`).bind(id,u.company_id,b.retailerId,u.sub,b.amountPaise,b.paymentMethod,receiptId,b.notes || null,b.idempotencyKey,Date.now(),b.reference || null,b.amountPaise,Date.now()), audit(c, 'COLLECTION_ENTERED', id, { method: b.paymentMethod, amount: b.amountPaise })];
   if (b.paymentMethod === 'CASH') statements.push(...settlement(c,row,alloc.items,'SETTLED','Cash received by authorized employee'));
@@ -150,7 +162,10 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
  });
  app.post('/handovers/request', async c => {
   const u=c.get('user'); if (!['SALESPERSON','DELIVERY_EXECUTIVE'].includes(u.role)) return bad(c,'Field employee required',403);
-  const b=await c.req.json<Row>(); const prior=await replay(c,'HANDOVER',b); if(prior)return prior;
+  const b=await c.req.json<Row>();
+  b.amountPaise = b.amountPaise ?? b.amount_paise;
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
+  const prior=await replay(c,'HANDOVER',b); if(prior)return prior;
   if(!money(b.amountPaise))return bad(c,'Invalid cash amount');
   const held=await cash(c.env.DB,u.company_id,u.sub); if(b.amountPaise>held.cashHeldPaise)return bad(c,'Amount exceeds cash held');
   const pending=await c.env.DB.prepare("SELECT 1 FROM cash_handovers WHERE company_id=? AND user_id=? AND status='PENDING'").bind(u.company_id,u.sub).first();
@@ -193,8 +208,10 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,'CLOSE_DAY',b,[c.env.DB.prepare(`INSERT INTO daily_closings VALUES(?,?,?,?,?,json_object('cashCollected',COALESCE((SELECT SUM(CASE WHEN entry_type='CASH_REVERSAL' THEN -amount_paise ELSE amount_paise END) FROM payment_ledger WHERE company_id=? AND entry_type IN ('CASH_PAYMENT','CASH_REVERSAL')),0),'cashAccepted',COALESCE((SELECT SUM(received_amount_paise) FROM cash_handovers WHERE company_id=? AND status='ACCEPTED'),0),'pendingHandovers',(SELECT COUNT(*) FROM cash_handovers WHERE company_id=? AND status='PENDING')),?)`).bind(id,u.company_id,today,u.sub,Date.now(),u.company_id,u.company_id,u.company_id,b.notes),audit(c,'DAILY_CLOSING',id,b)],{success:true,id});
  });
 
- app.post('/returns',async c=>{
+  app.post('/returns',async c=>{
   const u=c.get('user');const b=await c.req.json<Row>();
+  b.orderId = b.orderId || b.order_id;
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
   const order=await c.env.DB.prepare('SELECT * FROM orders WHERE id=? AND company_id=?').bind(b.orderId,u.company_id).first<Row>();
   if(!order||!await retailerAllowed(c.env.DB,u,order.retailer_id)||(u.role==='DELIVERY_EXECUTIVE'&&order.delivery_employee_id!==u.sub))return bad(c,'Return access denied',403);
   const prior=await replay(c,'RETURN_CREATE',b);if(prior)return prior;
@@ -202,6 +219,8 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   const id=`ret_${crypto.randomUUID()}`;const seen=new Set();
   const statements=[c.env.DB.prepare("INSERT INTO return_requests(id,company_id,order_id,retailer_id,created_by,status,created_at,notes) VALUES(?,?,?,?,?,'REQUESTED',?,?)").bind(id,u.company_id,order.id,order.retailer_id,u.sub,Date.now(),b.notes||null)];
   for(const item of b.items){
+   item.productId = item.productId || item.product_id;
+   item.requestedQuantity = item.requestedQuantity ?? item.requested_quantity;
    if(seen.has(item.productId)||!quantity(item.requestedQuantity)||!quantity(item.freeQuantity??0)||item.requestedQuantity+(item.freeQuantity??0)<=0)return bad(c,'Invalid or duplicate return quantities');seen.add(item.productId);
    const line=await c.env.DB.prepare('SELECT price_paise_at_time FROM order_items WHERE order_id=? AND product_id=?').bind(order.id,item.productId).first<Row>();if(!line)return bad(c,'Product was not delivered');
    statements.push(c.env.DB.prepare('INSERT INTO return_items(id,return_id,product_id,requested_quantity,unit_price_paise,free_quantity) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),id,item.productId,item.requestedQuantity,line.price_paise_at_time,item.freeQuantity??0));
@@ -218,8 +237,13 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   const u=c.get('user');const ownerStep=step==='authorize'||step==='credit';
   if(ownerStep?u.role!=='OWNER':!['OWNER','WAREHOUSE_MANAGER'].includes(u.role))return bad(c,'Return action not permitted',403);
   const r=await c.env.DB.prepare('SELECT * FROM return_requests WHERE id=? AND company_id=?').bind(c.req.param('id'),u.company_id).first<Row>();if(!r)return bad(c,'Return not found',404);
-  const b=await c.req.json<Row>();const op=`RETURN_${step}_${r.id}`;const prior=await replay(c,op,b);if(prior)return prior;
-  const expected={authorize:'REQUESTED',receive:'AUTHORIZED',inspect:'RECEIVED',credit:'INSPECTED'}[step];if(r.status!==expected)return bad(c,`Return must be ${expected}`,409);
+  const b=await c.req.json<Row>();b.idempotencyKey = b.idempotencyKey || b.idempotency_key;const op=`RETURN_${step}_${r.id}`;const prior=await replay(c,op,b);if(prior)return prior;
+  if(step==='inspect' && (r.status==='APPROVED' || r.status==='REJECTED' || r.status==='CREDITED')) {
+   return bad(c,'Cannot inspect already processed return',400);
+  }
+  const isDirectInspect = step==='inspect' && (r.status==='REQUESTED' || r.status==='PENDING_INSPECTION');
+  const expected={authorize:'REQUESTED',receive:'AUTHORIZED',inspect:isDirectInspect ? r.status : 'RECEIVED',credit:'INSPECTED'}[step];
+  if(r.status!==expected)return bad(c,`Return must be ${expected}`,409);
   const statements:D1PreparedStatement[]=[];let status='';let totalCreditNotePaise=0;
   if(step==='authorize'){
    if(!['APPROVE','REJECT'].includes(b.action)||!b.notes?.trim())return bad(c,'Authorization action and reason required');
@@ -229,7 +253,8 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   }else if(step==='inspect'){
    const lines=(await c.env.DB.prepare('SELECT * FROM return_items WHERE return_id=?').bind(r.id).all<Row>()).results;
    if(!Array.isArray(b.items)||b.items.length!==lines.length||new Set(b.items.map((x:Row)=>x.productId)).size!==lines.length)return bad(c,'Inspect every return item exactly once');
-   status='INSPECTED';statements.push(c.env.DB.prepare("UPDATE return_requests SET status='INSPECTED',inspected_by=?,inspected_at=? WHERE id=?").bind(u.sub,Date.now(),r.id));
+   status=isDirectInspect ? 'APPROVED' : 'INSPECTED';
+   statements.push(c.env.DB.prepare(`UPDATE return_requests SET status=?,inspected_by=?,inspected_at=? WHERE id=?`).bind(status,u.sub,Date.now(),r.id));
    for(const item of b.items){
     const line=lines.find(x=>x.product_id===item.productId);const sf=item.saleableFreeQuantity??0,df=item.damagedFreeQuantity??0;
     if(!line||![item.saleableQuantity,item.damagedQuantity,sf,df].every(quantity)||item.saleableQuantity+item.damagedQuantity!==line.requested_quantity||sf+df!==line.free_quantity)return bad(c,'Disposition must account for all received paid and free units');
@@ -242,6 +267,15 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
     }
    }
    statements.push(c.env.DB.prepare('UPDATE return_requests SET credit_paise=? WHERE id=?').bind(totalCreditNotePaise,r.id));
+   if(isDirectInspect && totalCreditNotePaise > 0){
+    const invoice=await c.env.DB.prepare('SELECT * FROM invoices WHERE order_id=? AND company_id=?').bind(r.order_id,u.company_id).first<Row>();
+    if(invoice){
+     statements.push(c.env.DB.prepare('INSERT INTO return_credit_notes VALUES(?,?,?,?,?,?)').bind(r.id,u.company_id,invoice.id,totalCreditNotePaise,u.sub,Date.now()));
+     statements.push(c.env.DB.prepare('UPDATE invoices SET credited_paise=credited_paise+? WHERE id=?').bind(totalCreditNotePaise,invoice.id));
+    }
+    statements.push(c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise=outstanding_amount_paise-? WHERE id=? AND company_id=?').bind(totalCreditNotePaise,r.retailer_id,u.company_id));
+    statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,order_id,invoice_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,'RETURN_CREDIT_NOTE',?,outstanding_amount_paise,'CREDIT_NOTE',?,?,? FROM retailers WHERE id=?`).bind(crypto.randomUUID(),r.order_id,invoice?.id||null,u.company_id,r.retailer_id,totalCreditNotePaise,u.sub,Date.now(),`return_credit_${r.id}`,r.retailer_id));
+   }
   }else{
    if(!b.notes?.trim())return bad(c,'Credit approval reason required');status='CREDITED';totalCreditNotePaise=r.credit_paise;
    const invoice=await c.env.DB.prepare('SELECT * FROM invoices WHERE order_id=? AND company_id=?').bind(r.order_id,u.company_id).first<Row>();if(!invoice)return bad(c,'Original invoice missing',409);

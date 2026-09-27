@@ -57,4 +57,31 @@ class NetworkReturnRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun authorizeReturn(id: String, action: String, notes: String): Result<com.routeflow.app.core.network.dto.StatusResponse> {
+        return try {
+            val response = api.returnAction(id, "authorize", com.routeflow.app.core.network.dto.ReturnActionRequest(action = action, notes = notes))
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun receiveReturn(id: String, notes: String?): Result<com.routeflow.app.core.network.dto.StatusResponse> {
+        return try {
+            val response = api.returnAction(id, "receive", com.routeflow.app.core.network.dto.ReturnActionRequest(action = "RECEIVE", notes = notes ?: "Received at warehouse"))
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun creditReturn(id: String, notes: String): Result<com.routeflow.app.core.network.dto.StatusResponse> {
+        return try {
+            val response = api.returnAction(id, "credit", com.routeflow.app.core.network.dto.ReturnActionRequest(action = "CREDIT", notes = notes))
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

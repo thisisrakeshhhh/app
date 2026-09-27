@@ -7,7 +7,10 @@ export function fieldCycle(auth:MiddlewareHandler<CycleEnv>){
  const app=new Hono<CycleEnv>();app.use('*',auth);
  app.post('/visits',async c=>{
   const u=c.get('user'),b=await c.req.json<Row>();
-  if(!['OWNER','SALESPERSON'].includes(u.role)||!await retailerAllowed(c.env.DB,u,b.retailerId))return c.json({error:'Visit access denied'},403);
+  if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Visit access denied'},403);
+  const ret=await c.env.DB.prepare('SELECT beat_id FROM retailers WHERE id=? AND company_id=?').bind(b.retailerId,u.company_id).first();
+  if(!ret)return c.json({error:'Retailer not found in this company'},400);
+  if(!await retailerAllowed(c.env.DB,u,b.retailerId))return c.json({error:'Visit access denied'},403);
   b.idempotencyKey=b.idempotencyKey||`visit_${b.id}`;
   const prior=await replay(c,'VISIT_START',b);if(prior)return prior;
   if(typeof b.id!=='string'||!time(b.checkInTime)||!coordinates(b)||!['ACTIVE','COMPLETED'].includes(b.status)|| (b.status==='COMPLETED'&&(!time(b.checkOutTime)||b.checkOutTime<b.checkInTime)))return c.json({error:'Invalid visit event'},400);
@@ -27,14 +30,21 @@ export function fieldCycle(auth:MiddlewareHandler<CycleEnv>){
  });
  app.post('/stock-checks',async c=>{
   const u=c.get('user'),b=await c.req.json<Row>();
-  if(!['OWNER','SALESPERSON'].includes(u.role)||!await retailerAllowed(c.env.DB,u,b.retailerId))return c.json({error:'Stock check access denied'},403);
+  if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Stock check access denied'},403);
+  const ret=await c.env.DB.prepare('SELECT beat_id FROM retailers WHERE id=? AND company_id=?').bind(b.retailerId,u.company_id).first();
+  if(!ret)return c.json({error:'Retailer not found in this company'},400);
+  if(!await retailerAllowed(c.env.DB,u,b.retailerId))return c.json({error:'Stock check access denied'},403);
   const p=await c.env.DB.prepare('SELECT 1 FROM products WHERE id=? AND company_id=?').bind(b.productId,u.company_id).first();
   if(!p||!Number.isSafeInteger(b.quantity)||b.quantity<0||b.quantity>100000)return c.json({error:'Invalid stock check'},400);
   const prior=await replay(c,'STOCK_CHECK',b);if(prior)return prior;
   const id=b.id||crypto.randomUUID();return commit(c,'STOCK_CHECK',b,[c.env.DB.prepare('INSERT INTO stock_checks VALUES(?,?,?,?,?,?,?)').bind(id,u.company_id,b.retailerId,u.sub,b.productId,b.quantity,Date.now()),audit(c,'STOCK_CHECK',id,b)],{success:true,stockCheckId:id});
  });
  app.get('/stock-checks/:retailerId',async c=>{
-  const u=c.get('user'),id=c.req.param('retailerId');if(!['OWNER','SALESPERSON'].includes(u.role)||!await retailerAllowed(c.env.DB,u,id))return c.json({error:'Stock check access denied'},403);
+  const u=c.get('user'),id=c.req.param('retailerId');
+  if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Stock check access denied'},403);
+  const ret=await c.env.DB.prepare('SELECT 1 FROM retailers WHERE id=? AND company_id=?').bind(id,u.company_id).first();
+  if(!ret)return c.json({error:'Retailer not found in this company'},404);
+  if(!await retailerAllowed(c.env.DB,u,id))return c.json({error:'Stock check access denied'},403);
   return c.json((await c.env.DB.prepare('SELECT sc.id,sc.product_id AS productId,p.name AS productName,sc.quantity,sc.created_at AS createdAt FROM stock_checks sc JOIN products p ON p.id=sc.product_id WHERE sc.company_id=? AND sc.retailer_id=? ORDER BY sc.created_at DESC LIMIT 100').bind(u.company_id,id).all()).results);
  });
  app.post('/shifts/start',async c=>{

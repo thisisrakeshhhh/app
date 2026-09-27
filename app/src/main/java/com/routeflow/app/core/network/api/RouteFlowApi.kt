@@ -170,15 +170,20 @@ interface RouteFlowApi {
     suspend fun inspectReturn(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.InspectReturnRequest): com.routeflow.app.core.network.dto.InspectReturnResponse
 
     @GET("owner/closing")
-    suspend fun getClosing(): com.routeflow.app.core.network.dto.ClosingResponse = error("Not implemented")
+    suspend fun getClosing(): com.routeflow.app.core.network.dto.ClosingResponse
+
     @POST("owner/closing")
-    suspend fun closeDay(@Body request: com.routeflow.app.core.network.dto.ClosingRequest): StatusResponse = error("Not implemented")
+    suspend fun closeDay(@Body request: com.routeflow.app.core.network.dto.ClosingRequest): StatusResponse
+
     @POST("collections/{id}/review")
-    suspend fun reviewCollection(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.CollectionReviewRequest): StatusResponse = error("Not implemented")
+    suspend fun reviewCollection(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.CollectionReviewRequest): StatusResponse
+
     @POST("returns/{id}/{step}")
-    suspend fun returnAction(@Path("id") id: String, @Path("step") step: String, @Body request: com.routeflow.app.core.network.dto.ReturnActionRequest): StatusResponse = error("Not implemented")
+    suspend fun returnAction(@Path("id") id: String, @Path("step") step: String, @Body request: com.routeflow.app.core.network.dto.ReturnActionRequest): StatusResponse
+
     @POST("shifts/{action}")
-    suspend fun pauseShift(@Path("action") action: String, @Body request: com.routeflow.app.core.network.dto.ShiftPauseRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.ShiftResponse = error("Not implemented")
+    suspend fun pauseShift(@Path("action") action: String, @Body request: com.routeflow.app.core.network.dto.ShiftPauseRequest, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): com.routeflow.app.core.network.dto.ShiftResponse
+
     @GET("shifts/current")
-    suspend fun currentShift(): com.routeflow.app.core.network.dto.ShiftResponse = error("Not implemented")
+    suspend fun currentShift(): com.routeflow.app.core.network.dto.ShiftResponse
 }

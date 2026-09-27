@@ -14,4 +14,6 @@ interface CollectionRepository {
         notes: String? = null
     ): Result<CollectionRecordEntity>
     suspend fun syncPendingCollections(): Result<Int>
+    suspend fun getRemoteCollections(retailerId: String? = null): Result<List<com.routeflow.app.core.network.dto.CollectionDto>>
+    suspend fun reviewCollection(id: String, action: String, reason: String): Result<com.routeflow.app.core.network.dto.StatusResponse>
 }

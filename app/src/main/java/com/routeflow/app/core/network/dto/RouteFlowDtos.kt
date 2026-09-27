@@ -665,6 +665,7 @@ data class ReturnRequestDto(
     val created_at: Long,
     val inspected_at: Long? = null,
     val inspected_by: String? = null,
+    val credit_paise: Long? = 0L,
     val notes: String? = null,
     val items: List<ReturnItemDto> = emptyList()
 )

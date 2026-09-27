@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-const BASE_URL = 'http://127.0.0.1:8787';
+const BASE_URL = process.env.ROUTEFLOW_TEST_URL || 'http://127.0.0.1:8787';
 
 describe('RouteFlow API End-to-End Integration Suite', () => {
   let ownerToken = '';

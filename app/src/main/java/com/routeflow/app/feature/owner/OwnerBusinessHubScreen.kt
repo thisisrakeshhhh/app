@@ -36,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.routeflow.app.R
 import com.routeflow.app.core.design.RFColors
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AssignmentReturn
+import androidx.compose.material.icons.filled.Payments
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +47,10 @@ fun OwnerBusinessHubScreen(
     onNavigateProducts: () -> Unit,
     onNavigateRetailers: () -> Unit,
     onNavigateBeats: () -> Unit,
-    onNavigateEmployees: () -> Unit
+    onNavigateEmployees: () -> Unit,
+    onNavigateHandovers: () -> Unit = {},
+    onNavigateCollections: () -> Unit = {},
+    onNavigateReturns: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -61,6 +67,36 @@ fun OwnerBusinessHubScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(
+                text = "Financial & Settlement Operations",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = RFColors.TextPrimary
+            )
+
+            BusinessCard(
+                title = stringResource(R.string.owner_handover_reconciliation),
+                subtitle = "Review & acknowledge driver and sales cash collections",
+                icon = Icons.Default.AccountBalanceWallet,
+                onClick = onNavigateHandovers
+            )
+
+            BusinessCard(
+                title = stringResource(R.string.owner_payment_clearance),
+                subtitle = "Verify UPI / bank transfers and clear customer cheques",
+                icon = Icons.Default.Payments,
+                onClick = onNavigateCollections
+            )
+
+            BusinessCard(
+                title = stringResource(R.string.owner_returns_management),
+                subtitle = "Authorize returns, inspect damaged goods & issue credit notes",
+                icon = Icons.Default.AssignmentReturn,
+                onClick = onNavigateReturns
+            )
+
+            Spacer(Modifier.height(8.dp))
+
             Text(
                 text = "Master Data & Operations Setup",
                 style = MaterialTheme.typography.titleMedium,

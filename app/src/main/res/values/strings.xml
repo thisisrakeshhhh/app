@@ -212,5 +212,10 @@
     <!-- Shift Tracking -->
     <string name="tracking_location_saved">Location saved offline — will sync when connected</string>
     <string name="tracking_shift_queued">Shift end saved. GPS tracking stopped. Will sync when online.</string>
+
+    <!-- Owner Financial Operations -->
+    <string name="owner_handover_reconciliation">Cash Handover Reconciliation</string>
+    <string name="owner_payment_clearance">Payment Clearance &amp; Verification</string>
+    <string name="owner_returns_management">Returns &amp; Credit Notes</string>
 </resources>
 

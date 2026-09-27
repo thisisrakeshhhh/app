@@ -15,8 +15,16 @@ export async function requestOtp(c:Context<any>){
  if(!simulation&&(!c.env.SMS_GATEWAY_URL||!c.env.SMS_GATEWAY_TOKEN))return c.json({success:false,deliveryStatus:'UNAVAILABLE',error:'Recipient messaging is not configured. Delivery cannot be confirmed.'},503);
  const old=await db.prepare('SELECT * FROM delivery_otps WHERE order_id=? AND company_id=?').bind(id,u.company_id).first<any>();
  const now=Date.now();
+ const allowDebug = (c.env.ENVIRONMENT === 'development' && c.env.ENABLE_TEST_FAILURE_INJECTION === 'true' && (c.req.header('X-Test-Runner') === 'true' || c.req.header('X-Automated-Test') === 'true'));
+ const retailer = await db.prepare('SELECT name, contact_number FROM retailers WHERE id = ?').bind(order.retailer_id).first<any>();
+ const contact = retailer?.contact_number || '';
+ const masked = contact.length >= 4 ? '*'.repeat(Math.max(0, contact.length - 4)) + contact.slice(-4) : 'registered mobile';
+ const msg = simulation
+  ? `Development simulation: no SMS sent (Delivery OTP sent via SMS simulated for ${retailer?.name || 'Retailer'} ${masked})`
+  : `Delivery OTP sent via SMS to ${retailer?.name || 'Retailer'} (${masked})`;
+
  if(old&&['SENT','SIMULATED'].includes(old.send_status)&&old.expires_at>now&&old.attempt_count<old.max_attempts&&!old.is_used){
-  return c.json({success:true,deliveryStatus:old.send_status,message:old.send_status==='SIMULATED'?'Development simulation: no SMS sent':'Recipient message previously acknowledged',expiresAt:old.expires_at,...(simulation?{debugOtp:old.otp_code}:{})});
+  return c.json({success:true,deliveryStatus:old.send_status,message:msg,expiresAt:old.expires_at,...(allowDebug?{debugOtp:old.otp_code}:{})});
  }
  if(old&&now-old.created_at<60000)return c.json({error:'Wait before requesting another OTP'},429);
  const otp=secureOtp(),expiresAt=now+5*60000;
@@ -27,8 +35,7 @@ export async function requestOtp(c:Context<any>){
  if(!simulation){
   try{
    const url=new URL(c.env.SMS_GATEWAY_URL);if(url.protocol!=='https:')throw new Error('HTTPS required');
-   const retailer=await db.prepare('SELECT contact_number FROM retailers WHERE id=? AND company_id=?').bind(order.retailer_id,u.company_id).first<any>();
-   const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${c.env.SMS_GATEWAY_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({to:retailer.contact_number,template:'routeflow_delivery_otp',otp,orderId:id,idempotencyKey:`otp_${id}_${now}`}),signal:AbortSignal.timeout(10000)});
+   const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${c.env.SMS_GATEWAY_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({to:contact,template:'routeflow_delivery_otp',otp,orderId:id,idempotencyKey:`otp_${id}_${now}`}),signal:AbortSignal.timeout(10000)});
    const data=await response.json() as {accepted?:boolean;messageId?:string};
    if(!response.ok||data.accepted!==true||!data.messageId)throw new Error('No provider acknowledgement');providerId=data.messageId;
   }catch{
@@ -38,5 +45,6 @@ export async function requestOtp(c:Context<any>){
  }
  const status=simulation?'SIMULATED':'SENT';
  await db.prepare('UPDATE delivery_otps SET send_status=?,provider_id=? WHERE order_id=? AND otp_code=?').bind(status,providerId,id,otp).run();
- return c.json({success:true,deliveryStatus:status,message:simulation?'Development simulation: no SMS sent':'Recipient message acknowledged by provider',expiresAt,...(simulation?{debugOtp:otp}:{})});
+ return c.json({success:true,deliveryStatus:status,message:msg,expiresAt,...(allowDebug?{debugOtp:otp}:{})});
 }
+

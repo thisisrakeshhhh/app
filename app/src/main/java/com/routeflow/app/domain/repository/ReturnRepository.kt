@@ -10,4 +10,7 @@ interface ReturnRepository {
     suspend fun getPendingReturns(): Result<List<ReturnRequestDto>>
     suspend fun createReturn(orderId: String, items: List<ReturnItemRequest>, notes: String? = null): Result<CreateReturnResponse>
     suspend fun inspectReturn(id: String, action: String, items: List<InspectItemRequest>?, notes: String? = null): Result<InspectReturnResponse>
+    suspend fun authorizeReturn(id: String, action: String, notes: String): Result<com.routeflow.app.core.network.dto.StatusResponse>
+    suspend fun receiveReturn(id: String, notes: String? = null): Result<com.routeflow.app.core.network.dto.StatusResponse>
+    suspend fun creditReturn(id: String, notes: String): Result<com.routeflow.app.core.network.dto.StatusResponse>
 }

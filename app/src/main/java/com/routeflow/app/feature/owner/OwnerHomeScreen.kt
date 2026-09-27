@@ -38,8 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
+import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.design.RouteFlowStatus
 import com.routeflow.app.domain.model.Employee
+
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AssignmentReturn
+import androidx.compose.material.icons.filled.Payments
 
 @Composable
 fun OwnerHomeScreen(
@@ -48,7 +53,10 @@ fun OwnerHomeScreen(
     onViewApprovals: () -> Unit,
     onViewProducts: () -> Unit = {},
     onViewRetailers: () -> Unit = {},
-    onViewEmployees: () -> Unit = {}
+    onViewEmployees: () -> Unit = {},
+    onViewHandovers: () -> Unit = {},
+    onViewCollections: () -> Unit = {},
+    onViewReturns: () -> Unit = {}
 ) {
     if (state.isLoading) {
         LoadingState(Modifier.fillMaxSize())
@@ -98,7 +106,7 @@ fun OwnerHomeScreen(
                 color = RouteFlowStatus.Rejected
             )
 
-            Text("Master Data & Controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+            Text("Financial Operations & Approvals", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
 
             Button(
                 onClick = onViewApprovals,
@@ -107,8 +115,41 @@ fun OwnerHomeScreen(
             ) {
                 Icon(Icons.Default.Approval, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
-                Text("Pending Order Approvals (${state.pendingApprovalsCount})", style = MaterialTheme.typography.titleSmall)
+                Text("Order Approvals (${state.pendingApprovalsCount})", style = MaterialTheme.typography.titleSmall)
             }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onViewHandovers,
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                ) {
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text("Cash Handover", style = MaterialTheme.typography.labelMedium)
+                }
+
+                Button(
+                    onClick = onViewCollections,
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Accent)
+                ) {
+                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text("Verify UPI/Cheque", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            OutlinedButton(
+                onClick = onViewReturns,
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+            ) {
+                Icon(Icons.Default.AssignmentReturn, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("Returns & Credit Notes", style = MaterialTheme.typography.labelLarge)
+            }
+
+            Text("Master Data & Controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(

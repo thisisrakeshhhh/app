@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev --port 8787 --ip 127.0.0.1",
-    "test": "node --test test/integration.test.mjs",
+    "test": "node test/run-isolated.mjs test/daily-cycle.test.mjs test/integration.test.mjs",
     "seed:local": "wrangler d1 execute routeflow-db --local --file=seeds/dev_seeds.sql",
     "types": "wrangler types",
     "typecheck": "tsc --noEmit"

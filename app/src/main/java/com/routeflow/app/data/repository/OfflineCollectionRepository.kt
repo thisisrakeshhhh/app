@@ -1,4 +1,4 @@
-﻿package com.routeflow.app.data.repository
+package com.routeflow.app.data.repository
 
 import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.entity.CollectionRecordEntity
@@ -14,11 +14,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class OfflineCollectionRepository @Inject constructor(private val database: RouteFlowDatabase,
-    private val tokens: TokenStorage, private val events: DurableFieldRepository, private val sync: SyncManager,
-    private val json: Json) : CollectionRepository {
+class OfflineCollectionRepository @Inject constructor(
+    private val database: RouteFlowDatabase,
+    private val tokens: TokenStorage,
+    private val events: DurableFieldRepository,
+    private val sync: SyncManager,
+    private val json: Json,
+    private val api: com.routeflow.app.core.network.api.RouteFlowApi
+) : CollectionRepository {
     override fun observeCollections(): Flow<List<CollectionRecordEntity>> =
         database.collectionRecordDao().observeCollections(tokens.getCompanyId().orEmpty(), tokens.getUserId().orEmpty())
+
     override suspend fun recordCollection(retailerId: String, retailerName: String, amountPaise: Long,
         paymentMethod: String, receiptId: String?, notes: String?): Result<CollectionRecordEntity> = runCatching {
         require(amountPaise in 1..1_000_000_000L)
@@ -33,5 +39,14 @@ class OfflineCollectionRepository @Inject constructor(private val database: Rout
         events.queue("COLLECTION_RECORD", json.encodeToString(request), "col_idemp_$id") { database.collectionRecordDao().insertCollection(record) }
         record
     }
+
     override suspend fun syncPendingCollections(): Result<Int> = runCatching { sync.scheduleSync(); 0 }
+
+    override suspend fun getRemoteCollections(retailerId: String?): Result<List<com.routeflow.app.core.network.dto.CollectionDto>> = runCatching {
+        api.getCollections(retailerId).collections
+    }
+
+    override suspend fun reviewCollection(id: String, action: String, reason: String): Result<com.routeflow.app.core.network.dto.StatusResponse> = runCatching {
+        api.reviewCollection(id, com.routeflow.app.core.network.dto.CollectionReviewRequest(action = action, reason = reason))
+    }
 }

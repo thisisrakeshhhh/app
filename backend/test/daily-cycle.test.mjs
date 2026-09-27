@@ -5,7 +5,7 @@ if(!base)throw new Error('Use run-isolated.mjs; never run financial regression a
 const tokens={};
 const key=()=>crypto.randomUUID();
 async function req(role,path,body,method){
- const r=await fetch(base+path,{method:method||(body?'POST':'GET'),headers:{'Content-Type':'application/json',Authorization:`Bearer ${tokens[role]}`},...(body?{body:JSON.stringify(body)}:{})});
+ const r=await fetch(base+path,{method:method||(body?'POST':'GET'),headers:{'Content-Type':'application/json',Authorization:`Bearer ${tokens[role]}`,'X-Test-Runner':'true'},...(body?{body:JSON.stringify(body)}:{})});
  return {httpStatus:r.status,...await r.json()};
 }
 const ok=r=>{assert.equal(r.httpStatus,200,JSON.stringify(r));return r;};

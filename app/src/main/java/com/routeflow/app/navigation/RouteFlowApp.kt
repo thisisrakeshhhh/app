@@ -81,13 +81,16 @@ import com.routeflow.app.feature.owner.OrderApprovalScreen
 import com.routeflow.app.feature.owner.OrderApprovalViewModel
 import com.routeflow.app.feature.owner.OwnerBeatsScreen
 import com.routeflow.app.feature.owner.OwnerBusinessHubScreen
+import com.routeflow.app.feature.owner.OwnerCollectionsScreen
 import com.routeflow.app.feature.owner.OwnerEmployeesScreen
 import com.routeflow.app.feature.owner.OwnerFieldActivityScreen
 import com.routeflow.app.feature.owner.OwnerFieldActivityViewModel
+import com.routeflow.app.feature.owner.OwnerHandoversScreen
 import com.routeflow.app.feature.owner.OwnerHomeScreen
 import com.routeflow.app.feature.owner.OwnerMasterViewModel
 import com.routeflow.app.feature.owner.OwnerProductsScreen
 import com.routeflow.app.feature.owner.OwnerRetailersScreen
+import com.routeflow.app.feature.owner.OwnerReturnsScreen
 import com.routeflow.app.feature.owner.OwnerTeamScreen
 import com.routeflow.app.feature.owner.OwnerTeamViewModel
 import com.routeflow.app.feature.owner.OwnerViewModel
@@ -122,6 +125,9 @@ private const val OWNER_EMPLOYEES = "owner/employees"
 private const val OWNER_BEATS = "owner/beats"
 private const val OWNER_TEAM = "owner/team"
 private const val OWNER_ACTIVITY = "owner/activity"
+private const val OWNER_HANDOVERS = "owner/handovers"
+private const val OWNER_COLLECTIONS = "owner/collections"
+private const val OWNER_RETURNS = "owner/returns"
 
 // Sales Routes
 private const val SALES_TODAY = "sales/today"
@@ -357,7 +363,10 @@ fun RouteFlowApp(
                         onViewApprovals = { navController.navigate(OWNER_APPROVALS) },
                         onViewProducts = { navController.navigate(OWNER_PRODUCTS) },
                         onViewRetailers = { navController.navigate(OWNER_RETAILERS) },
-                        onViewEmployees = { navController.navigate(OWNER_EMPLOYEES) }
+                        onViewEmployees = { navController.navigate(OWNER_EMPLOYEES) },
+                        onViewHandovers = { navController.navigate(OWNER_HANDOVERS) },
+                        onViewCollections = { navController.navigate(OWNER_COLLECTIONS) },
+                        onViewReturns = { navController.navigate(OWNER_RETURNS) }
                     )
                 }
             }
@@ -380,7 +389,10 @@ fun RouteFlowApp(
                     onNavigateProducts = { navController.navigate(OWNER_PRODUCTS) },
                     onNavigateRetailers = { navController.navigate(OWNER_RETAILERS) },
                     onNavigateBeats = { navController.navigate(OWNER_BEATS) },
-                    onNavigateEmployees = { navController.navigate(OWNER_EMPLOYEES) }
+                    onNavigateEmployees = { navController.navigate(OWNER_EMPLOYEES) },
+                    onNavigateHandovers = { navController.navigate(OWNER_HANDOVERS) },
+                    onNavigateCollections = { navController.navigate(OWNER_COLLECTIONS) },
+                    onNavigateReturns = { navController.navigate(OWNER_RETURNS) }
                 )
             }
 
@@ -448,6 +460,24 @@ fun RouteFlowApp(
                 OwnerFieldActivityScreen(
                     state = state,
                     onRefresh = viewModel::refresh,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_HANDOVERS) {
+                OwnerHandoversScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_COLLECTIONS) {
+                OwnerCollectionsScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_RETURNS) {
+                OwnerReturnsScreen(
                     onBack = { navController.popBackStack() }
                 )
             }

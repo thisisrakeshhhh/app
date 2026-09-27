@@ -305,5 +305,30 @@ class AccountScopedSyncTest {
         override suspend fun uploadShiftLocations(request: com.routeflow.app.core.network.dto.ShiftLocationsRequest, account: String?): StatusResponse = StatusResponse(success = true)
         override suspend fun getTeamStatus(): List<com.routeflow.app.core.network.dto.TeamMemberStatusDto> = emptyList()
         override suspend fun getDailyVisits(date: String?): List<com.routeflow.app.core.network.dto.DailyVisitDto> = emptyList()
+        override suspend fun recordCollection(request: com.routeflow.app.core.network.dto.RecordCollectionRequest, account: String?): com.routeflow.app.core.network.dto.RecordCollectionResponse =
+            com.routeflow.app.core.network.dto.RecordCollectionResponse(success = true, collectionId = "col_1", receiptId = request.receiptId, status = "SETTLED", balanceAfterPaise = 0)
+        override suspend fun getCollections(retailerId: String?): com.routeflow.app.core.network.dto.CollectionsListResponse =
+            com.routeflow.app.core.network.dto.CollectionsListResponse(collections = emptyList())
+        override suspend fun getHandoverSummary(): com.routeflow.app.core.network.dto.CashHandoverSummaryResponse =
+            com.routeflow.app.core.network.dto.CashHandoverSummaryResponse(cashHeldPaise = 0, totalCollectedPaise = 0, totalSettledPaise = 0)
+        override suspend fun submitHandoverRequest(request: com.routeflow.app.core.network.dto.SubmitHandoverRequest, account: String?): com.routeflow.app.core.network.dto.SubmitHandoverResponse =
+            com.routeflow.app.core.network.dto.SubmitHandoverResponse(success = true, handoverId = "hnd_1", status = "PENDING")
+        override suspend fun getOwnerHandovers(): com.routeflow.app.core.network.dto.OwnerHandoversResponse =
+            com.routeflow.app.core.network.dto.OwnerHandoversResponse(handovers = emptyList())
+        override suspend fun acknowledgeHandover(id: String, request: com.routeflow.app.core.network.dto.AcknowledgeHandoverRequest): com.routeflow.app.core.network.dto.AcknowledgeHandoverResponse =
+            com.routeflow.app.core.network.dto.AcknowledgeHandoverResponse(success = true, status = "ACCEPTED", receivedAmountPaise = 0, discrepancyPaise = 0)
+        override suspend fun createReturn(request: com.routeflow.app.core.network.dto.CreateReturnRequest): com.routeflow.app.core.network.dto.CreateReturnResponse =
+            com.routeflow.app.core.network.dto.CreateReturnResponse(success = true, returnId = "ret_1")
+        override suspend fun getPendingReturns(): com.routeflow.app.core.network.dto.PendingReturnsResponse =
+            com.routeflow.app.core.network.dto.PendingReturnsResponse(returns = emptyList())
+        override suspend fun inspectReturn(id: String, request: com.routeflow.app.core.network.dto.InspectReturnRequest): com.routeflow.app.core.network.dto.InspectReturnResponse =
+            com.routeflow.app.core.network.dto.InspectReturnResponse(success = true, status = "APPROVED", totalCreditNotePaise = 0)
+        override suspend fun getClosing(): com.routeflow.app.core.network.dto.ClosingResponse = com.routeflow.app.core.network.dto.ClosingResponse()
+        override suspend fun closeDay(request: com.routeflow.app.core.network.dto.ClosingRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun reviewCollection(id: String, request: com.routeflow.app.core.network.dto.CollectionReviewRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun returnAction(id: String, step: String, request: com.routeflow.app.core.network.dto.ReturnActionRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun pauseShift(action: String, request: com.routeflow.app.core.network.dto.ShiftPauseRequest, account: String?): com.routeflow.app.core.network.dto.ShiftResponse =
+            com.routeflow.app.core.network.dto.ShiftResponse(success = true)
+        override suspend fun currentShift(): com.routeflow.app.core.network.dto.ShiftResponse = com.routeflow.app.core.network.dto.ShiftResponse(success = true)
     }
 }
