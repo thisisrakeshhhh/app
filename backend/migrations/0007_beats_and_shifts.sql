@@ -55,9 +55,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_adj_idemp ON stock_adjustments(compa
 -- 5. Product optional Hindi name
 ALTER TABLE products ADD COLUMN hindi_name TEXT;
 
--- 6. Initial Beats for Pilot Setup
+-- 6. Initial Beats for Pilot Setup (only inserted if company comp_1 exists)
 INSERT OR REPLACE INTO beats (id, company_id, name, description, working_days, is_active, created_at)
-VALUES
-  ('BEAT-01', 'comp_1', 'Mansarovar Central', 'Sector 1-4 Retail Shops', 'MON,WED,FRI', 1, 1726243200000),
-  ('BEAT-02', 'comp_1', 'Malviya Nagar & Tonk Road', 'Main Bazaar and Commercial Complex', 'TUE,THU,SAT', 1, 1726243200000),
-  ('BEAT-04', 'comp_1', 'Jaipur Junction & Station Area', 'Wholesale market cluster', 'MON,TUE,WED,THU,FRI,SAT', 1, 1726243200000);
+SELECT 'BEAT-01', 'comp_1', 'Mansarovar Central', 'Sector 1-4 Retail Shops', 'MON,WED,FRI', 1, 1726243200000 WHERE EXISTS (SELECT 1 FROM companies WHERE id = 'comp_1')
+UNION ALL
+SELECT 'BEAT-02', 'comp_1', 'Malviya Nagar & Tonk Road', 'Main Bazaar and Commercial Complex', 'TUE,THU,SAT', 1, 1726243200000 WHERE EXISTS (SELECT 1 FROM companies WHERE id = 'comp_1')
+UNION ALL
+SELECT 'BEAT-04', 'comp_1', 'Jaipur Junction & Station Area', 'Wholesale market cluster', 'MON,TUE,WED,THU,FRI,SAT', 1, 1726243200000 WHERE EXISTS (SELECT 1 FROM companies WHERE id = 'comp_1');

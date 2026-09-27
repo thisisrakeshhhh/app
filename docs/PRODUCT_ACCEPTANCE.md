@@ -99,21 +99,46 @@ This acceptance matrix documents the live state of the codebase. In accordance w
    - Products update, `stock_adjustments` entry, and `audit_logs` entry commit atomically in a single D1 batch.
 4. **Visit Exclusivity Constraint**:
    - The salesperson app must strictly enforce that only one shop visit can be active at a time. The Salesperson cannot check into another retailer until the open visit has checked out with a valid outcome or reason.
-5. **Excess Return Prevention**:
-   - Both backend validation and database trigger constraints block return quantities that exceed delivered line items or total items across both original submission and inspection stages.
+5. **Delivered Quantity vs. Remaining Return Limits (Request-Level)**:
+   - Distinct from inspection-disposition validation (which validates saleable + damaged split), the database trigger `return_quantity_guard` enforces that cumulative requested returns (`requested_quantity` + `free_quantity`) cannot exceed delivered order items.
+   - Verified via `backend/tools/verify_return_remaining_limits.mjs`:
+     * Order delivered: 10 paid units, 1 free unit.
+     * First return: 4 paid units accepted.
+     * Second return exceeding remaining (7 requested, 6 remaining): rejected with HTTP 409 without mutating stock, retailer balance, or creating credit notes.
+     * Excess free units (2 requested, 1 remaining): rejected.
+     * Valid remainder (6 paid, 1 free): accepted.
+     * Further returns when balance is 0: rejected.
 
 ---
 
-## 4. Database Migration & Automated Test Evidence
+## 4. Database Migration, Backup & Field Evidence
 
-### A. Cloudflare D1 Backend Migration Lifecycle
-- **Dev Database Integrity**: Development database backed up to `backend/db_backups/dev_backup_20260927_085358.sqlite`.
-- **Zero Schema Discrepancies**: Verified via `compare_schemas.py` comparing the live development database against a freshly initialized migration database (all tables, columns, indexes, foreign keys, and triggers match 100%).
-- **Migration Execution Verification**: `verify_migration_lifecycle.py` verified both fresh installation (`0001` through `0009`) and upgrade migration with pre-existing v5/v7 records (`ord_v5_test`). Both paths execute cleanly with zero errors.
-- **Root Cause & Fix for Wrangler Subprocess Migrations**: Wrangler interactive confirmation prompt (`@inquirer/confirm`) hangs in non-CI Windows subprocesses. Resolved by invoking with `CI=true` (`$env:CI="true"`), ensuring migration scripts fail-fast on SQL errors without recording unapplied migrations.
-- **Backend Test Suite**: `npm test` runs both `test/integration.test.mjs` (21 tests) and `test/daily-cycle.test.mjs` (2 tests), completing 23/23 tests passing with exit code 0.
+### A. Consistent SQLite Backup Verification
+- **Backup Mechanism**: Implemented in `backend/tools/backup_sqlite.py` utilizing the SQLite Online Backup API (`sqlite3.Connection.backup`) combined with `PRAGMA wal_checkpoint(TRUNCATE)`. Point-in-time snapshot created at `backend/db_backups/d1_consistent_backup_20260927_094333.sqlite` (1,179,648 bytes).
+- **Integrity Validation**: Re-opened backup independently and executed:
+  * `PRAGMA integrity_check`: `[('ok',)]`
+  * `PRAGMA foreign_key_check`: `0` violations
+  * Record counts verified intact: 29 users, 2 companies, 33 products, 346 orders, 13 collections, 163 ledger entries, 11 handovers, 1 shift.
 
-### B. Android Room Database Migration & Unit Tests
-- **`Migration7To8Test`**: Passed. Verified against a representative v7 SQLite database containing pre-populated pending orders, collections, and sync outbox records. Verified data persistence, schema compatibility, and Room validation without destructive fallback.
-- **`OfflineEventDependenciesTest`**: Passed (4 tests). Verified offline event ordering, outbox queuing, and dependency execution across shifts, visits, orders, and collections.
-- **Fresh Execution Evidence**: Tested via `.\gradlew.bat testDebugUnitTest --rerun-tasks --no-daemon` (33 tasks executed, 0 up-to-date, 24 unit tests passed across 8 test suites).
+### B. Fresh Seed-Free Wrangler Migration & Schema Parity
+- **Wrangler Execution**: Executed `npx wrangler d1 migrations apply routeflow-db --local` against a clean, seed-free database directory.
+- **Genuine Dependency Diagnosed & Fixed**: Migration `0007_beats_and_shifts.sql` previously contained an unconditional insert of initial pilot beats with `company_id = 'comp_1'`. On a fresh seed-free database where `companies` is empty, this triggered a foreign key constraint failure. Updated statement to conditionally insert beats `WHERE EXISTS (SELECT 1 FROM companies WHERE id = 'comp_1')`.
+- **Deep Schema Parity**: Verified via `backend/tools/deep_compare_schemas.py` comparing the fresh Wrangler database against the live development database:
+  * Tables: 33 vs 33 (100% column type, nullable, default value match)
+  * Foreign Keys: Identical across all tables
+  * Indexes: 31 vs 31 (full SQL definitions identical)
+  * Triggers: 17 vs 17 (full SQL definitions identical)
+- **Upgrade Path**: Verified via `backend/tools/verify_migration_lifecycle.py` preserving representative business data across versions.
+
+### C. Physical Device Offline Shift Lifecycle & Recovery (Vivo 1935 / `4bc99b28`)
+- **Shift Initiation**: Started shift via app Compose UI (`ShiftControlCard`). Foreground service `ShiftTrackingService` active (`isForeground=true`, ID 9110). Backend D1 recorded `ON_SHIFT` (`0dcfcde8-e192-4ea0-96de-0b24e7613122`).
+- **True Offline State**: Explicitly executed `adb reverse --remove tcp:8787` (verified 0 active tunnels via `adb reverse --list`) and disabled Wi-Fi and mobile data.
+- **Offline End Shift**: Tapped "End Duty / Shift" in app UI.
+  * Local tracking terminated immediately: `dumpsys activity services` confirmed 0 active services.
+  * Room DB marked `local_shifts` `OFF_SHIFT` (`endTime: 1790483075787`).
+  * Room `sync_outbox` queued `SHIFT_END` event (`SAVED_OFFLINE`).
+  * Backend D1 remained `ON_SHIFT` on server while offline.
+- **Connection Restoration & Recovery**:
+  * Connection restored via `adb reverse tcp:8787 tcp:8787` and Wi-Fi enabled.
+  * **Automatic Recovery**: Without any user tap or forced ADB command, WorkManager's `OrderSyncWorker` automatically detected connection restoration, posted `POST /shifts/end` within 20s, updated backend D1 shift to `OFF_SHIFT` (`1790483075787`), and cleared `sync_outbox` (`[]`).
+  * **User-Triggered Recovery**: Verified available via "Sync Now" button on `SalesProfileScreen` and `SalesHomeScreen` (`salesViewModel.syncNow()`), and on app foreground resume (`MainActivity.onResume()` -> `syncManager.scheduleSync()`).
