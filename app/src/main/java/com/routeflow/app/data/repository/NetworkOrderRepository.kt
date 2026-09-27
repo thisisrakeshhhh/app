@@ -182,7 +182,8 @@ class NetworkOrderRepository @Inject constructor(
         otp: String,
         recipientName: String,
         proofPhotoUrl: String?,
-        signatureUrl: String?
+        signatureUrl: String?,
+        items: List<com.routeflow.app.core.network.dto.DeliveryItemCompletionRequest>?
     ): Result<Unit> = try {
         val response = api.completeDelivery(
             orderId,
@@ -191,15 +192,70 @@ class NetworkOrderRepository @Inject constructor(
                 otp = otp,
                 recipientName = recipientName,
                 proofPhotoUrl = proofPhotoUrl,
-                signatureUrl = signatureUrl
+                signatureUrl = signatureUrl,
+                items = items
             )
         )
         if (response.success) {
-            database.orderDao().updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
+            val isPartial = items?.any { it.undeliveredQuantity > 0 || it.undeliveredFreeQuantity > 0 } == true
+            val newStatus = if (isPartial) "PARTIALLY_DELIVERED" else "DELIVERED"
+            database.orderDao().updateOrderStatus(orderId, newStatus, System.currentTimeMillis())
             Result.success(Unit)
         } else {
             Result.failure(Exception(response.message ?: "Delivery completion failed"))
         }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun failDelivery(
+        orderId: String,
+        reason: String,
+        rescheduledDate: String?,
+        notes: String?
+    ): Result<Unit> = try {
+        val response = api.failDelivery(
+            orderId,
+            com.routeflow.app.core.network.dto.DeliveryFailureRequest(
+                reason = reason,
+                rescheduledDate = rescheduledDate,
+                notes = notes
+            )
+        )
+        if (response.success) {
+            database.orderDao().updateOrderStatus(orderId, "DELIVERY_FAILED", System.currentTimeMillis())
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception(response.message ?: "Failed to record delivery failure"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getUndeliveredGoods(status: String?): Result<List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto>> = try {
+        Result.success(api.getUndeliveredGoods(status))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun acknowledgeUndeliveredGoods(
+        id: String,
+        request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest
+    ): Result<Unit> = try {
+        val response = api.acknowledgeUndeliveredGoods(id, request)
+        if (response.success) Result.success(Unit) else Result.failure(Exception(response.message ?: "Acknowledge failed"))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getDeliveryExceptions(): Result<List<com.routeflow.app.core.network.dto.DeliveryExceptionDto>> = try {
+        Result.success(api.getDeliveryExceptions())
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getDriverHeldStock(): Result<List<com.routeflow.app.core.network.dto.DriverHeldStockDto>> = try {
+        Result.success(api.getDriverHeldStock())
     } catch (e: Exception) {
         Result.failure(e)
     }

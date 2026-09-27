@@ -27,8 +27,22 @@ interface OrderRepository {
         otp: String = "",
         recipientName: String = "",
         proofPhotoUrl: String? = null,
-        signatureUrl: String? = null
+        signatureUrl: String? = null,
+        items: List<com.routeflow.app.core.network.dto.DeliveryItemCompletionRequest>? = null
     ): Result<Unit>
+    suspend fun failDelivery(
+        orderId: String,
+        reason: String,
+        rescheduledDate: String? = null,
+        notes: String? = null
+    ): Result<Unit>
+    suspend fun getUndeliveredGoods(status: String? = null): Result<List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto>>
+    suspend fun acknowledgeUndeliveredGoods(
+        id: String,
+        request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest
+    ): Result<Unit>
+    suspend fun getDeliveryExceptions(): Result<List<com.routeflow.app.core.network.dto.DeliveryExceptionDto>>
+    suspend fun getDriverHeldStock(): Result<List<com.routeflow.app.core.network.dto.DriverHeldStockDto>>
     suspend fun updateItemPickingStatus(orderId: String, productId: String, isPicked: Boolean): Result<Unit>
     suspend fun syncPendingOrders(): Result<Int>
 }

@@ -1444,5 +1444,236 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     });
     assert.equal(resInspectAgain.status, 400, 'Cannot inspect already processed return');
   });
-});
 
+  test('19. Partial & Failed Deliveries: Item quantities, driver-held stock, warehouse acknowledgement & accounting', async () => {
+    // Check initial R1 balance and P1, P2 stocks
+    const r1InitRes = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r1InitList = await r1InitRes.json();
+    const r1Init = r1InitList.find(r => r.id === 'R1');
+    const r1BalInit = r1Init.outstandingAmountPaise;
+
+    const pInitRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const pInitList = await pInitRes.json();
+    const p2InitStock = pInitList.find(p => p.id === 'P2').stockQuantity;
+
+    // --- PART A: Partial Delivery ---
+    // 1. Create order with 5 units of P1 (price 45000 paise each, total 225000 paise)
+    const partialOrdId = 'ord_partial_test_' + Date.now();
+    const orderPartialReq = {
+      order: {
+        id: partialOrdId,
+        retailerId: 'R1',
+        employeeId: 'user_sales',
+        status: 'SUBMITTED',
+        totalAmountPaise: 225000,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      },
+      items: [{
+        id: 'item_part_1_' + Date.now(),
+        orderId: partialOrdId,
+        productId: 'P1',
+        quantity: 5,
+        freeQuantity: 0,
+        pricePaiseAtTime: 45000,
+        isPicked: false
+      }],
+      idempotencyKey: 'idemp_partial_' + Date.now()
+    };
+    const resCreate = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(orderPartialReq)
+    });
+    assert.equal(resCreate.status, 200, 'Order creation should succeed');
+
+    // Approve -> Pick -> Pack -> Dispatch to user_delivery
+    await fetch(`${BASE_URL}/orders/${partialOrdId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } });
+    await fetch(`${BASE_URL}/orders/${partialOrdId}/start-picking`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${partialOrdId}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P1', isPicked: true })
+    });
+    await fetch(`${BASE_URL}/orders/${partialOrdId}/pack`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${partialOrdId}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
+    });
+
+    // 2. Deliver partially: 3 delivered (135000 paise), 2 undelivered with reason SHORTAGE
+    const resPartDel = await fetch(`${BASE_URL}/orders/${partialOrdId}/deliver`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
+      body: JSON.stringify({
+        paymentMethod: 'CREDIT',
+        recipientName: 'Ramesh Storekeeper',
+        items: [{
+          productId: 'P1',
+          deliveredQuantity: 3,
+          deliveredFreeQuantity: 0,
+          undeliveredQuantity: 2,
+          undeliveredFreeQuantity: 0,
+          undeliveredReason: 'SHORTAGE'
+        }]
+      })
+    });
+    const partDelData = await resPartDel.json();
+    assert.equal(resPartDel.status, 200, `Partial delivery failed: ${JSON.stringify(partDelData)}`);
+    assert.equal(partDelData.status, 'PARTIALLY_DELIVERED');
+    assert.equal(partDelData.deliveredAmountPaise, 135000);
+
+    // 3. Verify R1 balance increased ONLY by delivered amount (135000 paise)
+    const r1AfterPartRes = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r1AfterPart = (await r1AfterPartRes.json()).find(r => r.id === 'R1');
+    assert.equal(r1AfterPart.outstandingAmountPaise, r1BalInit + 135000, 'Balance must increase by delivered amount only');
+
+    // 4. Verify undelivered goods tracked as HELD_BY_DRIVER
+    const resUndel = await fetch(`${BASE_URL}/warehouse/undelivered-goods?status=HELD_BY_DRIVER`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    const undelList = await resUndel.json();
+    const p1Held = undelList.find(u => u.orderId === partialOrdId && u.productId === 'P1');
+    assert.ok(p1Held, 'Undelivered goods record must exist for P1');
+    assert.equal(p1Held.undeliveredPaidQuantity, 2);
+    assert.equal(p1Held.reason, 'SHORTAGE');
+    assert.equal(p1Held.status, 'HELD_BY_DRIVER');
+
+    // --- PART B: Failed Delivery ---
+    // 5. Create order with 2 units of P2 (price 12000 paise each, total 24000 paise)
+    const failOrdId = 'ord_fail_test_' + Date.now();
+    const orderFailReq = {
+      order: {
+        id: failOrdId,
+        retailerId: 'R1',
+        employeeId: 'user_sales',
+        status: 'SUBMITTED',
+        totalAmountPaise: 24000,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      },
+      items: [{
+        id: 'item_fail_1_' + Date.now(),
+        orderId: failOrdId,
+        productId: 'P2',
+        quantity: 2,
+        freeQuantity: 0,
+        pricePaiseAtTime: 12000,
+        isPicked: false
+      }],
+      idempotencyKey: 'idemp_fail_' + Date.now()
+    };
+    const resCreateFail = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(orderFailReq)
+    });
+    const createFailData = await resCreateFail.json();
+    assert.equal(resCreateFail.status, 200, `Fail test order creation should succeed: ${JSON.stringify(createFailData)}`);
+
+    await fetch(`${BASE_URL}/orders/${failOrdId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } });
+    await fetch(`${BASE_URL}/orders/${failOrdId}/start-picking`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${failOrdId}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P2', isPicked: true })
+    });
+    await fetch(`${BASE_URL}/orders/${failOrdId}/pack`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${failOrdId}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
+    });
+
+    // 6. Record delivery failure: SHOP_CLOSED, rescheduled for 2026-10-01
+    const resFail = await fetch(`${BASE_URL}/orders/${failOrdId}/delivery-failed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({
+        reason: 'SHOP_CLOSED',
+        rescheduledDate: '2026-10-01',
+        notes: 'Shop shutters down, owner on holiday'
+      })
+    });
+    const failData = await resFail.json();
+    assert.equal(resFail.status, 200, `Failed delivery call error: ${JSON.stringify(failData)}`);
+    assert.equal(failData.status, 'DELIVERY_FAILED');
+
+    // 7. Verify R1 balance remains UNCHANGED after delivery failure
+    const r1AfterFailRes = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r1AfterFail = (await r1AfterFailRes.json()).find(r => r.id === 'R1');
+    assert.equal(r1AfterFail.outstandingAmountPaise, r1AfterPart.outstandingAmountPaise, 'Failed delivery must not change retailer balance');
+
+    // --- PART C: Owner Exceptions & Driver-Held Stock ---
+    // 8. Owner lists delivery exceptions
+    const resExceptions = await fetch(`${BASE_URL}/owner/delivery-exceptions`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(resExceptions.status, 200);
+    const exceptions = await resExceptions.json();
+    const foundPartExc = exceptions.find(e => e.id === partialOrdId);
+    const foundFailExc = exceptions.find(e => e.id === failOrdId);
+    assert.ok(foundPartExc, 'Owner must see partially delivered order');
+    assert.ok(foundFailExc, 'Owner must see failed delivery order');
+    assert.equal(foundFailExc.deliveryFailureReason, 'SHOP_CLOSED');
+    assert.equal(foundFailExc.rescheduledDate, '2026-10-01');
+
+    // 9. Owner / Driver checks driver-held stock
+    const resDriverStock = await fetch(`${BASE_URL}/owner/driver-held-stock`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(resDriverStock.status, 200);
+    const driverStock = await resDriverStock.json();
+    const p2DriverHeld = driverStock.find(d => d.productId === 'P2' && d.driverId === 'user_delivery');
+    assert.ok(p2DriverHeld, 'Driver held stock must include P2');
+    assert.equal(p2DriverHeld.totalPaidQuantity, 2);
+
+    // --- PART D: Warehouse Return Acknowledgement & Stock Restoration ---
+    // 10. Warehouse manager acknowledges return of P2: 1 saleable, 1 damaged
+    const resUndelP2 = await fetch(`${BASE_URL}/warehouse/undelivered-goods?status=HELD_BY_DRIVER`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    const undelListP2 = await resUndelP2.json();
+    const p2UndelRecord = undelListP2.find(u => u.orderId === failOrdId && u.productId === 'P2');
+    assert.ok(p2UndelRecord, 'Undelivered goods record for P2 must exist');
+
+    const resAck = await fetch(`${BASE_URL}/warehouse/undelivered-goods/${p2UndelRecord.id}/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        status: 'RETURNED_TO_WAREHOUSE',
+        saleableQuantity: 1,
+        damagedQuantity: 1,
+        shortageQuantity: 0,
+        notes: '1 unit intact, 1 unit crushed during return'
+      })
+    });
+    const ackData = await resAck.json();
+    assert.equal(resAck.status, 200, `Acknowledge failed: ${JSON.stringify(ackData)}`);
+    assert.equal(ackData.status, 'RETURNED_TO_WAREHOUSE');
+
+    // 11. Verify P2 warehouse stock restored by exactly 1 saleable unit
+    const pAfterAckRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const pAfterAckList = await pAfterAckRes.json();
+    const p2AfterStock = pAfterAckList.find(p => p.id === 'P2').stockQuantity;
+    assert.equal(p2AfterStock, p2InitStock - 1, 'Saleable return must restore stock by exactly 1 unit');
+
+    // 12. Cannot acknowledge already acknowledged goods (duplicate prevention)
+    const resAckDup = await fetch(`${BASE_URL}/warehouse/undelivered-goods/${p2UndelRecord.id}/acknowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        status: 'RETURNED_TO_WAREHOUSE',
+        saleableQuantity: 1,
+        damagedQuantity: 1,
+        shortageQuantity: 0
+      })
+    });
+    assert.equal(resAckDup.status, 400, 'Duplicate acknowledgement must be rejected');
+  });
+});

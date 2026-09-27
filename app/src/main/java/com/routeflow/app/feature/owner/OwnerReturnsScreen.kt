@@ -1,5 +1,8 @@
 package com.routeflow.app.feature.owner
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.platform.testTag
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -142,6 +145,18 @@ fun OwnerReturnsScreen(
                         )
                     }
                 )
+                Tab(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    text = {
+                        val count = state.deliveryExceptions.size
+                        Text(
+                            "Exceptions ($count)",
+                            fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    modifier = Modifier.testTag("tab_delivery_exceptions")
+                )
             }
 
             when {
@@ -216,7 +231,7 @@ fun OwnerReturnsScreen(
                     }
                 }
 
-                else -> {
+                selectedTab == 2 -> {
                     // Credit Notes Tab
                     val creditReturns = state.pendingCredit + state.creditedOrApproved
                     if (creditReturns.isEmpty()) {
@@ -236,6 +251,83 @@ fun OwnerReturnsScreen(
                                     isProcessing = state.processingId == item.id,
                                     onApproveCredit = { creditingReturn = item }
                                 )
+                            }
+                        }
+                    }
+                }
+
+                selectedTab == 3 -> {
+                    // Exceptions & Driver Held Stock Tab
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            Text("Driver-Held Stock (${state.driverHeldStock.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        }
+                        if (state.driverHeldStock.isEmpty()) {
+                            item {
+                                Text("No stock currently held by drivers.", color = RFColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            items(state.driverHeldStock) { stock ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().testTag("driver_stock_${stock.driverId}_${stock.productId}"),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(stock.productName, fontWeight = FontWeight.Bold)
+                                            Text("${stock.totalPaidQuantity + stock.totalFreeQuantity} held", color = RFColors.Error, fontWeight = FontWeight.Bold)
+                                        }
+                                        Text("Driver: ${stock.driverName}", style = MaterialTheme.typography.bodySmall)
+                                        Text("Orders: ${stock.orderCount}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Delivery Exceptions (${state.deliveryExceptions.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        }
+                        if (state.deliveryExceptions.isEmpty()) {
+                            item {
+                                Text("No delivery exceptions recorded.", color = RFColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            items(state.deliveryExceptions) { exc ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().testTag("delivery_exception_${exc.id}"),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(exc.retailerName ?: "Retailer", fontWeight = FontWeight.Bold)
+                                            Text(
+                                                if (exc.status == "PARTIALLY_DELIVERED") "PARTIALLY DELIVERED" else "DELIVERY FAILED",
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (exc.status == "PARTIALLY_DELIVERED") RFColors.Primary else RFColors.Error,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        Text("Order: ${exc.id}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                                        Text("Delivered: ${CurrencyFormatter.formatPaise(exc.deliveredAmountPaise)} / Total: ${CurrencyFormatter.formatPaise(exc.totalAmountPaise)}", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                        if (!exc.deliveryFailureReason.isNullOrBlank()) {
+                                            Text("Reason: ${exc.deliveryFailureReason}", color = RFColors.Error, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        if (!exc.rescheduledDate.isNullOrBlank()) {
+                                            Text("Rescheduled: ${exc.rescheduledDate}", color = RFColors.Primary, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        if (!exc.deliveryNotes.isNullOrBlank()) {
+                                            Text("Notes: ${exc.deliveryNotes}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -540,3 +632,4 @@ private fun InspectionDialog(
         }
     )
 }
+

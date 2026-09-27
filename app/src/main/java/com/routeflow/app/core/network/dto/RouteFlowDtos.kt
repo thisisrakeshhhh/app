@@ -225,7 +225,8 @@ data class DeliveryCompletionRequest(
     val otp: String = "",
     val recipientName: String = "",
     val proofPhotoUrl: String? = null,
-    val signatureUrl: String? = null
+    val signatureUrl: String? = null,
+    val items: List<DeliveryItemCompletionRequest>? = null
 )
 
 @Serializable
@@ -719,3 +720,89 @@ data class ClosingResponse(val balances: List<EmployeeCashDto> = emptyList(), va
 data class ShiftPauseRequest(val shiftId: String, val timestamp: Long = System.currentTimeMillis(), val idempotencyKey: String = java.util.UUID.randomUUID().toString())
 @Serializable
 data class VisitCheckoutEvent(val visitId: String, val request: CheckoutVisitRequest)
+
+// --- Partial & Failed Deliveries ---
+
+@Serializable
+data class DeliveryItemCompletionRequest(
+    val productId: String,
+    val deliveredQuantity: Int,
+    val deliveredFreeQuantity: Int = 0,
+    val undeliveredQuantity: Int = 0,
+    val undeliveredFreeQuantity: Int = 0,
+    val undeliveredReason: String? = null
+)
+
+@Serializable
+data class DeliveryFailureRequest(
+    val reason: String,
+    val notes: String? = null,
+    val rescheduledDate: String? = null
+)
+
+@Serializable
+data class UndeliveredGoodsDto(
+    val id: String,
+    val companyId: String? = null,
+    val orderId: String,
+    val driverId: String,
+    val productId: String,
+    val undeliveredPaidQuantity: Int = 0,
+    val undeliveredFreeQuantity: Int = 0,
+    val reason: String,
+    val status: String,
+    val saleableQuantity: Int = 0,
+    val damagedQuantity: Int = 0,
+    val shortageQuantity: Int = 0,
+    val acknowledgedBy: String? = null,
+    val acknowledgedAt: Long? = null,
+    val rescheduledFor: String? = null,
+    val notes: String? = null,
+    val createdAt: Long = 0L,
+    val productName: String? = null,
+    val productUnit: String? = null,
+    val driverName: String? = null,
+    val retailerName: String? = null,
+    val retailerAddress: String? = null
+)
+
+@Serializable
+data class AcknowledgeUndeliveredRequest(
+    val status: String = "RETURNED_TO_WAREHOUSE",
+    val saleableQuantity: Int = 0,
+    val damagedQuantity: Int = 0,
+    val shortageQuantity: Int = 0,
+    val notes: String? = null,
+    val rescheduledFor: String? = null
+)
+
+@Serializable
+data class DeliveryExceptionDto(
+    val id: String,
+    val retailerId: String? = null,
+    val employeeId: String? = null,
+    val deliveryEmployeeId: String? = null,
+    val status: String,
+    val totalAmountPaise: Long = 0L,
+    val deliveredAmountPaise: Long = 0L,
+    val deliveryFailureReason: String? = null,
+    val deliveryNotes: String? = null,
+    val rescheduledDate: String? = null,
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val retailerName: String? = null,
+    val retailerAddress: String? = null,
+    val driverName: String? = null
+)
+
+@Serializable
+data class DriverHeldStockDto(
+    val driverId: String,
+    val driverName: String,
+    val productId: String,
+    val productName: String,
+    val productUnit: String? = null,
+    val totalPaidQuantity: Int = 0,
+    val totalFreeQuantity: Int = 0,
+    val orderCount: Int = 0
+)

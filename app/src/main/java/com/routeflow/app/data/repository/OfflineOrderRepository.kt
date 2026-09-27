@@ -128,7 +128,8 @@ class OfflineOrderRepository @Inject constructor(
         otp: String,
         recipientName: String,
         proofPhotoUrl: String?,
-        signatureUrl: String?
+        signatureUrl: String?,
+        items: List<com.routeflow.app.core.network.dto.DeliveryItemCompletionRequest>?
     ): Result<Unit> = try {
         database.withTransaction {
             val order = database.orderDao().getOrderById(orderId).first()
@@ -173,5 +174,33 @@ class OfflineOrderRepository @Inject constructor(
         Result.failure(e)
     }
 
+    override suspend fun failDelivery(
+        orderId: String,
+        reason: String,
+        rescheduledDate: String?,
+        notes: String?
+    ): Result<Unit> = try {
+        database.orderDao().updateOrderStatus(orderId, "DELIVERY_FAILED", System.currentTimeMillis())
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getUndeliveredGoods(status: String?): Result<List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto>> =
+        Result.success(emptyList())
+
+    override suspend fun acknowledgeUndeliveredGoods(
+        id: String,
+        request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest
+    ): Result<Unit> = Result.success(Unit)
+
+    override suspend fun getDeliveryExceptions(): Result<List<com.routeflow.app.core.network.dto.DeliveryExceptionDto>> =
+        Result.success(emptyList())
+
+    override suspend fun getDriverHeldStock(): Result<List<com.routeflow.app.core.network.dto.DriverHeldStockDto>> =
+        Result.success(emptyList())
+
     override suspend fun syncPendingOrders(): Result<Int> = Result.success(0)
 }
+
+

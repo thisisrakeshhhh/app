@@ -217,5 +217,31 @@
     <string name="owner_handover_reconciliation">Cash Handover Reconciliation</string>
     <string name="owner_payment_clearance">Payment Clearance &amp; Verification</string>
     <string name="owner_returns_management">Returns &amp; Credit Notes</string>
+    <!-- Partial and Failed Deliveries -->
+    <string name="delivery_item_breakdown">Item Breakdown</string>
+    <string name="delivered_qty">Delivered Qty</string>
+    <string name="undelivered_qty">Undelivered Qty</string>
+    <string name="undelivered_reason">Undelivered Reason</string>
+    <string name="mark_delivery_failed">Mark Delivery Failed</string>
+    <string name="failure_reason">Failure Reason</string>
+    <string name="reason_shop_closed">Shop Closed</string>
+    <string name="reason_refused">Customer Refused</string>
+    <string name="reason_damaged">Damaged in Transit</string>
+    <string name="reason_shortage">Stock Shortage</string>
+    <string name="reason_other">Other Reason</string>
+    <string name="rescheduled_date">Reschedule Date (YYYY-MM-DD)</string>
+    <string name="warehouse_undelivered_returns">Undelivered Goods (Driver Returns)</string>
+    <string name="driver_held_stock">Driver Held Stock</string>
+    <string name="acknowledge_return">Acknowledge Return</string>
+    <string name="saleable_restocked">Saleable (Restocked)</string>
+    <string name="damaged_writeoff">Damaged (Write-off)</string>
+    <string name="shortage_qty">Shortage</string>
+    <string name="delivery_exceptions">Delivery Exceptions</string>
+    <string name="partially_delivered">Partially Delivered</string>
+    <string name="delivery_failed">Delivery Failed</string>
+    <string name="confirm_partial_delivery">Confirm Partial Delivery</string>
+    <string name="confirm_failed_delivery">Confirm Delivery Failure</string>
+    <string name="driver_held_returns">Driver Held Returns</string>
+    <string name="return_acknowledged_success">Return acknowledged and saleable stock restored.</string>
 </resources>
 

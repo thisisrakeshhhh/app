@@ -2,8 +2,11 @@ package com.routeflow.app.feature.warehouse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest
 import com.routeflow.app.core.network.dto.InspectItemRequest
 import com.routeflow.app.core.network.dto.ReturnRequestDto
+import com.routeflow.app.core.network.dto.UndeliveredGoodsDto
+import com.routeflow.app.domain.repository.OrderRepository
 import com.routeflow.app.domain.repository.ReturnRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -19,18 +22,22 @@ import javax.inject.Inject
 data class WarehouseReturnsUiState(
     val isLoading: Boolean = true,
     val returns: List<ReturnRequestDto> = emptyList(),
+    val undeliveredGoods: List<UndeliveredGoodsDto> = emptyList(),
     val error: String? = null,
-    val inspectingId: String? = null
+    val inspectingId: String? = null,
+    val acknowledgingId: String? = null
 )
 
 sealed interface ReturnEvent {
     data class InspectSuccess(val message: String, val creditNotePaise: Long) : ReturnEvent
+    data class UndeliveredSuccess(val message: String) : ReturnEvent
     data class Error(val error: String) : ReturnEvent
 }
 
 @HiltViewModel
 class WarehouseReturnsViewModel @Inject constructor(
-    private val returnRepository: ReturnRepository
+    private val returnRepository: ReturnRepository,
+    private val orderRepository: OrderRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WarehouseReturnsUiState())
@@ -40,7 +47,12 @@ class WarehouseReturnsViewModel @Inject constructor(
     val eventFlow: SharedFlow<ReturnEvent> = _eventFlow.asSharedFlow()
 
     init {
+        loadData()
+    }
+
+    fun loadData() {
         loadReturns()
+        loadUndeliveredGoods()
     }
 
     fun loadReturns() {
@@ -53,6 +65,17 @@ class WarehouseReturnsViewModel @Inject constructor(
                 onFailure = { err ->
                     _uiState.update { it.copy(isLoading = false, error = err.message) }
                 }
+            )
+        }
+    }
+
+    fun loadUndeliveredGoods() {
+        viewModelScope.launch {
+            orderRepository.getUndeliveredGoods("HELD_BY_DRIVER").fold(
+                onSuccess = { list ->
+                    _uiState.update { it.copy(undeliveredGoods = list) }
+                },
+                onFailure = { /* non-fatal error */ }
             )
         }
     }
@@ -90,6 +113,42 @@ class WarehouseReturnsViewModel @Inject constructor(
                 onFailure = { err ->
                     _uiState.update { it.copy(inspectingId = null) }
                     _eventFlow.emit(ReturnEvent.Error(err.message ?: "Inspection failed"))
+                }
+            )
+        }
+    }
+
+    fun acknowledgeUndelivered(
+        id: String,
+        status: String = "RETURNED_TO_WAREHOUSE",
+        saleableQuantity: Int,
+        damagedQuantity: Int = 0,
+        shortageQuantity: Int = 0,
+        notes: String? = null,
+        rescheduledFor: String? = null
+    ) {
+        if (_uiState.value.acknowledgingId != null) return
+        _uiState.update { it.copy(acknowledgingId = id) }
+        viewModelScope.launch {
+            orderRepository.acknowledgeUndeliveredGoods(
+                id = id,
+                request = AcknowledgeUndeliveredRequest(
+                    status = status,
+                    saleableQuantity = saleableQuantity,
+                    damagedQuantity = damagedQuantity,
+                    shortageQuantity = shortageQuantity,
+                    notes = notes,
+                    rescheduledFor = rescheduledFor
+                )
+            ).fold(
+                onSuccess = {
+                    _uiState.update { it.copy(acknowledgingId = null) }
+                    _eventFlow.emit(ReturnEvent.UndeliveredSuccess("Undelivered goods return acknowledged and saleable stock restored."))
+                    loadUndeliveredGoods()
+                },
+                onFailure = { err ->
+                    _uiState.update { it.copy(acknowledgingId = null) }
+                    _eventFlow.emit(ReturnEvent.Error(err.message ?: "Acknowledgement failed"))
                 }
             )
         }

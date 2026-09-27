@@ -330,5 +330,10 @@ class AccountScopedSyncTest {
         override suspend fun pauseShift(action: String, request: com.routeflow.app.core.network.dto.ShiftPauseRequest, account: String?): com.routeflow.app.core.network.dto.ShiftResponse =
             com.routeflow.app.core.network.dto.ShiftResponse(success = true)
         override suspend fun currentShift(): com.routeflow.app.core.network.dto.ShiftResponse = com.routeflow.app.core.network.dto.ShiftResponse(success = true)
+        override suspend fun failDelivery(orderId: String, request: com.routeflow.app.core.network.dto.DeliveryFailureRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun getUndeliveredGoods(status: String?): List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto> = emptyList()
+        override suspend fun acknowledgeUndeliveredGoods(id: String, request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun getDeliveryExceptions(): List<com.routeflow.app.core.network.dto.DeliveryExceptionDto> = emptyList()
+        override suspend fun getDriverHeldStock(): List<com.routeflow.app.core.network.dto.DriverHeldStockDto> = emptyList()
     }
 }

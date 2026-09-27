@@ -529,7 +529,7 @@ app.post('/orders', authMiddleware, async (c) => {
 
 app.get('/orders', authMiddleware, async (c) => {
   const user = c.get('user');
-  let query = 'SELECT id, retailer_id AS retailerId, employee_id AS employeeId, status, total_amount_paise AS totalAmountPaise, created_at AS createdAt, updated_at AS updatedAt, delivery_employee_id AS deliveryEmployeeId, rejection_reason AS rejectionReason, payment_method AS paymentMethod FROM orders WHERE company_id = ?';
+  let query = 'SELECT id, retailer_id AS retailerId, employee_id AS employeeId, status, total_amount_paise AS totalAmountPaise, delivered_amount_paise AS deliveredAmountPaise, delivery_failure_reason AS deliveryFailureReason, delivery_notes AS deliveryNotes, rescheduled_date AS rescheduledDate, created_at AS createdAt, updated_at AS updatedAt, delivery_employee_id AS deliveryEmployeeId, rejection_reason AS rejectionReason, payment_method AS paymentMethod FROM orders WHERE company_id = ?';
   const params: any[] = [user.company_id];
 
   if (user.role === 'SALESPERSON') {
@@ -569,7 +569,7 @@ app.get('/orders/:id', authMiddleware, async (c) => {
   const orderId = c.req.param('id');
 
   const order = await c.env.DB.prepare(
-    'SELECT id, retailer_id AS retailerId, employee_id AS employeeId, status, total_amount_paise AS totalAmountPaise, created_at AS createdAt, updated_at AS updatedAt, delivery_employee_id AS deliveryEmployeeId, rejection_reason AS rejectionReason, payment_method AS paymentMethod FROM orders WHERE id = ? AND company_id = ?'
+    'SELECT id, retailer_id AS retailerId, employee_id AS employeeId, status, total_amount_paise AS totalAmountPaise, delivered_amount_paise AS deliveredAmountPaise, delivery_failure_reason AS deliveryFailureReason, delivery_notes AS deliveryNotes, rescheduled_date AS rescheduledDate, created_at AS createdAt, updated_at AS updatedAt, delivery_employee_id AS deliveryEmployeeId, rejection_reason AS rejectionReason, payment_method AS paymentMethod, recipient_name AS recipientName FROM orders WHERE id = ? AND company_id = ?'
   )
     .bind(orderId, user.company_id)
     .first() as any;
@@ -587,7 +587,7 @@ app.get('/orders/:id', authMiddleware, async (c) => {
   }
 
   const { results: rawItems } = await c.env.DB.prepare(
-    'SELECT id, order_id AS orderId, product_id AS productId, quantity, free_quantity AS freeQuantity, price_paise_at_time AS pricePaiseAtTime, is_picked AS isPicked FROM order_items WHERE order_id = ?'
+    'SELECT id, order_id AS orderId, product_id AS productId, quantity, free_quantity AS freeQuantity, price_paise_at_time AS pricePaiseAtTime, is_picked AS isPicked, delivered_quantity AS deliveredQuantity, delivered_free_quantity AS deliveredFreeQuantity, undelivered_quantity AS undeliveredQuantity, undelivered_free_quantity AS undeliveredFreeQuantity, undelivered_reason AS undeliveredReason FROM order_items WHERE order_id = ?'
   )
     .bind(orderId)
     .all();
@@ -953,6 +953,7 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
   const otp = (body.otp || '').trim();
   const proofPhotoUrl = body.proofPhotoUrl || body.proof_photo_url || null;
   const signatureUrl = body.signatureUrl || body.signature_url || null;
+  const itemInputs = body.items || null;
 
   // Allowed payment methods restricted to CASH and CREDIT in this milestone
   const ALLOWED_PAYMENT_METHODS = ['CASH', 'CREDIT'];
@@ -973,16 +974,15 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     return c.json({ error: 'Unauthorized: you are not the assigned delivery executive for this order' }, 403);
   }
 
-  
-  if (order.status === 'DELIVERED') {
-    return c.json({ success: true, idempotent: true });
+  if (order.status === 'DELIVERED' || order.status === 'PARTIALLY_DELIVERED') {
+    return c.json({ success: true, idempotent: true, status: order.status });
   }
 
   if (order.status !== 'OUT_FOR_DELIVERY') {
     return c.json({ error: `Cannot complete delivery for order with status ${order.status}` }, 400);
   }
 
-// Check if server-backed OTP record exists for this order
+  // Check if server-backed OTP record exists for this order
   const otpRecord = await c.env.DB.prepare('SELECT * FROM delivery_otps WHERE order_id = ? AND company_id = ?')
     .bind(orderId, user.company_id)
     .first() as any;
@@ -1025,19 +1025,118 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     verifiedRecipient = recipientName || 'Authorized Receiver (Test)';
   }
 
+  // Fetch actual order items
+  const { results: rawOrderItems } = await c.env.DB.prepare(
+    'SELECT * FROM order_items WHERE order_id = ?'
+  ).bind(orderId).all();
+
+  const VALID_REASONS = ['SHOP_CLOSED', 'REFUSED', 'DAMAGED', 'SHORTAGE', 'OTHER'];
+  let isPartial = false;
+  let deliveredAmountPaise = 0;
+  const processedItems: Array<{
+    id: string;
+    productId: string;
+    deliveredQuantity: number;
+    deliveredFreeQuantity: number;
+    undeliveredQuantity: number;
+    undeliveredFreeQuantity: number;
+    undeliveredReason: string | null;
+  }> = [];
+
+  if (Array.isArray(itemInputs) && itemInputs.length > 0) {
+    const inputMap = new Map<string, any>();
+    for (const inp of itemInputs) {
+      inputMap.set(inp.productId || inp.product_id, inp);
+    }
+
+    let totalDeliveredUnits = 0;
+
+    for (const rawItem of rawOrderItems as any[]) {
+      const inp = inputMap.get(rawItem.product_id);
+      if (!inp) {
+        return c.json({ error: `Missing item breakdown for product ${rawItem.product_id}` }, 400);
+      }
+
+      const delQty = Number(inp.deliveredQuantity ?? inp.delivered_quantity ?? rawItem.quantity);
+      const delFreeQty = Number(inp.deliveredFreeQuantity ?? inp.delivered_free_quantity ?? rawItem.free_quantity);
+      const undelQty = Number(inp.undeliveredQuantity ?? inp.undelivered_quantity ?? 0);
+      const undelFreeQty = Number(inp.undeliveredFreeQuantity ?? inp.undelivered_free_quantity ?? 0);
+      const reason = (inp.undeliveredReason || inp.undelivered_reason || '').trim();
+
+      if (delQty < 0 || delFreeQty < 0 || undelQty < 0 || undelFreeQty < 0) {
+        return c.json({ error: `Negative quantities are not allowed for product ${rawItem.product_id}` }, 400);
+      }
+
+      if (delQty + undelQty !== rawItem.quantity) {
+        return c.json({ error: `Delivered + undelivered quantity must equal ordered quantity (${rawItem.quantity}) for product ${rawItem.product_id}` }, 400);
+      }
+
+      if (delFreeQty + undelFreeQty !== rawItem.free_quantity) {
+        return c.json({ error: `Delivered + undelivered free quantity must equal ordered free quantity (${rawItem.free_quantity}) for product ${rawItem.product_id}` }, 400);
+      }
+
+      if (undelQty > 0 || undelFreeQty > 0) {
+        isPartial = true;
+        if (!reason || !VALID_REASONS.includes(reason)) {
+          return c.json({ error: `A valid undelivered reason (SHOP_CLOSED, REFUSED, DAMAGED, SHORTAGE, OTHER) is required for product ${rawItem.product_id}` }, 400);
+        }
+      }
+
+      totalDeliveredUnits += (delQty + delFreeQty);
+      deliveredAmountPaise += (delQty * rawItem.price_paise_at_time);
+
+      processedItems.push({
+        id: rawItem.id,
+        productId: rawItem.product_id,
+        deliveredQuantity: delQty,
+        deliveredFreeQuantity: delFreeQty,
+        undeliveredQuantity: undelQty,
+        undeliveredFreeQuantity: undelFreeQty,
+        undeliveredReason: (undelQty > 0 || undelFreeQty > 0) ? reason : null
+      });
+    }
+
+    if (totalDeliveredUnits === 0) {
+      return c.json({ error: 'No items were delivered. If delivery failed entirely, please record a failed delivery.' }, 400);
+    }
+  } else {
+    // Full delivery default
+    deliveredAmountPaise = order.total_amount_paise;
+    for (const rawItem of rawOrderItems as any[]) {
+      processedItems.push({
+        id: rawItem.id,
+        productId: rawItem.product_id,
+        deliveredQuantity: rawItem.quantity,
+        deliveredFreeQuantity: rawItem.free_quantity,
+        undeliveredQuantity: 0,
+        undeliveredFreeQuantity: 0,
+        undeliveredReason: null
+      });
+    }
+  }
+
+  const finalStatus = isPartial ? 'PARTIALLY_DELIVERED' : 'DELIVERED';
   const invoiceId = `inv_${crypto.randomUUID()}`;
   const ledgerId = `led_${crypto.randomUUID()}`;
 
   const statements = [
-    // 1. Guarded atomic transition (Trigger aborts if OLD.status != 'OUT_FOR_DELIVERY')
+    // 1. Guarded atomic transition
     c.env.DB.prepare(
-      'UPDATE orders SET status = ?, payment_method = ?, recipient_name = ?, proof_photo_url = ?, signature_url = ?, updated_at = ? WHERE id = ?'
-    ).bind('DELIVERED', paymentMethod, verifiedRecipient, proofPhotoUrl, signatureUrl, now, orderId),
+      'UPDATE orders SET status = ?, payment_method = ?, recipient_name = ?, proof_photo_url = ?, signature_url = ?, delivered_amount_paise = ?, updated_at = ? WHERE id = ?'
+    ).bind(finalStatus, paymentMethod, verifiedRecipient, proofPhotoUrl, signatureUrl, deliveredAmountPaise, now, orderId),
 
     // 2. Audit log
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'ORDER_DELIVERED', orderId, `Payment: ${paymentMethod}, Amount: ${order.total_amount_paise}, Recipient: ${verifiedRecipient}`, now)
+    ).bind(
+      crypto.randomUUID(),
+      user.company_id,
+      user.sub,
+      finalStatus === 'PARTIALLY_DELIVERED' ? 'ORDER_PARTIALLY_DELIVERED' : 'ORDER_DELIVERED',
+      orderId,
+      `Status: ${finalStatus}, Payment: ${paymentMethod}, Delivered: ${deliveredAmountPaise}, Recipient: ${verifiedRecipient}`,
+      now
+    )
   ];
 
   // Mark OTP as used if record exists
@@ -1048,25 +1147,53 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     );
   }
 
-  // 3. Retailer balance update: ATOMIC increment directly in database (no application-calculated overwrite)
+  // Update order_items & create undelivered goods records if any
+  for (const item of processedItems) {
+    statements.push(
+      c.env.DB.prepare(
+        'UPDATE order_items SET delivered_quantity = ?, delivered_free_quantity = ?, undelivered_quantity = ?, undelivered_free_quantity = ?, undelivered_reason = ? WHERE id = ?'
+      ).bind(item.deliveredQuantity, item.deliveredFreeQuantity, item.undeliveredQuantity, item.undeliveredFreeQuantity, item.undeliveredReason, item.id)
+    );
+
+    if (item.undeliveredQuantity > 0 || item.undeliveredFreeQuantity > 0) {
+      statements.push(
+        c.env.DB.prepare(
+          `INSERT INTO undelivered_goods (
+            id, company_id, order_id, driver_id, product_id,
+            undelivered_paid_quantity, undelivered_free_quantity,
+            reason, status, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'HELD_BY_DRIVER', ?)`
+        ).bind(
+          `undel_${crypto.randomUUID()}`,
+          user.company_id,
+          orderId,
+          order.delivery_employee_id || user.sub,
+          item.productId,
+          item.undeliveredQuantity,
+          item.undeliveredFreeQuantity,
+          item.undeliveredReason,
+          now
+        )
+      );
+    }
+  }
+
+  // 3. Retailer balance update (CREDIT): increment by deliveredAmountPaise only
   if (paymentMethod === 'CREDIT') {
     statements.push(
       c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise = outstanding_amount_paise + ? WHERE id = ? AND company_id = ?')
-        .bind(order.total_amount_paise, order.retailer_id, user.company_id)
+        .bind(deliveredAmountPaise, order.retailer_id, user.company_id)
     );
   }
 
   // 4. Durable Invoice
   if (isFailureInjectionAllowed(c) && c.req.header('X-Test-Fail-Invoice') === 'true') {
-    // Failure injection test: cause deliberate DB error in batch
-    statements.push(
-      c.env.DB.prepare('INSERT INTO invoices (id) VALUES (NULL)')
-    );
+    statements.push(c.env.DB.prepare('INSERT INTO invoices (id) VALUES (NULL)'));
   } else {
     statements.push(
       c.env.DB.prepare(
         'INSERT INTO invoices (id, order_id, company_id, retailer_id, total_amount_paise, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(invoiceId, orderId, user.company_id, order.retailer_id, order.total_amount_paise, paymentMethod === 'CREDIT' ? 'ISSUED' : 'PAID', now)
+      ).bind(invoiceId, orderId, user.company_id, order.retailer_id, deliveredAmountPaise, paymentMethod === 'CREDIT' ? 'ISSUED' : 'PAID', now)
     );
   }
 
@@ -1086,7 +1213,7 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
       user.company_id,
       order.retailer_id,
       paymentMethod === 'CREDIT' ? 'CREDIT_INCREASE' : 'CASH_PAYMENT',
-      order.total_amount_paise,
+      deliveredAmountPaise,
       paymentMethod,
       user.sub,
       now,
@@ -1097,15 +1224,334 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
 
   try {
     await c.env.DB.batch(statements);
-    return c.json({ success: true, invoiceId });
+    return c.json({ success: true, status: finalStatus, invoiceId, deliveredAmountPaise });
   } catch (e: any) {
     const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
       .bind(orderId).first() as any;
-    if (current && current.status === 'DELIVERED') {
-      return c.json({ success: true, idempotent: true });
+    if (current && (current.status === 'DELIVERED' || current.status === 'PARTIALLY_DELIVERED')) {
+      return c.json({ success: true, idempotent: true, status: current.status });
     }
     return c.json({ error: e.message || 'Delivery failed' }, 400);
   }
+});
+
+app.post('/orders/:id/delivery-failed', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'DELIVERY_EXECUTIVE' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: delivery role required' }, 403);
+  }
+
+  const orderId = c.req.param('id');
+  const body = await c.req.json();
+  const reason = (body.reason || '').trim();
+  const rescheduledDate = (body.rescheduledDate || body.rescheduled_date || null)?.trim() || null;
+  const notes = (body.notes || '').trim() || null;
+
+  const VALID_REASONS = ['SHOP_CLOSED', 'REFUSED', 'DAMAGED', 'SHORTAGE', 'OTHER'];
+  if (!reason || !VALID_REASONS.includes(reason)) {
+    return c.json({
+      error: `Invalid failure reason '${reason}'. Must be one of: ${VALID_REASONS.join(', ')}`
+    }, 400);
+  }
+
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
+    .bind(orderId, user.company_id)
+    .first() as any;
+
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  if (user.role === 'DELIVERY_EXECUTIVE' && order.delivery_employee_id !== user.sub) {
+    return c.json({ error: 'Unauthorized: you are not the assigned delivery executive for this order' }, 403);
+  }
+
+  if (order.status === 'DELIVERY_FAILED') {
+    return c.json({ success: true, idempotent: true, status: 'DELIVERY_FAILED' });
+  }
+
+  if (order.status !== 'OUT_FOR_DELIVERY') {
+    return c.json({ error: `Cannot fail delivery for order with status ${order.status}` }, 400);
+  }
+
+  const { results: rawOrderItems } = await c.env.DB.prepare(
+    'SELECT * FROM order_items WHERE order_id = ?'
+  ).bind(orderId).all();
+
+  const now = Date.now();
+  const statements = [
+    // 1. Order status update
+    c.env.DB.prepare(
+      'UPDATE orders SET status = ?, delivery_failure_reason = ?, delivery_notes = ?, rescheduled_date = ?, delivered_amount_paise = 0, updated_at = ? WHERE id = ?'
+    ).bind('DELIVERY_FAILED', reason, notes, rescheduledDate, now, orderId),
+
+    // 2. Audit log
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(),
+      user.company_id,
+      user.sub,
+      'ORDER_DELIVERY_FAILED',
+      orderId,
+      `Reason: ${reason}, Rescheduled: ${rescheduledDate || 'None'}, Notes: ${notes || 'None'}`,
+      now
+    )
+  ];
+
+  // 3. Mark items undelivered and create undelivered_goods records
+  for (const rawItem of rawOrderItems as any[]) {
+    statements.push(
+      c.env.DB.prepare(
+        'UPDATE order_items SET delivered_quantity = 0, delivered_free_quantity = 0, undelivered_quantity = ?, undelivered_free_quantity = ?, undelivered_reason = ? WHERE id = ?'
+      ).bind(rawItem.quantity, rawItem.free_quantity, reason, rawItem.id)
+    );
+
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO undelivered_goods (
+          id, company_id, order_id, driver_id, product_id,
+          undelivered_paid_quantity, undelivered_free_quantity,
+          reason, status, rescheduled_for, notes, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'HELD_BY_DRIVER', ?, ?, ?)`
+      ).bind(
+        `undel_${crypto.randomUUID()}`,
+        user.company_id,
+        orderId,
+        order.delivery_employee_id || user.sub,
+        rawItem.product_id,
+        rawItem.quantity,
+        rawItem.free_quantity,
+        reason,
+        rescheduledDate,
+        notes,
+        now
+      )
+    );
+  }
+
+  try {
+    await c.env.DB.batch(statements);
+    return c.json({ success: true, status: 'DELIVERY_FAILED', reason, rescheduledDate });
+  } catch (e: any) {
+    const current = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ?')
+      .bind(orderId).first() as any;
+    if (current && current.status === 'DELIVERY_FAILED') {
+      return c.json({ success: true, idempotent: true, status: 'DELIVERY_FAILED' });
+    }
+    return c.json({ error: e.message || 'Failed to update delivery failure' }, 400);
+  }
+});
+
+// ============================================================================
+// WAREHOUSE & OWNER: UNDELIVERED GOODS & DELIVERY EXCEPTIONS
+// ============================================================================
+
+app.get('/warehouse/undelivered-goods', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const statusFilter = c.req.query('status');
+  const driverFilter = c.req.query('driverId');
+
+  let query = `
+    SELECT u.id, u.company_id AS companyId, u.order_id AS orderId, u.driver_id AS driverId,
+           u.product_id AS productId, u.undelivered_paid_quantity AS undeliveredPaidQuantity,
+           u.undelivered_free_quantity AS undeliveredFreeQuantity, u.reason, u.status,
+           u.saleable_quantity AS saleableQuantity, u.damaged_quantity AS damagedQuantity,
+           u.shortage_quantity AS shortageQuantity, u.acknowledged_by AS acknowledgedBy,
+           u.acknowledged_at AS acknowledgedAt, u.rescheduled_for AS rescheduledFor,
+           u.notes, u.created_at AS createdAt,
+           p.name AS productName, p.unit AS productUnit,
+           d.full_name AS driverName,
+           r.name AS retailerName, r.address AS retailerAddress
+    FROM undelivered_goods u
+    JOIN products p ON u.product_id = p.id
+    JOIN users d ON u.driver_id = d.id
+    JOIN orders o ON u.order_id = o.id
+    JOIN retailers r ON o.retailer_id = r.id
+    WHERE u.company_id = ?
+  `;
+  const params: any[] = [user.company_id];
+
+  if (user.role === 'DELIVERY_EXECUTIVE') {
+    query += ' AND u.driver_id = ?';
+    params.push(user.sub);
+  } else if (driverFilter) {
+    query += ' AND u.driver_id = ?';
+    params.push(driverFilter);
+  }
+
+  if (statusFilter) {
+    query += ' AND u.status = ?';
+    params.push(statusFilter);
+  }
+
+  query += ' ORDER BY u.created_at DESC';
+  const { results } = await c.env.DB.prepare(query).bind(...params).all();
+  return c.json(results);
+});
+
+app.post('/warehouse/undelivered-goods/:id/acknowledge', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: warehouse manager or owner required' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const status = body.status || 'RETURNED_TO_WAREHOUSE';
+  const saleableQuantity = Number(body.saleableQuantity ?? body.saleable_quantity ?? 0);
+  const damagedQuantity = Number(body.damagedQuantity ?? body.damaged_quantity ?? 0);
+  const shortageQuantity = Number(body.shortageQuantity ?? body.shortage_quantity ?? 0);
+  const notes = (body.notes || '').trim() || null;
+  const rescheduledFor = (body.rescheduledFor || body.rescheduled_for || null)?.trim() || null;
+
+  if (!['RETURNED_TO_WAREHOUSE', 'RESCHEDULED'].includes(status)) {
+    return c.json({ error: `Invalid status '${status}'. Must be RETURNED_TO_WAREHOUSE or RESCHEDULED.` }, 400);
+  }
+
+  if (saleableQuantity < 0 || damagedQuantity < 0 || shortageQuantity < 0) {
+    return c.json({ error: 'Quantities cannot be negative.' }, 400);
+  }
+
+  const record = await c.env.DB.prepare('SELECT * FROM undelivered_goods WHERE id = ? AND company_id = ?')
+    .bind(id, user.company_id)
+    .first() as any;
+
+  if (!record) return c.json({ error: 'Undelivered goods record not found' }, 404);
+
+  if (record.status !== 'HELD_BY_DRIVER') {
+    return c.json({ error: `Goods record already acknowledged with status ${record.status}` }, 400);
+  }
+
+  const totalExpected = record.undelivered_paid_quantity + record.undelivered_free_quantity;
+  if (saleableQuantity + damagedQuantity + shortageQuantity !== totalExpected) {
+    return c.json({
+      error: `Sum of saleable (${saleableQuantity}), damaged (${damagedQuantity}), and shortage (${shortageQuantity}) must equal total undelivered units (${totalExpected}).`
+    }, 400);
+  }
+
+  const now = Date.now();
+  const statements = [
+    // 1. Update undelivered_goods
+    c.env.DB.prepare(
+      `UPDATE undelivered_goods
+       SET status = ?, saleable_quantity = ?, damaged_quantity = ?, shortage_quantity = ?,
+           acknowledged_by = ?, acknowledged_at = ?, notes = ?, rescheduled_for = ?
+       WHERE id = ?`
+    ).bind(status, saleableQuantity, damagedQuantity, shortageQuantity, user.sub, now, notes, rescheduledFor, id),
+
+    // 2. Audit log
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(),
+      user.company_id,
+      user.sub,
+      'UNDELIVERED_GOODS_ACKNOWLEDGED',
+      id,
+      `Status: ${status}, Saleable: ${saleableQuantity}, Damaged: ${damagedQuantity}, Shortage: ${shortageQuantity}`,
+      now
+    )
+  ];
+
+  // 3. Restock saleable inventory in warehouse
+  if (saleableQuantity > 0) {
+    const currentProd = await c.env.DB.prepare('SELECT stock_quantity FROM products WHERE id = ? AND company_id = ?')
+      .bind(record.product_id, user.company_id).first() as any;
+    const newStock = (currentProd?.stock_quantity ?? 0) + saleableQuantity;
+    statements.push(
+      c.env.DB.prepare('UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ?')
+        .bind(newStock, record.product_id, user.company_id)
+    );
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO stock_adjustments (id, company_id, product_id, user_id, change_quantity, reason, stock_after, notes, idempotency_key, created_at)
+         VALUES (?, ?, ?, ?, ?, 'RETURN_RESTOCK', ?, ?, ?, ?)`
+      ).bind(
+        `adj_${crypto.randomUUID()}`,
+        user.company_id,
+        record.product_id,
+        user.sub,
+        saleableQuantity,
+        newStock,
+        `Delivery return restock for order ${record.order_id}`,
+        null,
+        now
+      )
+    );
+  }
+
+  // 4. Log damaged inventory
+  if (damagedQuantity > 0) {
+    const currentProd = await c.env.DB.prepare('SELECT stock_quantity FROM products WHERE id = ? AND company_id = ?')
+      .bind(record.product_id, user.company_id).first() as any;
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO stock_adjustments (id, company_id, product_id, user_id, change_quantity, reason, stock_after, notes, idempotency_key, created_at)
+         VALUES (?, ?, ?, ?, 0, 'DAMAGE', ?, ?, ?, ?)`
+      ).bind(
+        `adj_${crypto.randomUUID()}`,
+        user.company_id,
+        record.product_id,
+        user.sub,
+        currentProd?.stock_quantity ?? 0,
+        `Damaged delivery return for order ${record.order_id}`,
+        null,
+        now
+      )
+    );
+  }
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true, status, saleableQuantity, damagedQuantity, shortageQuantity });
+});
+
+app.get('/owner/delivery-exceptions', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER') {
+    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  }
+
+  const { results } = await c.env.DB.prepare(`
+    SELECT o.id, o.retailer_id AS retailerId, o.employee_id AS employeeId,
+           o.delivery_employee_id AS deliveryEmployeeId, o.status,
+           o.total_amount_paise AS totalAmountPaise,
+           o.delivered_amount_paise AS deliveredAmountPaise,
+           o.delivery_failure_reason AS deliveryFailureReason,
+           o.delivery_notes AS deliveryNotes,
+           o.rescheduled_date AS rescheduledDate,
+           o.created_at AS createdAt, o.updated_at AS updatedAt,
+           r.name AS retailerName, r.address AS retailerAddress,
+           d.full_name AS driverName
+    FROM orders o
+    JOIN retailers r ON o.retailer_id = r.id
+    LEFT JOIN users d ON o.delivery_employee_id = d.id
+    WHERE o.company_id = ? AND o.status IN ('PARTIALLY_DELIVERED', 'DELIVERY_FAILED')
+    ORDER BY o.updated_at DESC
+  `).bind(user.company_id).all();
+
+  return c.json(results);
+});
+
+app.get('/owner/driver-held-stock', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER' && user.role !== 'WAREHOUSE_MANAGER') {
+    return c.json({ error: 'Permission denied: owner or warehouse manager required' }, 403);
+  }
+
+  const { results } = await c.env.DB.prepare(`
+    SELECT u.driver_id AS driverId, d.full_name AS driverName,
+           u.product_id AS productId, p.name AS productName, p.unit AS productUnit,
+           SUM(u.undelivered_paid_quantity) AS totalPaidQuantity,
+           SUM(u.undelivered_free_quantity) AS totalFreeQuantity,
+           COUNT(DISTINCT u.order_id) AS orderCount
+    FROM undelivered_goods u
+    JOIN users d ON u.driver_id = d.id
+    JOIN products p ON u.product_id = p.id
+    WHERE u.company_id = ? AND u.status = 'HELD_BY_DRIVER'
+    GROUP BY u.driver_id, d.full_name, u.product_id, p.name, p.unit
+    ORDER BY d.full_name, p.name
+  `).bind(user.company_id).all();
+
+  return c.json(results);
 });
 
 // ============================================================================

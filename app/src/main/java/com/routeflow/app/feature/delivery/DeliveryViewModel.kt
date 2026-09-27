@@ -3,9 +3,12 @@ package com.routeflow.app.feature.delivery
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.routeflow.app.core.database.entity.OrderEntity
+import com.routeflow.app.core.network.dto.DeliveryItemCompletionRequest
 import com.routeflow.app.domain.repository.OrderRepository
+import com.routeflow.app.domain.repository.ProductRepository
 import com.routeflow.app.domain.repository.RetailerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,10 +42,19 @@ data class DeliveryDetailState(
     val success: Boolean = false
 )
 
+data class DeliveryOrderItemUiModel(
+    val productId: String,
+    val productName: String,
+    val orderedQuantity: Int,
+    val freeQuantity: Int,
+    val pricePaise: Long
+)
+
 @HiltViewModel
 class DeliveryViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
-    private val retailerRepository: RetailerRepository
+    private val retailerRepository: RetailerRepository,
+    private val productRepository: ProductRepository
 ) : ViewModel() {
 
     private val _detailState = MutableStateFlow(DeliveryDetailState())
@@ -51,7 +63,7 @@ class DeliveryViewModel @Inject constructor(
     val state: StateFlow<DeliveryHomeState> = orderRepository.getAllOrders().map { orders ->
         DeliveryHomeState(
             assignedCount = orders.count { it.status == "OUT_FOR_DELIVERY" },
-            completedCount = orders.count { it.status == "DELIVERED" },
+            completedCount = orders.count { it.status == "DELIVERED" || it.status == "PARTIALLY_DELIVERED" },
             paymentsCollectedPaise = 0
         )
     }.stateIn(
@@ -78,6 +90,22 @@ class DeliveryViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
+    fun getOrderItems(orderId: String): Flow<List<DeliveryOrderItemUiModel>> = combine(
+        orderRepository.getItemsForOrder(orderId),
+        productRepository.getAllProducts()
+    ) { items, products ->
+        items.map { item ->
+            val product = products.find { it.id == item.productId }
+            DeliveryOrderItemUiModel(
+                productId = item.productId,
+                productName = product?.name ?: "Product ${item.productId}",
+                orderedQuantity = item.quantity,
+                freeQuantity = item.freeQuantity,
+                pricePaise = item.pricePaiseAtTime
+            )
+        }
+    }
+
     fun requestOtp(orderId: String) {
         if (_detailState.value.isOtpLoading) return
         _detailState.update { it.copy(isOtpLoading = true, error = null, otpSentMessage = null) }
@@ -101,7 +129,13 @@ class DeliveryViewModel @Inject constructor(
         }
     }
 
-    fun markDelivered(orderId: String, method: String, otp: String, recipientName: String) {
+    fun markDelivered(
+        orderId: String,
+        method: String,
+        otp: String,
+        recipientName: String,
+        items: List<DeliveryItemCompletionRequest>? = null
+    ) {
         if (_detailState.value.isLoading) return
         
         _detailState.update { it.copy(isLoading = true, error = null) }
@@ -110,13 +144,40 @@ class DeliveryViewModel @Inject constructor(
                 orderId = orderId,
                 paymentMethod = method,
                 otp = otp,
-                recipientName = recipientName
+                recipientName = recipientName,
+                items = items
             )
             _detailState.update {
                 if (result.isSuccess) {
                     it.copy(isLoading = false, success = true)
                 } else {
                     it.copy(isLoading = false, error = result.exceptionOrNull()?.message ?: "Delivery failed")
+                }
+            }
+        }
+    }
+
+    fun markDeliveryFailed(
+        orderId: String,
+        reason: String,
+        rescheduledDate: String? = null,
+        notes: String? = null
+    ) {
+        if (_detailState.value.isLoading) return
+
+        _detailState.update { it.copy(isLoading = true, error = null) }
+        viewModelScope.launch {
+            val result = orderRepository.failDelivery(
+                orderId = orderId,
+                reason = reason,
+                rescheduledDate = rescheduledDate,
+                notes = notes
+            )
+            _detailState.update {
+                if (result.isSuccess) {
+                    it.copy(isLoading = false, success = true)
+                } else {
+                    it.copy(isLoading = false, error = result.exceptionOrNull()?.message ?: "Failed to record delivery failure")
                 }
             }
         }

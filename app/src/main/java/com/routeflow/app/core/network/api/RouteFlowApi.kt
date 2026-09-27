@@ -71,6 +71,9 @@ interface RouteFlowApi {
     @POST("orders/{id}/deliver")
     suspend fun completeDelivery(@Path("id") orderId: String, @Body request: DeliveryCompletionRequest): StatusResponse
 
+    @POST("orders/{id}/delivery-failed")
+    suspend fun failDelivery(@Path("id") orderId: String, @Body request: com.routeflow.app.core.network.dto.DeliveryFailureRequest): StatusResponse
+
     @POST("orders/{id}/request-otp")
     suspend fun requestDeliveryOtp(@Path("id") orderId: String): com.routeflow.app.core.network.dto.OtpResponse
 
@@ -186,4 +189,17 @@ interface RouteFlowApi {
 
     @GET("shifts/current")
     suspend fun currentShift(): com.routeflow.app.core.network.dto.ShiftResponse
+
+    // --- Undelivered Goods & Delivery Exceptions ---
+    @GET("warehouse/undelivered-goods")
+    suspend fun getUndeliveredGoods(@retrofit2.http.Query("status") status: String? = null): List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto>
+
+    @POST("warehouse/undelivered-goods/{id}/acknowledge")
+    suspend fun acknowledgeUndeliveredGoods(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest): StatusResponse
+
+    @GET("owner/delivery-exceptions")
+    suspend fun getDeliveryExceptions(): List<com.routeflow.app.core.network.dto.DeliveryExceptionDto>
+
+    @GET("owner/driver-held-stock")
+    suspend fun getDriverHeldStock(): List<com.routeflow.app.core.network.dto.DriverHeldStockDto>
 }

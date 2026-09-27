@@ -719,8 +719,12 @@ fun RouteFlowApp(
                         retailerName = item.retailerName,
                         amountPaise = item.order.totalAmountPaise,
                         detailState = detailState,
-                        onDeliver = { method, otp, recipientName ->
-                            viewModel.markDelivered(item.order.id, method, otp, recipientName)
+                        itemsFlow = viewModel.getOrderItems(item.order.id),
+                        onDeliver = { method, otp, recipientName, items ->
+                            viewModel.markDelivered(item.order.id, method, otp, recipientName, items)
+                        },
+                        onDeliveryFailed = { reason, rescheduledDate, notes ->
+                            viewModel.markDeliveryFailed(item.order.id, reason, rescheduledDate, notes)
                         },
                         onRequestOtp = {
                             viewModel.requestOtp(item.order.id)

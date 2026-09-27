@@ -217,4 +217,30 @@
     <string name="owner_handover_reconciliation">रोकड़ सुपुर्दगी मिलान (कैश हैंडओवर)</string>
     <string name="owner_payment_clearance">भुगतान सत्यापन एवं चेक क्लीयरेंस</string>
     <string name="owner_returns_management">माल वापसी एवं क्रेडिट नोट</string>
+    <!-- Partial and Failed Deliveries -->
+    <string name="delivery_item_breakdown">सामान का विवरण</string>
+    <string name="delivered_qty">डिलीवर की गई मात्रा</string>
+    <string name="undelivered_qty">अनडिलीवर मात्रा</string>
+    <string name="undelivered_reason">अनडिलीवर का कारण</string>
+    <string name="mark_delivery_failed">डिलीवरी विफल दर्ज करें</string>
+    <string name="failure_reason">विफलता का कारण</string>
+    <string name="reason_shop_closed">दुकान बंद</string>
+    <string name="reason_refused">ग्राहक ने मना किया</string>
+    <string name="reason_damaged">रास्ते में टूटा / क्षतिग्रस्त</string>
+    <string name="reason_shortage">सामान कम पड़ा</string>
+    <string name="reason_other">अन्य कारण</string>
+    <string name="rescheduled_date">पुनर्निर्धारित तारीख (YYYY-MM-DD)</string>
+    <string name="warehouse_undelivered_returns">अनडिलीवर सामान (ड्राइवर वापसी)</string>
+    <string name="driver_held_stock">ड्राइवर के पास रखा स्टॉक</string>
+    <string name="acknowledge_return">वापसी स्वीकार करें</string>
+    <string name="saleable_restocked">बिक्री योग्य (स्टॉक में पुनः जोड़ें)</string>
+    <string name="damaged_writeoff">क्षतिग्रस्त (नुकसान दर्ज करें)</string>
+    <string name="shortage_qty">कमी</string>
+    <string name="delivery_exceptions">डिलीवरी अपवाद</string>
+    <string name="partially_delivered">आंशिक डिलीवर</string>
+    <string name="delivery_failed">डिलीवरी विफल</string>
+    <string name="confirm_partial_delivery">आंशिक डिलीवरी की पुष्टि करें</string>
+    <string name="confirm_failed_delivery">डिलीवरी विफलता दर्ज करें</string>
+    <string name="driver_held_returns">ड्राइवर के पास बचा सामान</string>
+    <string name="return_acknowledged_success">वापसी दर्ज हुई और बिक्री योग्य स्टॉक गोदाम में जुड़ गया।</string>
 </resources>

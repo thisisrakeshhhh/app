@@ -43,5 +43,7 @@ node_modules/
 **/node_modules/
 *.png
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.db
-
+current_ui.xml

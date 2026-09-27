@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import { readFile, readdir } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 const bundle=await build({entryPoints:['src/index.ts'],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});
-const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2024-03-20',d1Databases:['DB'],bindings:{JWT_SECRET:'isolated-test-secret-not-for-deployment',JWT_ACCESS_EXPIRY:'900',JWT_REFRESH_EXPIRY:'2592000',ENVIRONMENT:'development',ENABLE_TEST_FAILURE_INJECTION:'true',SMS_MODE:'simulated'},port:0}));
+const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2024-03-20',d1Databases:['DB'],bindings:{JWT_SECRET:'isolated-test-secret-not-for-deployment',JWT_ACCESS_EXPIRY:'86400',JWT_REFRESH_EXPIRY:'2592000',ENVIRONMENT:'development',ENABLE_TEST_FAILURE_INJECTION:'true',SMS_MODE:'simulated'},port:0}));
 try {
  const db=await mf.getD1Database('DB');
  async function sql(path){

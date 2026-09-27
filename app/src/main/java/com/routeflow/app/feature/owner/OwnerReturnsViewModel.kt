@@ -2,8 +2,11 @@ package com.routeflow.app.feature.owner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.routeflow.app.core.network.dto.DeliveryExceptionDto
+import com.routeflow.app.core.network.dto.DriverHeldStockDto
 import com.routeflow.app.core.network.dto.InspectItemRequest
 import com.routeflow.app.core.network.dto.ReturnRequestDto
+import com.routeflow.app.domain.repository.OrderRepository
 import com.routeflow.app.domain.repository.ReturnRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -19,6 +22,8 @@ import javax.inject.Inject
 data class OwnerReturnsUiState(
     val isLoading: Boolean = true,
     val returns: List<ReturnRequestDto> = emptyList(),
+    val deliveryExceptions: List<DeliveryExceptionDto> = emptyList(),
+    val driverHeldStock: List<DriverHeldStockDto> = emptyList(),
     val error: String? = null,
     val processingId: String? = null
 ) {
@@ -45,7 +50,8 @@ sealed interface OwnerReturnEvent {
 
 @HiltViewModel
 class OwnerReturnsViewModel @Inject constructor(
-    private val returnRepository: ReturnRepository
+    private val returnRepository: ReturnRepository,
+    private val orderRepository: OrderRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OwnerReturnsUiState())
@@ -55,7 +61,12 @@ class OwnerReturnsViewModel @Inject constructor(
     val eventFlow: SharedFlow<OwnerReturnEvent> = _eventFlow.asSharedFlow()
 
     init {
+        loadData()
+    }
+
+    fun loadData() {
         loadReturns()
+        loadExceptionsAndHeldStock()
     }
 
     fun loadReturns() {
@@ -69,6 +80,17 @@ class OwnerReturnsViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = err.message) }
                 }
             )
+        }
+    }
+
+    fun loadExceptionsAndHeldStock() {
+        viewModelScope.launch {
+            orderRepository.getDeliveryExceptions().onSuccess { excList ->
+                _uiState.update { it.copy(deliveryExceptions = excList) }
+            }
+            orderRepository.getDriverHeldStock().onSuccess { stockList ->
+                _uiState.update { it.copy(driverHeldStock = stockList) }
+            }
         }
     }
 

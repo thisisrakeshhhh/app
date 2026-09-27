@@ -142,3 +142,51 @@ This acceptance matrix documents the live state of the codebase. In accordance w
   * Connection restored via `adb reverse tcp:8787 tcp:8787` and Wi-Fi enabled.
   * **Automatic Recovery**: Without any user tap or forced ADB command, WorkManager's `OrderSyncWorker` automatically detected connection restoration, posted `POST /shifts/end` within 20s, updated backend D1 shift to `OFF_SHIFT` (`1790483075787`), and cleared `sync_outbox` (`[]`).
   * **User-Triggered Recovery**: Verified available via "Sync Now" button on `SalesProfileScreen` and `SalesHomeScreen` (`salesViewModel.syncNow()`), and on app foreground resume (`MainActivity.onResume()` -> `syncManager.scheduleSync()`).
+
+---
+
+## 5. Milestone: Partial and Failed Deliveries
+
+### A. Business Scope & Rules
+1. **Item-Level Quantities & Exceptions**:
+   - Drivers can record item-level delivered vs. undelivered quantities (for both paid and free promotional units).
+   - Partial delivery reasons supported: `SHORTAGE`, `DAMAGED`, `REFUSED`, `OTHER`.
+   - Full delivery failure reasons supported: `SHOP_CLOSED`, `REFUSED`, `DAMAGED`, `SHORTAGE`, `OTHER` with optional rescheduled date and driver notes.
+2. **Driver Held Stock & Warehouse Return Workflow**:
+   - Undelivered items from partial and failed deliveries are tracked as `undelivered_goods` with status `HELD_BY_DRIVER`.
+   - Warehouse manager acknowledges driver returns via `POST /warehouse/undelivered-goods/:id/acknowledge`.
+   - Disposition is validated: `saleableQuantity + damagedQuantity + shortageQuantity == total undelivered units`.
+   - Saleable inventory is returned to warehouse stock (`stock_adjustments` with reason `RETURN_RESTOCK`).
+   - Damaged units are logged under `stock_adjustments` (`DAMAGE`) without incrementing saleable inventory.
+3. **Financial Accounting & Credit Policy**:
+   - Invoices reflect delivered goods only (`delivered_amount_paise`).
+   - Credit reservations are automatically released via trigger `release_order_credit` upon transitioning to `PARTIALLY_DELIVERED` or `DELIVERY_FAILED` without duplicate adjustments.
+   - Retailer outstanding balances and ledger postings apply only to delivered amounts.
+4. **Owner Visibility**:
+   - `GET /owner/delivery-exceptions`: Lists orders with `PARTIALLY_DELIVERED` or `DELIVERY_FAILED` status, failure reasons, notes, and rescheduled dates.
+   - `GET /owner/driver-held-stock`: Summarizes stock held by drivers grouped by driver and product.
+
+### B. Verification Evidence
+- **Backend API Integration Suite**: [API-tested]
+  - `npm test` (`test/run-isolated.mjs` running `test/daily-cycle.test.mjs` and `test/integration.test.mjs`):
+  - **All 24 test suites pass (100% pass, 0 fail)**.
+  - Subtest 19 verifies:
+    * Order dispatch and stock reservation consumption.
+    * Partial delivery marking (shortage on paid items, refused free items) resulting in status `PARTIALLY_DELIVERED` and delivered invoice total.
+    * Undelivered goods recorded as `HELD_BY_DRIVER`.
+    * Driver stock listing verification.
+    * Delivery failure marking with status `DELIVERY_FAILED` and `SHOP_CLOSED` reason.
+    * Warehouse acknowledgement of driver-held goods with disposition split (saleable vs damaged).
+    * Saleable stock restoration and damage audit log creation in `stock_adjustments`.
+    * Owner delivery exceptions and driver held stock summaries.
+    * Credit exposure released cleanly without double adjustments.
+- **Android Unit Test Suite**: [unit-tested]
+  - `./gradlew testDebugUnitTest`: **24 tests passed, 0 failures, 100% success rate**.
+- **Android APK Build**: [source-inspected]
+  - `./gradlew assembleDebug`: `BUILD SUCCESSFUL in 1m 12s`.
+  - Android Jetpack Compose screens implemented:
+    * `DeliveryDetailScreen.kt`: Item-level delivery quantity adjustments, shortage/damage reason selection, OTP validation, and Delivery Failure dialog.
+    * `WarehouseReturnsScreen.kt`: Tabbed return management (Store Returns vs Driver Returns), return acknowledgement dialog with disposition breakdown.
+    * `OwnerReturnsScreen.kt`: Tabbed overview (Customer Returns vs Exceptions & Driver Held Stock).
+  - Bilingual string resources in `values/strings.xml` and `values-hi/strings.xml`.
+
