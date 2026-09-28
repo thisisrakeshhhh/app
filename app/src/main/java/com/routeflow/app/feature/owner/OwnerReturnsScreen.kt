@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
+import com.routeflow.app.core.network.dto.DeliveryExceptionDto
 import com.routeflow.app.core.network.dto.InspectItemRequest
 import com.routeflow.app.core.network.dto.ReturnRequestDto
 import java.text.SimpleDateFormat
@@ -79,6 +80,7 @@ fun OwnerReturnsScreen(
     var authorizingReturn by remember { mutableStateOf<Pair<ReturnRequestDto, String>?>(null) } // pair of return to action ("APPROVE" or "REJECT")
     var inspectingReturn by remember { mutableStateOf<ReturnRequestDto?>(null) }
     var creditingReturn by remember { mutableStateOf<ReturnRequestDto?>(null) }
+    var retryingException by remember { mutableStateOf<DeliveryExceptionDto?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -326,6 +328,16 @@ fun OwnerReturnsScreen(
                                         if (!exc.deliveryNotes.isNullOrBlank()) {
                                             Text("Notes: ${exc.deliveryNotes}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
                                         }
+                                        if (exc.status == "DELIVERY_FAILED") {
+                                            Spacer(Modifier.height(4.dp))
+                                            Button(
+                                                onClick = { retryingException = exc },
+                                                modifier = Modifier.fillMaxWidth().testTag("retry_button_${exc.id}"),
+                                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                                            ) {
+                                                Text(stringResource(R.string.schedule_retry_delivery))
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -421,6 +433,17 @@ fun OwnerReturnsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { creditingReturn = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    retryingException?.let { exc ->
+        RetryDeliveryDialog(
+            exception = exc,
+            onDismiss = { retryingException = null },
+            onConfirm = { driverId, date, notes ->
+                retryingException = null
+                viewModel.scheduleRetry(exc.id, driverId, date, notes)
             }
         )
     }
@@ -632,4 +655,57 @@ private fun InspectionDialog(
         }
     )
 }
+
+@Composable
+private fun RetryDeliveryDialog(
+    exception: DeliveryExceptionDto,
+    onDismiss: () -> Unit,
+    onConfirm: (driverId: String, date: String?, notes: String?) -> Unit
+) {
+    var driverId by remember { mutableStateOf(exception.deliveryEmployeeId ?: "") }
+    var rescheduledDate by remember { mutableStateOf(exception.rescheduledDate ?: "") }
+    var notes by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.schedule_retry_delivery), fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Order ID: ${exception.id}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                Text("Retailer: ${exception.retailerName ?: "Retailer"}", fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = driverId,
+                    onValueChange = { driverId = it },
+                    label = { Text(stringResource(R.string.assign_driver_label)) },
+                    modifier = Modifier.fillMaxWidth().testTag("retry_driver_id_input")
+                )
+                OutlinedTextField(
+                    value = rescheduledDate,
+                    onValueChange = { rescheduledDate = it },
+                    label = { Text(stringResource(R.string.rescheduled_date)) },
+                    modifier = Modifier.fillMaxWidth().testTag("retry_date_input")
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes (optional)") },
+                    modifier = Modifier.fillMaxWidth().testTag("retry_notes_input")
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(driverId.trim(), rescheduledDate.trim().ifEmpty { null }, notes.trim().ifEmpty { null }) },
+                enabled = driverId.isNotBlank(),
+                modifier = Modifier.testTag("confirm_retry_button")
+            ) {
+                Text("Confirm Retry")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
 

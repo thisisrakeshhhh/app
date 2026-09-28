@@ -806,3 +806,10 @@ data class DriverHeldStockDto(
     val totalFreeQuantity: Int = 0,
     val orderCount: Int = 0
 )
+
+@Serializable
+data class RetryDeliveryRequest(
+    val deliveryEmployeeId: String,
+    val rescheduledDate: String? = null,
+    val notes: String? = null
+)

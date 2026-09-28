@@ -241,6 +241,7 @@
     <string name="delivery_failed">डिलीवरी विफल</string>
     <string name="confirm_partial_delivery">आंशिक डिलीवरी की पुष्टि करें</string>
     <string name="confirm_failed_delivery">डिलीवरी विफलता दर्ज करें</string>
-    <string name="driver_held_returns">ड्राइवर के पास बचा सामान</string>
     <string name="return_acknowledged_success">वापसी दर्ज हुई और बिक्री योग्य स्टॉक गोदाम में जुड़ गया।</string>
+    <string name="schedule_retry_delivery">डिलीवरी पुनः प्रयास तय करें</string>
+    <string name="assign_driver_label">डिलीवरी एक्जीक्यूटिव आईडी *</string>
 </resources>

@@ -43,6 +43,12 @@ interface OrderRepository {
     ): Result<Unit>
     suspend fun getDeliveryExceptions(): Result<List<com.routeflow.app.core.network.dto.DeliveryExceptionDto>>
     suspend fun getDriverHeldStock(): Result<List<com.routeflow.app.core.network.dto.DriverHeldStockDto>>
+    suspend fun retryDelivery(
+        orderId: String,
+        deliveryEmployeeId: String,
+        rescheduledDate: String? = null,
+        notes: String? = null
+    ): Result<Unit>
     suspend fun updateItemPickingStatus(orderId: String, productId: String, isPicked: Boolean): Result<Unit>
     suspend fun syncPendingOrders(): Result<Int>
 }

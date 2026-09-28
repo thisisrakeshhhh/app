@@ -241,7 +241,8 @@
     <string name="delivery_failed">Delivery Failed</string>
     <string name="confirm_partial_delivery">Confirm Partial Delivery</string>
     <string name="confirm_failed_delivery">Confirm Delivery Failure</string>
-    <string name="driver_held_returns">Driver Held Returns</string>
     <string name="return_acknowledged_success">Return acknowledged and saleable stock restored.</string>
+    <string name="schedule_retry_delivery">Schedule Retry Delivery</string>
+    <string name="assign_driver_label">Assign Delivery Executive ID *</string>
 </resources>
 

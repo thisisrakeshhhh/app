@@ -202,4 +202,7 @@ interface RouteFlowApi {
 
     @GET("owner/driver-held-stock")
     suspend fun getDriverHeldStock(): List<com.routeflow.app.core.network.dto.DriverHeldStockDto>
+
+    @POST("orders/{id}/retry-delivery")
+    suspend fun retryDelivery(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.RetryDeliveryRequest): StatusResponse
 }

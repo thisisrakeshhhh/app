@@ -1147,6 +1147,12 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     );
   }
 
+  // Clear any existing undelivered_goods records for this order (e.g. from previous attempt)
+  statements.push(
+    c.env.DB.prepare("DELETE FROM undelivered_goods WHERE order_id = ? AND company_id = ? AND status IN ('HELD_BY_DRIVER', 'RESCHEDULED')")
+      .bind(orderId, user.company_id)
+  );
+
   // Update order_items & create undelivered goods records if any
   for (const item of processedItems) {
     statements.push(
@@ -1339,6 +1345,108 @@ app.post('/orders/:id/delivery-failed', authMiddleware, async (c) => {
     }
     return c.json({ error: e.message || 'Failed to update delivery failure' }, 400);
   }
+});
+
+app.post('/orders/:id/retry-delivery', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER' && user.role !== 'WAREHOUSE_MANAGER') {
+    return c.json({ error: 'Permission denied: owner or warehouse manager role required' }, 403);
+  }
+
+  const orderId = c.req.param('id');
+  const body = await c.req.json();
+  const deliveryEmployeeId = (body.deliveryEmployeeId || body.delivery_employee_id || '').trim();
+  const rescheduledDate = (body.rescheduledDate || body.rescheduled_date || null)?.trim() || null;
+  const notes = (body.notes || '').trim() || null;
+
+  if (!deliveryEmployeeId) {
+    return c.json({ error: 'Delivery executive ID is required for retry delivery' }, 400);
+  }
+
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ? AND company_id = ?')
+    .bind(orderId, user.company_id)
+    .first() as any;
+
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  if (order.status !== 'DELIVERY_FAILED') {
+    return c.json({ error: `Cannot schedule retry for order with status ${order.status}. Order must be in DELIVERY_FAILED status.` }, 400);
+  }
+
+  // Validate delivery employee
+  const driver = await c.env.DB.prepare('SELECT * FROM users WHERE id = ? AND company_id = ? AND role = ? AND is_active = 1')
+    .bind(deliveryEmployeeId, user.company_id, 'DELIVERY_EXECUTIVE')
+    .first() as any;
+
+  if (!driver) {
+    return c.json({ error: 'Assigned driver is not an active delivery executive' }, 400);
+  }
+
+  // Revalidate & reserve credit before any subsequent credit delivery
+  const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
+    .bind(order.retailer_id, user.company_id)
+    .first() as any;
+
+  if (!retailer) return c.json({ error: 'Retailer not found' }, 404);
+
+  const activeReservations = await c.env.DB.prepare(
+    'SELECT COALESCE(SUM(amount_paise), 0) AS total_res FROM credit_reservations WHERE retailer_id = ? AND company_id = ?'
+  ).bind(order.retailer_id, user.company_id).first() as any;
+
+  const currentExposure = retailer.outstanding_amount_paise + (activeReservations?.total_res || 0);
+  const maxAllowedCredit = retailer.credit_limit_paise + (order.credit_override_paise || 0);
+
+  if (currentExposure + order.total_amount_paise > maxAllowedCredit) {
+    return c.json({
+      error: `Credit limit exceeded for retry delivery: current exposure ${currentExposure} paise + order ${order.total_amount_paise} paise exceeds limit ${maxAllowedCredit} paise.`
+    }, 400);
+  }
+
+  const now = Date.now();
+  const statements = [
+    // 1. Order status update: DELIVERY_FAILED -> OUT_FOR_DELIVERY
+    c.env.DB.prepare(
+      `UPDATE orders
+       SET status = 'OUT_FOR_DELIVERY', delivery_employee_id = ?, rescheduled_date = ?,
+           delivery_failure_reason = NULL, delivery_notes = ?, updated_at = ?
+       WHERE id = ? AND company_id = ?`
+    ).bind(deliveryEmployeeId, rescheduledDate, notes, now, orderId, user.company_id),
+
+    // 2. Re-reserve credit exposure
+    c.env.DB.prepare(
+      `INSERT OR REPLACE INTO credit_reservations (order_id, company_id, retailer_id, amount_paise)
+       VALUES (?, ?, ?, ?)`
+    ).bind(orderId, user.company_id, order.retailer_id, order.total_amount_paise),
+
+    // 3. Update driver-held stock to assigned driver (transfer or retain custody)
+    c.env.DB.prepare(
+      `UPDATE undelivered_goods
+       SET driver_id = ?, status = 'HELD_BY_DRIVER', rescheduled_for = ?
+       WHERE order_id = ? AND company_id = ? AND status IN ('HELD_BY_DRIVER', 'RESCHEDULED')`
+    ).bind(deliveryEmployeeId, rescheduledDate, orderId, user.company_id),
+
+    // 4. Audit log
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(),
+      user.company_id,
+      user.sub,
+      'ORDER_RETRY_SCHEDULED',
+      orderId,
+      `Assigned Driver: ${driver.full_name} (${deliveryEmployeeId}), Rescheduled: ${rescheduledDate || 'Immediate'}`,
+      now
+    )
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({
+    success: true,
+    status: 'OUT_FOR_DELIVERY',
+    deliveryEmployeeId,
+    rescheduledDate,
+    message: 'Delivery retry successfully scheduled and assigned'
+  });
 });
 
 // ============================================================================

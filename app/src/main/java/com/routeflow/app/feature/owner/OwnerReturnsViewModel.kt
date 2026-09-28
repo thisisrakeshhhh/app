@@ -166,4 +166,22 @@ class OwnerReturnsViewModel @Inject constructor(
             )
         }
     }
+
+    fun scheduleRetry(orderId: String, driverId: String, date: String?, notes: String?) {
+        if (_uiState.value.processingId != null) return
+        _uiState.update { it.copy(processingId = orderId) }
+        viewModelScope.launch {
+            orderRepository.retryDelivery(orderId, driverId, date, notes).fold(
+                onSuccess = {
+                    _uiState.update { it.copy(processingId = null) }
+                    _eventFlow.emit(OwnerReturnEvent.Success("Delivery retry successfully scheduled"))
+                    loadExceptionsAndHeldStock()
+                },
+                onFailure = { err ->
+                    _uiState.update { it.copy(processingId = null) }
+                    _eventFlow.emit(OwnerReturnEvent.Error(err.message ?: "Failed to schedule retry"))
+                }
+            )
+        }
+    }
 }

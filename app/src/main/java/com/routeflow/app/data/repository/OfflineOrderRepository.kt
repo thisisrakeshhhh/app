@@ -200,7 +200,15 @@ class OfflineOrderRepository @Inject constructor(
     override suspend fun getDriverHeldStock(): Result<List<com.routeflow.app.core.network.dto.DriverHeldStockDto>> =
         Result.success(emptyList())
 
+    override suspend fun retryDelivery(
+        orderId: String,
+        deliveryEmployeeId: String,
+        rescheduledDate: String?,
+        notes: String?
+    ): Result<Unit> = Result.success(Unit)
+
     override suspend fun syncPendingOrders(): Result<Int> = Result.success(0)
 }
+
 
 

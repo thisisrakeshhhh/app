@@ -215,14 +215,19 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   const order=await c.env.DB.prepare('SELECT * FROM orders WHERE id=? AND company_id=?').bind(b.orderId,u.company_id).first<Row>();
   if(!order||!await retailerAllowed(c.env.DB,u,order.retailer_id)||(u.role==='DELIVERY_EXECUTIVE'&&order.delivery_employee_id!==u.sub))return bad(c,'Return access denied',403);
   const prior=await replay(c,'RETURN_CREATE',b);if(prior)return prior;
-  if(order.status!=='DELIVERED'||!Array.isArray(b.items)||!b.items.length||b.items.length>100)return bad(c,'Delivered order and return items required');
+  if(!['DELIVERED','PARTIALLY_DELIVERED'].includes(order.status)||!Array.isArray(b.items)||!b.items.length||b.items.length>100)return bad(c,'Delivered order and return items required');
   const id=`ret_${crypto.randomUUID()}`;const seen=new Set();
   const statements=[c.env.DB.prepare("INSERT INTO return_requests(id,company_id,order_id,retailer_id,created_by,status,created_at,notes) VALUES(?,?,?,?,?,'REQUESTED',?,?)").bind(id,u.company_id,order.id,order.retailer_id,u.sub,Date.now(),b.notes||null)];
   for(const item of b.items){
    item.productId = item.productId || item.product_id;
    item.requestedQuantity = item.requestedQuantity ?? item.requested_quantity;
    if(seen.has(item.productId)||!quantity(item.requestedQuantity)||!quantity(item.freeQuantity??0)||item.requestedQuantity+(item.freeQuantity??0)<=0)return bad(c,'Invalid or duplicate return quantities');seen.add(item.productId);
-   const line=await c.env.DB.prepare('SELECT price_paise_at_time FROM order_items WHERE order_id=? AND product_id=?').bind(order.id,item.productId).first<Row>();if(!line)return bad(c,'Product was not delivered');
+   const line=await c.env.DB.prepare('SELECT price_paise_at_time, delivered_quantity, delivered_free_quantity, quantity, free_quantity FROM order_items WHERE order_id=? AND product_id=?').bind(order.id,item.productId).first<Row>();if(!line)return bad(c,'Product was not delivered');
+   const maxPaid = order.status === 'PARTIALLY_DELIVERED' ? Number(line.delivered_quantity ?? 0) : Number(line.delivered_quantity || line.quantity);
+   const maxFree = order.status === 'PARTIALLY_DELIVERED' ? Number(line.delivered_free_quantity ?? 0) : Number(line.delivered_free_quantity || line.free_quantity);
+   if (item.requestedQuantity > maxPaid || (item.freeQuantity ?? 0) > maxFree) {
+     return bad(c, 'Return quantity exceeds delivered quantity for product ' + item.productId);
+   }
    statements.push(c.env.DB.prepare('INSERT INTO return_items(id,return_id,product_id,requested_quantity,unit_price_paise,free_quantity) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),id,item.productId,item.requestedQuantity,line.price_paise_at_time,item.freeQuantity??0));
   }
   statements.push(audit(c,'RETURN_REQUESTED',id,b));return commit(c,'RETURN_CREATE',b,statements,{success:true,returnId:id,status:'REQUESTED'});

@@ -379,6 +379,7 @@ class OfflineEventDependenciesTest {
         override suspend fun acknowledgeUndeliveredGoods(id: String, request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun getDeliveryExceptions(): List<com.routeflow.app.core.network.dto.DeliveryExceptionDto> = emptyList()
         override suspend fun getDriverHeldStock(): List<com.routeflow.app.core.network.dto.DriverHeldStockDto> = emptyList()
+        override suspend fun retryDelivery(id: String, request: com.routeflow.app.core.network.dto.RetryDeliveryRequest): StatusResponse = StatusResponse(success = true)
     }
 
     // Helper fake TokenStorage

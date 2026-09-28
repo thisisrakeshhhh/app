@@ -169,24 +169,72 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 ### B. Verification Evidence
 - **Backend API Integration Suite**: [API-tested]
   - `npm test` (`test/run-isolated.mjs` running `test/daily-cycle.test.mjs` and `test/integration.test.mjs`):
-  - **All 24 test suites pass (100% pass, 0 fail)**.
+  - **All 25 test suites pass (100% pass, 0 fail)** in 11.8s.
   - Subtest 19 verifies:
     * Order dispatch and stock reservation consumption.
-    * Partial delivery marking (shortage on paid items, refused free items) resulting in status `PARTIALLY_DELIVERED` and delivered invoice total.
+    * Item-level quantity invariant: delivered + undelivered quantities must exactly match dispatched quantities (for paid and free promotional units).
+    * Partial delivery marking (shortage on paid items, refused free items) resulting in status `PARTIALLY_DELIVERED` and delivered invoice total based strictly on delivered paid units.
     * Undelivered goods recorded as `HELD_BY_DRIVER`.
-    * Driver stock listing verification.
+    * Driver stock listing verification (`GET /owner/driver-held-stock`).
+    * Customer return limits: trigger `return_quantity_guard` permits returns on `PARTIALLY_DELIVERED` orders but rejects requests exceeding delivered quantities (`delivered_quantity`, `delivered_free_quantity`).
     * Delivery failure marking with status `DELIVERY_FAILED` and `SHOP_CLOSED` reason.
-    * Warehouse acknowledgement of driver-held goods with disposition split (saleable vs damaged).
-    * Saleable stock restoration and damage audit log creation in `stock_adjustments`.
-    * Owner delivery exceptions and driver held stock summaries.
-    * Credit exposure released cleanly without double adjustments.
+    * Warehouse acknowledgement of driver-held goods with disposition split (`saleableQuantity + damagedQuantity + shortageQuantity == total`).
+    * Saleable stock restoration (increases stock once under `stock_adjustments` with reason `RETURN_RESTOCK`).
+    * Damaged/short goods logged under `stock_adjustments` (`DAMAGE`) without causing a second warehouse stock deduction after dispatch.
+    * Duplicate delivery and warehouse acknowledgement idempotency: repeated requests cause no duplicate stock deductions or credit mutations.
+    * Owner delivery exceptions and driver held stock summaries (`GET /owner/delivery-exceptions`).
+    * Credit exposure released cleanly without double adjustments upon partial or failed delivery.
+
+---
+
+## 6. Milestone: Rescheduling & Retry Delivery Workflow
+
+### A. Business Scope & Rules
+1. **Full Rescheduling Lifecycle**:
+   - A date field alone is insufficient: failed deliveries (`DELIVERY_FAILED`) transition into an assigned retry via `POST /orders/:id/retry-delivery`.
+   - The order status transitions from `DELIVERY_FAILED` back to `OUT_FOR_DELIVERY` (permitted by updated `trg_order_status_transition_guard` trigger).
+2. **Driver Stock Custody Transfer**:
+   - When retried with a newly assigned delivery executive, `undelivered_goods` previously held by the original driver are transferred to the new driver (`driver_id` updated) and rescheduled date/notes recorded.
+   - Goods remain in transit under driver custody; no secondary deduction occurs at the warehouse.
+3. **Credit Limit Re-Validation & Re-Reservation**:
+   - Because delivery failure releases original credit reservations (`release_order_credit`), retrying delivery requires re-validating the retailer's credit exposure:
+     $$\text{outstanding} + \text{active reservations} + \text{order total} \le \text{credit limit}$$
+   - If the retailer has exhausted credit in the interim, the retry is rejected (`HTTP 409: Retailer credit limit exceeded`).
+   - If credit is available, a fresh credit reservation is inserted atomically into `order_credit_reservations`.
+4. **Retry Fulfillment & Single Invoice Invariant**:
+   - Upon successful delivery on retry (`POST /orders/:id/deliver`):
+     * Exactly one invoice is finalized in `invoices` matching delivered items.
+     * Credit reservation is released and moved to active accounts receivable.
+     * Driver-held stock in `undelivered_goods` is marked `RESOLVED` / cleared.
+     * Warehouse stock is not deducted a second time (deduction occurred only once at initial dispatch).
+
+### B. Verification Evidence
+- **Backend API Integration Suite**: [API-tested]
+  - `npm test` Subtest 20 verifies:
+    * Order with promotional scheme (10 paid + 1 free) dispatched; warehouse stock deducted once.
+    * Order marked `DELIVERY_FAILED`; credit reservation released cleanly.
+    * Credit exposure revalidation: artificial retailer debt injected; `POST /orders/:id/retry-delivery` rejected with 409 credit limit exceeded.
+    * Debt cleared; retry succeeds: assigned to new driver (`deliv_2`), driver-held stock transferred to `deliv_2`, status restored to `OUT_FOR_DELIVERY`, and fresh credit reservation created.
+    * Second delivery attempt succeeds: exactly 1 invoice created, driver-held stock cleared, warehouse stock reflects zero duplicate deductions.
 - **Android Unit Test Suite**: [unit-tested]
-  - `./gradlew testDebugUnitTest`: **24 tests passed, 0 failures, 100% success rate**.
-- **Android APK Build**: [source-inspected]
-  - `./gradlew assembleDebug`: `BUILD SUCCESSFUL in 1m 12s`.
-  - Android Jetpack Compose screens implemented:
-    * `DeliveryDetailScreen.kt`: Item-level delivery quantity adjustments, shortage/damage reason selection, OTP validation, and Delivery Failure dialog.
-    * `WarehouseReturnsScreen.kt`: Tabbed return management (Store Returns vs Driver Returns), return acknowledgement dialog with disposition breakdown.
-    * `OwnerReturnsScreen.kt`: Tabbed overview (Customer Returns vs Exceptions & Driver Held Stock).
-  - Bilingual string resources in `values/strings.xml` and `values-hi/strings.xml`.
+  - `./gradlew testDebugUnitTest`: **24 tests passed across 8 test classes (100% pass, 0 fail)**.
+  - Tests verify DTO serialization (`RouteFlowDtoTest`), offline repository caching (`OfflineOrderRepositoryTest`), account-scoped synchronization (`AccountScopedSyncTest`), and offline event dependency resolution (`OfflineEventDependenciesTest`).
+- **Android APK Build**: [debug-built]
+  - `./gradlew assembleDebug`: `BUILD SUCCESSFUL in 52s`.
+  - *Note*: Debug build verification only (`assembleDebug`). This does not constitute release verification (`assembleRelease` / minification / production signing).
+  - UI components verified in code:
+    * `OwnerReturnsScreen.kt`: Tabbed view for Delivery Exceptions, "Schedule Retry Delivery" CTA on `DELIVERY_FAILED` cards, and `RetryDeliveryDialog` with driver assignment, date, and notes.
+    * Bilingual resources in `values/strings.xml` and `values-hi/strings.xml` (`schedule_retry_delivery`, `assign_driver_label`, `rescheduled_date`).
+- **Physical Device Status**: [device-verification-blocked]
+  - Checked via `adb devices -l`: 0 devices attached (`List of devices attached` empty).
+  - Vivo 1935 (`4bc99b28`) was physically disconnected over USB during this run.
+  - Physical device verification for the retry UI interaction is deferred until the hardware connection is re-established.
+
+---
+
+## 7. Local vs. Remote Git Status
+- Branch: `main` (ahead of `origin/main` by 3 local stabilization commits).
+- Working tree contains verified backend endpoints, migrations, unit tests, and Android UI.
+- All temporary databases, debug dumps, and tokens kept strictly outside version control.
+
 

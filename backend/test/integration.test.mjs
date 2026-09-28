@@ -1675,5 +1675,238 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
       })
     });
     assert.equal(resAckDup.status, 400, 'Duplicate acknowledgement must be rejected');
+
+    // 13. Customer return on partial delivery: Limited to actual delivered quantity
+    // For partialOrdId: 3 delivered out of 5 ordered.
+    // Attempting to return 4 units of P1 must fail (exceeds delivered quantity 3)
+    const resReturnExceed = await fetch(`${BASE_URL}/returns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        orderId: partialOrdId,
+        items: [{ productId: 'P1', requestedQuantity: 4 }]
+      })
+    });
+    assert.equal(resReturnExceed.status, 400, 'Return exceeding delivered quantity on partial delivery must be rejected');
+
+    // Valid return of 2 units of P1 (within delivered 3)
+    const resReturnValid = await fetch(`${BASE_URL}/returns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        orderId: partialOrdId,
+        items: [{ productId: 'P1', requestedQuantity: 2 }]
+      })
+    });
+    assert.equal(resReturnValid.status, 200, 'Valid return within delivered quantity must succeed');
+
+    // Attempting to return 2 more units (2 already requested + 2 = 4 > 3 delivered) must fail
+    const resReturnExceed2 = await fetch(`${BASE_URL}/returns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        orderId: partialOrdId,
+        items: [{ productId: 'P1', requestedQuantity: 2 }]
+      })
+    });
+    assert.ok([400, 409].includes(resReturnExceed2.status), 'Cumulative return exceeding delivered quantity must be rejected');
+
+    // 14. Duplicate delivery call on already partially delivered order is idempotent
+    const resPartDelDup = await fetch(`${BASE_URL}/orders/${partialOrdId}/deliver`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
+      body: JSON.stringify({
+        paymentMethod: 'CREDIT',
+        recipientName: 'Ramesh Storekeeper'
+      })
+    });
+    assert.equal(resPartDelDup.status, 200);
+    const dupData = await resPartDelDup.json();
+    assert.equal(dupData.idempotent, true, 'Repeat delivery must be reported as idempotent');
+  });
+
+  test('20. Rescheduling and Retry Delivery Workflow: Credit revalidation, driver stock transfer & zero duplicate effects', async () => {
+    // 1. Initial product stock check
+    const pRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const pList = await pRes.json();
+    const p1StartStock = pList.find(p => p.id === 'P1').stockQuantity;
+
+    // Initial R2 balance check
+    const r2InitRes = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r2InitList = await r2InitRes.json();
+    const r2Init = r2InitList.find(r => r.id === 'R2');
+    const r2BalInit = r2Init.outstandingAmountPaise;
+
+    // 2. Submit order for R2: 10 paid + 1 free of P1 (450000 paise)
+    const retryOrdId = 'ord_retry_test_' + Date.now();
+    const orderRetryReq = {
+      order: {
+        id: retryOrdId,
+        retailerId: 'R2',
+        employeeId: 'user_sales',
+        status: 'SUBMITTED',
+        totalAmountPaise: 450000,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      },
+      items: [{
+        id: 'item_retry_1_' + Date.now(),
+        orderId: retryOrdId,
+        productId: 'P1',
+        quantity: 10,
+        freeQuantity: 1,
+        pricePaiseAtTime: 45000,
+        isPicked: false
+      }],
+      idempotencyKey: 'idemp_retry_order_' + Date.now()
+    };
+    const resCreate = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify(orderRetryReq)
+    });
+    assert.equal(resCreate.status, 200, 'Order creation for retry test should succeed');
+
+    // 3. Approve -> Pick -> Pack -> Dispatch to user_delivery
+    await fetch(`${BASE_URL}/orders/${retryOrdId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } });
+    await fetch(`${BASE_URL}/orders/${retryOrdId}/start-picking`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${retryOrdId}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ productId: 'P1', isPicked: true })
+    });
+    await fetch(`${BASE_URL}/orders/${retryOrdId}/pack`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+    await fetch(`${BASE_URL}/orders/${retryOrdId}/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({ deliveryEmployeeId: 'user_delivery' })
+    });
+
+    // Verify warehouse stock deducted by 11 (10 paid + 1 free)
+    const pAfterDispatchRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const pAfterDispatch = (await pAfterDispatchRes.json()).find(p => p.id === 'P1').stockQuantity;
+    assert.equal(pAfterDispatch, p1StartStock - 11, 'Warehouse stock must be deducted exactly once at dispatch');
+
+    // 4. Driver 1 reports delivery failure: SHOP_CLOSED
+    const resFail = await fetch(`${BASE_URL}/orders/${retryOrdId}/delivery-failed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deliveryToken}` },
+      body: JSON.stringify({
+        reason: 'SHOP_CLOSED',
+        rescheduledDate: '2026-10-02',
+        notes: 'Shop closed due to festival'
+      })
+    });
+    assert.equal(resFail.status, 200);
+
+    // Verify driver 1 holds undelivered stock (10 paid + 1 free)
+    const resHeldBefore = await fetch(`${BASE_URL}/warehouse/undelivered-goods?driverId=user_delivery&status=HELD_BY_DRIVER`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    const heldListBefore = await resHeldBefore.json();
+    const heldP1 = heldListBefore.find(u => u.orderId === retryOrdId);
+    assert.ok(heldP1, 'Undelivered goods record must exist for driver 1');
+    assert.equal(heldP1.undeliveredPaidQuantity, 10);
+    assert.equal(heldP1.undeliveredFreeQuantity, 1);
+
+    // 5. Test Credit Limit check during retry scheduling:
+    // Temporarily reduce R2 credit limit to 1000 paise so exposure would be exceeded
+    await fetch(`${BASE_URL}/retailers/R2`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ creditLimitPaise: 1000 })
+    });
+
+    // Attempt to schedule retry -> MUST FAIL with 400 (credit limit exceeded)
+    const resRetryBlocked = await fetch(`${BASE_URL}/orders/${retryOrdId}/retry-delivery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        deliveryEmployeeId: 'user_delivery_2',
+        rescheduledDate: '2026-10-02',
+        notes: 'Retry attempt re-assigned'
+      })
+    });
+    assert.equal(resRetryBlocked.status, 400, 'Retry must be blocked if credit limit is exceeded');
+
+    // Restore R2 credit limit to 10,000,000 paise (1 lakh)
+    await fetch(`${BASE_URL}/retailers/R2`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ creditLimitPaise: 10000000 })
+    });
+
+    // 6. Schedule retry and reassign to user_delivery_2
+    const resRetrySuccess = await fetch(`${BASE_URL}/orders/${retryOrdId}/retry-delivery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        deliveryEmployeeId: 'user_delivery_2',
+        rescheduledDate: '2026-10-02',
+        notes: 'Retry attempt re-assigned to delivery executive 2'
+      })
+    });
+    assert.equal(resRetrySuccess.status, 200, 'Retry scheduling must succeed');
+    const retryData = await resRetrySuccess.json();
+    assert.equal(retryData.status, 'OUT_FOR_DELIVERY');
+
+    // Verify driver-held stock was transferred from user_delivery to user_delivery_2
+    const resHeldDriver2 = await fetch(`${BASE_URL}/warehouse/undelivered-goods?driverId=user_delivery_2&status=HELD_BY_DRIVER`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    const heldListDriver2 = await resHeldDriver2.json();
+    const heldP1Driver2 = heldListDriver2.find(u => u.orderId === retryOrdId);
+    assert.ok(heldP1Driver2, 'Stock custody must be transferred to user_delivery_2');
+    assert.equal(heldP1Driver2.undeliveredPaidQuantity, 10);
+    assert.equal(heldP1Driver2.undeliveredFreeQuantity, 1);
+
+    // 7. Complete delivery by user_delivery_2
+    const resDeliverRetry = await fetch(`${BASE_URL}/orders/${retryOrdId}/deliver`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${delivery2Token}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
+      body: JSON.stringify({
+        paymentMethod: 'CREDIT',
+        recipientName: 'Gopal Store Owner',
+        items: [{
+          productId: 'P1',
+          deliveredQuantity: 10,
+          deliveredFreeQuantity: 1,
+          undeliveredQuantity: 0,
+          undeliveredFreeQuantity: 0,
+          undeliveredReason: null
+        }]
+      })
+    });
+    assert.equal(resDeliverRetry.status, 200, 'Delivery completion on retry must succeed');
+    const delRetryData = await resDeliverRetry.json();
+    assert.equal(delRetryData.status, 'DELIVERED');
+    assert.equal(delRetryData.deliveredAmountPaise, 450000);
+
+    // 8. Verify Financials & Stock:
+    // A. Retailer balance updated by delivered amount (450000 paise) exactly once
+    const r2AfterRetryRes = await fetch(`${BASE_URL}/retailers`, { headers: { Authorization: `Bearer ${ownerToken}` } });
+    const r2AfterRetry = (await r2AfterRetryRes.json()).find(r => r.id === 'R2');
+    assert.equal(r2AfterRetry.outstandingAmountPaise, r2BalInit + 450000, 'Retailer balance must increase by invoice amount');
+
+    // B. Warehouse stock was NOT deducted again (still p1StartStock - 11)
+    const pAfterFinalRes = await fetch(`${BASE_URL}/products`, { headers: { Authorization: `Bearer ${warehouseToken}` } });
+    const pAfterFinal = (await pAfterFinalRes.json()).find(p => p.id === 'P1').stockQuantity;
+    assert.equal(pAfterFinal, p1StartStock - 11, 'Warehouse stock must not be deducted a second time on retry delivery');
+
+    // C. Driver-held stock for this order is now 0 (resolved)
+    const resHeldFinal = await fetch(`${BASE_URL}/warehouse/undelivered-goods?status=HELD_BY_DRIVER`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    const heldListFinal = await resHeldFinal.json();
+    const heldOrderRetry = heldListFinal.find(u => u.orderId === retryOrdId);
+    assert.equal(heldOrderRetry, undefined, 'Driver-held stock must be cleared upon successful retry delivery');
   });
 });

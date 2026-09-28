@@ -260,6 +260,30 @@ class NetworkOrderRepository @Inject constructor(
         Result.failure(e)
     }
 
+    override suspend fun retryDelivery(
+        orderId: String,
+        deliveryEmployeeId: String,
+        rescheduledDate: String?,
+        notes: String?
+    ): Result<Unit> = try {
+        val response = api.retryDelivery(
+            orderId,
+            com.routeflow.app.core.network.dto.RetryDeliveryRequest(
+                deliveryEmployeeId = deliveryEmployeeId,
+                rescheduledDate = rescheduledDate,
+                notes = notes
+            )
+        )
+        if (response.success) {
+            database.orderDao().updateOrderStatus(orderId, "OUT_FOR_DELIVERY", System.currentTimeMillis())
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception(response.message ?: "Failed to schedule retry delivery"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     override suspend fun syncPendingOrders(): Result<Int> = try {
         val currentUserId = tokenStorage.getUserId() ?: ""
         val currentCompanyId = tokenStorage.getCompanyId() ?: ""
