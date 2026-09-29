@@ -1676,6 +1676,17 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     });
     assert.equal(resAckDup.status, 400, 'Duplicate acknowledgement must be rejected');
 
+    // 12b. Attempting retry delivery on goods already returned to warehouse must be rejected with 409
+    const resRetryReturned = await fetch(`${BASE_URL}/orders/${failOrdId}/retry-delivery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
+      body: JSON.stringify({
+        deliveryEmployeeId: 'user_delivery',
+        rescheduledDate: '2026-10-02'
+      })
+    });
+    assert.equal(resRetryReturned.status, 409, 'Retry must not reuse goods already returned to warehouse');
+
     // 13. Customer return on partial delivery: Limited to actual delivered quantity
     // For partialOrdId: 3 delivered out of 5 ordered.
     // Attempting to return 4 units of P1 must fail (exceeds delivered quantity 3)
@@ -1863,6 +1874,28 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     assert.ok(heldP1Driver2, 'Stock custody must be transferred to user_delivery_2');
     assert.equal(heldP1Driver2.undeliveredPaidQuantity, 10);
     assert.equal(heldP1Driver2.undeliveredFreeQuantity, 1);
+
+    // 6b. Previous driver (user_delivery) must be rejected with 403 when trying to act on reassigned order
+    const resPrevDriverBlocked = await fetch(`${BASE_URL}/orders/${retryOrdId}/deliver`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${deliveryToken}`,
+        'X-Test-Bypass-Delivery-Otp': 'true'
+      },
+      body: JSON.stringify({
+        paymentMethod: 'CREDIT',
+        recipientName: 'Previous Driver Attempt',
+        items: [{
+          productId: 'P1',
+          deliveredQuantity: 10,
+          deliveredFreeQuantity: 1,
+          undeliveredQuantity: 0,
+          undeliveredFreeQuantity: 0
+        }]
+      })
+    });
+    assert.equal(resPrevDriverBlocked.status, 403, 'Previous driver must be forbidden from delivering reassigned order');
 
     // 7. Complete delivery by user_delivery_2
     const resDeliverRetry = await fetch(`${BASE_URL}/orders/${retryOrdId}/deliver`, {

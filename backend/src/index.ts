@@ -1382,6 +1382,17 @@ app.post('/orders/:id/retry-delivery', authMiddleware, async (c) => {
     return c.json({ error: 'Assigned driver is not an active delivery executive' }, 400);
   }
 
+  // Security & inventory integrity: Retry cannot reuse goods already returned to warehouse
+  const returnedGoods = await c.env.DB.prepare(
+    "SELECT 1 FROM undelivered_goods WHERE order_id = ? AND company_id = ? AND status = 'RETURNED_TO_WAREHOUSE'"
+  ).bind(orderId, user.company_id).first();
+
+  if (returnedGoods) {
+    return c.json({
+      error: 'Cannot retry delivery: Undelivered goods have already been returned to warehouse stock. Order cannot be redispatched from driver custody.'
+    }, 409);
+  }
+
   // Revalidate & reserve credit before any subsequent credit delivery
   const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
     .bind(order.retailer_id, user.company_id)

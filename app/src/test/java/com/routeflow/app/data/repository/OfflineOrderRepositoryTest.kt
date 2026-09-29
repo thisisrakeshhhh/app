@@ -78,4 +78,34 @@ class OfflineOrderRepositoryTest {
         val product = database.productDao().getAllProducts().first().first()
         assertEquals(5, product.stockQuantity) // 10 - 5 = 5
     }
+
+    @Test
+    fun retryDelivery_rejectsLocalOnlySuccess() = runBlocking {
+        val orderId = "O_RETRY"
+        val order = OrderEntity(orderId, "R1", "E1", "DELIVERY_FAILED", 1000, 0, 0)
+        val items = listOf(OrderItemEntity("I_RETRY", orderId, "P1", 2, 0, 1000))
+        repository.createOrder(order, items)
+
+        val result = repository.retryDelivery(orderId, "E_DELIV_2", "2026-09-29", "Rescheduled retry")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is UnsupportedOperationException)
+        assertTrue(result.exceptionOrNull()?.message?.contains("active server connection") == true)
+
+        val updatedOrder = database.orderDao().getOrderById(orderId).first()
+        assertEquals("DELIVERY_FAILED", updatedOrder?.status)
+    }
+
+    @Test
+    fun serverOnlyOperations_returnClearUnsupportedErrors() = runBlocking {
+        val ackResult = repository.acknowledgeUndeliveredGoods(
+            "U1",
+            com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest(saleableQuantity = 1)
+        )
+        assertTrue(ackResult.isFailure)
+        assertTrue(ackResult.exceptionOrNull() is UnsupportedOperationException)
+
+        val goodsResult = repository.getUndeliveredGoods("HELD_BY_DRIVER")
+        assertTrue(goodsResult.isFailure)
+        assertTrue(goodsResult.exceptionOrNull() is UnsupportedOperationException)
+    }
 }

@@ -187,25 +187,29 @@ class OfflineOrderRepository @Inject constructor(
     }
 
     override suspend fun getUndeliveredGoods(status: String?): Result<List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto>> =
-        Result.success(emptyList())
+        Result.failure(UnsupportedOperationException("Undelivered goods tracking requires an active server connection."))
 
     override suspend fun acknowledgeUndeliveredGoods(
         id: String,
         request: com.routeflow.app.core.network.dto.AcknowledgeUndeliveredRequest
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> = Result.failure(
+        UnsupportedOperationException("Warehouse return acknowledgement requires an active server connection to adjust inventory.")
+    )
 
     override suspend fun getDeliveryExceptions(): Result<List<com.routeflow.app.core.network.dto.DeliveryExceptionDto>> =
-        Result.success(emptyList())
+        Result.failure(UnsupportedOperationException("Delivery exception reports require an active server connection."))
 
     override suspend fun getDriverHeldStock(): Result<List<com.routeflow.app.core.network.dto.DriverHeldStockDto>> =
-        Result.success(emptyList())
+        Result.failure(UnsupportedOperationException("Driver held stock summary requires an active server connection."))
 
     override suspend fun retryDelivery(
         orderId: String,
         deliveryEmployeeId: String,
         rescheduledDate: String?,
         notes: String?
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> = Result.failure(
+        UnsupportedOperationException("Scheduling a delivery retry requires an active server connection to revalidate credit exposure and driver stock transfer.")
+    )
 
     override suspend fun syncPendingOrders(): Result<Int> = Result.success(0)
 }

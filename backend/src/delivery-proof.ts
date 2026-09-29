@@ -19,12 +19,12 @@ export async function requestOtp(c:Context<any>){
  const retailer = await db.prepare('SELECT name, contact_number FROM retailers WHERE id = ?').bind(order.retailer_id).first<any>();
  const contact = retailer?.contact_number || '';
  const masked = contact.length >= 4 ? '*'.repeat(Math.max(0, contact.length - 4)) + contact.slice(-4) : 'registered mobile';
- const msg = simulation
-  ? `Development simulation: no SMS sent (Delivery OTP sent via SMS simulated for ${retailer?.name || 'Retailer'} ${masked})`
+ const buildMsg = (otpVal: string) => simulation
+  ? `Simulated SMS — demo only. (Delivery OTP sent via SMS simulated: ${otpVal}; no SMS sent to ${retailer?.name || 'Retailer'} ${masked})`
   : `Delivery OTP sent via SMS to ${retailer?.name || 'Retailer'} (${masked})`;
 
  if(old&&['SENT','SIMULATED'].includes(old.send_status)&&old.expires_at>now&&old.attempt_count<old.max_attempts&&!old.is_used){
-  return c.json({success:true,deliveryStatus:old.send_status,message:msg,expiresAt:old.expires_at,...(allowDebug?{debugOtp:old.otp_code}:{})});
+  return c.json({success:true,deliveryStatus:old.send_status,message:buildMsg(old.otp_code),expiresAt:old.expires_at,...(allowDebug?{debugOtp:old.otp_code}:{})});
  }
  if(old&&now-old.created_at<60000)return c.json({error:'Wait before requesting another OTP'},429);
  const otp=secureOtp(),expiresAt=now+5*60000;
@@ -45,6 +45,6 @@ export async function requestOtp(c:Context<any>){
  }
  const status=simulation?'SIMULATED':'SENT';
  await db.prepare('UPDATE delivery_otps SET send_status=?,provider_id=? WHERE order_id=? AND otp_code=?').bind(status,providerId,id,otp).run();
- return c.json({success:true,deliveryStatus:status,message:msg,expiresAt,...(allowDebug?{debugOtp:otp}:{})});
+ return c.json({success:true,deliveryStatus:status,message:buildMsg(otp),expiresAt,...(allowDebug?{debugOtp:otp}:{})});
 }
 

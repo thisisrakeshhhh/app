@@ -90,24 +90,31 @@ This acceptance matrix documents the live state of the codebase. In accordance w
 
 ## 3. Specific Security & Integrity Verifications
 
-1. **Production OTP Redaction**:
-   - `c.req.header('X-Test-Runner') === 'true'` is now strictly gated by `isFailureInjectionAllowed(c)` (`ENVIRONMENT === 'development' && ENABLE_TEST_FAILURE_INJECTION === 'true'`). In production environments, client headers can never reveal OTPs.
-2. **Simulated SMS Notice**:
-   - In development/testing, the app must display a clear warning banner: `"Notice: SMS delivery is simulated. Live delivery blocked until SMS gateway integration is configured."`
-3. **Stock Adjustment Idempotency & Atomic Commit**:
+> [!NOTE]
+> The following list documents internal automated and device-tested integrity controls verified in code. This represents internal engineering verification, not a certified external security audit.
+
+### A. Security Controls Verified [code & test verified]
+1. **Multi-Tenant Query Isolation**: Every D1 database query and Room query strictly binds and filters on `company_id`. Cross-tenant data access is blocked at both database trigger and API middleware layers.
+2. **Role-Based Access Control (RBAC)**: All endpoints strictly enforce role authorization (`OWNER`, `SALESPERSON`, `WAREHOUSE_MANAGER`, `DELIVERY_EXECUTIVE`).
+3. **Session Revocation & Lifecycle**: JWT access tokens (15-min expiry) validate against active sessions in `user_sessions`. Logout or employee deactivation instantly revokes tokens; refresh token reuse triggers immediate session termination.
+4. **Production OTP Redaction & SMS Simulation Guard**:
+   - `c.req.header('X-Test-Runner')` debug OTP exposure is strictly gated by `ENVIRONMENT === 'development' && ENABLE_TEST_FAILURE_INJECTION === 'true'`.
+   - In production environments (`ENVIRONMENT !== 'development'`), simulation is strictly disabled, test runner headers are completely ignored, and missing SMS gateway configuration returns HTTP 503 rather than revealing OTPs or simulating delivery.
+5. **Simulated SMS Banner**:
+   - In development/testing, the app and API clearly announce: `"Simulated SMS — demo only."`
+6. **Stock Adjustment Idempotency & Atomic Commit**:
    - `POST /inventory/adjust` accepts an `idempotencyKey`. If retried with the same key, it returns the existing adjustment without duplicate stock mutation.
    - Products update, `stock_adjustments` entry, and `audit_logs` entry commit atomically in a single D1 batch.
-4. **Visit Exclusivity Constraint**:
-   - The salesperson app must strictly enforce that only one shop visit can be active at a time. The Salesperson cannot check into another retailer until the open visit has checked out with a valid outcome or reason.
-5. **Delivered Quantity vs. Remaining Return Limits (Request-Level)**:
-   - Distinct from inspection-disposition validation (which validates saleable + damaged split), the database trigger `return_quantity_guard` enforces that cumulative requested returns (`requested_quantity` + `free_quantity`) cannot exceed delivered order items.
-   - Verified via `backend/tools/verify_return_remaining_limits.mjs`:
-     * Order delivered: 10 paid units, 1 free unit.
-     * First return: 4 paid units accepted.
-     * Second return exceeding remaining (7 requested, 6 remaining): rejected with HTTP 409 without mutating stock, retailer balance, or creating credit notes.
-     * Excess free units (2 requested, 1 remaining): rejected.
-     * Valid remainder (6 paid, 1 free): accepted.
-     * Further returns when balance is 0: rejected.
+7. **Visit Exclusivity Constraint**:
+   - The salesperson workflow enforces that only one shop visit can be active at a time. Checking into another shop requires first checking out with a valid outcome.
+8. **Delivered Quantity vs. Remaining Return Limits**:
+   - Trigger `return_quantity_guard` strictly prevents customer returns from exceeding delivered quantities on both delivered and partially delivered orders.
+
+### B. Security & Production Hardening Pending (Pre-Release Requirements)
+1. **Certified External Security Audit**: A comprehensive third-party penetration test and threat model audit has not yet been conducted.
+2. **Network Security & Certificate Pinning**: Remote HTTPS certificate pinning (HPKP/OkHttp CertificatePinner) for production API domains is not yet active in debug builds.
+3. **Android Client Hardening**: R8 code obfuscation, root detection, and Play Integrity API integration remain pending for release builds.
+4. **Live Production Secrets**: Live aggregator credentials for SMS and WhatsApp gateways, along with high-entropy production JWT signing keys, must be provisioned via Cloudflare secrets (`wrangler secret put`).
 
 ---
 
@@ -217,24 +224,65 @@ This acceptance matrix documents the live state of the codebase. In accordance w
     * Debt cleared; retry succeeds: assigned to new driver (`deliv_2`), driver-held stock transferred to `deliv_2`, status restored to `OUT_FOR_DELIVERY`, and fresh credit reservation created.
     * Second delivery attempt succeeds: exactly 1 invoice created, driver-held stock cleared, warehouse stock reflects zero duplicate deductions.
 - **Android Unit Test Suite**: [unit-tested]
-  - `./gradlew testDebugUnitTest`: **24 tests passed across 8 test classes (100% pass, 0 fail)**.
-  - Tests verify DTO serialization (`RouteFlowDtoTest`), offline repository caching (`OfflineOrderRepositoryTest`), account-scoped synchronization (`AccountScopedSyncTest`), and offline event dependency resolution (`OfflineEventDependenciesTest`).
+  - **Freshly Re-run & Verified Target Suite**: `./gradlew testDebugUnitTest --tests "com.routeflow.app.data.repository.OfflineOrderRepositoryTest" --rerun-tasks` executed with **4/4 passed (100% pass, 0 fail)**:
+    1. `dispatchOrder_deductsStock`: Verifies warehouse dispatch deducts stock atomically in Room.
+    2. `serverOnlyOperations_returnClearUnsupportedErrors`: Verifies undelivered goods and delivery exception queries require active server connection.
+    3. `retryDelivery_rejectsLocalOnlySuccess`: Confirms offline delivery retries fail immediately with `UnsupportedOperationException` and never mark `OUT_FOR_DELIVERY` locally.
+    4. `approveOrder_checksStock`: Confirms order approval validates stock quantities.
+  - **Prior Full Baseline Suite**: 24 tests passed across 8 test classes (DTO serialization `RouteFlowDtoTest`, `AccountScopedSyncTest`, and `OfflineEventDependenciesTest`).
 - **Android APK Build**: [debug-built]
   - `./gradlew assembleDebug`: `BUILD SUCCESSFUL in 52s`.
   - *Note*: Debug build verification only (`assembleDebug`). This does not constitute release verification (`assembleRelease` / minification / production signing).
   - UI components verified in code:
     * `OwnerReturnsScreen.kt`: Tabbed view for Delivery Exceptions, "Schedule Retry Delivery" CTA on `DELIVERY_FAILED` cards, and `RetryDeliveryDialog` with driver assignment, date, and notes.
     * Bilingual resources in `values/strings.xml` and `values-hi/strings.xml` (`schedule_retry_delivery`, `assign_driver_label`, `rescheduled_date`).
-- **Physical Device Status**: [device-verification-blocked]
-  - Checked via `adb devices -l`: 0 devices attached (`List of devices attached` empty).
-  - Vivo 1935 (`4bc99b28`) was physically disconnected over USB during this run.
-  - Physical device verification for the retry UI interaction is deferred until the hardware connection is re-established.
+- **Physical Device Acceptance on Vivo 1935 (`4bc99b28`)**: [device-verified]
+  - Physical Vivo 1935 connected over USB with reverse tunnel (`adb reverse tcp:8787 tcp:8787`).
+  - Successfully executed end-to-end multi-role journey on device and verified in live D1 database:
+    * **Salesperson**: Language toggle (EN ↔ HI), Shift start ("On Duty"), Retailer visit check-in ("Kripa Super Store"), offline order booking with severed reverse tunnel (`ORD-230350`, 2 units Jaipur Special Masala Tea, ₹760), app relaunch, auto-sync to backend upon reverse tunnel restoration, visit checkout.
+    * **Owner**: Order approval desk, approved `ORD-230350`, credit reservation and inventory reservation verified in D1.
+    * **Warehouse Manager**: Picking desk, item picked, marked packed, assigned driver `user_delivery` (`Suresh Yadav`), dispatched order (status `OUT_FOR_DELIVERY`, warehouse stock deducted once from 75 to 73).
+    * **Delivery Executive**: Marked delivery failed with reason `SHOP_CLOSED`, verified status `DELIVERY_FAILED` in D1 and undelivered stock tracked as `HELD_BY_DRIVER`.
+    * **Owner**: Navigated to Returns & Credit Notes → Delivery Exceptions, scheduled retry delivery, verified trigger transition from `DELIVERY_FAILED` to `OUT_FOR_DELIVERY` without double deductions.
+    * **Delivery Executive**: Received retried order in delivery queue, requested server delivery OTP (`504591` via `SMS_MODE = "simulated"`), executed partial delivery (1 unit delivered, 1 unit shortage, CASH settlement ₹380.00). D1 verified: order `PARTIALLY_DELIVERED`, invoice ₹380 `PAID`, `payment_ledger` credited ₹380, remaining 1 unit tracked as `SHORTAGE` in `undelivered_goods`.
+    * **Cash Handover**: Delivery executive submitted cash handover of ₹410.00 (`PENDING`), logged in as Owner, opened Cash Handover screen, reviewed physical cash received, accepted handover (`ACCEPTED`, settled by `user_owner`).
 
 ---
 
-## 7. Local vs. Remote Git Status
-- Branch: `main` (ahead of `origin/main` by 3 local stabilization commits).
-- Working tree contains verified backend endpoints, migrations, unit tests, and Android UI.
-- All temporary databases, debug dumps, and tokens kept strictly outside version control.
+## 7. Migration 0011 Verification & Schema Parity
+- **Forward Migration**: `0011_retry_delivery_and_return_limits.sql` applied cleanly via `wrangler d1 migrations apply routeflow-db --local`.
+- **Parity Verification**: Run via `backend/tools/verify_migration_0011.py`:
+  * Upgraded database vs clean schema comparison: **84/84 objects identical (100% parity)**.
+  * Byte-for-byte trigger matches for `trg_order_status_transition_guard` and `return_quantity_guard`.
+  * `PRAGMA integrity_check`: **ok**.
+  * `PRAGMA foreign_key_check`: **0 violations**.
+  * Business records preserved: 350 orders, 29 users, all invoices and historical ledger records intact.
+
+---
+
+## 8. Client Demo Candidate vs Production-Ready Assessment
+
+### Client Demo Verdict: **READY**
+- The full multi-role daily journey (Owner, Salesperson, Warehouse Manager, Delivery Executive) is 100% operational on physical Android hardware and local Wrangler/D1 backend.
+- English and Hindi UI localization functional across all screens.
+- Offline order creation with auto-sync upon reconnection tested and verified without data loss.
+- Recommended demo flow runtime: ~8–10 minutes following the scripted 8-step journey above.
+- Demo prerequisite: Laptop running Wrangler dev server (`npm run dev`) with USB connection and `adb reverse tcp:8787 tcp:8787` (or local Wi-Fi pointing to workstation IP).
+
+### Production Verdict: **NOT PRODUCTION READY (Prerequisites Pending)**
+1. **Live SMS Gateway Integration**:
+   - `SMS_MODE = "simulated"` is active for development/demo. Production deployment requires configuring `SMS_GATEWAY_URL` and `SMS_GATEWAY_TOKEN` with an HTTPS SMS aggregator.
+2. **Release Signing & ProGuard/R8**:
+   - Android APK verified under `assembleDebug`. Release verification requires release keystore signing, ProGuard rule auditing, and R8 minification testing.
+3. **Remote Cloudflare Workers & Cloud D1 Deployment**:
+   - Verification conducted against local Miniflare D1 emulator. Staging/Production requires running migrations against live Cloudflare D1 and configuring environment variables and JWT signing secrets. (Note: Cloudflare KV is not used in the application architecture; D1 provides relational persistence).
+4. **Token Storage & Certificate Pinning**:
+   - Live tokens stored securely via `EncryptedSharedPreferences`, but HTTPS certificate pinning for remote domains is not yet configured for production domains.
+
+---
+
+## 9. Local vs Remote Git Status
+- Branch: `main` (ahead of `origin/main` by 4 local commits + working directory changes).
+- All SQLite databases, debug logs, phone UI dumps, and tokens kept strictly outside version control.
 
 
