@@ -90,11 +90,19 @@ class LoginViewModel @Inject constructor(
                         val serverRetailers = api.getRetailers().map { it.toEntity() }
                         val serverProducts = api.getProducts().map { it.toEntity() }
                         val serverOrders = api.getOrders()
+                        val orderEntities = serverOrders.map { it.toEntity() }
 
-                        // Fetch all order details BEFORE opening Room transaction, ensuring no silent failures
-                        val orderItemsList = serverOrders.map { orderDto ->
-                            val details = api.getOrderDetails(orderDto.id)
-                            orderDto.toEntity() to details.items.map { it.toEntity() }
+                        // Bounded order item sync: prioritize active workflow orders + most recent 20 orders
+                        val activeOrders = serverOrders.filter { it.status !in listOf("DELIVERED", "REJECTED", "CANCELLED") }
+                        val recentOrders = serverOrders.sortedByDescending { it.createdAt }.take(20)
+                        val targetOrders = (activeOrders + recentOrders).distinctBy { it.id }.take(30)
+
+                        val itemsToInsert = targetOrders.flatMap { orderDto ->
+                            try {
+                                api.getOrderDetails(orderDto.id).items.map { it.toEntity() }
+                            } catch (_: Exception) {
+                                emptyList()
+                            }
                         }
 
                         // Verify account context has not switched mid-fetch before writing to Room
@@ -110,11 +118,9 @@ class LoginViewModel @Inject constructor(
 
                             database.retailerDao().insertRetailers(serverRetailers)
                             database.productDao().insertProducts(serverProducts)
-
-                            // Restore both order headers and order items
-                            orderItemsList.forEach { (orderEntity, itemEntities) ->
-                                database.orderDao().insertOrder(orderEntity)
-                                database.orderDao().insertOrderItems(itemEntities)
+                            database.orderDao().insertOrders(orderEntities)
+                            if (itemsToInsert.isNotEmpty()) {
+                                database.orderDao().insertOrderItems(itemsToInsert)
                             }
                         }
                     } catch (syncEx: Exception) {

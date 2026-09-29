@@ -32,7 +32,7 @@ class OwnerViewModel @Inject constructor(
     val state: StateFlow<OwnerHomeState> = combine(
         orderRepository.getAllOrders(),
         productRepository.getAllProducts(),
-        retailerRepository.getRetailersByBeat("BEAT-04")
+        retailerRepository.getAllRetailers()
     ) { orders, products, retailers ->
         val todayStart = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)

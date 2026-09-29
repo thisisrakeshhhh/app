@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,7 +49,7 @@ fun OrderBookingScreen(
     if (state.isLoading) {
         LoadingState(Modifier.fillMaxSize())
     } else {
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().imePadding()) {
             SearchBar(state.searchQuery, onSearchChange)
             CategoryFilter(state.categories, state.selectedCategory, onCategorySelect)
             

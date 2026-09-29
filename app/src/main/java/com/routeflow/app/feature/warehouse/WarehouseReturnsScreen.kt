@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -329,7 +331,10 @@ private fun AcknowledgeReturnDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.acknowledge_return), fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text("Product: ${item.productName ?: item.productId}", fontWeight = FontWeight.SemiBold)
                 Text("Total Undelivered: $totalQty units", style = MaterialTheme.typography.bodyMedium, color = RFColors.Error)
                 Text("Disposition must sum to total undelivered units:", style = MaterialTheme.typography.bodySmall)
@@ -461,7 +466,10 @@ private fun InspectionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Inspect Return", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text("Retailer: ${returnRequest.retailer_name ?: returnRequest.retailer_id}", fontWeight = FontWeight.SemiBold)
                 Text("For each item, enter saleable and damaged quantities:", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
 

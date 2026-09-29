@@ -174,13 +174,19 @@ fun RouteFlowApp(
 
     var isDemoMode by remember { mutableStateOf(false) }
     val startRoute = if (isDemoMode) DEMO_LOGIN_ROUTE else REAL_LOGIN_ROUTE
+    val initialRoute = remember {
+        destination?.route ?: startRoute
+    }
 
     // Centralized state-driven navigation
     LaunchedEffect(employee) {
         if (employee == null) {
-            navController.navigate(startRoute) {
-                popUpTo(startRoute) { inclusive = true }
-                launchSingleTop = true
+            val loginRoute = if (isDemoMode) DEMO_LOGIN_ROUTE else REAL_LOGIN_ROUTE
+            if (navController.currentDestination?.route != loginRoute) {
+                navController.navigate(loginRoute) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }
@@ -189,9 +195,9 @@ fun RouteFlowApp(
         val targetRoute = destination?.route
         if (targetRoute != null) {
             val curr = navController.currentDestination?.route
-            if (curr == DEMO_LOGIN_ROUTE || curr == REAL_LOGIN_ROUTE || curr == null) {
+            if (curr != targetRoute) {
                 navController.navigate(targetRoute) {
-                    popUpTo(startRoute) { inclusive = true }
+                    popUpTo(0) { inclusive = true }
                     launchSingleTop = true
                 }
             }
@@ -320,7 +326,7 @@ fun RouteFlowApp(
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = REAL_LOGIN_ROUTE,
+            startDestination = initialRoute,
             modifier = Modifier.fillMaxSize().padding(if (employee != null) padding else PaddingValues(0.dp))
         ) {
             composable(REAL_LOGIN_ROUTE) {
