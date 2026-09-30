@@ -47,3 +47,5 @@ node_modules/
 *.sqlite-shm
 *.db
 current_ui.xml
+
+backend/tmp/
