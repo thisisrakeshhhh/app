@@ -212,7 +212,11 @@ class OfflineOrderRepository @Inject constructor(
     )
 
     override suspend fun syncPendingOrders(): Result<Int> = Result.success(0)
-}
 
+    override suspend fun fetchAndCacheOrderItems(orderId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException(
+            "Order details not downloaded — connect to the server to fetch item details."
+        ))
+}
 
 

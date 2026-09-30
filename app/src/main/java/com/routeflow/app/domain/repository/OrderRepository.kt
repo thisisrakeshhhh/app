@@ -51,4 +51,12 @@ interface OrderRepository {
     ): Result<Unit>
     suspend fun updateItemPickingStatus(orderId: String, productId: String, isPicked: Boolean): Result<Unit>
     suspend fun syncPendingOrders(): Result<Int>
+
+    /**
+     * Fetches order items from the server for [orderId] and inserts them into Room.
+     * Call this when the detail screen opens and the Room Flow emits an empty list,
+     * indicating the order was not included in the bounded login pre-fetch.
+     * Returns [Result.failure] when offline or the server returns an error.
+     */
+    suspend fun fetchAndCacheOrderItems(orderId: String): Result<Unit>
 }

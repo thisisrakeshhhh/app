@@ -39,7 +39,11 @@ data class DeliveryDetailState(
     val otpSentMessage: String? = null,
     val serverDebugOtp: String? = null,
     val error: String? = null,
-    val success: Boolean = false
+    val success: Boolean = false,
+    /** null = not yet determined, true = loading from server, false = done (success or failure) */
+    val isItemsFetching: Boolean = false,
+    /** Set when item fetch fails (e.g. offline). Shown instead of empty item list. */
+    val itemsFetchError: String? = null
 )
 
 data class DeliveryOrderItemUiModel(
@@ -103,6 +107,36 @@ class DeliveryViewModel @Inject constructor(
                 freeQuantity = item.freeQuantity,
                 pricePaise = item.pricePaiseAtTime
             )
+        }
+    }
+
+    /**
+     * Call this when the detail screen opens.
+     * If Room has no cached items for [orderId] (order was outside the bounded login
+     * pre-fetch), fetches from the server and caches them. The Room Flow in
+     * [getOrderItems] then delivers the result. If offline, sets [itemsFetchError]
+     * so the UI can show "Details not downloaded — connect to sync."
+     */
+    fun loadOrderItems(orderId: String) {
+        if (_detailState.value.isItemsFetching) return
+        viewModelScope.launch {
+            // First check Room — if items already cached, nothing to do
+            val cached = orderRepository.getItemsForOrder(orderId)
+                .stateIn(this, SharingStarted.Eagerly, emptyList()).value
+            if (cached.isNotEmpty()) return@launch
+
+            _detailState.update { it.copy(isItemsFetching = true, itemsFetchError = null) }
+            val result = orderRepository.fetchAndCacheOrderItems(orderId)
+            _detailState.update {
+                if (result.isSuccess) {
+                    it.copy(isItemsFetching = false)
+                } else {
+                    it.copy(
+                        isItemsFetching = false,
+                        itemsFetchError = "Details not downloaded — connect to sync item breakdown."
+                    )
+                }
+            }
         }
     }
 

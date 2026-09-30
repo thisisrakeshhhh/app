@@ -1,0 +1,28 @@
+# wrangler.staging.toml
+# Staging environment configuration – separate from local dev.
+# Local dev continues to use wrangler.toml + miniflare SQLite (unaffected).
+# Deploy with: npx wrangler deploy --config wrangler.staging.toml
+# Run migrations with: npx wrangler d1 migrations apply routeflow-db-staging --config wrangler.staging.toml --remote
+
+name = "routeflow-api-staging"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+account_id = "5b5194deaa35116098d3f45dee890e17"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "routeflow-db-staging"
+# FILL IN after: npx wrangler d1 create routeflow-db-staging --config wrangler.staging.toml
+database_id = "REPLACE_AFTER_D1_CREATE"
+
+[vars]
+JWT_ACCESS_EXPIRY = "900"          # 15 minutes
+JWT_REFRESH_EXPIRY = "2592000"     # 30 days
+ENVIRONMENT = "staging"
+# IMPORTANT: ENABLE_TEST_FAILURE_INJECTION is deliberately absent.
+# Staging must not allow test-header bypasses.
+SMS_MODE = "simulated"             # Change to "live" when SMS gateway is provisioned
+
+# Secrets must be set with wrangler secret put, never stored here:
+#   npx wrangler secret put JWT_SECRET --config wrangler.staging.toml
+#   npx wrangler secret put SMS_GATEWAY_TOKEN --config wrangler.staging.toml

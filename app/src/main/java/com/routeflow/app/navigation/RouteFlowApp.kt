@@ -720,11 +720,21 @@ fun RouteFlowApp(
                 }
 
                 if (item != null) {
+                    // Trigger item fetch on screen open when items not cached from login sync
+                    LaunchedEffect(item.order.id) {
+                        viewModel.loadOrderItems(item.order.id)
+                    }
+
+                    // Merge network item-fetch error into detailState.error so existing error card shows it
+                    val effectiveDetailState = if (detailState.error == null && detailState.itemsFetchError != null) {
+                        detailState.copy(error = detailState.itemsFetchError)
+                    } else detailState
+
                     DeliveryDetailScreen(
                         orderId = item.order.id,
                         retailerName = item.retailerName,
                         amountPaise = item.order.totalAmountPaise,
-                        detailState = detailState,
+                        detailState = effectiveDetailState,
                         itemsFlow = viewModel.getOrderItems(item.order.id),
                         onDeliver = { method, otp, recipientName, items ->
                             viewModel.markDelivered(item.order.id, method, otp, recipientName, items)

@@ -344,4 +344,21 @@ class NetworkOrderRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    /**
+     * Fetches item details for a single order from the server and caches them in Room.
+     * Called by the detail screen when the order was not included in the bounded
+     * login pre-fetch (i.e. Room Flow emits an empty list for that orderId).
+     * Returns Result.failure when offline or the API returns an error.
+     */
+    override suspend fun fetchAndCacheOrderItems(orderId: String): Result<Unit> = try {
+        val details = api.getOrderDetails(orderId)
+        val items = details.items.map { it.toEntity() }
+        if (items.isNotEmpty()) {
+            database.orderDao().insertOrderItems(items)
+        }
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

@@ -49,9 +49,20 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit {
         val contentType = "application/json".toMediaType()
-        val baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8787/" else "https://api.routeflow.com/"
+        // URL selection:
+        //   staging build (DEBUG + STAGING_MODE=true)  → explicit staging HTTPS URL from BuildConfig
+        //   normal debug build                         → localhost tunnel (adb reverse tcp:8787)
+        //   release build                              → production URL (to be updated when domain is registered)
+        val baseUrl = when {
+            BuildConfig.DEBUG && BuildConfig.STAGING_MODE ->
+                BuildConfig.STAGING_API_BASE_URL
+            BuildConfig.DEBUG ->
+                "http://127.0.0.1:8787/"
+            else ->
+                "https://api.routeflow.com/"
+        }
         return Retrofit.Builder()
-            .baseUrl(baseUrl) 
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()

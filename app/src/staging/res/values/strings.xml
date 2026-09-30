@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Distinct app label for staging build — visible in launcher and app switcher.
+         Staging APK has applicationId com.routeflow.app.staging so it coexists
+         with the debug/demo APK without sharing Room data or auth tokens. -->
+    <string name="app_name">RouteFlow Staging</string>
+</resources>
