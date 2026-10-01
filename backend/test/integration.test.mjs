@@ -2217,4 +2217,143 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     });
     assert.equal(newLoginRes.status, 200, 'New password login failed');
   });
+
+  test('24. Product batch GRN, FEFO ordering, expiry alerts, and permission enforcement', async () => {
+    // 1. Get a product id to use for batch testing
+    const catalogRes = await fetch(`${BASE_URL}/products`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(catalogRes.status, 200);
+    const catalog = await catalogRes.json();
+    assert.ok(catalog.length > 0, 'Catalog must have at least one product');
+    const productId = catalog[0].id;
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expiry60 = nowSec + 60 * 86400;   // expires in 60 days (safe)
+    const expiry10 = nowSec + 10 * 86400;   // expires in 10 days (warn)
+    const expiry3  = nowSec + 3 * 86400;    // expires in  3 days (block)
+
+    // 2. Salesperson cannot create batch
+    const noPermsRes = await fetch(`${BASE_URL}/batches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${salesToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId, batchNo: 'B-INVALID', receivedQuantity: 10 })
+    });
+    assert.equal(noPermsRes.status, 403, 'Salesperson must not create batches');
+
+    // 3. Create batch A (earliest expiry — should be picked first)
+    const batchARes = await fetch(`${BASE_URL}/batches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productId, batchNo: 'BATCH-A', expiryDate: expiry10,
+        rackBin: 'A1-Bin3', receivedQuantity: 50
+      })
+    });
+    assert.equal(batchARes.status, 201, 'Batch A creation failed');
+    const batchA = await batchARes.json();
+    assert.equal(batchA.batchNo, 'BATCH-A');
+    assert.equal(batchA.receivedQuantity, 50);
+    const batchAId = batchA.id;
+
+    // 4. Create batch B (later expiry)
+    const batchBRes = await fetch(`${BASE_URL}/batches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productId, batchNo: 'BATCH-B', expiryDate: expiry60,
+        rackBin: 'A2-Bin1', receivedQuantity: 100
+      })
+    });
+    assert.equal(batchBRes.status, 201, 'Batch B creation failed');
+
+    // 5. Create batch C (near-block threshold: 3 days)
+    const batchCRes = await fetch(`${BASE_URL}/batches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productId, batchNo: 'BATCH-C', expiryDate: expiry3,
+        receivedQuantity: 20
+      })
+    });
+    assert.equal(batchCRes.status, 201, 'Batch C creation failed');
+    const batchCId = (await batchCRes.json()).id;
+
+    // 6. List batches for product — FEFO order: C first (earliest), then A, then B
+    const listRes = await fetch(`${BASE_URL}/batches?productId=${productId}`, {
+      headers: { Authorization: `Bearer ${warehouseToken}` }
+    });
+    assert.equal(listRes.status, 200);
+    const listData = await listRes.json();
+    const batchNos = listData.batches.map(b => b.batchNo);
+    assert.equal(batchNos[0], 'BATCH-C', 'FEFO: BATCH-C (3d expiry) must come first');
+    assert.equal(batchNos[1], 'BATCH-A', 'FEFO: BATCH-A (10d expiry) must come second');
+    assert.equal(batchNos[2], 'BATCH-B', 'FEFO: BATCH-B (60d expiry) must come last');
+
+    // Check nearExpiry / blocked flags (default config: warn=30d, block=7d)
+    const batchCEntry = listData.batches.find(b => b.batchNo === 'BATCH-C');
+    assert.ok(batchCEntry.nearExpiry, 'BATCH-C within 30d must be nearExpiry');
+    assert.ok(batchCEntry.blocked,    'BATCH-C within 7d must be blocked');
+    const batchBEntry = listData.batches.find(b => b.batchNo === 'BATCH-B');
+    assert.ok(!batchBEntry.nearExpiry, 'BATCH-B at 60d must not be nearExpiry');
+
+    // 7. Expiry alerts endpoint returns batches within warn window
+    const alertsRes = await fetch(`${BASE_URL}/batches/expiry-alerts`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(alertsRes.status, 200);
+    const alertsData = await alertsRes.json();
+    const alertBatchNos = alertsData.alerts.map(a => a.batchNo);
+    assert.ok(alertBatchNos.includes('BATCH-C'), 'BATCH-C must appear in expiry alerts');
+    assert.ok(alertBatchNos.includes('BATCH-A'), 'BATCH-A (10d) must appear in expiry alerts');
+    assert.ok(!alertBatchNos.includes('BATCH-B'), 'BATCH-B (60d) must not appear in expiry alerts');
+
+    // 8. Update alert config
+    const configRes = await fetch(`${BASE_URL}/batches/alert-config`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ warnDays: 15, blockDays: 5 })
+    });
+    assert.equal(configRes.status, 200);
+    const configData = await configRes.json();
+    assert.equal(configData.warnDays, 15);
+    assert.equal(configData.blockDays, 5);
+
+    // 9. Re-list with new config — BATCH-B should still not appear in alerts
+    const alertsRes2 = await fetch(`${BASE_URL}/batches/expiry-alerts`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    const alertsData2 = await alertsRes2.json();
+    assert.ok(!alertsData2.alerts.map(a => a.batchNo).includes('BATCH-B'), 'BATCH-B still safe at 15d warn');
+
+    // 10. Patch batch rack bin
+    const patchRes = await fetch(`${BASE_URL}/batches/${batchAId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${warehouseToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rackBin: 'B3-Bin7' })
+    });
+    assert.equal(patchRes.status, 200, 'Patch batch failed');
+
+    // 11. Invalid product id rejected
+    const badProductRes = await fetch(`${BASE_URL}/batches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: 'nonexistent-product', batchNo: 'BAD', receivedQuantity: 10 })
+    });
+    assert.equal(badProductRes.status, 404, 'Nonexistent product must return 404');
+
+    // 12. receivedQuantity <= 0 rejected
+    const badQtyRes = await fetch(`${BASE_URL}/batches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${warehouseToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId, batchNo: 'BAD-QTY', receivedQuantity: 0 })
+    });
+    assert.equal(badQtyRes.status, 400, 'Zero quantity must be rejected');
+
+    // 13. Tenant isolation: cross-company batch list must be empty
+    const crossListRes = await fetch(`${BASE_URL}/batches?productId=${productId}`, {
+      headers: { Authorization: `Bearer ${ownerComp2Token}` }
+    });
+    assert.equal(crossListRes.status, 404, 'Cross-company product lookup must return 404');
+  });
 });

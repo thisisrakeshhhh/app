@@ -175,6 +175,32 @@ class OwnerMasterViewModel @Inject constructor(
         }
     }
 
+    fun createBatch(
+        productId: String,
+        batchNo: String,
+        quantity: Int,
+        expiryDate: Long?,
+        rackBin: String?
+    ) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = productRepository.createBatch(
+                com.routeflow.app.core.network.dto.CreateBatchRequest(
+                    productId = productId,
+                    batchNo = batchNo,
+                    receivedQuantity = quantity,
+                    expiryDate = expiryDate,
+                    rackBin = rackBin
+                )
+            )
+            if (result.isSuccess) {
+                _state.update { it.copy(isLoading = false, successMessage = "Batch $batchNo recorded (GRN)") }
+            } else {
+                _state.update { it.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to record batch") }
+            }
+        }
+    }
+
     fun createRetailer(
         name: String,
         beatId: String,

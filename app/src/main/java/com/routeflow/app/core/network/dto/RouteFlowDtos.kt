@@ -838,3 +838,79 @@ data class AcceptInviteRequest(
     val inviteToken: String,
     val password: String
 )
+
+@Serializable
+data class BatchDto(
+    val id: String,
+    val productId: String? = null,
+    val productName: String? = null,
+    val batchNo: String,
+    val mfgDate: Long? = null,
+    val expiryDate: Long? = null,
+    val rackBin: String? = null,
+    val receivedQuantity: Int,
+    val remainingQuantity: Int = 0,
+    val committedQuantity: Int = 0,
+    val available: Int = 0,
+    val status: String = "ACTIVE",
+    val nearExpiry: Boolean = false,
+    val blocked: Boolean = false,
+    val createdAt: Long? = null
+)
+
+@Serializable
+data class CreateBatchRequest(
+    val productId: String,
+    val batchNo: String,
+    val expiryDate: Long? = null,
+    val mfgDate: Long? = null,
+    val rackBin: String? = null,
+    val receivedQuantity: Int
+)
+
+@Serializable
+data class ProductSummaryDto(
+    val id: String,
+    val name: String,
+    val stock_quantity: Int = 0
+)
+
+@Serializable
+data class BatchListResponse(
+    val product: ProductSummaryDto? = null,
+    val batches: List<BatchDto> = emptyList(),
+    val warnDays: Int = 30,
+    val blockDays: Int = 7
+)
+
+@Serializable
+data class ExpiryAlertDto(
+    val id: String,
+    val batchNo: String,
+    val expiryDate: Long? = null,
+    val rackBin: String? = null,
+    val remainingQuantity: Int,
+    val productId: String,
+    val productName: String,
+    val blocked: Boolean = false
+)
+
+@Serializable
+data class ExpiryAlertsResponse(
+    val alerts: List<ExpiryAlertDto> = emptyList(),
+    val warnDays: Int = 30,
+    val blockDays: Int = 7,
+    val asOf: Long = 0
+)
+
+@Serializable
+data class UpdateBatchRequest(
+    val rackBin: String? = null,
+    val status: String? = null
+)
+
+@Serializable
+data class AlertConfigRequest(
+    val warnDays: Int? = null,
+    val blockDays: Int? = null
+)

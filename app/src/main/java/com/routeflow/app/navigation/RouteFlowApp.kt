@@ -711,6 +711,9 @@ fun RouteFlowApp(
                     products = state.products,
                     onAdjustStock = { pId, qty, reason, notes ->
                         viewModel.adjustStock(pId, "ADDITION", qty, reason, notes ?: "")
+                    },
+                    onCreateBatch = { pId, batchNo, qty, expiryDate, rackBin ->
+                        viewModel.createBatch(pId, batchNo, qty, expiryDate, rackBin)
                     }
                 )
             }

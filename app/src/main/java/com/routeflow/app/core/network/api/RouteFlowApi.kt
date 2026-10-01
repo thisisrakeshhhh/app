@@ -16,7 +16,9 @@ import com.routeflow.app.core.network.dto.RetailerDto
 import com.routeflow.app.core.network.dto.StatusResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface RouteFlowApi {
@@ -215,4 +217,20 @@ interface RouteFlowApi {
     /** Batch-fetch order items for up to 50 order IDs in a single request. */
     @POST("orders/items-bulk")
     suspend fun getOrderItemsBulk(@Body request: com.routeflow.app.core.network.dto.BulkOrderItemsRequest): com.routeflow.app.core.network.dto.BulkOrderItemsResponse
+
+    // --- Product Batches & Expiry (FEFO) ---
+    @POST("batches")
+    suspend fun createBatch(@Body request: com.routeflow.app.core.network.dto.CreateBatchRequest): com.routeflow.app.core.network.dto.BatchDto
+
+    @GET("batches")
+    suspend fun getBatchesForProduct(@retrofit2.http.Query("productId") productId: String): com.routeflow.app.core.network.dto.BatchListResponse
+
+    @GET("batches/expiry-alerts")
+    suspend fun getExpiryAlerts(): com.routeflow.app.core.network.dto.ExpiryAlertsResponse
+
+    @PATCH("batches/{id}")
+    suspend fun updateBatch(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.UpdateBatchRequest): StatusResponse
+
+    @PUT("batches/alert-config")
+    suspend fun updateAlertConfig(@Body request: com.routeflow.app.core.network.dto.AlertConfigRequest): StatusResponse
 }

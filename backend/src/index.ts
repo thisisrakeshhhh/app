@@ -5,6 +5,7 @@ import { fieldCycle } from './field-cycle';
 import { requestOtp } from './delivery-proof';
 import { Hono } from 'hono';
 import { onboardingRouter } from './onboarding';
+import { batchRouter } from './batch';
 import { sign, verify } from '@tsndr/cloudflare-worker-jwt';
 import bcrypt from 'bcryptjs';
 
@@ -533,7 +534,7 @@ app.post('/orders', authMiddleware, async (c) => {
     await c.env.DB.batch(statements);
     return c.json({ success: true, orderId: order.id });
   } catch (e: any) {
-    console.error(JSON.stringify({ event: 'order_creation_rejected' }));
+    console.error(JSON.stringify({ event: 'order_creation_rejected', error: e?.message || String(e) }));
     const existing = await c.env.DB.prepare('SELECT * FROM idempotency_records WHERE key = ?')
       .bind(idempotencyKey).first<any>();
     if (existing) {
@@ -2313,5 +2314,6 @@ app.get('/owner/visits/daily', authMiddleware, async (c) => {
 
 app.route('/', dailyCycle(authMiddleware));
 app.route('/', fieldCycle(authMiddleware));
+app.route('/batches', batchRouter(authMiddleware));
 
 export default app;

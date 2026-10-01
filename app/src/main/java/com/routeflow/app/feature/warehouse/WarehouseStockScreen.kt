@@ -50,7 +50,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun WarehouseStockScreen(
     products: List<Product>,
-    onAdjustStock: (productId: String, changeQty: Int, reason: String, notes: String?) -> Unit
+    onAdjustStock: (productId: String, changeQty: Int, reason: String, notes: String?) -> Unit,
+    onCreateBatch: ((productId: String, batchNo: String, qty: Int, expiryDate: Long?, rackBin: String?) -> Unit)? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -125,12 +126,22 @@ fun WarehouseStockScreen(
         StockReceiptDialog(
             product = product,
             onDismiss = { selectedProductForAdjustment = null },
-            onConfirm = { qty, reason, notes ->
-                onAdjustStock(product.id, qty, reason, notes)
-                selectedProductForAdjustment = null
-                scope.launch {
-                    snackbarHostState.showSnackbar("Received $qty units of ${product.name}")
+            onConfirm = { batchNo, qty, expiryDays, rackBin, notes ->
+                if (!batchNo.isNullOrBlank() && onCreateBatch != null) {
+                    val expiryEpoch = expiryDays?.let { days ->
+                        (System.currentTimeMillis() / 1000) + (days * 86400L)
+                    }
+                    onCreateBatch(product.id, batchNo.trim(), qty, expiryEpoch, rackBin?.trim()?.takeIf { it.isNotBlank() })
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Batch $batchNo ($qty units) received for ${product.name}")
+                    }
+                } else {
+                    onAdjustStock(product.id, qty, "PURCHASE_RECEIPT", notes)
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Received $qty units of ${product.name}")
+                    }
                 }
+                selectedProductForAdjustment = null
             }
         )
     }
@@ -140,14 +151,17 @@ fun WarehouseStockScreen(
 private fun StockReceiptDialog(
     product: Product,
     onDismiss: () -> Unit,
-    onConfirm: (qty: Int, reason: String, notes: String?) -> Unit
+    onConfirm: (batchNo: String?, qty: Int, expiryDays: Int?, rackBin: String?, notes: String?) -> Unit
 ) {
+    var batchNoText by remember { mutableStateOf("") }
     var qtyText by remember { mutableStateOf("") }
+    var rackBinText by remember { mutableStateOf("") }
+    var expiryDaysText by remember { mutableStateOf("") }
     var notesText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Stock Inbound: ${product.name}", fontWeight = FontWeight.Bold) },
+        title = { Text("Goods Receipt (GRN): ${product.name}", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Current Stock: ${product.stockQuantity} units", color = RFColors.TextSecondary)
@@ -159,9 +173,30 @@ private fun StockReceiptDialog(
                     singleLine = true
                 )
                 OutlinedTextField(
+                    value = batchNoText,
+                    onValueChange = { batchNoText = it },
+                    label = { Text("Batch / Lot No. * (e.g. B-2026-01)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = rackBinText,
+                    onValueChange = { rackBinText = it },
+                    label = { Text("Rack / Bin Location (e.g. A2-Bin4)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = expiryDaysText,
+                    onValueChange = { expiryDaysText = it },
+                    label = { Text("Shelf Life in Days (e.g. 180)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("GRN / Supplier Challan No. (Optional)") },
+                    label = { Text("Supplier Challan No. / Notes (Optional)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -171,12 +206,19 @@ private fun StockReceiptDialog(
             Button(
                 onClick = {
                     val qty = qtyText.toIntOrNull() ?: 0
-                    onConfirm(qty, "PURCHASE_RECEIPT", notesText.trim().takeIf { it.isNotBlank() })
+                    val expiryDays = expiryDaysText.toIntOrNull()
+                    onConfirm(
+                        batchNoText.trim().takeIf { it.isNotBlank() },
+                        qty,
+                        expiryDays,
+                        rackBinText.trim().takeIf { it.isNotBlank() },
+                        notesText.trim().takeIf { it.isNotBlank() }
+                    )
                 },
                 enabled = (qtyText.toIntOrNull() ?: 0) > 0,
                 colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
             ) {
-                Text("Confirm Inbound")
+                Text("Record GRN")
             }
         },
         dismissButton = {

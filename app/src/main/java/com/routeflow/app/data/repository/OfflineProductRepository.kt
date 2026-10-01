@@ -84,6 +84,26 @@ class OfflineProductRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun createBatch(request: com.routeflow.app.core.network.dto.CreateBatchRequest): Result<com.routeflow.app.core.network.dto.BatchDto> = try {
+        val batch = api.createBatch(request)
+        syncProductsFromServer()
+        Result.success(batch)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getBatchesForProduct(productId: String): Result<com.routeflow.app.core.network.dto.BatchListResponse> = try {
+        Result.success(api.getBatchesForProduct(productId))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getExpiryAlerts(): Result<com.routeflow.app.core.network.dto.ExpiryAlertsResponse> = try {
+        Result.success(api.getExpiryAlerts())
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }
 
 private fun ProductEntity.asDomainModel() = Product(

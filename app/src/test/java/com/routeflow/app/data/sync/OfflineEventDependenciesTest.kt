@@ -384,6 +384,16 @@ class OfflineEventDependenciesTest {
             com.routeflow.app.core.network.dto.BulkOrderItemsResponse()
         override suspend fun registerOwner(request: com.routeflow.app.core.network.dto.RegisterOwnerRequest): AuthResponse = throw NotImplementedError()
         override suspend fun acceptInvite(request: com.routeflow.app.core.network.dto.AcceptInviteRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun createBatch(request: com.routeflow.app.core.network.dto.CreateBatchRequest): com.routeflow.app.core.network.dto.BatchDto =
+            com.routeflow.app.core.network.dto.BatchDto(id = "batch_1", batchNo = request.batchNo, receivedQuantity = request.receivedQuantity)
+        override suspend fun getBatchesForProduct(productId: String): com.routeflow.app.core.network.dto.BatchListResponse =
+            com.routeflow.app.core.network.dto.BatchListResponse()
+        override suspend fun getExpiryAlerts(): com.routeflow.app.core.network.dto.ExpiryAlertsResponse =
+            com.routeflow.app.core.network.dto.ExpiryAlertsResponse()
+        override suspend fun updateBatch(id: String, request: com.routeflow.app.core.network.dto.UpdateBatchRequest): StatusResponse =
+            StatusResponse(success = true)
+        override suspend fun updateAlertConfig(request: com.routeflow.app.core.network.dto.AlertConfigRequest): StatusResponse =
+            StatusResponse(success = true)
     }
 
     // Helper fake TokenStorage
