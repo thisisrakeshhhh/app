@@ -39,9 +39,34 @@ object NetworkModule {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
+        val failoverInterceptor = okhttp3.Interceptor { chain ->
+            val request = chain.request()
+            try {
+                chain.proceed(request)
+            } catch (e: java.io.IOException) {
+                val url = request.url
+                // If local dev server (127.0.0.1:8787) is unreachable, seamlessly fall back to deployed Cloudflare staging
+                if (url.host == "127.0.0.1" && url.port == 8787) {
+                    val fallbackUrl = url.newBuilder()
+                        .scheme("https")
+                        .host("routeflow-api-staging.thisisrakesh21.workers.dev")
+                        .port(443)
+                        .build()
+                    val fallbackRequest = request.newBuilder()
+                        .url(fallbackUrl)
+                        .build()
+                    chain.proceed(fallbackRequest)
+                } else {
+                    throw e
+                }
+            }
+        }
         return OkHttpClient.Builder()
+            .addInterceptor(failoverInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .build()
     }
 

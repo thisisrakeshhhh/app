@@ -352,7 +352,9 @@ fun RouteFlowApp(
                     onSwitchToDemo = {
                         isDemoMode = true
                         navController.navigate(DEMO_LOGIN_ROUTE)
-                    }
+                    },
+                    currentLanguage = currentLanguage,
+                    onLanguageChange = onLanguageChange
                 )
             }
 
