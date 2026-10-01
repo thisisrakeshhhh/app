@@ -40,8 +40,7 @@ android {
             buildConfigField("Boolean", "STAGING_MODE", "true")
             // FILL IN the actual URL returned by `npx wrangler deploy --config wrangler.staging.toml`
             // Example: "https://routeflow-api-staging.<account>.workers.dev/"
-            // Until staging is deployed this keeps the placeholder to make the build explicit about what is missing.
-            buildConfigField("String", "STAGING_API_BASE_URL", "\"https://STAGING_URL_NOT_YET_DEPLOYED.workers.dev/\"")
+            buildConfigField("String", "STAGING_API_BASE_URL", "\"https://routeflow-api-staging.thisisrakesh21.workers.dev/\"")
         }
         release {
             buildConfigField("Boolean", "STAGING_MODE", "false")

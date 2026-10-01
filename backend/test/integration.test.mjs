@@ -1062,6 +1062,13 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
         id: visitId,
         retailerId: 'R1',
         checkInTime: now - 900000,
+        checkOutTime: now,
+        latitude: 26.8521,
+        longitude: 75.7645,
+        accuracy: 8.5,
+        durationSeconds: 900,
+        status: 'COMPLETED',
+        notes: 'Owner verified stock, placed weekly order',
         idempotencyKey: `idemp_${visitId}`
       })
     });
@@ -1080,7 +1087,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resStockCheck = await fetch(`${BASE_URL}/stock-checks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         retailerId: 'R1',
         productId: 'P1',
         quantity: 8 // Retailer has 8 units remaining on shelf
@@ -1117,7 +1124,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resCrossSc = await fetch(`${BASE_URL}/stock-checks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         retailerId: 'ret_comp2_1',
         productId: 'P1',
         quantity: 5
@@ -1129,7 +1136,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resCrossProdSc = await fetch(`${BASE_URL}/stock-checks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         retailerId: 'R1',
         productId: 'prod_comp2_1',
         quantity: 5
@@ -1184,6 +1191,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
         amountPaise: collectionAmount,
         paymentMethod: 'CASH',
         receiptId: 'REC-TEST-001',
+        notes: 'Partial collection by salesperson',
         idempotencyKey: testIdempotencyKey
       })
     });
@@ -1215,7 +1223,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
           await fetch(`${BASE_URL}/owner/handovers/${h.id}/acknowledge`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
-            body: JSON.stringify({ action: 'REJECT', notes: 'Cleanup prior test runs' })
+            body: JSON.stringify({ idempotencyKey: crypto.randomUUID(), action: 'REJECT', notes: 'Cleanup prior test runs' })
           });
         }
       }
@@ -1233,7 +1241,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resOver = await fetch(`${BASE_URL}/handovers/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         amountPaise: summBefore.cashHeldPaise + 100000,
         notes: 'Excessive handover'
       })
@@ -1245,7 +1253,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resReq = await fetch(`${BASE_URL}/handovers/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         amountPaise: handoverAmt,
         notes: 'Evening cash handover'
       })
@@ -1259,7 +1267,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resDup = await fetch(`${BASE_URL}/handovers/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         amountPaise: 10000
       })
     });
@@ -1280,7 +1288,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resAck = await fetch(`${BASE_URL}/owner/handovers/${reqData.handoverId}/acknowledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         action: 'ACCEPT',
         receivedAmountPaise: receivedAmt,
         notes: '₹20 shortage noted'
@@ -1386,7 +1394,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resRetReq = await fetch(`${BASE_URL}/returns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         orderId: orderId,
         items: [{ productId: 'P1', requestedQuantity: 2 }],
         notes: 'Damaged packaging during transit'
@@ -1410,7 +1418,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resInspect = await fetch(`${BASE_URL}/returns/${retReqData.returnId}/inspect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         action: 'APPROVE',
         items: [{ productId: 'P1', saleableQuantity: 1, damagedQuantity: 1 }],
         notes: '1 unit restocked to shelf, 1 written off as damaged packaging'
@@ -1437,7 +1445,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resInspectAgain = await fetch(`${BASE_URL}/returns/${retReqData.returnId}/inspect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         action: 'APPROVE',
         items: [{ productId: 'P1', saleableQuantity: 3, damagedQuantity: 1 }]
       })
@@ -1693,7 +1701,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resReturnExceed = await fetch(`${BASE_URL}/returns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         orderId: partialOrdId,
         items: [{ productId: 'P1', requestedQuantity: 4 }]
       })
@@ -1704,7 +1712,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resReturnValid = await fetch(`${BASE_URL}/returns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         orderId: partialOrdId,
         items: [{ productId: 'P1', requestedQuantity: 2 }]
       })
@@ -1715,7 +1723,7 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const resReturnExceed2 = await fetch(`${BASE_URL}/returns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
-      body: JSON.stringify({
+      body: JSON.stringify({ idempotencyKey: crypto.randomUUID(),
         orderId: partialOrdId,
         items: [{ productId: 'P1', requestedQuantity: 2 }]
       })

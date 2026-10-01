@@ -1,3 +1,5 @@
+import { bodyLimit } from 'hono/body-limit';
+import { rateLimit, requestIp } from './security';
 import { dailyCycle } from './daily-cycle';
 import { fieldCycle } from './field-cycle';
 import { requestOtp } from './delivery-proof';
@@ -30,6 +32,12 @@ type Variables = {
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+app.use('*', bodyLimit({ maxSize: 256 * 1024, onError: c => c.json({ error: 'Request exceeds 256 KiB' }, 413) }));
+app.onError((error, c) => {
+  if (error instanceof SyntaxError) return c.json({ error: 'Invalid JSON request' }, 400);
+  console.error(JSON.stringify({ event: 'request_failed', method: c.req.method, path: c.req.path }));
+  return c.json({ error: 'The request could not be completed. Refresh and retry.' }, 500);
+});
 
 function isFailureInjectionAllowed(c: any): boolean {
   return c.env.ENVIRONMENT === 'development' && c.env.ENABLE_TEST_FAILURE_INJECTION === 'true';
@@ -76,7 +84,7 @@ const authMiddleware = async (c: any, next: any) => {
   }
 
   const nowSec = Math.floor(Date.now() / 1000);
-  if (payload.exp && payload.exp < nowSec) {
+  if (!Number.isFinite(payload.exp) || payload.exp <= nowSec) {
     return c.json({ error: 'Invalid or expired token' }, 401);
   }
 
@@ -128,10 +136,13 @@ const authMiddleware = async (c: any, next: any) => {
 app.post('/auth/login', async (c) => {
   const body = await c.req.json();
   const { username, password, device_id } = body;
-  if (!username || !password) {
+  if (typeof username !== 'string' || username.length > 120 || typeof password !== 'string' || new TextEncoder().encode(password).length > 72 || !username || !password) {
     return c.json({ error: 'Missing username or password' }, 400);
   }
 
+  if (!await rateLimit(c, 'login-ip', requestIp(c), 100) || !await rateLimit(c, 'login-account', username.trim().toLowerCase(), 30)) {
+    return c.json({ error: 'Too many login attempts. Try again later.' }, 429);
+  }
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE username = ?')
     .bind(username)
     .first() as any;
@@ -187,7 +198,8 @@ app.post('/auth/login', async (c) => {
 
 app.post('/auth/refresh', async (c) => {
   const { refresh_token } = await c.req.json();
-  if (!refresh_token) return c.json({ error: 'Missing refresh token' }, 400);
+  if (typeof refresh_token !== 'string' || refresh_token.length < 16 || refresh_token.length > 200) return c.json({ error: 'Invalid refresh token' }, 400);
+  if (!await rateLimit(c, 'refresh-ip', requestIp(c), 120)) return c.json({ error: 'Too many refresh attempts' }, 429);
 
   const refreshTokenHash = await sha256Hex(refresh_token);
   const nowSec = Math.floor(Date.now() / 1000);
@@ -240,22 +252,18 @@ app.post('/auth/refresh', async (c) => {
   const accessExpirySeconds = parseInt(c.env.JWT_ACCESS_EXPIRY || '900', 10);
   const refreshExpirySeconds = parseInt(c.env.JWT_REFRESH_EXPIRY || '2592000', 10);
 
-  const updateResult = await c.env.DB.prepare(
-    'UPDATE sessions SET refresh_token_hash = ?, last_active_at = ?, expires_at = ? WHERE id = ? AND refresh_token_hash = ? AND is_revoked = 0'
-  )
-    .bind(newRefreshTokenHash, nowSec, nowSec + refreshExpirySeconds, session.id, refreshTokenHash)
-    .run();
-
-  if (!updateResult.meta || updateResult.meta.changes === 0) {
-    return c.json({ error: 'Concurrent refresh conflict or session revoked' }, 401);
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare('INSERT INTO revoked_refresh_tokens (token_hash, session_id, user_id, revoked_at) VALUES (?, ?, ?, ?)')
+        .bind(refreshTokenHash, session.id, session.user_id, nowSec),
+      c.env.DB.prepare('UPDATE sessions SET refresh_token_hash = ?, last_active_at = ?, expires_at = ? WHERE id = ? AND refresh_token_hash = ? AND is_revoked = 0')
+        .bind(newRefreshTokenHash, nowSec, nowSec + refreshExpirySeconds, session.id, refreshTokenHash)
+    ]);
+  } catch {
+    // Replay includes concurrent reuse: require a fresh sign-in for that session.
+    await c.env.DB.prepare('UPDATE sessions SET is_revoked = 1 WHERE id = ?').bind(session.id).run();
+    return c.json({ error: 'Refresh token reused or session revoked' }, 401);
   }
-
-  // Record old token hash in revoked_refresh_tokens
-  await c.env.DB.prepare(
-    'INSERT OR REPLACE INTO revoked_refresh_tokens (token_hash, session_id, user_id, revoked_at) VALUES (?, ?, ?, ?)'
-  )
-    .bind(refreshTokenHash, session.id, session.user_id, nowSec)
-    .run();
 
   const accessToken = await sign({
     sub: user.id,
@@ -361,10 +369,16 @@ app.post('/orders', authMiddleware, async (c) => {
 
   const order = body.order;
   const items = body.items || [];
-  const idempotencyKey = body.idempotencyKey || body.idempotency_key || null;
+  const idempotencyKey = body.idempotencyKey || body.idempotency_key || (typeof order?.id === 'string' && order.id ? `idemp_${order.id}` : null);
 
-  if (!order || !order.id || !order.retailerId || !items.length) {
+  if (!order || typeof order.id !== 'string' || !order.id || typeof order.retailerId !== 'string' || !Array.isArray(items) || !items.length || items.length > 100) {
     return c.json({ error: 'Invalid order structure or empty items' }, 400);
+  }
+  if (typeof idempotencyKey !== 'string' || idempotencyKey.length < 6 || idempotencyKey.length > 200) {
+    return c.json({ error: 'Stable idempotencyKey required' }, 400);
+  }
+  if (items.some((item: any) => !item || typeof item.productId !== 'string') || new Set(items.map((item: any) => item.productId)).size !== items.length) {
+    return c.json({ error: 'Each product must appear once in an order' }, 400);
   }
 
   // Validate bounded integers
@@ -516,14 +530,16 @@ app.post('/orders', authMiddleware, async (c) => {
     await c.env.DB.batch(statements);
     return c.json({ success: true, orderId: order.id });
   } catch (e: any) {
-    console.error('Order creation error:', e);
-    if (e.message && e.message.includes('UNIQUE constraint failed')) {
-      const existing = await c.env.DB.prepare('SELECT id FROM orders WHERE idempotency_key = ? AND company_id = ?')
-        .bind(idempotencyKey || '', user.company_id)
-        .first() as any;
-      return c.json({ success: true, orderId: existing?.id, idempotent: true });
+    console.error(JSON.stringify({ event: 'order_creation_rejected' }));
+    const existing = await c.env.DB.prepare('SELECT * FROM idempotency_records WHERE key = ?')
+      .bind(idempotencyKey).first<any>();
+    if (existing) {
+      if (existing.company_id !== user.company_id || existing.actor_id !== user.sub || existing.operation !== 'CREATE_ORDER' || existing.request_hash !== requestHash) {
+        return c.json({ error: 'Idempotency conflict: key reused with differing actor, operation, or payload' }, 409);
+      }
+      return c.json(JSON.parse(existing.response_body), existing.response_status);
     }
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: 'Order conflicts with current stock, credit, or identifiers. Refresh and review.' }, 409);
   }
 });
 

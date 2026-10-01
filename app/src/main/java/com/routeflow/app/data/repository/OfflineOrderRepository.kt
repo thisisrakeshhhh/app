@@ -175,16 +175,10 @@ class OfflineOrderRepository @Inject constructor(
     }
 
     override suspend fun failDelivery(
-        orderId: String,
-        reason: String,
-        rescheduledDate: String?,
-        notes: String?
-    ): Result<Unit> = try {
-        database.orderDao().updateOrderStatus(orderId, "DELIVERY_FAILED", System.currentTimeMillis())
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
+        orderId: String, reason: String, rescheduledDate: String?, notes: String?
+    ): Result<Unit> = Result.failure(UnsupportedOperationException(
+        "Recording a failed delivery requires server confirmation of stock custody and credit release."
+    ))
 
     override suspend fun getUndeliveredGoods(status: String?): Result<List<com.routeflow.app.core.network.dto.UndeliveredGoodsDto>> =
         Result.failure(UnsupportedOperationException("Undelivered goods tracking requires an active server connection."))

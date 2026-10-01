@@ -12,8 +12,7 @@ account_id = "5b5194deaa35116098d3f45dee890e17"
 [[d1_databases]]
 binding = "DB"
 database_name = "routeflow-db-staging"
-# FILL IN after: npx wrangler d1 create routeflow-db-staging --config wrangler.staging.toml
-database_id = "REPLACE_AFTER_D1_CREATE"
+database_id = "0fd38279-d473-44a8-84a2-76da1a1b7b56"
 
 [vars]
 JWT_ACCESS_EXPIRY = "900"          # 15 minutes

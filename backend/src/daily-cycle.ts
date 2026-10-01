@@ -14,7 +14,7 @@ export async function retailerAllowed(db: D1Database, u: Actor, id: string): Pro
  if (!r) return false;
  if (u.role === 'OWNER') return true;
  if (u.role === 'SALESPERSON') return !!await db.prepare('SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND company_id = ? AND beat_id = ?').bind(u.sub, u.company_id, r.beat_id).first();
- return !!await db.prepare("SELECT 1 FROM orders WHERE retailer_id = ? AND company_id = ? AND delivery_employee_id = ? AND status IN ('OUT_FOR_DELIVERY','DELIVERED')").bind(id, u.company_id, u.sub).first();
+ return !!await db.prepare("SELECT 1 FROM orders WHERE retailer_id = ? AND company_id = ? AND delivery_employee_id = ? AND status IN ('OUT_FOR_DELIVERY','DELIVERED','PARTIALLY_DELIVERED')").bind(id, u.company_id, u.sub).first();
 }
 export const audit = (c: Ctx, action: string, id: string, details: unknown) => c.env.DB.prepare(
  'INSERT INTO audit_logs (id,company_id,user_id,action,entity_id,details,timestamp) VALUES (?,?,?,?,?,?,?)'
@@ -26,22 +26,18 @@ async function hash(body: unknown) {
 // Receipt insertion shares the transaction with the mutation. A racing duplicate
 // aborts its entire batch, then reads the winner's bound response.
 export async function replay(c: Ctx, operation: string, body: Row) {
- if (!body.idempotencyKey && !body.idempotency_key) {
-  body.idempotencyKey = `auto_${crypto.randomUUID()}`;
-  return null;
- }
  body.idempotencyKey = (body.idempotencyKey || body.idempotency_key) as string;
  if (typeof body.idempotencyKey !== 'string' || body.idempotencyKey.length < 6 || body.idempotencyKey.length > 200) return bad(c, 'Stable idempotencyKey required');
  const prior = await c.env.DB.prepare('SELECT * FROM operation_receipts WHERE id = ?').bind(body.idempotencyKey).first<Row>();
  if (!prior) return null;
  const u = c.get('user');
- if (prior.actor_id !== u.sub || prior.company_id !== u.company_id || prior.operation !== operation) return bad(c, 'Idempotency key belongs to a different request', 409);
+ if (prior.actor_id !== u.sub || prior.company_id !== u.company_id || prior.operation !== operation || prior.request_hash !== await hash(body)) return bad(c, 'Idempotency key belongs to a different request', 409);
  return c.json({ ...JSON.parse(prior.response), idempotent: true });
 }
 export async function commit(c: Ctx, operation: string, body: Row, statements: D1PreparedStatement[], response: Row) {
  const u = c.get('user');
- if (!body.idempotencyKey && !body.idempotency_key) body.idempotencyKey = `auto_${crypto.randomUUID()}`;
  const key = (body.idempotencyKey || body.idempotency_key) as string;
+ if (typeof key !== 'string' || key.length < 6 || key.length > 200) return bad(c, 'Stable idempotencyKey required');
  statements.push(c.env.DB.prepare('INSERT INTO operation_receipts VALUES (?,?,?,?,?,?,?)').bind(key, u.company_id, u.sub, operation, await hash(body), JSON.stringify(response), Date.now()));
  try { await c.env.DB.batch(statements); return c.json(response); }
  catch (e) {

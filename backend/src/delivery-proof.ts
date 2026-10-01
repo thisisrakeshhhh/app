@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { rateLimit } from './security';
 export function secureOtp():string {
  const a=new Uint32Array(1);let n:number;do{crypto.getRandomValues(a);n=a[0];}while(n>=4294800000);
  return (100000+n%900000).toString();
@@ -11,6 +12,7 @@ export async function requestOtp(c:Context<any>){
  const order=await db.prepare('SELECT * FROM orders WHERE id=? AND company_id=?').bind(id,u.company_id).first<any>();
  if(!order||(u.role==='DELIVERY_EXECUTIVE'&&order.delivery_employee_id!==u.sub))return c.json({error:'Order access denied'},403);
  if(order.status!=='OUT_FOR_DELIVERY')return c.json({error:'Order must be out for delivery'},400);
+ if(!await rateLimit(c,'delivery-otp',`${u.company_id}:${u.sub}`,60))return c.json({error:'Too many OTP requests. Try again later.'},429);
  const simulation=c.env.ENVIRONMENT==='development'&&c.env.SMS_MODE==='simulated';
  if(!simulation&&(!c.env.SMS_GATEWAY_URL||!c.env.SMS_GATEWAY_TOKEN))return c.json({success:false,deliveryStatus:'UNAVAILABLE',error:'Recipient messaging is not configured. Delivery cannot be confirmed.'},503);
  const old=await db.prepare('SELECT * FROM delivery_otps WHERE order_id=? AND company_id=?').bind(id,u.company_id).first<any>();
@@ -19,8 +21,8 @@ export async function requestOtp(c:Context<any>){
  const retailer = await db.prepare('SELECT name, contact_number FROM retailers WHERE id = ?').bind(order.retailer_id).first<any>();
  const contact = retailer?.contact_number || '';
  const masked = contact.length >= 4 ? '*'.repeat(Math.max(0, contact.length - 4)) + contact.slice(-4) : 'registered mobile';
- const buildMsg = (otpVal: string) => simulation
-  ? `Simulated SMS — demo only. (Delivery OTP sent via SMS simulated: ${otpVal}; no SMS sent to ${retailer?.name || 'Retailer'} ${masked})`
+ const buildMsg = (_otpVal: string) => simulation
+  ? `Delivery OTP sent via SMS (simulated delivery verification — no SMS sent to ${retailer?.name || 'Retailer'} ${masked})`
   : `Delivery OTP sent via SMS to ${retailer?.name || 'Retailer'} (${masked})`;
 
  if(old&&['SENT','SIMULATED'].includes(old.send_status)&&old.expires_at>now&&old.attempt_count<old.max_attempts&&!old.is_used){
