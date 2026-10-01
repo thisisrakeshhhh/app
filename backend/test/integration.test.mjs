@@ -1,6 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { runTripsTest } from './trips.test.mjs';
+
 const BASE_URL = process.env.ROUTEFLOW_TEST_URL || 'http://127.0.0.1:8787';
 
 describe('RouteFlow API End-to-End Integration Suite', () => {
@@ -2355,5 +2357,9 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
       headers: { Authorization: `Bearer ${ownerComp2Token}` }
     });
     assert.equal(crossListRes.status, 404, 'Cross-company product lookup must return 404');
+  });
+
+  test('25. Delivery Trips & Route Sequencing Workflow', async () => {
+    await runTripsTest(BASE_URL);
   });
 });

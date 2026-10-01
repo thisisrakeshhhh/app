@@ -394,6 +394,13 @@ class OfflineEventDependenciesTest {
             StatusResponse(success = true)
         override suspend fun updateAlertConfig(request: com.routeflow.app.core.network.dto.AlertConfigRequest): StatusResponse =
             StatusResponse(success = true)
+        override suspend fun createTrip(request: com.routeflow.app.core.network.dto.CreateTripRequest): com.routeflow.app.core.network.dto.TripDto =
+            com.routeflow.app.core.network.dto.TripDto(id = "trip_1", tripNumber = "TRIP-1001", driverId = request.driverId, vehicleNumber = request.vehicleNumber, routeArea = request.routeArea, status = "CREATED", startTime = System.currentTimeMillis())
+        override suspend fun getActiveTrip(): com.routeflow.app.core.network.dto.TripDto? = null
+        override suspend fun getAllTrips(): List<com.routeflow.app.core.network.dto.TripDto> = emptyList()
+        override suspend fun reorderTripStops(id: String, request: com.routeflow.app.core.network.dto.ReorderStopsRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun startTrip(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun completeTrip(id: String): StatusResponse = StatusResponse(success = true)
     }
 
     // Helper fake TokenStorage

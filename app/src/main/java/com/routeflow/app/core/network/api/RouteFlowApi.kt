@@ -233,4 +233,23 @@ interface RouteFlowApi {
 
     @PUT("batches/alert-config")
     suspend fun updateAlertConfig(@Body request: com.routeflow.app.core.network.dto.AlertConfigRequest): StatusResponse
+
+    // --- Delivery Trips & Route Sequencing ---
+    @POST("trips")
+    suspend fun createTrip(@Body request: com.routeflow.app.core.network.dto.CreateTripRequest): com.routeflow.app.core.network.dto.TripDto
+
+    @GET("trips/active")
+    suspend fun getActiveTrip(): com.routeflow.app.core.network.dto.TripDto?
+
+    @GET("trips")
+    suspend fun getAllTrips(): List<com.routeflow.app.core.network.dto.TripDto>
+
+    @PUT("trips/{id}/reorder")
+    suspend fun reorderTripStops(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.ReorderStopsRequest): StatusResponse
+
+    @POST("trips/{id}/start")
+    suspend fun startTrip(@Path("id") id: String): StatusResponse
+
+    @POST("trips/{id}/complete")
+    suspend fun completeTrip(@Path("id") id: String): StatusResponse
 }

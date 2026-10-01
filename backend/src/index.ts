@@ -8,6 +8,7 @@ import { onboardingRouter } from './onboarding';
 import { batchRouter } from './batch';
 import { sign, verify } from '@tsndr/cloudflare-worker-jwt';
 import bcrypt from 'bcryptjs';
+import trips from './trips';
 
 type Bindings = {
   DB: D1Database;
@@ -2315,5 +2316,6 @@ app.get('/owner/visits/daily', authMiddleware, async (c) => {
 app.route('/', dailyCycle(authMiddleware));
 app.route('/', fieldCycle(authMiddleware));
 app.route('/batches', batchRouter(authMiddleware));
+app.route('/trips', trips);
 
 export default app;
