@@ -236,13 +236,13 @@ interface RouteFlowApi {
 
     // --- Delivery Trips & Route Sequencing ---
     @POST("trips")
-    suspend fun createTrip(@Body request: com.routeflow.app.core.network.dto.CreateTripRequest): com.routeflow.app.core.network.dto.TripDto
+    suspend fun createTrip(@Body request: com.routeflow.app.core.network.dto.CreateTripRequest): com.routeflow.app.core.network.dto.TripDetailDto
 
     @GET("trips/active")
-    suspend fun getActiveTrip(): com.routeflow.app.core.network.dto.TripDto?
+    suspend fun getActiveTrip(@retrofit2.http.Query("driverId") driverId: String? = null): com.routeflow.app.core.network.dto.TripDetailDto?
 
     @GET("trips")
-    suspend fun getAllTrips(): List<com.routeflow.app.core.network.dto.TripDto>
+    suspend fun getAllTrips(@retrofit2.http.Query("status") status: String? = null): List<com.routeflow.app.core.network.dto.TripDetailDto>
 
     @PUT("trips/{id}/reorder")
     suspend fun reorderTripStops(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.ReorderStopsRequest): StatusResponse

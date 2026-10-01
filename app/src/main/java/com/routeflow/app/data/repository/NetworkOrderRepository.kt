@@ -361,4 +361,49 @@ class NetworkOrderRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun createTrip(driverId: String, vehicleNumber: String?, routeArea: String?, orderIds: List<String>): Result<com.routeflow.app.core.network.dto.TripDetailDto> = try {
+        val trip = api.createTrip(com.routeflow.app.core.network.dto.CreateTripRequest(
+            driverId = driverId,
+            vehicleNumber = vehicleNumber,
+            routeArea = routeArea,
+            orderIds = orderIds
+        ))
+        Result.success(trip)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getActiveTrip(driverId: String?): Result<com.routeflow.app.core.network.dto.TripDetailDto?> = try {
+        Result.success(api.getActiveTrip(driverId))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun getAllTrips(status: String?): Result<List<com.routeflow.app.core.network.dto.TripDetailDto>> = try {
+        Result.success(api.getAllTrips(status))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun reorderTripStops(tripId: String, stopOrder: List<String>): Result<Unit> = try {
+        val resp = api.reorderTripStops(tripId, com.routeflow.app.core.network.dto.ReorderStopsRequest(stopOrder))
+        if (resp.success) Result.success(Unit) else Result.failure(Exception(resp.message ?: "Reorder failed"))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun startTrip(tripId: String): Result<Unit> = try {
+        val resp = api.startTrip(tripId)
+        if (resp.success) Result.success(Unit) else Result.failure(Exception(resp.message ?: "Failed to start trip"))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun completeTrip(tripId: String): Result<Unit> = try {
+        val resp = api.completeTrip(tripId)
+        if (resp.success) Result.success(Unit) else Result.failure(Exception(resp.message ?: "Failed to complete trip"))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

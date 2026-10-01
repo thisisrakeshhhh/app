@@ -211,6 +211,24 @@ class OfflineOrderRepository @Inject constructor(
         Result.failure(UnsupportedOperationException(
             "Order details not downloaded — connect to the server to fetch item details."
         ))
+
+    override suspend fun createTrip(driverId: String, vehicleNumber: String?, routeArea: String?, orderIds: List<String>): Result<com.routeflow.app.core.network.dto.TripDetailDto> =
+        Result.failure(UnsupportedOperationException("Creating delivery trips requires an active server connection."))
+
+    override suspend fun getActiveTrip(driverId: String?): Result<com.routeflow.app.core.network.dto.TripDetailDto?> =
+        Result.success(null)
+
+    override suspend fun getAllTrips(status: String?): Result<List<com.routeflow.app.core.network.dto.TripDetailDto>> =
+        Result.success(emptyList())
+
+    override suspend fun reorderTripStops(tripId: String, stopOrder: List<String>): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Reordering trip stops requires an active server connection."))
+
+    override suspend fun startTrip(tripId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Starting a trip requires an active server connection."))
+
+    override suspend fun completeTrip(tripId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Completing a trip requires an active server connection."))
 }
 
 

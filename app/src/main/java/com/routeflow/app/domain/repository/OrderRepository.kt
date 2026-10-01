@@ -59,4 +59,12 @@ interface OrderRepository {
      * Returns [Result.failure] when offline or the server returns an error.
      */
     suspend fun fetchAndCacheOrderItems(orderId: String): Result<Unit>
+
+    // --- Delivery Trips ---
+    suspend fun createTrip(driverId: String, vehicleNumber: String?, routeArea: String?, orderIds: List<String>): Result<com.routeflow.app.core.network.dto.TripDetailDto>
+    suspend fun getActiveTrip(driverId: String? = null): Result<com.routeflow.app.core.network.dto.TripDetailDto?>
+    suspend fun getAllTrips(status: String? = null): Result<List<com.routeflow.app.core.network.dto.TripDetailDto>>
+    suspend fun reorderTripStops(tripId: String, stopOrder: List<String>): Result<Unit>
+    suspend fun startTrip(tripId: String): Result<Unit>
+    suspend fun completeTrip(tripId: String): Result<Unit>
 }

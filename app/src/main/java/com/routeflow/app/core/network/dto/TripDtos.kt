@@ -23,8 +23,8 @@ data class TripDto(
     val tripNumber: String,
     val driverId: String,
     val driverName: String? = null,
-    val vehicleNumber: String,
-    val routeArea: String,
+    val vehicleNumber: String? = null,
+    val routeArea: String? = null,
     val status: String, // CREATED, IN_TRANSIT, COMPLETED
     val startTime: Long,
     val endTime: Long? = null,
@@ -36,11 +36,13 @@ data class TripDto(
     val stops: List<TripStopDto> = emptyList()
 )
 
+typealias TripDetailDto = TripDto
+
 @Serializable
 data class CreateTripRequest(
     val driverId: String,
-    val vehicleNumber: String,
-    val routeArea: String,
+    val vehicleNumber: String? = null,
+    val routeArea: String? = null,
     val orderIds: List<String>,
     val startTime: Long = System.currentTimeMillis()
 )
