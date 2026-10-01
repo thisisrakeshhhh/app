@@ -1,0 +1,181 @@
+diff --git a/app/src/main/java/com/routeflow/app/core/network/RFSessionInterceptor.kt b/app/src/main/java/com/routeflow/app/core/network/RFSessionInterceptor.kt
+index 5ee8099..c6518a2 100644
+--- a/app/src/main/java/com/routeflow/app/core/network/RFSessionInterceptor.kt
++++ b/app/src/main/java/com/routeflow/app/core/network/RFSessionInterceptor.kt
+diff --git a/app/src/main/java/com/routeflow/app/feature/delivery/DeliveryHomeScreen.kt b/app/src/main/java/com/routeflow/app/feature/delivery/DeliveryHomeScreen.kt
+index e998c0d..f32a5df 100644
+--- a/app/src/main/java/com/routeflow/app/feature/delivery/DeliveryHomeScreen.kt
++++ b/app/src/main/java/com/routeflow/app/feature/delivery/DeliveryHomeScreen.kt
+@@ -48,7 +48,7 @@ fun DeliveryHomeScreen(
+                     Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
+                     Column {
+                         Text("${state.assignedCount} Deliveries Assigned", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+-                        Text("Today's route: Mansarovar West", style = MaterialTheme.typography.bodySmall)
++                        Text("Jaipur Wholesale Distribution Route", style = MaterialTheme.typography.bodySmall)
+                     }
+                 }
+             }
+diff --git a/app/src/main/java/com/routeflow/app/feature/owner/OwnerHomeScreen.kt b/app/src/main/java/com/routeflow/app/feature/owner/OwnerHomeScreen.kt
+index e16bb68..8133501 100644
+--- a/app/src/main/java/com/routeflow/app/feature/owner/OwnerHomeScreen.kt
++++ b/app/src/main/java/com/routeflow/app/feature/owner/OwnerHomeScreen.kt
+@@ -102,6 +102,28 @@ fun OwnerHomeScreen(
+                     modifier = Modifier.weight(1f)
+                 )
+             }
++            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
++                OwnerMetricCard(
++                    title = "Picking / Packing Queue",
++                    value = "${state.fulfillmentQueueCount}",
++                    subtitle = "Warehouse queue",
++                    color = MaterialTheme.colorScheme.tertiary,
++                    modifier = Modifier.weight(1f)
++                )
++                OwnerMetricCard(
++                    title = "Out for Delivery",
++                    value = "${state.outForDeliveryCount}",
++                    subtitle = "Dispatched orders",
++                    color = MaterialTheme.colorScheme.primary,
++                    modifier = Modifier.weight(1f)
++                )
++                OwnerMetricCard(
++                    title = "Delivery Exceptions",
++                    value = "${state.deliveryExceptionsCount}",
++                    subtitle = "Action required",
++                    color = RouteFlowStatus.Error,
++                    modifier = Modifier.weight(1f)
++                )
++            }
+
+             Spacer(Modifier.height(8.dp))
+
+diff --git a/app/src/main/java/com/routeflow/app/feature/owner/OwnerViewModel.kt b/app/src/main/java/com/routeflow/app/feature/owner/OwnerViewModel.kt
+index ad447cd..9ff63a1 100644
+--- a/app/src/main/java/com/routeflow/app/feature/owner/OwnerViewModel.kt
++++ b/app/src/main/java/com/routeflow/app/feature/owner/OwnerViewModel.kt
+@@ -14,6 +14,9 @@ data class OwnerState(
+     val pendingApprovalsCount: Int = 0,
+     val totalOutstandingPaise: Long = 0L,
+     val todaySalesPaise: Long = 0L,
++    val fulfillmentQueueCount: Int = 0,
++    val outForDeliveryCount: Int = 0,
++    val deliveryExceptionsCount: Int = 0,
+     val isLoading: Boolean = false,
+     val errorMessage: String? = null
+ )
+@@ -37,12 +40,21 @@ class OwnerViewModel @Inject constructor(
+         retailerRepository.getAllRetailers(),
+         _isLoading
+     ) { orders, retailers, isLoading ->
+         val pendingApprovals = orders.count { it.status == "SUBMITTED" }
+         val totalOutstanding = retailers.sumOf { it.outstandingAmountPaise }
+         val todaySales = orders.filter { it.status != "REJECTED" }.sumOf { it.totalAmountPaise }
++        val fulfillmentQueue = orders.count { it.status == "APPROVED" || it.status == "PICKING" || it.status == "PACKED" }
++        val outForDelivery = orders.count { it.status == "OUT_FOR_DELIVERY" || it.status == "ASSIGNED_TO_TRIP" }
++        val deliveryExceptions = orders.count { it.status == "DELIVERY_FAILED" || it.status == "PARTIALLY_DELIVERED" }
+
+         OwnerState(
+             pendingApprovalsCount = pendingApprovals,
+             totalOutstandingPaise = totalOutstanding,
+             todaySalesPaise = todaySales,
++            fulfillmentQueueCount = fulfillmentQueue,
++            outForDeliveryCount = outForDelivery,
++            deliveryExceptionsCount = deliveryExceptions,
+             isLoading = isLoading
+         )
+     }.stateIn(
+diff --git a/app/src/main/java/com/routeflow/app/navigation/RouteFlowApp.kt b/app/src/main/java/com/routeflow/app/navigation/RouteFlowApp.kt
+index fdcf4e3..a9e403d 100644
+--- a/app/src/main/java/com/routeflow/app/navigation/RouteFlowApp.kt
++++ b/app/src/main/java/com/routeflow/app/navigation/RouteFlowApp.kt
+@@ -183,7 +183,7 @@ fun RouteFlowApp(
+                     )
+                     Surface(color = Color(0xFFEFF6FF)) {
+                         Text(
+-                            text = "Demo data only · Jaipur Wholesale Distributors",
++                            text = "Jaipur Wholesale Distributors Workspace",
+                             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                             style = MaterialTheme.typography.labelSmall,
+                             color = RFColors.Accent
+diff --git me/backend/src/delivery-proof.ts b/backend/src/delivery-proof.ts
+index fd0475b..e62b080 100644
+--- a/backend/src/delivery-proof.ts
++++ b/backend/src/delivery-proof.ts
+@@ -62,7 +62,7 @@ export async function requestOtp(c: any) {
+
+   if (c.env.ENVIRONMENT === 'development' && c.env.SMS_MODE === 'simulated') {
+     return c.json({
+-      debugOtp: otpCode,
++      debugOtp: null,
+       deliveryStatus: 'SIMULATED',
+       expiresAt,
+       message: `Simulated OTP created for order ${orderId}.`,
+diff --git a/backend/src/trips.ts b/backend/src/trips.ts
+index c6b92a2..6879899 100644
+--- a/backend/src/trips.ts
++++ b/backend/src/trips.ts
+@@ -48,7 +48,15 @@ trips.post('/', async (c) => {
+
+   const driver = await c.env.DB.prepare('SELECT full_name FROM users WHERE id = ? AND company_id = ? AND role = ? AND is_active = 1')
+     .bind(driverId, user.company_id, 'DELIVERY_EXECUTIVE').first();
+-  if (!driver) return c.json({ error: 'Driver not found' }, 404);
++  if (!driver) return c.json({ error: 'Active delivery executive not found' }, 404);
++
++  const placeholders = orderIds.map(() => '?').join(',');
++  const { results: validOrders } = await c.env.DB.prepare(
++    `SELECT id, status FROM orders WHERE company_id = ? AND id IN (${placeholders})`
++  ).bind(user.company_id, ...orderIds).all();
++  if (!validOrders || validOrders.length !== orderIds.length) {
++    return c.json({ error: 'One or more invalid order IDs provided' }, 400);
++  }
+
+   const tripId = `trip_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+   const tripNumber = `TRIP-${Math.floor(1000 + Math.random() * 9000)}`;
+diff --git a/backend/test/trips.test.mjs b/backend/test/trips.test.mjs
+index ad838a1..6e529a1 100644
+--- a/backend/test/trips.test.mjs
++++ b/backend/test/trips.test.mjs
+@@ -10,13 +10,40 @@ export async function runTripsTest(baseUrl) {
+   });
+   const ownerData = await ownerRes.json();
+   const ownerToken = ownerData.access_token;
+
+-  // 2. Fetch or create order to assign
+-  const ordersRes = await fetch(`${baseUrl}/orders`, {
++  const warehouseRes = await fetch(`${baseUrl}/auth/login`, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ username: 'warehouse', password: 'password123' })
++  });
++  const warehouseToken = (await warehouseRes.json()).access_token;
++
++  const salesRes = await fetch(`${baseUrl}/auth/login`, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ username: 'sales', password: 'password123' })
++  });
++  const salesToken = (await salesRes.json()).access_token;
++
++  // 2. Create and prepare an order for trip assignment
++  const orderId = `ord_trip_${Date.now()}`;
++  await fetch(`${baseUrl}/orders`, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
++    body: JSON.stringify({
++      idempotencyKey: `idemp_${orderId}`,
++      order: { id: orderId, retailerId: 'R1', totalAmountPaise: 45000 },
++      items: [{ id: `item_${orderId}`, productId: 'P1', quantity: 1, pricePaiseAtTime: 45000 }]
++    })
++  });
++  await fetch(`${baseUrl}/orders/${orderId}/approve`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } });
++  await fetch(`${baseUrl}/orders/${orderId}/start-picking`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
++  await fetch(`${baseUrl}/orders/${orderId}/pick-item`, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${warehouseToken}` },
++    body: JSON.stringify({ productId: 'P1', isPicked: true })
++  });
++  await fetch(`${baseUrl}/orders/${orderId}/pack`, { method: 'POST', headers: { Authorization: `Bearer ${warehouseToken}` } });
+
+   // 3. Create Delivery Trip
+   const createTripRes = await fetch(`${baseUrl}/trips`, {
+     method: 'POST',

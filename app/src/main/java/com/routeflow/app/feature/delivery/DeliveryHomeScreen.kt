@@ -59,7 +59,7 @@ fun DeliveryHomeScreen(
                     Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
                     Column {
                         Text("${state.assignedCount} Deliveries Assigned", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Today's route: Mansarovar West", style = MaterialTheme.typography.bodySmall)
+                        Text("Jaipur Wholesale Distribution Route", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

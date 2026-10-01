@@ -19,6 +19,9 @@ data class OwnerHomeState(
     val deliveredSalesTodayPaise: Long = 0,
     val totalOutstandingPaise: Long = 0,
     val lowStockCount: Int = 0,
+    val fulfillmentQueueCount: Int = 0,
+    val outForDeliveryCount: Int = 0,
+    val deliveryExceptionsCount: Int = 0,
     val isLoading: Boolean = false
 )
 
@@ -45,11 +48,18 @@ class OwnerViewModel @Inject constructor(
             it.status == "DELIVERED" && it.updatedAt >= todayStart 
         }.sumOf { it.totalAmountPaise }
 
+        val fulfillmentQueue = orders.count { it.status == "APPROVED" || it.status == "PICKING" || it.status == "PACKED" }
+        val outForDelivery = orders.count { it.status == "OUT_FOR_DELIVERY" || it.status == "ASSIGNED_TO_TRIP" }
+        val deliveryExceptions = orders.count { it.status == "DELIVERY_FAILED" || it.status == "PARTIALLY_DELIVERED" }
+
         OwnerHomeState(
             pendingApprovalsCount = orders.count { it.status == "SUBMITTED" },
             lowStockCount = products.count { it.stockQuantity < 10 },
             totalOutstandingPaise = retailers.sumOf { it.outstandingAmountPaise },
             deliveredSalesTodayPaise = deliveredSalesToday,
+            fulfillmentQueueCount = fulfillmentQueue,
+            outForDeliveryCount = outForDelivery,
+            deliveryExceptionsCount = deliveryExceptions,
             isLoading = false
         )
     }.stateIn(

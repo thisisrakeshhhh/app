@@ -5,7 +5,19 @@ type Bindings = {
   JWT_SECRET: string;
 };
 
-const trips = new Hono<{ Bindings: Bindings }>();
+type UserPayload = {
+  sub: string;
+  sid: string;
+  company_id: string;
+  role: string;
+  name: string;
+};
+
+type Variables = {
+  user: UserPayload;
+};
+
+const trips = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Helper to sanitize schema if trip tables exist or dynamically ensure them
 async function ensureTripSchema(db: D1Database) {
@@ -49,8 +61,17 @@ trips.post('/', async (c) => {
     return c.json({ error: 'Driver, vehicle, and orders are required' }, 400);
   }
 
-  const driver = await c.env.DB.prepare('SELECT full_name FROM users WHERE id = ? AND company_id = ?').bind(driverId, user.company_id).first();
-  if (!driver) return c.json({ error: 'Driver not found' }, 404);
+  const driver: any = await c.env.DB.prepare('SELECT full_name FROM users WHERE id = ? AND company_id = ? AND role = ? AND is_active = 1')
+    .bind(driverId, user.company_id, 'DELIVERY_EXECUTIVE').first();
+  if (!driver) return c.json({ error: 'Active delivery executive not found' }, 404);
+
+  const placeholders = orderIds.map(() => '?').join(',');
+  const { results: validOrders } = await c.env.DB.prepare(
+    `SELECT id, status FROM orders WHERE company_id = ? AND id IN (${placeholders})`
+  ).bind(user.company_id, ...orderIds).all();
+  if (!validOrders || validOrders.length !== orderIds.length) {
+    return c.json({ error: 'One or more invalid order IDs provided' }, 400);
+  }
 
   const tripId = `trip_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const tripNumber = `TRIP-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -191,6 +212,10 @@ trips.get('/', async (c) => {
 // PUT /trips/:id/reorder - Reorder stops
 trips.put('/:id/reorder', async (c) => {
   const user = c.get('user');
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN' && user.role !== 'WAREHOUSE_MANAGER') {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
   const tripId = c.req.param('id');
   const { stopOrder } = await c.req.json(); // array of orderIds
 

@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.PendingActions
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
@@ -105,6 +107,30 @@ fun OwnerHomeScreen(
                 icon = Icons.Default.Assignment,
                 color = RouteFlowStatus.Rejected
             )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard(
+                    title = "Picking/Packing",
+                    value = "${state.fulfillmentQueueCount}",
+                    icon = Icons.Default.Inventory,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.weight(1f)
+                )
+                MetricCard(
+                    title = "Out for Delivery",
+                    value = "${state.outForDeliveryCount}",
+                    icon = Icons.Default.LocalShipping,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                MetricCard(
+                    title = "Exceptions",
+                    value = "${state.deliveryExceptionsCount}",
+                    icon = Icons.Default.ReportProblem,
+                    color = RouteFlowStatus.Rejected,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             Text("Financial Operations & Approvals", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
 
