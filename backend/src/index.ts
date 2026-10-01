@@ -4,6 +4,7 @@ import { dailyCycle } from './daily-cycle';
 import { fieldCycle } from './field-cycle';
 import { requestOtp } from './delivery-proof';
 import { Hono } from 'hono';
+import { onboardingRouter } from './onboarding';
 import { sign, verify } from '@tsndr/cloudflare-worker-jwt';
 import bcrypt from 'bcryptjs';
 
@@ -2265,5 +2266,6 @@ app.get('/owner/visits/daily', authMiddleware, async (c) => {
 
 app.route('/', dailyCycle(authMiddleware));
 app.route('/', fieldCycle(authMiddleware));
+app.route('/', onboardingRouter);
 
 export default app;
