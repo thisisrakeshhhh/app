@@ -97,12 +97,14 @@ class LoginViewModel @Inject constructor(
                         val recentOrders = serverOrders.sortedByDescending { it.createdAt }.take(20)
                         val targetOrders = (activeOrders + recentOrders).distinctBy { it.id }.take(30)
 
-                        val itemsToInsert = targetOrders.flatMap { orderDto ->
+                        val itemsToInsert = if (targetOrders.isNotEmpty()) {
                             try {
-                                api.getOrderDetails(orderDto.id).items.map { it.toEntity() }
+                                api.getOrderItemsBulk(com.routeflow.app.core.network.dto.BulkOrderItemsRequest(targetOrders.map { it.id })).items.map { it.toEntity() }
                             } catch (_: Exception) {
                                 emptyList()
                             }
+                        } else {
+                            emptyList()
                         }
 
                         // Verify account context has not switched mid-fetch before writing to Room

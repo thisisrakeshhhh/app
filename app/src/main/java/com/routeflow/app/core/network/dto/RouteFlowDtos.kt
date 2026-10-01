@@ -813,3 +813,13 @@ data class RetryDeliveryRequest(
     val rescheduledDate: String? = null,
     val notes: String? = null
 )
+
+@Serializable
+data class BulkOrderItemsRequest(
+    val orderIds: List<String>
+)
+
+@Serializable
+data class BulkOrderItemsResponse(
+    val items: List<OrderItemDto> = emptyList()
+)

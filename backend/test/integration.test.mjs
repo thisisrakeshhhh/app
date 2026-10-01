@@ -1950,4 +1950,271 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
     const heldOrderRetry = heldListFinal.find(u => u.orderId === retryOrdId);
     assert.equal(heldOrderRetry, undefined, 'Driver-held stock must be cleared upon successful retry delivery');
   });
+
+  test('21. Bulk Order Items Retrieval: Bounded, Tenant-Isolated, and Role-Scoped', async () => {
+    // 1. Submit two orders for company 1
+    const ord1Id = `ord_bulk_1_${Date.now()}`;
+    const res1 = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        idempotencyKey: `idemp_${ord1Id}`,
+        order: { id: ord1Id, retailerId: 'R1', totalAmountPaise: 45000 },
+        items: [{ id: `item_1_${Date.now()}`, productId: 'P1', quantity: 1, pricePaiseAtTime: 45000 }]
+      })
+    });
+    assert.equal(res1.status, 200, 'Order 1 submission failed');
+
+    const ord2Id = `ord_bulk_2_${Date.now()}`;
+    const res2 = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        idempotencyKey: `idemp_${ord2Id}`,
+        order: { id: ord2Id, retailerId: 'R1', totalAmountPaise: 12000 },
+        items: [{ id: `item_2_${Date.now()}`, productId: 'P2', quantity: 1, pricePaiseAtTime: 12000 }]
+      })
+    });
+    assert.equal(res2.status, 200, 'Order 2 submission failed');
+
+    // 2. Fetch bulk items for both orders in a single API call
+    const resBulk = await fetch(`${BASE_URL}/orders/items-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ orderIds: [ord1Id, ord2Id] })
+    });
+    assert.equal(resBulk.status, 200, 'Bulk items request failed');
+    const bulkData = await resBulk.json();
+    assert.ok(Array.isArray(bulkData.items), 'items must be an array');
+    assert.equal(bulkData.items.length, 2, 'Must return items for both orders');
+    const returnedOrderIds = new Set(bulkData.items.map(i => i.orderId));
+    assert.ok(returnedOrderIds.has(ord1Id));
+    assert.ok(returnedOrderIds.has(ord2Id));
+
+    // 3. Multi-tenant isolation: Owner of company 2 cannot retrieve company 1 items
+    const resComp2Bulk = await fetch(`${BASE_URL}/orders/items-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerComp2Token}` },
+      body: JSON.stringify({ orderIds: [ord1Id, ord2Id] })
+    });
+    assert.equal(resComp2Bulk.status, 200);
+    const comp2BulkData = await resComp2Bulk.json();
+    assert.equal(comp2BulkData.items.length, 0, 'Cross-tenant bulk items request must return 0 items');
+
+    // 4. Bounded validation: Empty orderIds returns empty items
+    const resEmpty = await fetch(`${BASE_URL}/orders/items-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ orderIds: [] })
+    });
+    assert.equal(resEmpty.status, 200);
+    assert.deepEqual(await resEmpty.json(), { items: [] });
+
+    // 5. Bounded validation: >50 orderIds rejected
+    const tooManyIds = Array.from({ length: 51 }, (_, i) => `ord_dummy_${i}`);
+    const resTooMany = await fetch(`${BASE_URL}/orders/items-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ orderIds: tooManyIds })
+    });
+    assert.equal(resTooMany.status, 400, 'Must reject >50 order IDs');
+  });
+
+  test('22. Team Delegation & Employee Invitation Flow', async () => {
+    // 1. Create a Team as Owner
+    const teamRes = await fetch(`${BASE_URL}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ name: 'Jaipur North Beat Team' })
+    });
+    assert.equal(teamRes.status, 201, 'Team creation failed');
+    const teamData = await teamRes.json();
+    assert.ok(teamData.team.id);
+
+    // 2. Non-owner (Salesperson) cannot create teams
+    const teamSalesRes = await fetch(`${BASE_URL}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({ name: 'Rogue Team' })
+    });
+    assert.equal(teamSalesRes.status, 403, 'Salesperson must not create teams');
+
+    // 3. List teams
+    const listTeamsRes = await fetch(`${BASE_URL}/teams`, {
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    assert.equal(listTeamsRes.status, 200);
+    const { teams } = await listTeamsRes.json();
+    assert.ok(teams.some(t => t.name === 'Jaipur North Beat Team'));
+
+    // 4. Invite an ADMIN / Team Leader
+    const adminUsername = `admin_tl_${Date.now()}`;
+    const inviteRes = await fetch(`${BASE_URL}/employees/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        fullName: 'Vikram Singh TL',
+        username: adminUsername,
+        role: 'ADMIN'
+      })
+    });
+    assert.equal(inviteRes.status, 201, 'Employee invitation failed');
+    const inviteData = await inviteRes.json();
+    assert.ok(inviteData.invitation.inviteToken, 'Must generate single-use invite token');
+    const inviteToken = inviteData.invitation.inviteToken;
+
+    // 5. Employee accepts invitation and sets password (public endpoint)
+    const acceptRes = await fetch(`${BASE_URL}/auth/accept-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        inviteToken,
+        password: 'SecureAdminPassword123!'
+      })
+    });
+    assert.equal(acceptRes.status, 200, 'Accept invite failed');
+
+    // 6. Token is single-use: accepting again fails
+    const acceptAgainRes = await fetch(`${BASE_URL}/auth/accept-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        inviteToken,
+        password: 'SecureAdminPassword123!'
+      })
+    });
+    assert.equal(acceptAgainRes.status, 404, 'Single-use token must not be accepted twice');
+
+    // 7. New Admin logs in
+    const adminLoginRes = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: adminUsername, password: 'SecureAdminPassword123!' })
+    });
+    assert.equal(adminLoginRes.status, 200, 'Admin login failed');
+    const adminAuth = await adminLoginRes.json();
+    assert.equal(adminAuth.user.role, 'ADMIN');
+    const adminToken = adminAuth.access_token;
+
+    // 8. Admin can view pending orders
+    const adminPendingRes = await fetch(`${BASE_URL}/orders/pending`, {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    assert.equal(adminPendingRes.status, 200, 'Admin must be able to view pending orders');
+
+    // 9. Admin can approve a submitted order within delegated limit
+    const ordToApproveId = `ord_tl_appr_${Date.now()}`;
+    await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        idempotencyKey: `idemp_${ordToApproveId}`,
+        order: { id: ordToApproveId, retailerId: 'R1', totalAmountPaise: 45000 },
+        items: [{ id: `item_appr_${Date.now()}`, productId: 'P1', quantity: 1, pricePaiseAtTime: 45000 }]
+      })
+    });
+    const adminApproveRes = await fetch(`${BASE_URL}/orders/${ordToApproveId}/approve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    assert.equal(adminApproveRes.status, 200, 'Admin must be able to approve orders');
+  });
+
+  test('23. Public Owner Registration, Session Listing, Reauth & Password Change', async () => {
+    // 1. Public owner registers a new distributor business
+    const newOwnerUser = `newbiz_owner_${Date.now()}`;
+    const registerRes = await fetch(`${BASE_URL}/auth/register-owner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        businessName: 'Rajasthan Spice Traders',
+        fullName: 'Ramesh Sharma',
+        username: newOwnerUser,
+        password: 'OwnerPassword456!',
+        contactNumber: '9876543210'
+      })
+    });
+    assert.equal(registerRes.status, 201, 'Owner registration failed');
+    const regData = await registerRes.json();
+    assert.ok(regData.access_token, 'Must return access token');
+    assert.ok(regData.refresh_token, 'Must return refresh token');
+    assert.equal(regData.user.role, 'OWNER');
+    assert.equal(regData.user.status, 'ACTIVE');
+    const newOwnerToken = regData.access_token;
+    const newCompanyId = regData.user.companyId;
+
+    // 2. Duplicate username rejected
+    const dupRes = await fetch(`${BASE_URL}/auth/register-owner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        businessName: 'Another Traders',
+        fullName: 'Another Owner',
+        username: newOwnerUser,
+        password: 'AnotherPassword456!'
+      })
+    });
+    assert.equal(dupRes.status, 409, 'Duplicate username must be rejected');
+
+    // 3. New Owner has company isolation (cannot see company 1 products)
+    const prodsRes = await fetch(`${BASE_URL}/products`, {
+      headers: { Authorization: `Bearer ${newOwnerToken}` }
+    });
+    assert.equal(prodsRes.status, 200);
+    const prods = await prodsRes.json();
+    assert.equal(prods.length, 0, 'New business must start with 0 products');
+
+    // 4. Session listing
+    const sessionsRes = await fetch(`${BASE_URL}/auth/sessions`, {
+      headers: { Authorization: `Bearer ${newOwnerToken}` }
+    });
+    assert.equal(sessionsRes.status, 200);
+    const { sessions } = await sessionsRes.json();
+    assert.ok(sessions.length >= 1, 'Must list active session');
+
+    // 5. Reauthentication for sensitive owner actions
+    const reauthRes = await fetch(`${BASE_URL}/auth/reauthenticate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newOwnerToken}` },
+      body: JSON.stringify({ password: 'OwnerPassword456!' })
+    });
+    assert.equal(reauthRes.status, 200, 'Reauthentication failed');
+    const reauthData = await reauthRes.json();
+    assert.ok(reauthData.reauthToken, 'Must return short-lived reauth token');
+
+    // 6. Wrong password reauthentication rejected
+    const badReauthRes = await fetch(`${BASE_URL}/auth/reauthenticate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newOwnerToken}` },
+      body: JSON.stringify({ password: 'WrongPassword!' })
+    });
+    assert.equal(badReauthRes.status, 401, 'Wrong password must be rejected');
+
+    // 7. Password change
+    const changePassRes = await fetch(`${BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newOwnerToken}` },
+      body: JSON.stringify({
+        oldPassword: 'OwnerPassword456!',
+        newPassword: 'BrandNewOwnerPassword789!'
+      })
+    });
+    assert.equal(changePassRes.status, 200, 'Password change failed');
+
+    // 8. Login with old password rejected
+    const oldLoginRes = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: newOwnerUser, password: 'OwnerPassword456!' })
+    });
+    assert.equal(oldLoginRes.status, 401, 'Old password must no longer work');
+
+    // 9. Login with new password succeeds
+    const newLoginRes = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: newOwnerUser, password: 'BrandNewOwnerPassword789!' })
+    });
+    assert.equal(newLoginRes.status, 200, 'New password login failed');
+  });
 });

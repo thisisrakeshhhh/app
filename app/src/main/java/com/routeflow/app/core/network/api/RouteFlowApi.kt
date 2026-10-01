@@ -205,4 +205,8 @@ interface RouteFlowApi {
 
     @POST("orders/{id}/retry-delivery")
     suspend fun retryDelivery(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.RetryDeliveryRequest): StatusResponse
+
+    /** Batch-fetch order items for up to 50 order IDs in a single request. */
+    @POST("orders/items-bulk")
+    suspend fun getOrderItemsBulk(@Body request: com.routeflow.app.core.network.dto.BulkOrderItemsRequest): com.routeflow.app.core.network.dto.BulkOrderItemsResponse
 }

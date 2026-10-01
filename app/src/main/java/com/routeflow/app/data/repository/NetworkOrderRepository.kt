@@ -316,27 +316,27 @@ class NetworkOrderRepository @Inject constructor(
         val currentCompanyId = tokenStorage.getCompanyId() ?: ""
 
         val ordersDto = api.getOrders()
-        // 1. Fetch details outside any transaction
-        val orderWithItemsList = ordersDto.map { orderDto ->
-            val items = try {
-                api.getOrderDetails(orderDto.id).items.map { it.toEntity() }
+        val orderEntities = ordersDto.map { it.toEntity() }
+        val targetOrderIds = ordersDto.take(50).map { it.id }
+        val items = if (targetOrderIds.isNotEmpty()) {
+            try {
+                api.getOrderItemsBulk(com.routeflow.app.core.network.dto.BulkOrderItemsRequest(targetOrderIds)).items.map { it.toEntity() }
             } catch (_: Exception) {
                 emptyList()
             }
-            orderDto.toEntity() to items
+        } else {
+            emptyList()
         }
 
-        // 2. Verify account context has not switched mid-fetch
+        // Verify account context has not switched mid-fetch
         if (tokenStorage.getUserId() != currentUserId || tokenStorage.getCompanyId() != currentCompanyId) {
             Result.failure(IllegalStateException("Account switched during orders fetch"))
         } else {
-            // 3. Short atomic Room transaction
+            // Short atomic Room transaction
             database.withTransaction {
-                orderWithItemsList.forEach { (orderEntity, itemEntities) ->
-                    database.orderDao().insertOrder(orderEntity)
-                    if (itemEntities.isNotEmpty()) {
-                        database.orderDao().insertOrderItems(itemEntities)
-                    }
+                database.orderDao().insertOrders(orderEntities)
+                if (items.isNotEmpty()) {
+                    database.orderDao().insertOrderItems(items)
                 }
             }
             Result.success(Unit)

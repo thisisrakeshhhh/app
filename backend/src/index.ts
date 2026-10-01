@@ -301,6 +301,8 @@ app.get('/me', authMiddleware, async (c) => {
   return c.json(user);
 });
 
+app.route('/', onboardingRouter(authMiddleware));
+
 // --- CATALOG & RETAILERS ---
 
 app.get('/retailers', authMiddleware, async (c) => {
@@ -566,10 +568,55 @@ app.get('/orders', authMiddleware, async (c) => {
   return c.json(results);
 });
 
+// Bulk order-item fetch — replaces N individual /orders/:id calls at startup.
+// Accepts a JSON body: { "orderIds": ["id1", "id2", ...] } (max 50).
+// Returns { items: [ { orderId, productId, ... }, ... ] }
+app.post('/orders/items-bulk', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json().catch(() => ({}));
+  const ids: string[] = Array.isArray(body?.orderIds) ? body.orderIds : [];
+
+  if (ids.length === 0) return c.json({ items: [] });
+  if (ids.length > 50) return c.json({ error: 'Maximum 50 order IDs per bulk request' }, 400);
+  if (ids.some((id: any) => typeof id !== 'string' || id.length > 100)) {
+    return c.json({ error: 'Invalid order ID in list' }, 400);
+  }
+
+  // Verify all requested orders belong to this company (role-scoped)
+  const placeholders = ids.map(() => '?').join(', ');
+  let ownershipQuery = `SELECT id FROM orders WHERE company_id = ? AND id IN (${placeholders})`;
+  const ownershipParams: any[] = [user.company_id, ...ids];
+
+  if (user.role === 'SALESPERSON') {
+    ownershipQuery += ' AND employee_id = ?';
+    ownershipParams.push(user.sub);
+  } else if (user.role === 'DELIVERY_EXECUTIVE') {
+    ownershipQuery += ' AND delivery_employee_id = ?';
+    ownershipParams.push(user.sub);
+  }
+
+  const { results: ownedOrders } = await c.env.DB.prepare(ownershipQuery).bind(...ownershipParams).all();
+  const ownedIds = (ownedOrders as any[]).map(r => r.id);
+
+  if (ownedIds.length === 0) return c.json({ items: [] });
+
+  const itemPlaceholders = ownedIds.map(() => '?').join(', ');
+  const { results: items } = await c.env.DB.prepare(
+    `SELECT id, order_id AS orderId, product_id AS productId, quantity, free_quantity AS freeQuantity,
+            price_paise_at_time AS pricePaiseAtTime, is_picked AS isPicked,
+            delivered_quantity AS deliveredQuantity, delivered_free_quantity AS deliveredFreeQuantity,
+            undelivered_quantity AS undeliveredQuantity, undelivered_free_quantity AS undeliveredFreeQuantity,
+            undelivered_reason AS undeliveredReason
+     FROM order_items WHERE order_id IN (${itemPlaceholders})`
+  ).bind(...ownedIds).all();
+
+  return c.json({ items: (items as any[]).map(i => ({ ...i, isPicked: Boolean(i.isPicked) })) });
+});
+
 app.get('/orders/pending', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: only owner can view pending approvals' }, 403);
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
   }
 
   const { results } = await c.env.DB.prepare(
@@ -619,8 +666,8 @@ app.get('/orders/:id', authMiddleware, async (c) => {
 
 app.post('/orders/:id/approve', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: only owner can approve orders' }, 403);
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required to approve orders' }, 403);
   }
 
   const orderId = c.req.param('id');
@@ -2266,6 +2313,5 @@ app.get('/owner/visits/daily', authMiddleware, async (c) => {
 
 app.route('/', dailyCycle(authMiddleware));
 app.route('/', fieldCycle(authMiddleware));
-app.route('/', onboardingRouter);
 
 export default app;
