@@ -98,8 +98,10 @@ export function onboardingRouter(authMiddleware: any) {
     user: {
       id: userId,
       username,
+      name: fullName,
       fullName,
       role: 'OWNER',
+      company_id: companyId,
       companyId,
       businessName,
       status: 'ACTIVE'

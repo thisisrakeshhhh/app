@@ -11,6 +11,7 @@ import com.routeflow.app.domain.model.EmployeeRole
 fun RoleIcon(role: EmployeeRole, modifier: Modifier = Modifier) {
     val resource = when (role) {
         EmployeeRole.OWNER -> R.drawable.ic_owner
+        EmployeeRole.ADMIN -> R.drawable.ic_owner
         EmployeeRole.SALESPERSON -> R.drawable.ic_sales
         EmployeeRole.WAREHOUSE_MANAGER -> R.drawable.ic_warehouse
         EmployeeRole.DELIVERY_EXECUTIVE -> R.drawable.ic_delivery

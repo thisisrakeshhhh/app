@@ -338,5 +338,7 @@ class AccountScopedSyncTest {
         override suspend fun retryDelivery(id: String, request: com.routeflow.app.core.network.dto.RetryDeliveryRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun getOrderItemsBulk(request: com.routeflow.app.core.network.dto.BulkOrderItemsRequest): com.routeflow.app.core.network.dto.BulkOrderItemsResponse =
             com.routeflow.app.core.network.dto.BulkOrderItemsResponse()
+        override suspend fun registerOwner(request: com.routeflow.app.core.network.dto.RegisterOwnerRequest): AuthResponse = throw NotImplementedError()
+        override suspend fun acceptInvite(request: com.routeflow.app.core.network.dto.AcceptInviteRequest): StatusResponse = StatusResponse(success = true)
     }
 }

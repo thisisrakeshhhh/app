@@ -189,6 +189,7 @@ fun DemoLoginScreen(
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         DemoHintChip("owner")
+                        DemoHintChip("admin")
                         DemoHintChip("sales")
                         DemoHintChip("warehouse")
                         DemoHintChip("delivery")

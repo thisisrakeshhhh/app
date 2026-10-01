@@ -129,6 +129,11 @@ private const val OWNER_HANDOVERS = "owner/handovers"
 private const val OWNER_COLLECTIONS = "owner/collections"
 private const val OWNER_RETURNS = "owner/returns"
 
+// Admin / Team Leader Routes — delegated subset of Owner operations
+private const val ADMIN_APPROVALS = "admin/approvals"
+private const val ADMIN_TEAM = "admin/team"
+private const val ADMIN_ACTIVITY = "admin/activity"
+
 // Sales Routes
 private const val SALES_TODAY = "sales/today"
 private const val SALES_RETAILER_LIST = "sales/retailers"
@@ -227,6 +232,12 @@ fun RouteFlowApp(
                 NavItem(OWNER_BUSINESS_HUB, R.string.tab_business, Icons.Default.Business),
                 NavItem(OWNER_TEAM, R.string.tab_team, Icons.Default.People),
                 NavItem(OWNER_ACTIVITY, R.string.tab_reports, Icons.Default.Assessment)
+            )
+            EmployeeRole.ADMIN -> listOf(
+                NavItem(RoleDestination.ADMIN.route, R.string.tab_home, Icons.Default.Home),
+                NavItem(ADMIN_APPROVALS, R.string.tab_orders, Icons.Default.CheckCircle),
+                NavItem(ADMIN_TEAM, R.string.tab_team, Icons.Default.People),
+                NavItem(ADMIN_ACTIVITY, R.string.tab_reports, Icons.Default.Assessment)
             )
             EmployeeRole.SALESPERSON -> listOf(
                 NavItem(SALES_TODAY, R.string.tab_today, Icons.Default.Today),
@@ -484,6 +495,58 @@ fun RouteFlowApp(
 
             composable(OWNER_RETURNS) {
                 OwnerReturnsScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ==========================================
+            // ADMIN / TEAM LEADER DESTINATIONS
+            // Delegated subset — order review, team visibility, activity.
+            // No business-config or unlimited credit/price overrides.
+            // ==========================================
+            composable(RoleDestination.ADMIN.route) {
+                if (employee != null) {
+                    val viewModel: OwnerViewModel = hiltViewModel()
+                    val adminState by viewModel.state.collectAsStateWithLifecycle()
+                    OwnerHomeScreen(
+                        employee = employee,
+                        state = adminState,
+                        onViewApprovals = { navController.navigate(ADMIN_APPROVALS) },
+                        onViewProducts = {},
+                        onViewRetailers = {},
+                        onViewEmployees = {},
+                        onViewHandovers = {},
+                        onViewCollections = {},
+                        onViewReturns = {}
+                    )
+                }
+            }
+
+            composable(ADMIN_APPROVALS) {
+                val viewModel: OrderApprovalViewModel = hiltViewModel()
+                val approvalState by viewModel.state.collectAsStateWithLifecycle()
+                OrderApprovalScreen(
+                    state = approvalState,
+                    onApprove = viewModel::approveOrder,
+                    onReject = viewModel::rejectOrder
+                )
+            }
+
+            composable(ADMIN_TEAM) {
+                val viewModel: OwnerTeamViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerTeamScreen(
+                    state = state,
+                    onRefresh = viewModel::refresh
+                )
+            }
+
+            composable(ADMIN_ACTIVITY) {
+                val viewModel: OwnerFieldActivityViewModel = hiltViewModel()
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                OwnerFieldActivityScreen(
+                    state = state,
+                    onRefresh = viewModel::refresh,
                     onBack = { navController.popBackStack() }
                 )
             }

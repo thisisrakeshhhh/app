@@ -823,3 +823,18 @@ data class BulkOrderItemsRequest(
 data class BulkOrderItemsResponse(
     val items: List<OrderItemDto> = emptyList()
 )
+
+@Serializable
+data class RegisterOwnerRequest(
+    val businessName: String,
+    val fullName: String,
+    val username: String,
+    val password: String,
+    val contactNumber: String? = null
+)
+
+@Serializable
+data class AcceptInviteRequest(
+    val inviteToken: String,
+    val password: String
+)

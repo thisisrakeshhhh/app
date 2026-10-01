@@ -29,6 +29,12 @@ interface RouteFlowApi {
     @POST("auth/logout")
     suspend fun logout(): StatusResponse
 
+    @POST("auth/register-owner")
+    suspend fun registerOwner(@Body request: com.routeflow.app.core.network.dto.RegisterOwnerRequest): AuthResponse
+
+    @POST("auth/accept-invite")
+    suspend fun acceptInvite(@Body request: com.routeflow.app.core.network.dto.AcceptInviteRequest): StatusResponse
+
     @GET("retailers")
     suspend fun getRetailers(): List<RetailerDto>
 

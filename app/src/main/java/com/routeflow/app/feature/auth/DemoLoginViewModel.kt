@@ -63,6 +63,7 @@ class DemoLoginViewModel @Inject constructor(
             try {
                 val role = when {
                     current.username.lowercase().trim() == "owner" && current.password == "123" -> EmployeeRole.OWNER
+                    current.username.lowercase().trim() == "admin" && current.password == "123" -> EmployeeRole.ADMIN
                     current.username.lowercase().trim() == "sales" && current.password == "123" -> EmployeeRole.SALESPERSON
                     current.username.lowercase().trim() == "warehouse" && current.password == "123" -> EmployeeRole.WAREHOUSE_MANAGER
                     current.username.lowercase().trim() == "delivery" && current.password == "123" -> EmployeeRole.DELIVERY_EXECUTIVE

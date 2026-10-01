@@ -11,8 +11,8 @@ class FakeEmployeeRepositoryTest {
     fun directoryHasOneClearlyMarkedDemoEmployeePerRole() = runTest {
         val employees = FakeEmployeeRepository().getDemoEmployees()
         assertEquals(EmployeeRole.entries.toSet(), employees.map { it.role }.toSet())
-        assertEquals(4, employees.size)
-        assertEquals(4, employees.map { it.id }.distinct().size)
+        assertEquals(5, employees.size)
+        assertEquals(5, employees.map { it.id }.distinct().size)
         assertTrue(employees.all { it.id.startsWith("demo-") && it.name.isNotBlank() })
         assertEquals("Rakesh Kumar", employees.single { it.role == EmployeeRole.SALESPERSON }.name)
     }

@@ -24,6 +24,7 @@ class FakeEmployeeRepository @Inject constructor(
 
     override suspend fun getDemoEmployees(): List<Employee> = listOf(
         Employee("demo-owner", "Amit Sharma", EmployeeRole.OWNER),
+        Employee("demo-admin", "Pooja Gupta", EmployeeRole.ADMIN),
         Employee("demo-sales", "Rakesh Kumar", EmployeeRole.SALESPERSON),
         Employee("demo-warehouse", "Manoj Kumar", EmployeeRole.WAREHOUSE_MANAGER),
         Employee("demo-delivery", "Suresh Yadav", EmployeeRole.DELIVERY_EXECUTIVE),

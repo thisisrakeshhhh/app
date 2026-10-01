@@ -131,11 +131,11 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                listOf("owner", "sales", "warehouse", "delivery").forEach { u ->
+                listOf("owner", "admin", "sales", "warehouse", "delivery").forEach { u ->
                     OutlinedButton(
                         onClick = {
                             onUsernameChange(u)
-                            onPasswordChange("password123")
+                            onPasswordChange("123")
                         },
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                     ) {
