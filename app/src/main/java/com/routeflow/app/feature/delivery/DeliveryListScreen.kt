@@ -66,9 +66,16 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                 }
                 Text(CurrencyFormatter.formatPaise(item.order.totalAmountPaise), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
             }
-            Button(onClick = { onClick(item.order.id) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Text("Proceed to Deliver")
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, Modifier.padding(start = 8.dp))
+            Button(
+                onClick = { onClick(item.order.id) },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                    contentColor = androidx.compose.ui.graphics.Color.White
+                )
+            ) {
+                Text("Proceed to Deliver", color = androidx.compose.ui.graphics.Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, Modifier.padding(start = 8.dp), tint = androidx.compose.ui.graphics.Color.White)
             }
         }
     }

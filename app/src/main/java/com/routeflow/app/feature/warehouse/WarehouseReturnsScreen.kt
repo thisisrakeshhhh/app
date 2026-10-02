@@ -92,24 +92,30 @@ fun WarehouseReturnsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_returns), fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = { viewModel.loadData() }, modifier = Modifier.testTag("refresh_returns_button")) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                    }
-                }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize()
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.tab_returns),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = RFColors.TextPrimary
+                )
+                IconButton(
+                    onClick = { viewModel.loadData() },
+                    modifier = Modifier.testTag("refresh_returns_button")
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = RFColors.Primary)
+                }
+            }
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -204,6 +210,10 @@ fun WarehouseReturnsScreen(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     inspectingReturn?.let { ret ->
@@ -296,14 +306,17 @@ private fun UndeliveredGoodCard(
                 onClick = onAcknowledge,
                 enabled = !isProcessing,
                 modifier = Modifier.fillMaxWidth().testTag("ack_button_${item.id}"),
-                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
                 if (isProcessing) {
                     CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp), color = Color.White, strokeWidth = 2.dp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Processing…")
+                    Text("Processing…", color = Color.White)
                 } else {
-                    Text(stringResource(R.string.acknowledge_return))
+                    Text(stringResource(R.string.acknowledge_return), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -434,16 +447,19 @@ private fun ReturnCard(
                     onClick = onInspect,
                     enabled = !isProcessing,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
                     if (isProcessing) {
                         CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp), color = Color.White, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Processing…")
+                        Text("Processing…", color = Color.White)
                     } else {
-                        Icon(Icons.Default.AssignmentReturn, contentDescription = null)
+                        Icon(Icons.Default.AssignmentReturn, contentDescription = null, tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Inspect Return")
+                        Text("Inspect Return", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }

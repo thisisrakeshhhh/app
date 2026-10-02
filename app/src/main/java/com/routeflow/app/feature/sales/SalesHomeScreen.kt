@@ -186,9 +186,13 @@ fun SalesHomeScreen(
         Button(
             onClick = onStartVisits,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RFColors.Primary,
+                contentColor = Color.White
+            )
         ) {
-            Text("Start shop visits", style = MaterialTheme.typography.titleMedium)
+            Text("Start shop visits", style = MaterialTheme.typography.titleMedium, color = Color.White)
         }
     }
 }

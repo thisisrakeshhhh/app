@@ -57,23 +57,22 @@ fun WarehouseStockScreen(
     val scope = rememberCoroutineScope()
     var selectedProductForAdjustment by remember { mutableStateOf<Product?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_stock), fontWeight = FontWeight.Bold) }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Box(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text(
+                text = stringResource(R.string.tab_stock),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = RFColors.TextPrimary
+            )
+
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(products, key = { it.id }) { product ->
@@ -111,15 +110,27 @@ fun WarehouseStockScreen(
 
                             Button(
                                 onClick = { selectedProductForAdjustment = product },
-                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = RFColors.Primary,
+                                    contentColor = Color.White
+                                )
                             ) {
-                                Text("Inbound / Receipt")
+                                Text(
+                                    text = "Inbound / Receipt",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
                         }
                     }
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     selectedProductForAdjustment?.let { product ->
@@ -216,9 +227,12 @@ private fun StockReceiptDialog(
                     )
                 },
                 enabled = (qtyText.toIntOrNull() ?: 0) > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
-                Text("Record GRN")
+                Text("Record GRN", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

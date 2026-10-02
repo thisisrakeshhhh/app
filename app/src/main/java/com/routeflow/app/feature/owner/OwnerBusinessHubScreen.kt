@@ -52,21 +52,19 @@ fun OwnerBusinessHubScreen(
     onNavigateCollections: () -> Unit = {},
     onNavigateReturns: () -> Unit = {}
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_business), fontWeight = FontWeight.Bold) }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.tab_business),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            color = RFColors.TextPrimary
+        )
             Text(
                 text = "Financial & Settlement Operations",
                 style = MaterialTheme.typography.titleMedium,
@@ -133,7 +131,6 @@ fun OwnerBusinessHubScreen(
             )
         }
     }
-}
 
 @Composable
 private fun BusinessCard(

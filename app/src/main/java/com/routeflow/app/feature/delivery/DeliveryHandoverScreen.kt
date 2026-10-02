@@ -1,6 +1,7 @@
 package com.routeflow.app.feature.delivery
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,17 +72,10 @@ fun DeliveryHandoverScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_cash), fontWeight = FontWeight.Bold) }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -93,11 +87,16 @@ fun DeliveryHandoverScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Text(
+                    text = stringResource(R.string.tab_cash),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = RFColors.TextPrimary
+                )
                 // Cash held summary card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -170,9 +169,12 @@ fun DeliveryHandoverScreen(
                 // Submit handover button
                 Button(
                     onClick = { showSubmitDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
                     enabled = !uiState.isSubmitting && uiState.pendingHandover == null && uiState.cashHeldPaise > 0,
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
                     if (uiState.isSubmitting) {
                         CircularProgressIndicator(
@@ -181,11 +183,11 @@ fun DeliveryHandoverScreen(
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Submitting…")
+                        Text("Submitting…", color = Color.White)
                     } else {
-                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null)
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Submit Handover for Reconciliation", fontWeight = FontWeight.Bold)
+                        Text("Submit Handover for Reconciliation", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -202,6 +204,10 @@ fun DeliveryHandoverScreen(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     // Submit dialog
@@ -237,9 +243,12 @@ fun DeliveryHandoverScreen(
                         showSubmitDialog = false
                         viewModel.submitHandover(cashHeld, handoverNotes.trim().takeIf { it.isNotBlank() })
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Submit ₹${"%,d".format(cashHeld / 100)}")
+                    Text("Submit ₹${"%,d".format(cashHeld / 100)}", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

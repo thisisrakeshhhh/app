@@ -99,9 +99,15 @@ private fun RetailerCard(
                         color = if (item.retailer.outstandingAmountPaise > 0) RouteFlowStatus.Rejected else Color.Unspecified
                     )
                 }
-                Button(onClick = { onRetailerClick(item.retailer.id) }) {
-                    Text("Check in")
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, Modifier.padding(start = 8.dp))
+                Button(
+                    onClick = { onRetailerClick(item.retailer.id) },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    )
+                ) {
+                    Text("Check in", color = androidx.compose.ui.graphics.Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, Modifier.padding(start = 8.dp), tint = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }

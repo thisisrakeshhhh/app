@@ -89,9 +89,13 @@ fun PickingScreen(
             confirmButton = {
                 Button(
                     onClick = { onConfirmDispatch(orderId) },
-                    enabled = !selectedId.isNullOrBlank()
+                    enabled = !selectedId.isNullOrBlank(),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    )
                 ) {
-                    Text("Confirm & Dispatch")
+                    Text("Confirm & Dispatch", color = androidx.compose.ui.graphics.Color.White)
                 }
             },
             dismissButton = {
@@ -172,22 +176,40 @@ private fun PickingOrderCard(
             
             when (detail.order.status) {
                 "APPROVED" -> {
-                    Button(onClick = { onStartPicking(detail.order.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Start Picking")
+                    Button(
+                        onClick = { onStartPicking(detail.order.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                            contentColor = androidx.compose.ui.graphics.Color.White
+                        )
+                    ) {
+                        Text("Start Picking", color = androidx.compose.ui.graphics.Color.White)
                     }
                 }
                 "PICKING" -> {
                     Button(
                         onClick = { onPacked(detail.order.id) }, 
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = detail.allPicked
+                        enabled = detail.allPicked,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                            contentColor = androidx.compose.ui.graphics.Color.White
+                        )
                     ) {
-                        Text("Mark Packed")
+                        Text("Mark Packed", color = androidx.compose.ui.graphics.Color.White)
                     }
                 }
                 "PACKED" -> {
-                    Button(onClick = { onOpenDispatch(detail.order.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Dispatch Order (Select Driver)")
+                    Button(
+                        onClick = { onOpenDispatch(detail.order.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                            contentColor = androidx.compose.ui.graphics.Color.White
+                        )
+                    ) {
+                        Text("Dispatch Order (Select Driver)", color = androidx.compose.ui.graphics.Color.White)
                     }
                 }
             }

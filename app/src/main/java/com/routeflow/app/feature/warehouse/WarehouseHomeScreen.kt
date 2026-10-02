@@ -83,11 +83,15 @@ fun WarehouseHomeScreen(
             Button(
                 onClick = onViewPicking,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
-                Icon(Icons.Default.Assignment, contentDescription = null)
+                Icon(Icons.Default.Assignment, contentDescription = null, tint = Color.White)
                 Spacer(Modifier.size(8.dp))
-                Text("Start Picking Orders", style = MaterialTheme.typography.titleMedium)
+                Text("Start Picking Orders", style = MaterialTheme.typography.titleMedium, color = Color.White)
             }
         }
     }

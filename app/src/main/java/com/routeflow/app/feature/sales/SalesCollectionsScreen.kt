@@ -55,21 +55,19 @@ fun SalesCollectionsScreen(
 
     val totalOutstandingPaise = retailers.sumOf { it.outstandingAmountPaise }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_collections), fontWeight = FontWeight.Bold) }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(
+                text = stringResource(R.string.tab_collections),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = RFColors.TextPrimary
+            )
             // Total Outstanding Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -153,6 +151,10 @@ fun SalesCollectionsScreen(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     selectedRetailerForCollection?.let { retailer ->
@@ -219,9 +221,12 @@ private fun CollectPaymentDialog(
                     onConfirm(amt * 100, selectedMethod, referenceText.trim())
                 },
                 enabled = (amountText.toLongOrNull() ?: 0L) > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
-                Text("Record Receipt")
+                Text("Record Receipt", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

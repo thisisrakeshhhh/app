@@ -163,9 +163,13 @@ private fun CartSummary(
                 Button(
                     onClick = onSubmit,
                     enabled = hasItems && !isSubmitting,
-                    modifier = Modifier.height(56.dp)
+                    modifier = Modifier.height(56.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    )
                 ) {
-                    Text(if (isSubmitting) "Submitting…" else "Submit Order")
+                    Text(if (isSubmitting) "Submitting…" else "Submit Order", color = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }

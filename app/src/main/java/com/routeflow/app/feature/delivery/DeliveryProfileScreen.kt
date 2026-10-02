@@ -57,21 +57,19 @@ fun DeliveryProfileScreen(
     onLanguageChange: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_profile), fontWeight = FontWeight.Bold) }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.tab_profile),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            color = RFColors.TextPrimary
+        )
             // Profile Info
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -165,12 +163,15 @@ fun DeliveryProfileScreen(
                     } else {
                         Button(
                             onClick = onStartShift,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = RFColors.Primary,
+                                contentColor = Color.White
+                            )
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.start_shift), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.start_shift), color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -215,13 +216,17 @@ fun DeliveryProfileScreen(
             // Logout
             Button(
                 onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Error)
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Error,
+                    contentColor = Color.White
+                )
             ) {
-                Icon(Icons.Default.Logout, contentDescription = null)
+                Icon(Icons.Default.Logout, contentDescription = null, tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.logout), fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.logout), color = Color.White, fontWeight = FontWeight.Bold)
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
-}

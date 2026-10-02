@@ -91,29 +91,30 @@ fun OwnerReturnsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Returns & Credit Notes", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.loadReturns() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                    }
+                    Text("Returns & Credit Notes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+                IconButton(onClick = { viewModel.loadReturns() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                }
+            }
+
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -333,9 +334,12 @@ fun OwnerReturnsScreen(
                                             Button(
                                                 onClick = { retryingException = exc },
                                                 modifier = Modifier.fillMaxWidth().testTag("retry_button_${exc.id}"),
-                                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = RFColors.Primary,
+                                                    contentColor = Color.White
+                                                )
                                             ) {
-                                                Text(stringResource(R.string.schedule_retry_delivery))
+                                                Text(stringResource(R.string.schedule_retry_delivery), color = Color.White)
                                             }
                                         }
                                     }
@@ -346,6 +350,11 @@ fun OwnerReturnsScreen(
                 }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     // Authorize Dialog
@@ -376,10 +385,15 @@ fun OwnerReturnsScreen(
                         viewModel.authorizeReturn(ret.id, action, notes)
                     },
                     enabled = notes.isNotBlank(),
-                    colors = if (isApprove) ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
-                    else ButtonDefaults.buttonColors(containerColor = RFColors.Error)
+                    colors = if (isApprove) ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    ) else ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Error,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text(if (isApprove) "Confirm Approval" else "Confirm Rejection")
+                    Text(if (isApprove) "Confirm Approval" else "Confirm Rejection", color = Color.White)
                 }
             },
             dismissButton = {
@@ -490,11 +504,14 @@ private fun AuthorizeReturnCard(
                     onClick = onApprove,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(4.dp))
-                    Text("Authorize")
+                    Text("Authorize", color = Color.White)
                 }
             }
         }

@@ -51,27 +51,32 @@ fun OwnerFieldActivityScreen(
     onRefresh: () -> Unit,
     onBack: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.daily_field_activity_title), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                    }
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.daily_field_activity_title),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = RFColors.TextPrimary
             )
+            IconButton(onClick = onRefresh) {
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), tint = RFColors.Primary)
+            }
         }
-    ) { padding ->
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .weight(1f)
         ) {
             if (state.isLoading && state.visits.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -86,9 +91,7 @@ fun OwnerFieldActivityScreen(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(state.visits, key = { it.id }) { visit ->

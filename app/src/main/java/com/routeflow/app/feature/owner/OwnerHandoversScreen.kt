@@ -86,29 +86,30 @@ fun OwnerHandoversScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.handover_title), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.loadHandovers() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                    }
+                    Text(stringResource(R.string.handover_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+                IconButton(onClick = { viewModel.loadHandovers() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                }
+            }
+
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -227,6 +228,11 @@ fun OwnerHandoversScreen(
                 }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     // Accept Dialog with discrepancy calculation
@@ -329,11 +335,14 @@ private fun PendingHandoverCard(
                     onClick = onAccept,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1.5f),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(4.dp))
-                    Text("Accept Cash")
+                    Text("Accept Cash", color = Color.White)
                 }
             }
         }
@@ -460,9 +469,13 @@ private fun AcceptHandoverDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(receivedRupees * 100, notes) },
-                enabled = receivedRupees in 0..declaredRupees && (!hasDiscrepancy || notes.isNotBlank())
+                enabled = receivedRupees in 0..declaredRupees && (!hasDiscrepancy || notes.isNotBlank()),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
-                Text("Confirm Acceptance")
+                Text("Confirm Acceptance", color = Color.White)
             }
         },
         dismissButton = {
@@ -498,9 +511,12 @@ private fun RejectHandoverDialog(
             Button(
                 onClick = { onConfirm(reason) },
                 enabled = reason.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Error)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Error,
+                    contentColor = Color.White
+                )
             ) {
-                Text("Confirm Rejection")
+                Text("Confirm Rejection", color = Color.White)
             }
         },
         dismissButton = {

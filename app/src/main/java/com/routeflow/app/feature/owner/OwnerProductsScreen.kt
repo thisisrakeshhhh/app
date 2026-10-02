@@ -2,7 +2,9 @@ package com.routeflow.app.feature.owner
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,21 +66,12 @@ fun OwnerProductsScreen(
     var editingProduct by remember { mutableStateOf<Product?>(null) }
     var adjustingProduct by remember { mutableStateOf<Product?>(null) }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.testTag("add_product_fab"),
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White)
-            }
-        }
-    ) { padding ->
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -132,7 +125,8 @@ fun OwnerProductsScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 items(state.products, key = { it.id }) { product ->
                     ProductItemCard(
@@ -142,6 +136,17 @@ fun OwnerProductsScreen(
                     )
                 }
             }
+        }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .testTag("add_product_fab"),
+            containerColor = MaterialTheme.colorScheme.primary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White)
         }
     }
 
@@ -346,11 +351,12 @@ private fun AdjustStockDialog(
                             reason = "STOCK_RECEIPT"
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (adjustmentType == "RECEIPT") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = if (adjustmentType == "RECEIPT") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (adjustmentType == "RECEIPT") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Add Stock (+)")
+                        Text("Add Stock (+)", color = if (adjustmentType == "RECEIPT") Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(
                         onClick = { 
@@ -358,11 +364,12 @@ private fun AdjustStockDialog(
                             reason = "AUDIT_CORRECTION"
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (adjustmentType == "CORRECTION") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = if (adjustmentType == "CORRECTION") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (adjustmentType == "CORRECTION") Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Audit (- / +)")
+                        Text("Audit (- / +)", color = if (adjustmentType == "CORRECTION") Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 OutlinedTextField(

@@ -84,29 +84,30 @@ fun OwnerCollectionsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Payment Review & Clearance", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.loadCollections() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                    }
+                    Text("Payment Review & Clearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+                IconButton(onClick = { viewModel.loadCollections() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                }
+            }
+
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -231,6 +232,11 @@ fun OwnerCollectionsScreen(
                 }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     // Verify / Clear Dialog
@@ -265,9 +271,13 @@ fun OwnerCollectionsScreen(
                         verifyingCollection = null
                         viewModel.reviewPayment(col.id, actionVerb, reason)
                     },
-                    enabled = reason.isNotBlank()
+                    enabled = reason.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text(if (isCheque) "Clear Cheque" else "Verify Payment")
+                    Text(if (isCheque) "Clear Cheque" else "Verify Payment", color = Color.White)
                 }
             },
             dismissButton = {
@@ -301,9 +311,12 @@ fun OwnerCollectionsScreen(
                         viewModel.reviewPayment(col.id, "REJECT", reason)
                     },
                     enabled = reason.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Error,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Confirm Rejection")
+                    Text("Confirm Rejection", color = Color.White)
                 }
             },
             dismissButton = {
@@ -342,9 +355,12 @@ fun OwnerCollectionsScreen(
                         viewModel.reviewPayment(col.id, "REVERSE", reason)
                     },
                     enabled = reason.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Error,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Confirm Reversal")
+                    Text("Confirm Reversal", color = Color.White)
                 }
             },
             dismissButton = {
@@ -413,11 +429,14 @@ private fun PendingReviewCard(
                     onClick = onVerify,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1.5f),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(4.dp))
-                    Text(verifyLabel)
+                    Text(verifyLabel, color = Color.White)
                 }
             }
         }

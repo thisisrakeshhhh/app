@@ -56,22 +56,32 @@ fun OwnerTeamScreen(
     state: OwnerTeamState,
     onRefresh: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.team_monitor_title), fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                    }
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.team_monitor_title),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = RFColors.TextPrimary
             )
+            IconButton(onClick = onRefresh) {
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), tint = RFColors.Primary)
+            }
         }
-    ) { padding ->
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .weight(1f)
         ) {
             if (state.isLoading && state.teamMembers.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -86,9 +96,7 @@ fun OwnerTeamScreen(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(state.teamMembers, key = { it.id }) { member ->

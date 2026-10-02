@@ -86,27 +86,23 @@ fun SalesTodayScreen(
         state.retailers.find { it.id == active.retailerId }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.sales_today_shops), fontWeight = FontWeight.Bold) }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Box(
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 1. Shift Tracking Banner
-                item {
+            item {
+                Text(
+                    text = stringResource(R.string.sales_today_shops),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = RFColors.TextPrimary
+                )
+            }
+            // 1. Shift Tracking Banner
+            item {
                     ShiftControlCard(
                         isOnShift = isOnShift,
                         onStartShift = onStartShift,
@@ -179,9 +175,12 @@ fun SalesTodayScreen(
                             }
                         )
                     }
-                }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     blockedVisitRetailerName?.let { activeName ->
@@ -200,9 +199,12 @@ fun SalesTodayScreen(
                             onRetailerClick(activeId)
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Go to Active Visit")
+                    Text("Go to Active Visit", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -287,13 +289,16 @@ private fun ShiftControlCard(
             } else {
                 Button(
                     onClick = onStartShift,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     enabled = !isLoading,
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.start_shift), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.start_shift), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
 import com.routeflow.app.core.design.OrderSyncBadge
+import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.design.RouteFlowStatus
 
 @Composable
@@ -95,9 +96,13 @@ private fun OrderApprovalCard(
                 }
                 Button(
                     onClick = { onApprove(detail.order.id) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    )
                 ) {
-                    Text("Approve")
+                    Text("Approve", color = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }

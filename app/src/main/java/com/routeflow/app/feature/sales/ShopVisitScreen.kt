@@ -105,8 +105,15 @@ private fun CheckInCard(onCheckIn: () -> Unit) {
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Ready to start the visit?", style = MaterialTheme.typography.titleMedium)
-            Button(onClick = onCheckIn, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                Text("Check In")
+            Button(
+                onClick = onCheckIn,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                    contentColor = androidx.compose.ui.graphics.Color.White
+                )
+            ) {
+                Text("Check In", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleMedium)
             }
         }
     }

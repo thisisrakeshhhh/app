@@ -2,7 +2,9 @@ package com.routeflow.app.feature.owner
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,21 +61,12 @@ fun OwnerEmployeesScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var deactivatingEmployee by remember { mutableStateOf<EmployeeDto?>(null) }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.testTag("add_employee_fab"),
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Staff", tint = Color.White)
-            }
-        }
-    ) { padding ->
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -127,7 +120,8 @@ fun OwnerEmployeesScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 items(state.employees, key = { it.id }) { employee ->
                     Card(
@@ -176,6 +170,17 @@ fun OwnerEmployeesScreen(
                 }
             }
         }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .testTag("add_employee_fab"),
+            containerColor = MaterialTheme.colorScheme.primary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Staff", tint = Color.White)
+        }
     }
 
     if (showAddDialog) {
@@ -199,9 +204,12 @@ fun OwnerEmployeesScreen(
                         onDeactivateEmployee(emp.id, emp.fullName)
                         deactivatingEmployee = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        contentColor = Color.White
+                    )
                 ) {
-                    Text("Deactivate & Revoke")
+                    Text("Deactivate & Revoke", color = Color.White)
                 }
             },
             dismissButton = {

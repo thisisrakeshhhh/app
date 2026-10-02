@@ -148,21 +148,27 @@ fun OwnerHomeScreen(
                 Button(
                     onClick = onViewHandovers,
                     modifier = Modifier.weight(1f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Primary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                     Spacer(Modifier.size(6.dp))
-                    Text("Cash Handover", style = MaterialTheme.typography.labelMedium)
+                    Text("Cash Handover", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
                     onClick = onViewCollections,
                     modifier = Modifier.weight(1f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Accent)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Accent,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                     Spacer(Modifier.size(6.dp))
-                    Text("Verify UPI/Cheque", style = MaterialTheme.typography.labelMedium)
+                    Text("Verify UPI/Cheque", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -175,36 +181,40 @@ fun OwnerHomeScreen(
                 Text("Returns & Credit Notes", style = MaterialTheme.typography.labelLarge)
             }
 
-            Text("Master Data & Controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+            if (employee.role == com.routeflow.app.domain.model.EmployeeRole.OWNER) {
+                Text("Master Data & Controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = onViewProducts,
-                    modifier = Modifier.weight(1f).height(50.dp).testTag("nav_products_button")
-                ) {
-                    Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text("Products", style = MaterialTheme.typography.labelLarge)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onViewProducts,
+                        modifier = Modifier.weight(1f).height(50.dp).testTag("nav_products_button")
+                    ) {
+                        Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Products", style = MaterialTheme.typography.labelLarge)
+                    }
+
+                    OutlinedButton(
+                        onClick = onViewRetailers,
+                        modifier = Modifier.weight(1f).height(50.dp).testTag("nav_retailers_button")
+                    ) {
+                        Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Retailers", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
 
                 OutlinedButton(
-                    onClick = onViewRetailers,
-                    modifier = Modifier.weight(1f).height(50.dp).testTag("nav_retailers_button")
+                    onClick = onViewEmployees,
+                    modifier = Modifier.fillMaxWidth().height(50.dp).testTag("nav_employees_button")
                 ) {
-                    Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text("Retailers", style = MaterialTheme.typography.labelLarge)
+                    Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Manage Staff & Roles", style = MaterialTheme.typography.labelLarge)
                 }
             }
 
-            OutlinedButton(
-                onClick = onViewEmployees,
-                modifier = Modifier.fillMaxWidth().height(50.dp).testTag("nav_employees_button")
-            ) {
-                Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp))
-                Text("Manage Staff & Roles", style = MaterialTheme.typography.labelLarge)
-            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

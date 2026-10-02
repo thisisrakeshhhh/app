@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -74,50 +75,50 @@ fun OwnerBeatsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.owner_tab_beats), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
+                    Text(stringResource(R.string.owner_tab_beats), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = RFColors.Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_beat))
+                OutlinedButton(onClick = onBack) {
+                    Text("Back")
+                }
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+
             if (state.isLoading && state.beats.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else if (state.beats.isEmpty()) {
-                Text(
-                    text = "No beats configured yet. Tap + to create the first beat.",
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = RFColors.TextSecondary
-                )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No beats configured yet. Tap + to create the first beat.",
+                        modifier = Modifier.padding(24.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = RFColors.TextSecondary
+                    )
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(state.beats, key = { it.id }) { beat ->
                         BeatCard(
@@ -128,6 +129,22 @@ fun OwnerBeatsScreen(
                 }
             }
         }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = RFColors.Primary,
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_beat))
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 
     if (showAddDialog) {
@@ -260,9 +277,12 @@ private fun AddBeatDialog(
                     onConfirm(name.trim(), description.trim().takeIf { it.isNotBlank() }, days)
                 },
                 enabled = name.isNotBlank(),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
-                Text(stringResource(R.string.save))
+                Text(stringResource(R.string.save), color = Color.White)
             }
         },
         dismissButton = {
@@ -317,9 +337,12 @@ private fun AssignSalespersonDialog(
             Button(
                 onClick = { onConfirm(selectedUserId) },
                 enabled = selectedUserId.isNotBlank(),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = RFColors.Primary,
+                    contentColor = Color.White
+                )
             ) {
-                Text(stringResource(R.string.confirm))
+                Text(stringResource(R.string.confirm), color = Color.White)
             }
         },
         dismissButton = {
