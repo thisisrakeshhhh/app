@@ -14,6 +14,7 @@ VALUES
 INSERT OR REPLACE INTO users (id, company_id, username, password_hash, full_name, role, is_active, created_at)
 VALUES
   ('user_owner', 'comp_1', 'owner', '$2b$10$5qNkxkfpmB3mQrKeAd6wC.wa8sprQau53l3h3VMiIw3fCu9F.f/w2', 'System Owner', 'OWNER', 1, 1726243200000),
+  ('user_admin', 'comp_1', 'admin', '$2b$10$5qNkxkfpmB3mQrKeAd6wC.wa8sprQau53l3h3VMiIw3fCu9F.f/w2', 'Jaipur Team Admin', 'ADMIN', 1, 1726243200000),
   ('user_sales', 'comp_1', 'sales', '$2b$10$5qNkxkfpmB3mQrKeAd6wC.wa8sprQau53l3h3VMiIw3fCu9F.f/w2', 'Rakesh Kumar', 'SALESPERSON', 1, 1726243200000),
   ('user_warehouse', 'comp_1', 'warehouse', '$2b$10$5qNkxkfpmB3mQrKeAd6wC.wa8sprQau53l3h3VMiIw3fCu9F.f/w2', 'Manoj Kumar', 'WAREHOUSE_MANAGER', 1, 1726243200000),
   ('user_delivery', 'comp_1', 'delivery', '$2b$10$5qNkxkfpmB3mQrKeAd6wC.wa8sprQau53l3h3VMiIw3fCu9F.f/w2', 'Suresh Yadav', 'DELIVERY_EXECUTIVE', 1, 1726243200000),
