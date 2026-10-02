@@ -51,6 +51,9 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
       return bad(c, 'orderIds must be a non-empty array');
     }
+    if (new Set(orderIds).size !== orderIds.length) {
+      return bad(c, 'Duplicate order IDs in trip');
+    }
     if (orderIds.length > 50) {
       return bad(c, 'Maximum 50 orders per trip');
     }
@@ -77,9 +80,11 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
       return bad(c, 'One or more order IDs do not exist or belong to another company', 400);
     }
 
-    const invalidStatus = orders.find(o => o.status === 'DELIVERED' || o.status === 'CANCELLED');
+    const invalidStatus = orders.find(o =>
+      ['DELIVERED', 'CANCELLED', 'ASSIGNED_TO_TRIP', 'OUT_FOR_DELIVERY'].includes(o.status)
+    );
     if (invalidStatus) {
-      return bad(c, `Order ${invalidStatus.id} has status ${invalidStatus.status}. Cannot assign delivered order.`, 400);
+      return bad(c, `Order ${invalidStatus.id} has status ${invalidStatus.status}. Cannot assign order already delivered, cancelled, or in active trip.`, 400);
     }
 
     const tripId = `trip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -148,7 +153,16 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     const user = c.get('user');
     if (!allTripRoles.includes(user.role)) return bad(c, 'Permission denied', 403);
 
-    const driverId = user.role === 'DELIVERY_EXECUTIVE' ? user.sub : (c.req.query('driverId') || user.sub);
+    let driverId: string;
+    if (user.role === 'DELIVERY_EXECUTIVE') {
+      driverId = user.sub;
+    } else {
+      const queryDriverId = c.req.query('driverId');
+      if (!queryDriverId) {
+        return bad(c, 'driverId query parameter required for management roles', 400);
+      }
+      driverId = queryDriverId;
+    }
 
     const trip = await c.env.DB.prepare(
       `SELECT t.id, t.trip_number as tripNumber, t.driver_user_id as driverUserId,
@@ -231,7 +245,16 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     const user = c.get('user');
     if (!allTripRoles.includes(user.role)) return bad(c, 'Permission denied', 403);
 
-    const driverId = user.role === 'DELIVERY_EXECUTIVE' ? user.sub : (c.req.query('driverId') || user.sub);
+    let driverId: string;
+    if (user.role === 'DELIVERY_EXECUTIVE') {
+      driverId = user.sub;
+    } else {
+      const queryDriverId = c.req.query('driverId');
+      if (!queryDriverId) {
+        return bad(c, 'driverId query parameter required for management roles', 400);
+      }
+      driverId = queryDriverId;
+    }
 
     const trip = await c.env.DB.prepare(
       `SELECT t.id, t.trip_number as tripNumber, t.driver_user_id as driverUserId,
@@ -404,6 +427,8 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     if (!allTripRoles.includes(user.role)) return bad(c, 'Permission denied', 403);
 
     const tripId = c.req.param('id');
+    if (!tripId) return bad(c, 'Trip ID is required', 400);
+
     const trip = await c.env.DB.prepare(
       'SELECT id, driver_user_id, status FROM delivery_trips WHERE id = ? AND company_id = ?'
     ).bind(tripId, user.company_id).first<{ id: string; driver_user_id: string; status: string }>();
@@ -412,12 +437,31 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     if (user.role === 'DELIVERY_EXECUTIVE' && trip.driver_user_id !== user.sub) {
       return bad(c, 'Permission denied', 403);
     }
+    if (trip.status === 'COMPLETED' || trip.status === 'CANCELLED') {
+      return bad(c, `Cannot reorder a trip with status ${trip.status}`, 400);
+    }
 
     const body = await c.req.json<any>();
     const stopOrder = body.stopOrder; // Can be string[] of orderIds or object[] of { orderId, sequenceOrder }
 
     if (!Array.isArray(stopOrder) || stopOrder.length === 0) {
       return bad(c, 'stopOrder array is required', 400);
+    }
+
+    const reorderedIds = stopOrder.map((item: any) => typeof item === 'string' ? item : (item.orderId || item.stopId));
+    if (new Set(reorderedIds).size !== reorderedIds.length) {
+      return bad(c, 'Duplicate order IDs in stopOrder', 400);
+    }
+
+    const { results: existingStops } = await c.env.DB.prepare(
+      'SELECT order_id FROM delivery_trip_stops WHERE trip_id = ? AND company_id = ?'
+    ).bind(tripId, user.company_id).all<{ order_id: string }>();
+
+    const tripOrderIds = new Set((existingStops || []).map(s => s.order_id));
+    for (const orderId of reorderedIds) {
+      if (!orderId || !tripOrderIds.has(orderId)) {
+        return bad(c, `Order ${orderId} does not belong to trip ${tripId}`, 400);
+      }
     }
 
     const now = Date.now();
@@ -465,6 +509,9 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     if (user.role === 'DELIVERY_EXECUTIVE' && trip.driver_user_id !== user.sub) {
       return bad(c, 'Permission denied', 403);
     }
+    if (trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
+      return bad(c, `Cannot start a trip with status ${trip.status}`, 400);
+    }
     if (trip.status === 'OUT_FOR_DELIVERY' || trip.status === 'IN_TRANSIT') {
       return c.json({ success: true, idempotent: true, status: 'OUT_FOR_DELIVERY' });
     }
@@ -504,6 +551,9 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     if (!trip) return bad(c, 'Trip not found', 404);
     if (user.role === 'DELIVERY_EXECUTIVE' && trip.driver_user_id !== user.sub) {
       return bad(c, 'Permission denied', 403);
+    }
+    if (trip.status === 'CANCELLED') {
+      return bad(c, 'Cannot complete a cancelled trip', 400);
     }
     if (trip.status === 'COMPLETED') {
       return c.json({ success: true, idempotent: true, status: 'COMPLETED' });

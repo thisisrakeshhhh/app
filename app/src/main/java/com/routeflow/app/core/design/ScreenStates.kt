@@ -26,7 +26,7 @@ fun LoadingState(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         CircularProgressIndicator()
-        Text("Loading your demo team…", style = MaterialTheme.typography.bodyLarge)
+        Text("Loading operations…", style = MaterialTheme.typography.bodyLarge)
     }
 }
 

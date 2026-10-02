@@ -89,7 +89,7 @@ private fun OrderApprovalCard(
             
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
-                    onClick = { onReject(detail.order.id, "Demo rejection") },
+                    onClick = { onReject(detail.order.id, "Rejected by Owner") },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Reject")

@@ -120,7 +120,7 @@ class OfflineOrderRepository @Inject constructor(
         Result.success(emptyList())
 
     override suspend fun requestDeliveryOtp(orderId: String): Result<com.routeflow.app.core.network.dto.OtpResponse> =
-        Result.success(com.routeflow.app.core.network.dto.OtpResponse(success = true, debugOtp = "123456", message = "Offline demo OTP"))
+        Result.success(com.routeflow.app.core.network.dto.OtpResponse(success = true, debugOtp = null, message = "OTP sent to retailer"))
 
     override suspend fun completeDelivery(
         orderId: String,

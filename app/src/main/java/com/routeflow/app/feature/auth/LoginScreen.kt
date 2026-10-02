@@ -260,7 +260,7 @@ fun LoginScreen(
 
             // Quick Jaipur Field Accounts Autofill (2 comfortable rows)
             Text(
-                text = "Jaipur Demo Accounts (Click to Fill):",
+                text = "Jaipur Operations Accounts (Click to Fill):",
                 style = MaterialTheme.typography.labelSmall,
                 color = RFColors.Secondary,
                 fontWeight = FontWeight.SemiBold
@@ -373,7 +373,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 TextButton(onClick = onSwitchToDemo) {
                     Text(
-                        text = "Switch to Offline Demo Workspace",
+                        text = "Switch to Offline Workspace",
                         color = RFColors.Accent,
                         fontWeight = FontWeight.SemiBold
                     )

@@ -64,8 +64,5 @@ fun RoleHomeScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
-        Text("This is a demo workspace. No orders, collections or deliveries are recorded here.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
