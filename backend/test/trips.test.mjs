@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 export async function runTripsTest(baseUrl) {
-  // 1. Login Owner
+  // 1. Login Owner and Warehouse Manager
   const ownerRes = await fetch(`${baseUrl}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -10,15 +10,81 @@ export async function runTripsTest(baseUrl) {
   const ownerData = await ownerRes.json();
   const ownerToken = ownerData.access_token;
 
-  // 2. Fetch or create order to assign
+  const whRes = await fetch(`${baseUrl}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'warehouse', password: 'password123' })
+  });
+  const whData = await whRes.json();
+  const whToken = whData.access_token;
+
+  // 2. Fetch orders
   const ordersRes = await fetch(`${baseUrl}/orders`, {
     headers: { Authorization: `Bearer ${ownerToken}` }
   });
   const orders = await ordersRes.json();
   assert.ok(orders.length > 0, 'Should have orders to build trip');
-  const orderId = orders[0].id;
 
-  // 3. Create Delivery Trip
+  // Verify that an unpacked order is rejected
+  let unpackedOrderId = orders.find(o => o.status !== 'PACKED')?.id;
+  if (!unpackedOrderId) {
+    const newOrdRes = await fetch(`${baseUrl}/orders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idempotencyKey: `trip_test_${Date.now()}`,
+        retailerId: 'R1',
+        items: [{ productId: 'P1', quantity: 1 }]
+      })
+    });
+    const newOrdData = await newOrdRes.json();
+    unpackedOrderId = newOrdData.id;
+  }
+
+  // Attempting to assign unpacked order must fail
+  const badPackTripRes = await fetch(`${baseUrl}/trips`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${ownerToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      driverId: 'user_delivery',
+      vehicleNumber: 'RJ-14-GB-9988',
+      routeArea: 'Jaipur Mansarovar & Sanganer',
+      orderIds: [unpackedOrderId]
+    })
+  });
+  assert.equal(badPackTripRes.status, 400, 'Unpacked order must be rejected from trip assignment');
+
+  // Prepare a PACKED order
+  let orderId = orders.find(o => o.status === 'PACKED')?.id;
+  if (!orderId) {
+    // Approve order if submitted
+    await fetch(`${baseUrl}/orders/${unpackedOrderId}/approve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ownerToken}` }
+    });
+    // Start picking and pick items
+    await fetch(`${baseUrl}/orders/${unpackedOrderId}/start-picking`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${whToken}` }
+    });
+    await fetch(`${baseUrl}/orders/${unpackedOrderId}/pick-item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${whToken}` },
+      body: JSON.stringify({ productId: 'P1', isPicked: true })
+    });
+    // Pack
+    const packRes = await fetch(`${baseUrl}/orders/${unpackedOrderId}/pack`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${whToken}` }
+    });
+    assert.equal(packRes.status, 200, 'Packing order must succeed');
+    orderId = unpackedOrderId;
+  }
+
+  // 3. Create Delivery Trip with PACKED order
   const createTripRes = await fetch(`${baseUrl}/trips`, {
     method: 'POST',
     headers: {

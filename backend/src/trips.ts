@@ -80,11 +80,9 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
       return bad(c, 'One or more order IDs do not exist or belong to another company', 400);
     }
 
-    const invalidStatus = orders.find(o =>
-      ['DELIVERED', 'CANCELLED', 'ASSIGNED_TO_TRIP', 'OUT_FOR_DELIVERY'].includes(o.status)
-    );
-    if (invalidStatus) {
-      return bad(c, `Order ${invalidStatus.id} has status ${invalidStatus.status}. Cannot assign order already delivered, cancelled, or in active trip.`, 400);
+    const unpackedOrder = orders.find(o => o.status !== 'PACKED');
+    if (unpackedOrder) {
+      return bad(c, `Order ${unpackedOrder.id} has status ${unpackedOrder.status}. Orders must be PACKED before assigning to a delivery trip.`, 400);
     }
 
     const tripId = `trip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;

@@ -120,7 +120,7 @@ class OfflineOrderRepository @Inject constructor(
         Result.success(emptyList())
 
     override suspend fun requestDeliveryOtp(orderId: String): Result<com.routeflow.app.core.network.dto.OtpResponse> =
-        Result.success(com.routeflow.app.core.network.dto.OtpResponse(success = true, debugOtp = null, message = "OTP sent to retailer"))
+        Result.failure(IllegalStateException("Cannot request OTP while offline. Server connection required for delivery OTP verification."))
 
     override suspend fun completeDelivery(
         orderId: String,
