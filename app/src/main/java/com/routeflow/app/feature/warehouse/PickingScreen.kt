@@ -90,8 +90,9 @@ fun PickingScreen(
                 Button(
                     onClick = { onConfirmDispatch(orderId) },
                     enabled = !selectedId.isNullOrBlank(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                         contentColor = androidx.compose.ui.graphics.Color.White
                     )
                 ) {
@@ -179,8 +180,9 @@ private fun PickingOrderCard(
                     Button(
                         onClick = { onStartPicking(detail.order.id) },
                         modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                            containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                             contentColor = androidx.compose.ui.graphics.Color.White
                         )
                     ) {
@@ -192,8 +194,9 @@ private fun PickingOrderCard(
                         onClick = { onPacked(detail.order.id) }, 
                         modifier = Modifier.fillMaxWidth(),
                         enabled = detail.allPicked,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                            containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                             contentColor = androidx.compose.ui.graphics.Color.White
                         )
                     ) {
@@ -204,8 +207,9 @@ private fun PickingOrderCard(
                     Button(
                         onClick = { onOpenDispatch(detail.order.id) },
                         modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                            containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                             contentColor = androidx.compose.ui.graphics.Color.White
                         )
                     ) {

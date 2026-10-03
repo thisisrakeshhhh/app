@@ -30,6 +30,7 @@
 
     <!-- Roles -->
     <string name="role_owner">मालिक / डिस्ट्रीब्यूटर</string>
+    <string name="role_admin">एडमिन / टीम लीडर</string>
     <string name="role_salesperson">सेल्समैन / विक्रेता</string>
     <string name="role_warehouse">गोदाम प्रबंधक (वेयरहाउस)</string>
     <string name="role_delivery">डिलीवरी कर्मी</string>
@@ -244,4 +245,47 @@
     <string name="return_acknowledged_success">वापसी दर्ज हुई और बिक्री योग्य स्टॉक गोदाम में जुड़ गया।</string>
     <string name="schedule_retry_delivery">डिलीवरी पुनः प्रयास तय करें</string>
     <string name="assign_driver_label">डिलीवरी एक्जीक्यूटिव आईडी *</string>
+
+    <!-- Forgot Password & Security -->
+    <string name="forgot_password">पासवर्ड भूल गए?</string>
+    <string name="forgot_password_title">पासवर्ड रीसेट / सहायता</string>
+    <string name="forgot_password_instruction">कंपनी सुरक्षा कारणों से पासवर्ड रीसेट आपके बिजनेस डिस्ट्रीब्यूटर या एडमिन द्वारा किया जाता है। कृपया अपने एडमिन से संपर्क कर नया पासवर्ड प्राप्त करें।</string>
+    <string name="change_password">पासवर्ड बदलें</string>
+    <string name="current_password">वर्तमान पासवर्ड</string>
+    <string name="new_password">नया पासवर्ड</string>
+    <string name="confirm_new_password">नए पासवर्ड की पुष्टि करें</string>
+    <string name="password_changed_success">पासवर्ड सफलतापूर्वक बदल दिया गया है।</string>
+    <string name="security_settings">सुरक्षा एवं पासवर्ड</string>
+    <string name="admin_contact_notice">एडमिन से संपर्क: डिस्ट्रीब्यूटर कार्यालय</string>
+
+    <!-- Additional Sales & Beat Strings -->
+    <string name="assigned_shops_header">निर्धारित दुकानें (%1$d)</string>
+    <string name="visited_progress">%1$d / %2$d दौरा पूर्ण</string>
+    <string name="in_progress">प्रगति पर</string>
+    <string name="pending">लंबित</string>
+    <string name="visited">दौरा पूर्ण</string>
+    <string name="monthly_target">मासिक लक्ष्य प्रगति</string>
+    <string name="target_achieved">%1$s प्राप्त हुआ</string>
+    <string name="target_amount">लक्ष्य: ₹%1$s</string>
+    <string name="start_shop_visits">दुकान दौरा शुरू करें</string>
+    <string name="pending_sync_banner">%1$d ऑर्डर सिंक के लिए बाकी</string>
+    <string name="pending_sync_subtitle">फ़ोन में सुरक्षित है। तुरंत अपलोड करने के लिए टैप करें।</string>
+    <string name="sync_now">अभी सिंक करें</string>
+    <string name="syncing_with_server">सर्वर से सिंक हो रहा है…</string>
+    <string name="uploading_queued_orders">ऑर्डर वेयरहाउस सर्वर पर भेजे जा रहे हैं…</string>
+    <string name="todays_beat">आज की बीट</string>
+    <string name="active_visit_banner">दुकान दौरा प्रगति पर है</string>
+    <string name="tap_to_view_or_checkout">ऑर्डर देखने या चेक-आउट के लिए टैप करें</string>
+    <string name="go_to_active_visit">सक्रिय दौरे पर जाएं</string>
+    <string name="check_in_button">चेक-इन करें</string>
+    <string name="due_amount">₹%1$s बकाया</string>
+    <string name="gps_active">जीपीएस सक्रिय</string>
+    <string name="offline_sync_storage">ऑफलाइन सिंक और स्टोरेज</string>
+    <string name="offline_sync_description">ऑर्डर और दुकान दौरे स्थानीय रूप से सुरक्षित रहते हैं और इंटरनेट आने पर सर्वर से सिंक हो जाते हैं।</string>
+    <string name="sync_now_server">सर्वर के साथ सिंक करें</string>
+    <string name="hello_user">नमस्ते, %1$s</string>
+    <string name="shops_count">%1$d दुकानें</string>
+    <string name="orders_count_stat">ऑर्डर ₹%1$s</string>
+    <string name="active_visit_alert_title">सक्रिय दुकान दौरा जारी है</string>
+    <string name="active_visit_alert_body">\'%1$s\' पर आपका दौरा पहले से सक्रिय है। नई दुकान शुरू करने से पहले कृपया वहां चेक-आउट करें।</string>
 </resources>

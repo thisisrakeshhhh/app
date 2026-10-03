@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
@@ -17,6 +20,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payments
@@ -275,22 +279,38 @@ fun RouteFlowApp(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    employee.role.label,
+                                    stringResource(employee.role.labelRes),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = RFColors.Accent
+                                    color = RFColors.Accent,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         },
                         actions = {
                             // Quick language switch button
-                            TextButton(onClick = {
-                                onLanguageChange(if (currentLanguage == "en") "hi" else "en")
-                            }) {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = {
+                                    onLanguageChange(if (currentLanguage == "en") "hi" else "en")
+                                },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color(0xFFF8FAFC),
+                                    contentColor = RFColors.Primary
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp),
+                                    tint = RFColors.Accent
+                                )
+                                androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (currentLanguage == "en") "हिन्दी" else "EN",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RFColors.Primary
+                                    text = if (currentLanguage == "en") "हिन्दी" else "English",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
 
@@ -298,7 +318,12 @@ fun RouteFlowApp(
                                 isDemoMode = false
                                 onDemoLogout()
                             }, Modifier.testTag("logout")) {
-                                Text(stringResource(R.string.logout), style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    stringResource(R.string.logout),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = RFColors.Error,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
@@ -311,7 +336,10 @@ fun RouteFlowApp(
         },
         bottomBar = {
             if (employee != null && bottomNavItems.isNotEmpty()) {
-                NavigationBar(containerColor = Color.White) {
+                NavigationBar(
+                    containerColor = Color.White,
+                    tonalElevation = 6.dp
+                ) {
                     bottomNavItems.forEach { item ->
                         val selected = currentRoute == item.route
                         NavigationBarItem(
@@ -328,7 +356,20 @@ fun RouteFlowApp(
                                 }
                             },
                             icon = { Icon(item.icon, contentDescription = null) },
-                            label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelSmall) }
+                            label = {
+                                Text(
+                                    stringResource(item.labelRes),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                selectedIconColor = RFColors.Accent,
+                                selectedTextColor = RFColors.Accent,
+                                indicatorColor = Color(0xFFEFF6FF),
+                                unselectedIconColor = Color(0xFF94A3B8),
+                                unselectedTextColor = Color(0xFF64748B)
+                            )
                         )
                     }
                 }

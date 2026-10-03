@@ -30,6 +30,7 @@
 
     <!-- Roles -->
     <string name="role_owner">Owner / Distributor</string>
+    <string name="role_admin">Admin / Team Leader</string>
     <string name="role_salesperson">Salesperson</string>
     <string name="role_warehouse">Warehouse Manager</string>
     <string name="role_delivery">Delivery Executive</string>
@@ -244,5 +245,48 @@
     <string name="return_acknowledged_success">Return acknowledged and saleable stock restored.</string>
     <string name="schedule_retry_delivery">Schedule Retry Delivery</string>
     <string name="assign_driver_label">Assign Delivery Executive ID *</string>
+
+    <!-- Forgot Password & Security -->
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="forgot_password_title">Reset / Forgot Password</string>
+    <string name="forgot_password_instruction">For enterprise account security, password resets are managed by your Business Owner or Administrator. Please contact them to reset your login credentials or assign a temporary password.</string>
+    <string name="change_password">Change Password</string>
+    <string name="current_password">Current Password</string>
+    <string name="new_password">New Password</string>
+    <string name="confirm_new_password">Confirm New Password</string>
+    <string name="password_changed_success">Password changed successfully.</string>
+    <string name="security_settings">Security &amp; Password</string>
+    <string name="admin_contact_notice">Admin Support: Distributor Office</string>
+
+    <!-- Additional Sales & Beat Strings -->
+    <string name="assigned_shops_header">Assigned Shops (%1$d)</string>
+    <string name="visited_progress">%1$d / %2$d Visited</string>
+    <string name="in_progress">In Progress</string>
+    <string name="pending">Pending</string>
+    <string name="visited">Visited</string>
+    <string name="monthly_target">Monthly Target Progress</string>
+    <string name="target_achieved">%1$s achieved</string>
+    <string name="target_amount">Target: ₹%1$s</string>
+    <string name="start_shop_visits">Start Shop Visits</string>
+    <string name="pending_sync_banner">%1$d order(s) pending sync</string>
+    <string name="pending_sync_subtitle">Saved locally. Tap to upload immediately.</string>
+    <string name="sync_now">Sync Now</string>
+    <string name="syncing_with_server">Syncing with server…</string>
+    <string name="uploading_queued_orders">Uploading queued orders to warehouse…</string>
+    <string name="todays_beat">Today\'s Beat</string>
+    <string name="active_visit_banner">Active Visit In Progress</string>
+    <string name="tap_to_view_or_checkout">Tap to view order or check out</string>
+    <string name="go_to_active_visit">Go to Active Visit</string>
+    <string name="check_in_button">Check In</string>
+    <string name="due_amount">₹%1$s Due</string>
+    <string name="gps_active">GPS Active</string>
+    <string name="offline_sync_storage">Offline Sync &amp; Storage</string>
+    <string name="offline_sync_description">Orders and visits are preserved locally in Room and synced safely to server when network is available.</string>
+    <string name="sync_now_server">Sync Now with Server</string>
+    <string name="hello_user">Hello, %1$s</string>
+    <string name="shops_count">%1$d shops</string>
+    <string name="orders_count_stat">Orders ₹%1$s</string>
+    <string name="active_visit_alert_title">Active Visit in Progress</string>
+    <string name="active_visit_alert_body">You already have an active visit at \'%1$s\'. Please check out from that visit before starting a new one.</string>
 </resources>
 

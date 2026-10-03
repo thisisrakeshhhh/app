@@ -43,6 +43,7 @@ fun LoginScreen(
     onLanguageChange: (String) -> Unit = {}
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
+    var showForgotPassword by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -185,8 +186,25 @@ fun LoginScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { showForgotPassword = true },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.forgot_password),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = RFColors.Accent
+                            )
+                        }
+                    }
+
                     if (state.errorMessage != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFFFEF2F2),
@@ -214,22 +232,23 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = onLogin,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
+                            .height(52.dp)
                             .testTag("login_button"),
                         enabled = !state.isLoading && state.username.isNotBlank() && state.password.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = RFColors.Primary,
+                            containerColor = Color(0xFF2563EB),
                             contentColor = Color.White,
-                            disabledContainerColor = RFColors.Primary.copy(alpha = 0.4f),
-                            disabledContentColor = Color.White.copy(alpha = 0.7f)
+                            disabledContainerColor = Color(0xFF93C5FD),
+                            disabledContentColor = Color.White.copy(alpha = 0.8f)
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
                         if (state.isLoading) {
                             CircularProgressIndicator(
@@ -380,5 +399,61 @@ fun LoginScreen(
                 }
             }
         }
+    }
+
+    if (showForgotPassword) {
+        AlertDialog(
+            onDismissRequest = { showForgotPassword = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = RFColors.Accent,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.forgot_password_title),
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.forgot_password_instruction),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RFColors.TextSecondary
+                    )
+                    Surface(
+                        color = Color(0xFFEFF6FF),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Business, contentDescription = null, tint = RFColors.Accent, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.admin_contact_notice),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E40AF)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showForgotPassword = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                ) {
+                    Text(stringResource(R.string.confirm), color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }

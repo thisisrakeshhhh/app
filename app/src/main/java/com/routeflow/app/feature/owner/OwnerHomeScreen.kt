@@ -148,8 +148,9 @@ fun OwnerHomeScreen(
                 Button(
                     onClick = onViewHandovers,
                     modifier = Modifier.weight(1f).height(50.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = RFColors.Primary,
+                        containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
                     )
                 ) {

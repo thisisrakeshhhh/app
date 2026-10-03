@@ -97,8 +97,9 @@ private fun OrderApprovalCard(
                 Button(
                     onClick = { onApprove(detail.order.id) },
                     modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = RFColors.Primary,
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                         contentColor = androidx.compose.ui.graphics.Color.White
                     )
                 ) {

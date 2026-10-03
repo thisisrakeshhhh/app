@@ -23,14 +23,35 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var syncManager: com.routeflow.app.data.sync.SyncManager
     @Inject lateinit var languageManager: com.routeflow.app.core.i18n.LanguageManager
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val prefs = newBase.getSharedPreferences("rf_language_prefs", android.content.Context.MODE_PRIVATE)
+        val lang = prefs.getString("selected_language", "en") ?: "en"
+        val locale = java.util.Locale(lang)
+        java.util.Locale.setDefault(locale)
+        val config = android.content.res.Configuration(newBase.resources.configuration).apply {
+            setLocale(locale)
+            setLayoutDirection(locale)
+        }
+        val localized = newBase.createConfigurationContext(config)
+        super.attachBaseContext(localized)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             val currentLang by languageManager.currentLanguage.collectAsStateWithLifecycle()
-            val configuration = androidx.compose.runtime.remember(currentLang) {
-                android.content.res.Configuration(resources.configuration).apply {
-                    setLocale(java.util.Locale(currentLang))
+            val activityContext = androidx.compose.ui.platform.LocalContext.current
+            val localizedWrapper = androidx.compose.runtime.remember(currentLang, activityContext) {
+                val locale = java.util.Locale(currentLang)
+                java.util.Locale.setDefault(locale)
+                val config = android.content.res.Configuration(activityContext.resources.configuration).apply {
+                    setLocale(locale)
+                    setLayoutDirection(locale)
+                }
+                val confContext = activityContext.createConfigurationContext(config)
+                object : android.content.ContextWrapper(activityContext) {
+                    override fun getResources(): android.content.res.Resources = confContext.resources
                 }
             }
             val realEmployee by sessionRepository.activeEmployee.collectAsStateWithLifecycle()
@@ -38,7 +59,8 @@ class MainActivity : ComponentActivity() {
             val activeEmployee = realEmployee ?: demoState.activeEmployee
 
             androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.ui.platform.LocalConfiguration provides configuration
+                androidx.compose.ui.platform.LocalConfiguration provides localizedWrapper.resources.configuration,
+                androidx.compose.ui.platform.LocalContext provides localizedWrapper
             ) {
                 RouteFlowTheme {
                     RouteFlowApp(
@@ -51,7 +73,10 @@ class MainActivity : ComponentActivity() {
                         onToggleReset = demoViewModel::toggleResetDialog,
                         onConfirmReset = demoViewModel::resetDemo,
                         currentLanguage = currentLang,
-                        onLanguageChange = languageManager::setLanguage
+                        onLanguageChange = { newLang ->
+                            languageManager.setLanguage(newLang)
+                            recreate()
+                        }
                     )
                 }
             }

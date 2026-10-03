@@ -1,9 +1,12 @@
 package com.routeflow.app.domain.model
 
-enum class EmployeeRole(val label: String) {
-    OWNER("Business Owner"),
-    ADMIN("Admin / Team Leader"),
-    SALESPERSON("Salesperson"),
-    WAREHOUSE_MANAGER("Warehouse Manager"),
-    DELIVERY_EXECUTIVE("Delivery Executive"),
+import com.routeflow.app.R
+
+enum class EmployeeRole(val label: String, val labelRes: Int) {
+    OWNER("Business Owner", R.string.role_owner),
+    ADMIN("Admin / Team Leader", R.string.role_admin),
+    SALESPERSON("Salesperson", R.string.role_salesperson),
+    WAREHOUSE_MANAGER("Warehouse Manager", R.string.role_warehouse),
+    DELIVERY_EXECUTIVE("Delivery Executive", R.string.role_delivery),
 }
+

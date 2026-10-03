@@ -1,30 +1,26 @@
 package com.routeflow.app.feature.sales
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
+import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.design.RouteFlowStatus
 
 @Composable
@@ -37,16 +33,38 @@ fun RetailerListScreen(
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                Text(
-                    text = state.beatName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Route,
+                            contentDescription = null,
+                            tint = RFColors.Accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = state.beatName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = RFColors.TextPrimary
+                        )
+                    }
+                }
             }
             items(state.retailers) { item ->
                 RetailerCard(item, onRetailerClick)
@@ -63,10 +81,12 @@ private fun RetailerCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = { onRetailerClick(item.retailer.id) },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(18.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -74,40 +94,67 @@ private fun RetailerCard(
             ) {
                 Text(
                     text = item.retailer.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = RFColors.TextPrimary,
+                    modifier = Modifier.weight(1f)
                 )
+                Spacer(Modifier.width(8.dp))
                 VisitStatusBadge(item.visitStatus)
             }
+
+            Spacer(Modifier.height(4.dp))
+
             Text(
                 text = item.retailer.address,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 4.dp)
+                style = MaterialTheme.typography.bodySmall,
+                color = RFColors.TextSecondary
             )
+
+            Spacer(Modifier.height(14.dp))
+
             Row(
-                Modifier.fillMaxWidth().padding(top = 8.dp),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Outstanding Balance", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = stringResource(R.string.retailer_outstanding),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = RFColors.TextSecondary
+                    )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = CurrencyFormatter.formatPaise(item.retailer.outstandingAmountPaise),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (item.retailer.outstandingAmountPaise > 0) RouteFlowStatus.Rejected else Color.Unspecified
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (item.retailer.outstandingAmountPaise > 0) Color(0xFFDC2626) else Color(0xFF15803D)
                     )
                 }
+
                 Button(
                     onClick = { onRetailerClick(item.retailer.id) },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = com.routeflow.app.core.design.RFColors.Primary,
-                        contentColor = androidx.compose.ui.graphics.Color.White
-                    )
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2563EB),
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    Text("Check in", color = androidx.compose.ui.graphics.Color.White)
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, Modifier.padding(start = 8.dp), tint = androidx.compose.ui.graphics.Color.White)
+                    Text(
+                        text = stringResource(R.string.check_in_button),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White
+                    )
                 }
             }
         }
@@ -116,21 +163,21 @@ private fun RetailerCard(
 
 @Composable
 private fun VisitStatusBadge(status: String) {
-    val (text, color) = when (status) {
-        "VISITED" -> "Visited" to RouteFlowStatus.Completed
-        "VISITING" -> "Visiting" to RouteFlowStatus.Pending
-        else -> "Pending" to MaterialTheme.colorScheme.outline
+    val (textRes, bgColor, textColor) = when (status) {
+        "VISITED" -> Triple(R.string.visited, Color(0xFFDCFCE7), Color(0xFF15803D))
+        "VISITING" -> Triple(R.string.in_progress, Color(0xFFDBEAFE), Color(0xFF1E40AF))
+        else -> Triple(R.string.pending, Color(0xFFFEF3C7), Color(0xFF92400E))
     }
     Surface(
-        color = color.copy(alpha = 0.1f),
-        shape = MaterialTheme.shapes.extraSmall,
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f))
+        color = bgColor,
+        shape = RoundedCornerShape(8.dp)
     ) {
         Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            text = stringResource(textRes),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = color
+            fontWeight = FontWeight.Bold,
+            color = textColor
         )
     }
 }
