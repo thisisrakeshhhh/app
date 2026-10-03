@@ -43,10 +43,29 @@ class DurableFieldRepository @Inject constructor(private val db: RouteFlowDataba
             db.visitDao().insertVisit(visit.copy(status = "COMPLETED", checkOutTime = request.checkOutTime, notes = notes, noOrderReason = outcome))
         }
     }
-    suspend fun stockCheck(request: StockCheckDto) {
+    suspend fun stockCheck(
+        request: StockCheckDto,
+        productName: String = "",
+        suggestedQty: Int = 0,
+        notes: String = ""
+    ) {
         val payload = json.encodeToString(request)
+        val entityId = request.id ?: request.idempotencyKey
+        val stockEntity = StockCheckEntity(
+            id = entityId,
+            visitId = "",
+            retailerId = request.retailerId,
+            productId = request.productId,
+            productName = productName,
+            observedQuantity = request.quantity,
+            suggestedQuantity = suggestedQty,
+            notes = notes,
+            syncStatus = "PENDING",
+            timestamp = System.currentTimeMillis()
+        )
         queue("STOCK_CHECK", payload, request.idempotencyKey) {
             db.fieldRecordDao().saveRecord(FieldRecordEntity(request.idempotencyKey, requireNotNull(tokens.getUserId()), requireNotNull(tokens.getCompanyId()), "STOCK_CHECK", payload, System.currentTimeMillis()))
+            db.stockCheckDao().insertStockCheck(stockEntity)
         }
     }
 }

@@ -32,6 +32,8 @@ data class OwnerMasterState(
     val retailers: List<Retailer> = emptyList(),
     val employees: List<EmployeeDto> = emptyList(),
     val beats: List<BeatDto> = emptyList(),
+    val stockChecks: Map<String, List<com.routeflow.app.core.network.dto.RetailerStockCheckItemDto>> = emptyMap(),
+    val isLoadingStockChecks: Boolean = false,
     val isLoading: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null
@@ -42,7 +44,9 @@ class OwnerMasterViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val retailerRepository: RetailerRepository,
     private val employeeRepository: EmployeeRepository,
-    private val beatRepository: BeatRepository
+    private val beatRepository: BeatRepository,
+    private val api: com.routeflow.app.core.network.api.RouteFlowApi,
+    private val stockCheckDao: com.routeflow.app.core.database.dao.StockCheckDao
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(OwnerMasterState())
@@ -331,6 +335,23 @@ class OwnerMasterViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, successMessage = "Salesperson assigned to beat") }
             } else {
                 _state.update { it.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to assign beat") }
+            }
+        }
+    }
+
+    fun loadStockChecks(retailerId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingStockChecks = true) }
+            try {
+                val apiChecks = try { api.getStockChecks(retailerId) } catch (_: Exception) { emptyList() }
+                _state.update {
+                    it.copy(
+                        stockChecks = it.stockChecks + (retailerId to apiChecks),
+                        isLoadingStockChecks = false
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLoadingStockChecks = false) }
             }
         }
     }

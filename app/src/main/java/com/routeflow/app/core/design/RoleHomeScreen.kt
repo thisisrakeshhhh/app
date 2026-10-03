@@ -56,8 +56,10 @@ fun RoleHomeScreen(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             EmptyState(emptyTitle, emptyMessage, Modifier.padding(20.dp))
         }
-        Text("Coming in later milestones", style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() })
+        if (upcoming.isNotEmpty()) {
+            Text("Operations Checklist", style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() })
+        }
         upcoming.forEach { item ->
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(item, style = MaterialTheme.typography.bodyLarge)

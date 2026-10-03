@@ -294,6 +294,7 @@ class AccountScopedSyncTest {
         override suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto> = emptyList()
         override suspend fun checkoutVisit(visitId: String, request: com.routeflow.app.core.network.dto.CheckoutVisitRequest, account: String?): StatusResponse = StatusResponse(success = true)
         override suspend fun submitStockCheck(request: com.routeflow.app.core.network.dto.StockCheckDto, account: String?): StatusResponse = StatusResponse(success = true)
+        override suspend fun getStockChecks(retailerId: String, account: String?): List<com.routeflow.app.core.network.dto.RetailerStockCheckItemDto> = emptyList()
         override suspend fun getBeats(): List<com.routeflow.app.core.network.dto.BeatDto> = emptyList()
         override suspend fun createBeat(request: com.routeflow.app.core.network.dto.CreateBeatRequest): com.routeflow.app.core.network.dto.CreateBeatResponse =
             com.routeflow.app.core.network.dto.CreateBeatResponse(success = true)

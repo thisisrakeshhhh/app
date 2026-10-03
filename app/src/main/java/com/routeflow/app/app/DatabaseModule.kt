@@ -34,7 +34,8 @@ object DatabaseModule {
             RouteFlowDatabase.MIGRATION_4_5,
             RouteFlowDatabase.MIGRATION_5_6,
             RouteFlowDatabase.MIGRATION_6_7,
-            RouteFlowDatabase.MIGRATION_7_8
+            RouteFlowDatabase.MIGRATION_7_8,
+            RouteFlowDatabase.MIGRATION_8_9
         )
         .build()
     }
@@ -82,5 +83,10 @@ object DatabaseModule {
     @Provides
     fun provideFieldRecordDao(database: RouteFlowDatabase): com.routeflow.app.core.database.dao.FieldRecordDao {
         return database.fieldRecordDao()
+    }
+
+    @Provides
+    fun provideStockCheckDao(database: RouteFlowDatabase): com.routeflow.app.core.database.dao.StockCheckDao {
+        return database.stockCheckDao()
     }
 }

@@ -123,6 +123,9 @@ interface RouteFlowApi {
     @POST("stock-checks")
     suspend fun submitStockCheck(@Body request: com.routeflow.app.core.network.dto.StockCheckDto, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): StatusResponse
 
+    @GET("stock-checks/{retailerId}")
+    suspend fun getStockChecks(@Path("retailerId") retailerId: String, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): List<com.routeflow.app.core.network.dto.RetailerStockCheckItemDto>
+
     // --- Beats & Territory ---
     @GET("beats")
     suspend fun getBeats(): List<com.routeflow.app.core.network.dto.BeatDto>

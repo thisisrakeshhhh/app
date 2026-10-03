@@ -110,6 +110,8 @@ import com.routeflow.app.feature.sales.SalesTodayViewModel
 import com.routeflow.app.feature.sales.SalesViewModel
 import com.routeflow.app.feature.sales.ShopVisitScreen
 import com.routeflow.app.feature.sales.ShopVisitViewModel
+import com.routeflow.app.feature.sales.StockCheckScreen
+import com.routeflow.app.feature.sales.StockCheckViewModel
 import com.routeflow.app.feature.warehouse.PickingScreen
 import com.routeflow.app.feature.warehouse.PickingViewModel
 import com.routeflow.app.feature.warehouse.WarehouseHomeScreen
@@ -142,6 +144,7 @@ private const val ADMIN_ACTIVITY = "admin/activity"
 private const val SALES_TODAY = "sales/today"
 private const val SALES_RETAILER_LIST = "sales/retailers"
 private const val SALES_SHOP_VISIT = "sales/visit/{retailerId}"
+private const val SALES_STOCK_CHECK = "sales/stock-check/{retailerId}"
 private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
 private const val SALES_COLLECTIONS = "sales/collections"
 private const val SALES_PROFILE = "sales/profile"
@@ -476,6 +479,7 @@ fun RouteFlowApp(
                     state = state,
                     onCreateRetailer = viewModel::createRetailer,
                     onUpdateRetailer = viewModel::updateRetailer,
+                    onLoadStockChecks = viewModel::loadStockChecks,
                     onClearMessages = viewModel::clearMessages,
                     onBack = { navController.popBackStack() }
                 )
@@ -690,7 +694,23 @@ fun RouteFlowApp(
                     onCheckIn = viewModel::checkIn,
                     onCheckOut = viewModel::checkOut,
                     onCreateOrder = { navController.navigate("sales/order/${visitState.retailer?.id}") },
-                    onStockCheck = { /* Handled in visit */ }
+                    onStockCheck = { navController.navigate("sales/stock-check/${visitState.retailer?.id}") }
+                )
+            }
+
+            composable(
+                route = SALES_STOCK_CHECK,
+                arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
+            ) {
+                val viewModel: StockCheckViewModel = hiltViewModel()
+                val checkState by viewModel.state.collectAsStateWithLifecycle()
+                StockCheckScreen(
+                    state = checkState,
+                    onQuantityChanged = viewModel::onQuantityChanged,
+                    onSuggestedQuantityChanged = viewModel::onSuggestedQuantityChanged,
+                    onNotesChanged = viewModel::onNotesChanged,
+                    onSaveStockCheck = viewModel::saveStockCheck,
+                    onBack = { navController.popBackStack() }
                 )
             }
 

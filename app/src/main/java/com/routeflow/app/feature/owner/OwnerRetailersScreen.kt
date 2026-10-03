@@ -20,6 +20,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.foundation.shape.RoundedCornerShape
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -32,6 +37,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,11 +62,13 @@ fun OwnerRetailersScreen(
     state: OwnerMasterState,
     onCreateRetailer: (name: String, beatId: String, address: String, contact: String, creditLimitPaise: Long, paymentTermsDays: Int) -> Unit,
     onUpdateRetailer: (id: String, creditLimitPaise: Long, paymentTermsDays: Int, isActive: Boolean) -> Unit,
+    onLoadStockChecks: (retailerId: String) -> Unit = {},
     onClearMessages: () -> Unit,
     onBack: () -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingRetailer by remember { mutableStateOf<Retailer?>(null) }
+    var viewingStockCheckRetailer by remember { mutableStateOf<Retailer?>(null) }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -148,8 +157,19 @@ fun OwnerRetailersScreen(
                                     )
                                 }
                             }
-                            IconButton(onClick = { editingRetailer = retailer }, modifier = Modifier.testTag("edit_retailer_${retailer.id}")) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit Retailer", tint = MaterialTheme.colorScheme.secondary)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        viewingStockCheckRetailer = retailer
+                                        onLoadStockChecks(retailer.id)
+                                    },
+                                    modifier = Modifier.testTag("stock_checks_${retailer.id}")
+                                ) {
+                                    Icon(Icons.Default.Inventory, contentDescription = "View Stock Audits", tint = MaterialTheme.colorScheme.primary)
+                                }
+                                IconButton(onClick = { editingRetailer = retailer }, modifier = Modifier.testTag("edit_retailer_${retailer.id}")) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit Retailer", tint = MaterialTheme.colorScheme.secondary)
+                                }
                             }
                         }
                     }
@@ -189,6 +209,99 @@ fun OwnerRetailersScreen(
             }
         )
     }
+
+    viewingStockCheckRetailer?.let { ret ->
+        RetailerStockCheckHistoryDialog(
+            retailer = ret,
+            stockChecks = state.stockChecks[ret.id] ?: emptyList(),
+            isLoading = state.isLoadingStockChecks,
+            onDismiss = { viewingStockCheckRetailer = null }
+        )
+    }
+}
+
+@Composable
+private fun RetailerStockCheckHistoryDialog(
+    retailer: Retailer,
+    stockChecks: List<com.routeflow.app.core.network.dto.RetailerStockCheckItemDto>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("${retailer.name} — Shelf Stock", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Audit history recorded by field sales", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isLoading) {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(32.dp))
+                    }
+                } else if (stockChecks.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Inventory, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(36.dp))
+                            Text("No stock audits recorded yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                            Text("Sales team records shelf stock during shop visits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(stockChecks, key = { it.id }) { item ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(item.productName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        Text(dateFormat.format(Date(item.createdAt)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                    Surface(
+                                        color = Color(0xFFEFF6FF),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.3f))
+                                    ) {
+                                        Text(
+                                            "${item.quantity} units",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF1D4ED8),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
 
 @Composable

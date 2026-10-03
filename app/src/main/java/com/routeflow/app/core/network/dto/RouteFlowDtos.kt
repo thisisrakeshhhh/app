@@ -368,6 +368,15 @@ data class StockCheckDto(
 )
 
 @Serializable
+data class RetailerStockCheckItemDto(
+    val id: String,
+    val productId: String,
+    val productName: String,
+    val quantity: Int,
+    val createdAt: Long
+)
+
+@Serializable
 data class BeatDto(
     val id: String,
     val name: String,

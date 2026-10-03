@@ -1,4 +1,4 @@
-﻿package com.routeflow.app.data.sync
+package com.routeflow.app.data.sync
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
@@ -62,7 +62,15 @@ class OrderSyncWorker @AssistedInject constructor(
                         val request = json.decodeFromString<VisitCheckoutEvent>(event.payload)
                         api.checkoutVisit(request.visitId, request.request, account).success
                     }
-                    "STOCK_CHECK" -> api.submitStockCheck(json.decodeFromString(event.payload), account).success
+                    "STOCK_CHECK" -> {
+                        val request = json.decodeFromString<StockCheckDto>(event.payload)
+                        val response = api.submitStockCheck(request, account)
+                        localCommit = {
+                            val checkId = request.id ?: event.idempotencyKey
+                            database.stockCheckDao().updateSyncStatus(checkId, "SYNCED")
+                        }
+                        response.success
+                    }
                     "SHIFT_START" -> api.startShift(json.decodeFromString(event.payload), account).success
                     "SHIFT_END" -> api.endShift(json.decodeFromString(event.payload), account).success
                     "SHIFT_PAUSE", "SHIFT_RESUME" -> api.pauseShift(if (event.type == "SHIFT_PAUSE") "pause" else "resume", json.decodeFromString(event.payload), account).success
@@ -89,6 +97,15 @@ class OrderSyncWorker @AssistedInject constructor(
                 if (!sameAccount()) return Result.success()
                 val code = (e as? retrofit2.HttpException)?.code()
                 val permanent = code in listOf(400, 403, 404, 409, 422) || e is IllegalArgumentException
+                if (permanent) {
+                    if (event.type == "STOCK_CHECK") {
+                        try {
+                            val request = json.decodeFromString<StockCheckDto>(event.payload)
+                            val checkId = request.id ?: event.idempotencyKey
+                            database.stockCheckDao().updateSyncStatus(checkId, "FAILED")
+                        } catch (_: Exception) {}
+                    }
+                }
                 database.syncOutboxDao().updateSyncItem(event.copy(syncState = if (permanent) "NEEDS_ATTENTION" else "SAVED_OFFLINE",
                     retryCount = event.retryCount + 1, lastError = if (permanent) "VALIDATION_REVIEW" else if (code == 401) "SIGN_IN_AGAIN" else "CONNECTION_RETRY"))
                 return if (permanent) Result.failure() else Result.retry()

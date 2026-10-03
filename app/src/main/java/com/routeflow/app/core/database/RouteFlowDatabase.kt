@@ -38,9 +38,10 @@ import com.routeflow.app.core.database.entity.VisitEntity
         ShiftLocationEntity::class,
         com.routeflow.app.core.database.entity.LocalShiftEntity::class,
         com.routeflow.app.core.database.entity.FieldRecordEntity::class,
-        CollectionRecordEntity::class
+        CollectionRecordEntity::class,
+        com.routeflow.app.core.database.entity.StockCheckEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -52,11 +53,31 @@ abstract class RouteFlowDatabase : RoomDatabase() {
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun shiftLocationDao(): ShiftLocationDao
     abstract fun collectionRecordDao(): CollectionRecordDao
+    abstract fun stockCheckDao(): com.routeflow.app.core.database.dao.StockCheckDao
 
     abstract fun fieldRecordDao(): com.routeflow.app.core.database.dao.FieldRecordDao
 
     companion object {
         const val DATABASE_NAME = "routeflow_db"
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `stock_checks` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `visitId` TEXT NOT NULL DEFAULT '',
+                        `retailerId` TEXT NOT NULL DEFAULT '',
+                        `productId` TEXT NOT NULL,
+                        `productName` TEXT NOT NULL DEFAULT '',
+                        `observedQuantity` INTEGER NOT NULL,
+                        `suggestedQuantity` INTEGER NOT NULL DEFAULT 0,
+                        `notes` TEXT NOT NULL DEFAULT '',
+                        `syncStatus` TEXT NOT NULL DEFAULT 'PENDING',
+                        `timestamp` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
 
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {

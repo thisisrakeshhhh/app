@@ -325,6 +325,7 @@ class OfflineEventDependenciesTest {
 
         override suspend fun submitOrder(request: OrderSubmitRequest, account: String?): OrderSubmitResponse = OrderSubmitResponse(success = true, orderId = request.order.id)
         override suspend fun submitStockCheck(request: StockCheckDto, account: String?): StatusResponse = StatusResponse(success = true)
+        override suspend fun getStockChecks(retailerId: String, account: String?): List<com.routeflow.app.core.network.dto.RetailerStockCheckItemDto> = emptyList()
         override suspend fun startShift(request: StartShiftRequest, account: String?): ShiftResponse = ShiftResponse(success = true)
         override suspend fun endShift(request: EndShiftRequest, account: String?): ShiftResponse = ShiftResponse(success = true)
         override suspend fun pauseShift(action: String, request: ShiftPauseRequest, account: String?): ShiftResponse = ShiftResponse(success = true)
