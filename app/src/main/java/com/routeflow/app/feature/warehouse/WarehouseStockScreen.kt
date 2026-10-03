@@ -110,6 +110,7 @@ fun WarehouseStockScreen(
 
                             Button(
                                 onClick = { selectedProductForAdjustment = product },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = RFColors.Primary,
                                     contentColor = Color.White

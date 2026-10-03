@@ -170,6 +170,7 @@ fun DeliveryHandoverScreen(
                 Button(
                     onClick = { showSubmitDialog = true },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     enabled = !uiState.isSubmitting && uiState.pendingHandover == null && uiState.cashHeldPaise > 0,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
@@ -243,6 +244,7 @@ fun DeliveryHandoverScreen(
                         showSubmitDialog = false
                         viewModel.submitHandover(cashHeld, handoverNotes.trim().takeIf { it.isNotBlank() })
                     },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White

@@ -483,10 +483,11 @@ fun DeliveryDetailScreen(
             enabled = isFormValid && !detailState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp)
+                .height(52.dp)
                 .testTag("confirm_delivery_button"),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = RFColors.Primary,
+                containerColor = Color(0xFF2563EB),
                 disabledContainerColor = Color(0xFFCBD5E1)
             )
         ) {

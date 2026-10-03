@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -68,13 +69,14 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
             }
             Button(
                 onClick = { onClick(item.order.id) },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                     contentColor = androidx.compose.ui.graphics.Color.White
                 )
             ) {
-                Text("Proceed to Deliver", color = androidx.compose.ui.graphics.Color.White)
+                Text("Proceed to Deliver", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, Modifier.padding(start = 8.dp), tint = androidx.compose.ui.graphics.Color.White)
             }
         }

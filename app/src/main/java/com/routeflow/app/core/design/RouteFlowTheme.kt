@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val LightColors = lightColorScheme(
@@ -61,6 +62,14 @@ private val RouteFlowTypography = Typography(
     )
 )
 
+private val RouteFlowShapes = androidx.compose.material3.Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+)
+
 @Composable
 fun RouteFlowTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -70,6 +79,7 @@ fun RouteFlowTheme(
     MaterialTheme(
         colorScheme = LightColors,
         typography = RouteFlowTypography,
+        shapes = RouteFlowShapes,
         content = content
     )
 }

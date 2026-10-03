@@ -130,13 +130,33 @@ private fun ProductCard(item: ProductItemState, quantity: Int, onQuantityChange:
                 }
             }
             
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = { onQuantityChange(item.product.id, -1) }, enabled = quantity > 0) {
-                    Icon(Icons.Default.Remove, contentDescription = null)
-                }
-                Text(quantity.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                IconButton(onClick = { onQuantityChange(item.product.id, 1) }, enabled = quantity < item.product.stockQuantity) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { onQuantityChange(item.product.id, -1) },
+                            enabled = quantity > 0,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(18.dp), tint = if (quantity > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                        }
+                        Text(
+                            text = quantity.toString(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        IconButton(
+                            onClick = { onQuantityChange(item.product.id, 1) },
+                            enabled = quantity < item.product.stockQuantity,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(18.dp), tint = if (quantity < item.product.stockQuantity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                        }
+                    }
                 }
             }
         }
@@ -150,11 +170,15 @@ private fun CartSummary(
     isSubmitting: Boolean,
     onSubmit: () -> Unit
 ) {
-    Surface(shadowElevation = 8.dp, tonalElevation = 2.dp) {
-        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    Surface(
+        shadowElevation = 10.dp,
+        tonalElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Total Amount", style = MaterialTheme.typography.labelSmall)
-                Text(CurrencyFormatter.formatPaise(totalPaise), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                Text("Total Amount", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(CurrencyFormatter.formatPaise(totalPaise), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (isSubmitting) {
@@ -163,13 +187,14 @@ private fun CartSummary(
                 Button(
                     onClick = onSubmit,
                     enabled = hasItems && !isSubmitting,
-                    modifier = Modifier.height(56.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(52.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = com.routeflow.app.core.design.RFColors.Primary,
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF2563EB),
                         contentColor = androidx.compose.ui.graphics.Color.White
                     )
                 ) {
-                    Text(if (isSubmitting) "Submitting…" else "Submit Order", color = androidx.compose.ui.graphics.Color.White)
+                    Text(if (isSubmitting) "Submitting…" else "Submit Order", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

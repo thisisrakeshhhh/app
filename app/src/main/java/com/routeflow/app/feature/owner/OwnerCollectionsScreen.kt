@@ -272,12 +272,13 @@ fun OwnerCollectionsScreen(
                         viewModel.reviewPayment(col.id, actionVerb, reason)
                     },
                     enabled = reason.isNotBlank(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White
                     )
                 ) {
-                    Text(if (isCheque) "Clear Cheque" else "Verify Payment", color = Color.White)
+                    Text(if (isCheque) "Clear Cheque" else "Verify Payment", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -429,6 +430,7 @@ private fun PendingReviewCard(
                     onClick = onVerify,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1.5f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White
@@ -436,7 +438,7 @@ private fun PendingReviewCard(
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(4.dp))
-                    Text(verifyLabel, color = Color.White)
+                    Text(verifyLabel, color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

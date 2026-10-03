@@ -4,9 +4,10 @@ import androidx.compose.ui.graphics.Color
 
 object RFColors {
     // Primary Brand Colors
-    val Primary = Color(0xFF0F172A) // Slate 900 (Premium Navy)
-    val Secondary = Color(0xFF334155) // Slate 700
+    val Primary = Color(0xFF2563EB) // Royal Blue 600 (Modern Vibrant Brand Primary)
+    val Secondary = Color(0xFF475569) // Slate 600
     val Accent = Color(0xFF3B82F6) // Blue 500
+    val Dark = Color(0xFF0F172A) // Slate 900
     
     // Backgrounds
     val Background = Color(0xFFF8FAFC) // Slate 50

@@ -305,6 +305,7 @@ private fun UndeliveredGoodCard(
             Button(
                 onClick = onAcknowledge,
                 enabled = !isProcessing,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().testTag("ack_button_${item.id}"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = RFColors.Primary,
@@ -446,7 +447,8 @@ private fun ReturnCard(
                 Button(
                     onClick = onInspect,
                     enabled = !isProcessing,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White

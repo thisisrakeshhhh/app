@@ -277,12 +277,13 @@ private fun AddBeatDialog(
                     onConfirm(name.trim(), description.trim().takeIf { it.isNotBlank() }, days)
                 },
                 enabled = name.isNotBlank(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = RFColors.Primary,
                     contentColor = Color.White
                 )
             ) {
-                Text(stringResource(R.string.save), color = Color.White)
+                Text(stringResource(R.string.save), color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -337,12 +338,13 @@ private fun AssignSalespersonDialog(
             Button(
                 onClick = { onConfirm(selectedUserId) },
                 enabled = selectedUserId.isNotBlank(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = RFColors.Primary,
                     contentColor = Color.White
                 )
             ) {
-                Text(stringResource(R.string.confirm), color = Color.White)
+                Text(stringResource(R.string.confirm), color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

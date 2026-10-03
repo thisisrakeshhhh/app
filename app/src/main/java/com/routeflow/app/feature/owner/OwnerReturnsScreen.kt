@@ -334,12 +334,13 @@ fun OwnerReturnsScreen(
                                             Button(
                                                 onClick = { retryingException = exc },
                                                 modifier = Modifier.fillMaxWidth().testTag("retry_button_${exc.id}"),
+                                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                                                 colors = ButtonDefaults.buttonColors(
                                                     containerColor = RFColors.Primary,
                                                     contentColor = Color.White
                                                 )
                                             ) {
-                                                Text(stringResource(R.string.schedule_retry_delivery), color = Color.White)
+                                                Text(stringResource(R.string.schedule_retry_delivery), color = Color.White, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -385,6 +386,7 @@ fun OwnerReturnsScreen(
                         viewModel.authorizeReturn(ret.id, action, notes)
                     },
                     enabled = notes.isNotBlank(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = if (isApprove) ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White
@@ -393,7 +395,7 @@ fun OwnerReturnsScreen(
                         contentColor = Color.White
                     )
                 ) {
-                    Text(if (isApprove) "Confirm Approval" else "Confirm Rejection", color = Color.White)
+                    Text(if (isApprove) "Confirm Approval" else "Confirm Rejection", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -504,6 +506,7 @@ private fun AuthorizeReturnCard(
                     onClick = onApprove,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White
@@ -511,7 +514,7 @@ private fun AuthorizeReturnCard(
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(4.dp))
-                    Text("Authorize", color = Color.White)
+                    Text("Authorize", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
