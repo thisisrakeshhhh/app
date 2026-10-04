@@ -288,4 +288,23 @@
     <string name="orders_count_stat">ऑर्डर ₹%1$s</string>
     <string name="active_visit_alert_title">सक्रिय दुकान दौरा जारी है</string>
     <string name="active_visit_alert_body">\'%1$s\' पर आपका दौरा पहले से सक्रिय है। नई दुकान शुरू करने से पहले कृपया वहां चेक-आउट करें।</string>
+
+    <!-- Salesperson Stock Audit -->
+    <string name="stock_check_title">स्टॉक जांच</string>
+    <string name="stock_check_subtitle">दुकान शेल्फ ऑडिट</string>
+    <string name="stock_check_audit_tab">शेल्फ स्टॉक ऑडिट</string>
+    <string name="stock_check_history_tab">ऑडिट इतिहास (%1$d)</string>
+    <string name="stock_check_no_audits_title">अभी कोई स्टॉक ऑडिट दर्ज नहीं है</string>
+    <string name="stock_check_no_audits_desc">ऑडिट टैब से शेल्फ काउंट दर्ज करें।</string>
+    <string name="stock_check_current_stock">दुकान में मौजूदा स्टॉक</string>
+    <string name="stock_check_current_stock_desc">दुकानदार की शेल्फ पर उपलब्ध इकाइयाँ</string>
+    <string name="stock_check_suggested_reorder">सुझाया गया रीऑर्डर</string>
+    <string name="stock_check_suggested_reorder_desc">पुनः आपूर्ति की सुझाई गई मात्रा</string>
+    <string name="stock_check_notes_placeholder">टिप्पणी (उदा. अच्छा डिस्प्ले, कम शेल्फ लाइफ)</string>
+    <string name="stock_check_record_button">स्टॉक ऑडिट दर्ज करें</string>
+    <string name="stock_check_shelf_count">शेल्फ काउंट: %1$d इकाइयाँ</string>
+    <string name="stock_check_suggested">सुझाव: %1$d</string>
+    <string name="stock_check_synced">✓ सिंक हुआ</string>
+    <string name="stock_check_failed">⚠ विफल</string>
+    <string name="stock_check_pending_sync">⏳ सिंक बाकी</string>
 </resources>

@@ -22,7 +22,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.database.entity.StockCheckEntity
 import com.routeflow.app.domain.model.Product
@@ -30,7 +32,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StockCheckScreen(
     state: StockCheckUiState,
@@ -42,140 +43,148 @@ fun StockCheckScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = state.retailer?.name ?: "Stock Check",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = state.retailer?.address ?: "Retailer Shelf Audit",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Clean in-content header (avoiding double TopAppBar)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp
         ) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text("Audit Shelf Stock", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text("Audit History (${state.recentChecks.size})", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                )
-            }
-
-            if (state.errorMessage != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                    border = BorderStroke(1.dp, Color(0xFFEF4444))
-                ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = state.errorMessage,
-                        color = Color(0xFF991B1B),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(12.dp)
+                        text = state.retailer?.name ?: stringResource(R.string.stock_check_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = state.retailer?.address ?: stringResource(R.string.stock_check_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+        }
 
-            if (selectedTab == 0) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(state.products, key = { it.id }) { product ->
-                        val input = state.auditInputs[product.id] ?: ProductStockAuditInput()
-                        ProductStockAuditCard(
-                            product = product,
-                            input = input,
-                            isSaving = state.isSaving,
-                            onQuantityChanged = { onQuantityChanged(product.id, it) },
-                            onSuggestedQuantityChanged = { onSuggestedQuantityChanged(product.id, it) },
-                            onNotesChanged = { onNotesChanged(product.id, it) },
-                            onSave = { onSaveStockCheck(product.id, product.name) }
-                        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.stock_check_audit_tab), fontWeight = FontWeight.Bold)
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (state.recentChecks.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 48.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(
-                                        Icons.Default.Inventory,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.outline
-                                    )
-                                    Text(
-                                        "No stock audits recorded yet",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        "Perform a shelf count from the audit tab.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.stock_check_history_tab, state.recentChecks.size), fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
+
+        if (state.errorMessage != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                border = BorderStroke(1.dp, Color(0xFFEF4444))
+            ) {
+                Text(
+                    text = state.errorMessage,
+                    color = Color(0xFF991B1B),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
+
+        if (selectedTab == 0) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(state.products, key = { it.id }) { product ->
+                    val input = state.auditInputs[product.id] ?: ProductStockAuditInput()
+                    ProductStockAuditCard(
+                        product = product,
+                        input = input,
+                        isSaving = state.isSaving,
+                        onQuantityChanged = { onQuantityChanged(product.id, it) },
+                        onSuggestedQuantityChanged = { onSuggestedQuantityChanged(product.id, it) },
+                        onNotesChanged = { onNotesChanged(product.id, it) },
+                        onSave = { onSaveStockCheck(product.id, product.name) }
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (state.recentChecks.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 48.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(
+                                    Icons.Default.Inventory,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.outline
+                                )
+                                Text(
+                                    stringResource(R.string.stock_check_no_audits_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    stringResource(R.string.stock_check_no_audits_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
-                    } else {
-                        items(state.recentChecks, key = { it.id }) { check ->
-                            StockCheckHistoryCard(check = check)
-                        }
+                    }
+                } else {
+                    items(state.recentChecks, key = { it.id }) { check ->
+                        StockCheckHistoryCard(check = check)
                     }
                 }
             }
@@ -230,8 +239,8 @@ private fun ProductStockAuditCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Current Shop Stock", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Units present on retailer shelf", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.stock_check_current_stock), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.stock_check_current_stock_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -270,8 +279,8 @@ private fun ProductStockAuditCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Suggested Reorder", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Suggested re-supply quantity", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.stock_check_suggested_reorder), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.stock_check_suggested_reorder_desc), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -307,7 +316,7 @@ private fun ProductStockAuditCard(
             OutlinedTextField(
                 value = input.notes,
                 onValueChange = onNotesChanged,
-                placeholder = { Text("Notes (e.g. good display, low shelf life)") },
+                placeholder = { Text(stringResource(R.string.stock_check_notes_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(10.dp)
@@ -328,7 +337,7 @@ private fun ProductStockAuditCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text("Record Stock Audit", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.stock_check_record_button), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -362,14 +371,14 @@ private fun StockCheckHistoryCard(check: StockCheckEntity) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Shelf Count: ${check.observedQuantity} units",
+                    text = stringResource(R.string.stock_check_shelf_count, check.observedQuantity),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 if (check.suggestedQuantity > 0) {
                     Text(
-                        text = "Suggested: ${check.suggestedQuantity}",
+                        text = stringResource(R.string.stock_check_suggested, check.suggestedQuantity),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -378,7 +387,7 @@ private fun StockCheckHistoryCard(check: StockCheckEntity) {
 
             if (check.notes.isNotBlank()) {
                 Text(
-                    text = "Notes: ${check.notes}",
+                    text = "${stringResource(R.string.notes)}: ${check.notes}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -396,9 +405,9 @@ private fun StockCheckHistoryCard(check: StockCheckEntity) {
 @Composable
 fun StockSyncStatusBadge(status: String) {
     val (bgColor, textColor, label) = when (status.uppercase()) {
-        "SYNCED" -> Triple(Color(0xFFECFDF5), Color(0xFF047857), "✓ Synced")
-        "FAILED" -> Triple(Color(0xFFFEF2F2), Color(0xFFB91C1C), "⚠ Failed")
-        else -> Triple(Color(0xFFFFFBEB), Color(0xFFB45309), "⏳ Pending Sync")
+        "SYNCED" -> Triple(Color(0xFFECFDF5), Color(0xFF047857), stringResource(R.string.stock_check_synced))
+        "FAILED" -> Triple(Color(0xFFFEF2F2), Color(0xFFB91C1C), stringResource(R.string.stock_check_failed))
+        else -> Triple(Color(0xFFFFFBEB), Color(0xFFB45309), stringResource(R.string.stock_check_pending_sync))
     }
 
     Surface(

@@ -203,11 +203,13 @@ fun RouteFlowApp(
         }
     }
 
-    LaunchedEffect(destination) {
-        val targetRoute = destination?.route
-        if (targetRoute != null) {
-            val curr = navController.currentDestination?.route
-            if (curr != targetRoute) {
+    var lastNavigatedRole by remember { mutableStateOf<com.routeflow.app.domain.model.EmployeeRole?>(null) }
+    LaunchedEffect(employee?.role) {
+        val currentRole = employee?.role
+        if (currentRole != null && currentRole != lastNavigatedRole) {
+            lastNavigatedRole = currentRole
+            val targetRoute = destination?.route
+            if (targetRoute != null) {
                 navController.navigate(targetRoute) {
                     popUpTo(0) { inclusive = true }
                     launchSingleTop = true
@@ -247,9 +249,9 @@ fun RouteFlowApp(
                 NavItem(ADMIN_ACTIVITY, R.string.tab_reports, Icons.Default.Assessment)
             )
             EmployeeRole.SALESPERSON -> listOf(
-                NavItem(SALES_TODAY, R.string.tab_today, Icons.Default.Today),
+                NavItem(RoleDestination.SALES.route, R.string.tab_today, Icons.Default.Today),
                 NavItem(SALES_RETAILER_LIST, R.string.tab_shops, Icons.Default.Store),
-                NavItem(RoleDestination.SALES.route, R.string.tab_order_booking, Icons.Default.ShoppingCart),
+                NavItem(SALES_ORDER_BOOKING.replace("{retailerId}", "all"), R.string.tab_order_booking, Icons.Default.ShoppingCart),
                 NavItem(SALES_COLLECTIONS, R.string.tab_collections, Icons.Default.Payments),
                 NavItem(SALES_PROFILE, R.string.tab_profile, Icons.Default.Person)
             )
@@ -686,15 +688,22 @@ fun RouteFlowApp(
             composable(
                 route = SALES_SHOP_VISIT,
                 arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
-            ) {
+            ) { backStackEntry ->
+                val retailerId = backStackEntry.arguments?.getString("retailerId") ?: ""
                 val viewModel: ShopVisitViewModel = hiltViewModel()
                 val visitState by viewModel.state.collectAsStateWithLifecycle()
                 ShopVisitScreen(
                     state = visitState,
                     onCheckIn = viewModel::checkIn,
                     onCheckOut = viewModel::checkOut,
-                    onCreateOrder = { navController.navigate("sales/order/${visitState.retailer?.id}") },
-                    onStockCheck = { navController.navigate("sales/stock-check/${visitState.retailer?.id}") }
+                    onCreateOrder = {
+                        val targetId = visitState.retailer?.id ?: retailerId
+                        if (targetId.isNotBlank()) navController.navigate("sales/order/$targetId")
+                    },
+                    onStockCheck = {
+                        val targetId = visitState.retailer?.id ?: retailerId
+                        if (targetId.isNotBlank()) navController.navigate("sales/stock-check/$targetId")
+                    }
                 )
             }
 

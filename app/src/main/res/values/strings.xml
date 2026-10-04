@@ -288,5 +288,24 @@
     <string name="orders_count_stat">Orders ₹%1$s</string>
     <string name="active_visit_alert_title">Active Visit in Progress</string>
     <string name="active_visit_alert_body">You already have an active visit at \'%1$s\'. Please check out from that visit before starting a new one.</string>
+
+    <!-- Salesperson Stock Audit -->
+    <string name="stock_check_title">Stock Check</string>
+    <string name="stock_check_subtitle">Retailer Shelf Audit</string>
+    <string name="stock_check_audit_tab">Audit Shelf Stock</string>
+    <string name="stock_check_history_tab">Audit History (%1$d)</string>
+    <string name="stock_check_no_audits_title">No stock audits recorded yet</string>
+    <string name="stock_check_no_audits_desc">Perform a shelf count from the audit tab.</string>
+    <string name="stock_check_current_stock">Current Shop Stock</string>
+    <string name="stock_check_current_stock_desc">Units present on retailer shelf</string>
+    <string name="stock_check_suggested_reorder">Suggested Reorder</string>
+    <string name="stock_check_suggested_reorder_desc">Suggested re-supply quantity</string>
+    <string name="stock_check_notes_placeholder">Notes (e.g. good display, low shelf life)</string>
+    <string name="stock_check_record_button">Record Stock Audit</string>
+    <string name="stock_check_shelf_count">Shelf Count: %1$d units</string>
+    <string name="stock_check_suggested">Suggested: %1$d</string>
+    <string name="stock_check_synced">✓ Synced</string>
+    <string name="stock_check_failed">⚠ Failed</string>
+    <string name="stock_check_pending_sync">⏳ Pending Sync</string>
 </resources>
 
