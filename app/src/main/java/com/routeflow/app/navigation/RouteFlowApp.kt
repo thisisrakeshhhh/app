@@ -67,6 +67,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.routeflow.app.BuildConfig
 import com.routeflow.app.R
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.domain.model.EmployeeRole
@@ -395,10 +396,12 @@ fun RouteFlowApp(
                     onUsernameChange = viewModel::onUsernameChange,
                     onPasswordChange = viewModel::onPasswordChange,
                     onLogin = viewModel::login,
-                    onSwitchToDemo = {
-                        isDemoMode = true
-                        navController.navigate(DEMO_LOGIN_ROUTE)
-                    },
+                    onSwitchToDemo = if (BuildConfig.DEBUG || BuildConfig.STAGING_MODE) {
+                        {
+                            isDemoMode = true
+                            navController.navigate(DEMO_LOGIN_ROUTE)
+                        }
+                    } else null,
                     currentLanguage = currentLanguage,
                     onLanguageChange = onLanguageChange
                 )

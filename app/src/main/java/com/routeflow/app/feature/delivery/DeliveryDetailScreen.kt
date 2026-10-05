@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.routeflow.app.BuildConfig
 import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
@@ -382,7 +383,7 @@ fun DeliveryDetailScreen(
                     }
                 }
 
-                if (detailState.serverDebugOtp != null) {
+                if (BuildConfig.DEBUG && detailState.serverDebugOtp != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End

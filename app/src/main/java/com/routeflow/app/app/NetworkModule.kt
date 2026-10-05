@@ -84,7 +84,7 @@ object NetworkModule {
             BuildConfig.DEBUG ->
                 "http://127.0.0.1:8787/"
             else ->
-                "https://api.routeflow.com/"
+                BuildConfig.PROD_API_BASE_URL
         }
         return Retrofit.Builder()
             .baseUrl(baseUrl)

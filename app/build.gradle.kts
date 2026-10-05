@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -28,10 +31,49 @@ android {
         arg("room.schemaLocation", "$projectDir/schemas")
     }
 
+    val keystorePropertiesFile = rootProject.file("keystore.properties").takeIf { it.exists() }
+        ?: project.file("keystore.properties").takeIf { it.exists() }
+    val keystoreProperties = Properties().apply {
+        if (keystorePropertiesFile != null) {
+            load(FileInputStream(keystorePropertiesFile))
+        }
+    }
+
+    val storeFilePath = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
+    val storePassword = keystoreProperties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
+    val keyAlias = keystoreProperties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
+    val keyPassword = keystoreProperties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
+
+    val resolvedStoreFile = storeFilePath?.let { path ->
+        val f = file(path)
+        if (f.exists()) f else rootProject.file(path).takeIf { it.exists() }
+    }
+
+    val hasReleaseSigning = resolvedStoreFile != null &&
+            !storePassword.isNullOrBlank() &&
+            !keyAlias.isNullOrBlank() &&
+            !keyPassword.isNullOrBlank()
+
+    val prodApiUrl = (project.findProperty("ROUTEFLOW_PROD_API_URL") as? String)
+        ?: System.getenv("ROUTEFLOW_PROD_API_URL")
+        ?: "https://api.routeflow.com/"
+
+    signingConfigs {
+        if (hasReleaseSigning && resolvedStoreFile != null) {
+            create("release") {
+                storeFile = resolvedStoreFile
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("Boolean", "STAGING_MODE", "false")
             buildConfigField("String", "STAGING_API_BASE_URL", "\"\"")
+            buildConfigField("String", "PROD_API_BASE_URL", "\"$prodApiUrl\"")
         }
         create("staging") {
             initWith(getByName("debug"))
@@ -41,16 +83,23 @@ android {
             // FILL IN the actual URL returned by `npx wrangler deploy --config wrangler.staging.toml`
             // Example: "https://routeflow-api-staging.<account>.workers.dev/"
             buildConfigField("String", "STAGING_API_BASE_URL", "\"https://routeflow-api-staging.thisisrakesh21.workers.dev/\"")
+            buildConfigField("String", "PROD_API_BASE_URL", "\"$prodApiUrl\"")
         }
         release {
             buildConfigField("Boolean", "STAGING_MODE", "false")
             buildConfigField("String", "STAGING_API_BASE_URL", "\"\"")
+            buildConfigField("String", "PROD_API_BASE_URL", "\"$prodApiUrl\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
