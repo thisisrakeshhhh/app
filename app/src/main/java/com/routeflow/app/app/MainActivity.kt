@@ -75,7 +75,6 @@ class MainActivity : ComponentActivity() {
                         currentLanguage = currentLang,
                         onLanguageChange = { newLang ->
                             languageManager.setLanguage(newLang)
-                            recreate()
                         }
                     )
                 }

@@ -293,33 +293,6 @@ fun RouteFlowApp(
                             }
                         },
                         actions = {
-                            // Quick language switch button
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = {
-                                    onLanguageChange(if (currentLanguage == "en") "hi" else "en")
-                                },
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFFF8FAFC),
-                                    contentColor = RFColors.Primary
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Language,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(15.dp),
-                                    tint = RFColors.Accent
-                                )
-                                androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = if (currentLanguage == "en") "हिन्दी" else "English",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
                             TextButton(onClick = {
                                 isDemoMode = false
                                 onDemoLogout()
