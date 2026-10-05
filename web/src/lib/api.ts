@@ -8,8 +8,10 @@ export interface User {
 }
 
 export interface AuthResponse {
-  token: string;
-  refreshToken: string;
+  access_token?: string;
+  refresh_token?: string;
+  token?: string;
+  refreshToken?: string;
   user: User;
 }
 
@@ -31,8 +33,10 @@ export function getStoredUser(): User | null {
 
 export function setSession(auth: AuthResponse) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('rf_token', auth.token);
-  localStorage.setItem('rf_refresh', auth.refreshToken);
+  const token = auth.access_token || auth.token || '';
+  const refresh = auth.refresh_token || auth.refreshToken || '';
+  localStorage.setItem('rf_token', token);
+  localStorage.setItem('rf_refresh', refresh);
   localStorage.setItem('rf_user', JSON.stringify(auth.user));
 }
 

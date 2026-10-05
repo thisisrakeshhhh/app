@@ -28,7 +28,7 @@ export default function LoginPage() {
       }
 
       setSession(res);
-      router.push('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
