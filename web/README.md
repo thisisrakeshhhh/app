@@ -8,7 +8,7 @@ This is the Next.js web dashboard for **RouteFlow**, built to manage operations 
 
 - **Owner & Admin Authentication**:
   - Secure JWT authentication with role authorization (`OWNER` or `ADMIN`).
-  - Staging credentials: `owner` / `password123` and `admin` / `password123`.
+  - Staging credentials: `owner` / `RouteFlow@2026!` and `admin` / `RouteFlow@2026!`.
   - Pre-filled quick login chips for rapid credential selection during testing.
 - **Business Overview KPIs**:
   - Pending Approvals count with direct link to approvals.

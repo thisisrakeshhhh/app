@@ -8,7 +8,7 @@ import { ShieldCheck, Truck, Store, PackageCheck } from 'lucide-react';
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('owner');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('RouteFlow@2026!');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +89,7 @@ export default function LoginPage() {
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white focus:border-transparent text-sm transition"
@@ -112,7 +113,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => quickFill('owner', 'password123')}
+                onClick={() => quickFill('owner', 'RouteFlow@2026!')}
                 className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-blue-50/60 hover:border-blue-300 text-slate-700 hover:text-blue-700 border border-slate-200 transition cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-blue-600" />
@@ -120,7 +121,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => quickFill('admin', 'password123')}
+                onClick={() => quickFill('admin', 'RouteFlow@2026!')}
                 className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-emerald-50/60 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 border border-slate-200 transition cursor-pointer"
               >
                 <PackageCheck className="w-4 h-4 text-emerald-600" />
