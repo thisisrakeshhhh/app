@@ -43,55 +43,55 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-white">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-slate-900">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/30 mb-4">
+        <div className="inline-flex p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/20 mb-4">
           <Truck className="w-10 h-10 text-white" />
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-white">
+        <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">
           RouteFlow
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-slate-500">
           Executive & Operations Web Management Console
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-slate-800 py-8 px-6 shadow-2xl rounded-2xl border border-slate-700 sm:px-10">
+        <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-200 sm:px-10">
           {error && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded-xl text-red-200 text-sm">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium">
               {error}
             </div>
           )}
 
-          <form className="space-y-6" onSubmit={handleLogin}>
+          <form className="space-y-5" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-medium text-slate-300">
+              <label className="block text-sm font-medium text-slate-700">
                 Username / Email
               </label>
-              <div className="mt-1">
+              <div className="mt-1.5">
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white focus:border-transparent text-sm transition"
                   placeholder="e.g. owner"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300">
+              <label className="block text-sm font-medium text-slate-700">
                 Password
               </label>
-              <div className="mt-1">
+              <div className="mt-1.5">
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white focus:border-transparent text-sm transition"
                 />
               </div>
             </div>
@@ -99,31 +99,31 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/30 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-md shadow-blue-600/20 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition cursor-pointer"
             >
               {loading ? 'Authenticating...' : 'Sign In to Console'}
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-700">
+          <div className="mt-6 pt-6 border-t border-slate-100">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider text-center mb-3">
               Quick Fill Staging Roles
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => quickFill('owner', 'password123')}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 border border-slate-600 transition"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-blue-50/60 hover:border-blue-300 text-slate-700 hover:text-blue-700 border border-slate-200 transition cursor-pointer"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                <ShieldCheck className="w-4 h-4 text-blue-600" />
                 Owner
               </button>
               <button
                 type="button"
                 onClick={() => quickFill('admin', 'password123')}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 border border-slate-600 transition"
+                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-emerald-50/60 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 border border-slate-200 transition cursor-pointer"
               >
-                <PackageCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <PackageCheck className="w-4 h-4 text-emerald-600" />
                 Admin
               </button>
             </div>
