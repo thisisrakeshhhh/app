@@ -8,7 +8,7 @@ import { ShieldCheck, Truck, Store, PackageCheck } from 'lucide-react';
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('owner');
-  const [password, setPassword] = useState('owner123');
+  const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,7 +112,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => quickFill('owner', 'owner123')}
+                onClick={() => quickFill('owner', 'password123')}
                 className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 border border-slate-600 transition"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
@@ -120,7 +120,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => quickFill('admin', 'admin123')}
+                onClick={() => quickFill('admin', 'password123')}
                 className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 border border-slate-600 transition"
               >
                 <PackageCheck className="w-3.5 h-3.5 text-emerald-400" />

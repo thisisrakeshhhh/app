@@ -60,6 +60,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   });
 
   if (res.status === 401) {
+    if (path.startsWith('/auth/login')) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Invalid username or password');
+    }
     clearSession();
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login';
