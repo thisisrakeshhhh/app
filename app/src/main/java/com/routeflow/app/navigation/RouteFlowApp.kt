@@ -708,7 +708,10 @@ fun RouteFlowApp(
 
                 if (orderState.orderSubmittedId != null) {
                     LaunchedEffect(orderState.orderSubmittedId) {
-                        navController.popBackStack(SALES_TODAY, inclusive = false)
+                        val popped = navController.popBackStack(SALES_TODAY, inclusive = false)
+                        if (!popped) {
+                            navController.popBackStack()
+                        }
                     }
                 } else {
                     OrderBookingScreen(

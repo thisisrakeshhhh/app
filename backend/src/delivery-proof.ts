@@ -13,7 +13,7 @@ export async function requestOtp(c:Context<any>){
  if(!order||(u.role==='DELIVERY_EXECUTIVE'&&order.delivery_employee_id!==u.sub))return c.json({error:'Order access denied'},403);
  if(order.status!=='OUT_FOR_DELIVERY')return c.json({error:'Order must be out for delivery'},400);
  if(!await rateLimit(c,'delivery-otp',`${u.company_id}:${u.sub}`,60))return c.json({error:'Too many OTP requests. Try again later.'},429);
- const simulation=c.env.ENVIRONMENT==='development'&&c.env.SMS_MODE==='simulated';
+ const simulation=(c.env.ENVIRONMENT==='development'||c.env.ENVIRONMENT==='staging')&&c.env.SMS_MODE==='simulated';
  if(!simulation&&(!c.env.SMS_GATEWAY_URL||!c.env.SMS_GATEWAY_TOKEN))return c.json({success:false,deliveryStatus:'UNAVAILABLE',error:'Recipient messaging is not configured. Delivery cannot be confirmed.'},503);
  const old=await db.prepare('SELECT * FROM delivery_otps WHERE order_id=? AND company_id=?').bind(id,u.company_id).first<any>();
  const now=Date.now();

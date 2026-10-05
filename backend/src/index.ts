@@ -1067,7 +1067,7 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     if (!otpRecord) {
       return c.json({ error: 'No active delivery OTP found for this order. Request an OTP first.' }, 400);
     }
-    if (!['SENT', ...(c.env.ENVIRONMENT === 'development' && c.env.SMS_MODE === 'simulated' ? ['SIMULATED'] : [])].includes(otpRecord.send_status)) {
+    if (!['SENT', ...(((c.env.ENVIRONMENT === 'development' || c.env.ENVIRONMENT === 'staging') && c.env.SMS_MODE === 'simulated') ? ['SIMULATED'] : [])].includes(otpRecord.send_status)) {
       return c.json({ error: 'Recipient messaging has not been acknowledged' }, 400);
     }
     if (otpRecord.is_used === 1) {
