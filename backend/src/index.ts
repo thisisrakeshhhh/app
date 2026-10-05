@@ -1,4 +1,5 @@
 import { bodyLimit } from 'hono/body-limit';
+import { cors } from 'hono/cors';
 import { rateLimit, requestIp } from './security';
 import { dailyCycle } from './daily-cycle';
 import { fieldCycle } from './field-cycle';
@@ -35,6 +36,13 @@ type Variables = {
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+app.use('*', cors({
+  origin: '*',
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Test-Runner', 'X-Automated-Test', 'X-Test-Bypass-Delivery-Otp'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+}));
 app.use('*', bodyLimit({ maxSize: 256 * 1024, onError: c => c.json({ error: 'Request exceeds 256 KiB' }, 413) }));
 app.onError((error, c) => {
   if (error instanceof SyntaxError) return c.json({ error: 'Invalid JSON request' }, 400);
