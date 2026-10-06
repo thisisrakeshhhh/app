@@ -23,8 +23,9 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
-      if (!['OWNER', 'ADMIN'].includes(res.user.role)) {
-        throw new Error(`Web Dashboard is for Owner and Admin roles only. Logged in as ${res.user.role}.`);
+      const allowedRoles = ['OWNER', 'ADMIN', 'SALESPERSON', 'WAREHOUSE_MANAGER', 'DELIVERY_EXECUTIVE'];
+      if (!allowedRoles.includes(res.user.role)) {
+        throw new Error(`Unauthorized role: ${res.user.role}.`);
       }
 
       setSession(res);
@@ -110,22 +111,46 @@ export default function LoginPage() {
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-2.5">
               Quick Fill Staging Roles
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => quickFill('owner', 'RouteFlow@2026!')}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-blue-50/60 hover:border-blue-300 text-slate-700 hover:text-blue-700 border border-slate-200 transition cursor-pointer min-h-[42px]"
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-blue-50/60 hover:border-blue-300 text-slate-700 hover:text-blue-700 border border-slate-200 transition cursor-pointer min-h-[38px]"
               >
-                <ShieldCheck className="w-4 h-4 text-blue-600" />
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
                 Owner
               </button>
               <button
                 type="button"
                 onClick={() => quickFill('admin', 'RouteFlow@2026!')}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-3 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-emerald-50/60 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 border border-slate-200 transition cursor-pointer min-h-[42px]"
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-indigo-50/60 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 border border-slate-200 transition cursor-pointer min-h-[38px]"
               >
-                <PackageCheck className="w-4 h-4 text-emerald-600" />
+                <PackageCheck className="w-3.5 h-3.5 text-indigo-600" />
                 Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => quickFill('sales', 'RouteFlow@2026!')}
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-amber-50/60 hover:border-amber-300 text-slate-700 hover:text-amber-700 border border-slate-200 transition cursor-pointer min-h-[38px]"
+              >
+                <Store className="w-3.5 h-3.5 text-amber-600" />
+                Sales
+              </button>
+              <button
+                type="button"
+                onClick={() => quickFill('warehouse', 'RouteFlow@2026!')}
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-purple-50/60 hover:border-purple-300 text-slate-700 hover:text-purple-700 border border-slate-200 transition cursor-pointer min-h-[38px]"
+              >
+                <Truck className="w-3.5 h-3.5 text-purple-600" />
+                Warehouse
+              </button>
+              <button
+                type="button"
+                onClick={() => quickFill('delivery', 'RouteFlow@2026!')}
+                className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50 hover:bg-emerald-50/60 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 border border-slate-200 transition cursor-pointer min-h-[38px]"
+              >
+                <Truck className="w-3.5 h-3.5 text-emerald-600" />
+                Delivery
               </button>
             </div>
           </div>

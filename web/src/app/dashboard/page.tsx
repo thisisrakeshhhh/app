@@ -113,6 +113,16 @@ export default function DashboardPage() {
       return;
     }
     setUser(u);
+    const r = u.role?.toUpperCase();
+    if (r === 'SALESPERSON' || r === 'SALES') {
+      setActiveTab('retailers');
+    } else if (r === 'WAREHOUSE_MANAGER' || r === 'WAREHOUSE') {
+      setActiveTab('products');
+    } else if (r === 'DELIVERY_EXECUTIVE' || r === 'DELIVERY') {
+      setActiveTab('orders');
+    } else {
+      setActiveTab('overview');
+    }
     loadAllData();
   }, [router]);
 
@@ -389,36 +399,79 @@ export default function DashboardPage() {
         </div>
 
         {/* Navigation Tabs - Responsive Scrollable Bar */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1.5 sm:gap-2 overflow-x-auto border-t border-slate-100 py-2 scrollbar-none">
-          {[
-            { id: 'overview', label: 'Overview', icon: Building },
+        {(() => {
+          const role = user?.role?.toUpperCase() || 'OWNER';
+          const isOwnerOrAdmin = role === 'OWNER' || role === 'ADMIN';
+          const isWarehouse = role === 'WAREHOUSE_MANAGER' || role === 'WAREHOUSE';
+          const isDelivery = role === 'DELIVERY_EXECUTIVE' || role === 'DELIVERY';
+          const isSales = role === 'SALESPERSON' || role === 'SALES';
+
+          const visibleTabs = [
+            ...(isOwnerOrAdmin ? [{ id: 'overview', label: 'Overview', icon: Building }] : []),
             { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
-            { id: 'handovers', label: `Cash Handover (${handovers.filter(h => h.status === 'PENDING').length})`, icon: Wallet },
-            { id: 'products', label: `Products (${products.length})`, icon: Truck },
-            { id: 'retailers', label: `Retailers (${retailers.length})`, icon: Store },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isSelected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[36px] ${
-                  isSelected
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+            ...(isOwnerOrAdmin || isDelivery ? [{ id: 'handovers', label: `Cash Handover (${handovers.filter(h => h.status === 'PENDING').length})`, icon: Wallet }] : []),
+            ...(isOwnerOrAdmin || isWarehouse || isSales ? [{ id: 'products', label: `Products (${products.length})`, icon: Truck }] : []),
+            ...(isOwnerOrAdmin || isSales ? [{ id: 'retailers', label: `Retailers (${retailers.length})`, icon: Store }] : []),
+          ];
+
+          return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1.5 sm:gap-2 overflow-x-auto border-t border-slate-100 py-2 scrollbar-none">
+              {visibleTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isSelected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[36px] ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 flex-1 w-full">
+        {/* Role Banner for Field Roles */}
+        {(() => {
+          const role = user?.role?.toUpperCase() || 'OWNER';
+          const isOwnerOrAdmin = role === 'OWNER' || role === 'ADMIN';
+          const isWarehouse = role === 'WAREHOUSE_MANAGER' || role === 'WAREHOUSE';
+          const isDelivery = role === 'DELIVERY_EXECUTIVE' || role === 'DELIVERY';
+          const isSales = role === 'SALESPERSON' || role === 'SALES';
+
+          if (isOwnerOrAdmin) return null;
+
+          return (
+            <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl text-blue-900 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <span className="text-xl sm:text-2xl">📱</span>
+                <div>
+                  <p className="font-bold text-slate-900">Mobile App Recommended for Field Roles</p>
+                  <p className="text-slate-600 text-xs mt-0.5">
+                    {isSales && 'Live shop onboarding with GPS, catalog ordering, and cash collections are built for the RouteFlow Android phone app.'}
+                    {isWarehouse && 'Real-time picking, packing, and godown scanner operations are optimized for the RouteFlow Android phone app.'}
+                    {isDelivery && 'Turn-by-turn route delivery, customer OTP proof, and cash handovers are handled via the RouteFlow Android phone app.'}
+                    {' This web console provides fallback office & emergency desktop access.'}
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg font-semibold text-[11px] whitespace-nowrap self-start sm:self-center shadow-xs">
+                Web Fallback Mode
+              </span>
+            </div>
+          );
+        })()}
+
         {message && (
           <div className="mb-4 sm:mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm flex items-center justify-between">
             <span>{message}</span>

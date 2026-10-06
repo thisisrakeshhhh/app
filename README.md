@@ -118,9 +118,23 @@ The banner says Offline demo because all data is local; it does not pretend to m
 - `.\gradlew.bat bundleRelease` prepares an **unsigned** release AAB in `app/build/outputs/bundle/release/`. No release signing key is created or embedded. For a future production build, use Android Studio's Generate Signed Bundle flow with a privately held upload key, then Play App Signing. Do not publish this demo as a finished distribution product.
 - Development/staging/production API environments, real account access, privacy policy, Play disclosures and signing configuration belong to later production milestones. Target API 36 alone does not establish Google Play compliance.
 
-## Next milestone
+## Multi-Platform Architecture: Web + Phone Access for Every Role
 
-**Milestone 2: local read-only directory and beat foundation.** Define retailer, product and beat domain models; add a Room database with schema export/migration tests; seed clearly fake Jaipur data; expose repository flows; let the salesperson view BEAT-04 shops and product details offline. Use integer paise or BigDecimal for monetary values. Keep production authentication, writes/sync, GPS and payments out until their contracts are agreed. Finish outstanding device acceptance checks for Milestone 1 first.
+RouteFlow is an integrated dual-platform ecosystem connecting field operations directly to the back office in real time:
 
-See the [original audit and plan](docs/REPOSITORY_AUDIT.md), [changed-file inventory](docs/CHANGES.md) and [validation results](docs/VALIDATION.md).
-# app
+- **Android App** for field work: sales lead generation & store visits, warehouse picking & packing, route delivery with customer OTP verification, and quick owner alerts.
+- **Web Dashboard** for office work: owner/admin monitoring, business KPI analytics, staff management, warehouse stock control, and delivery dispatching.
+- **Same Cloudflare Backend + D1 Database**: Unified SQLite edge database and REST API ensuring phone and website always reflect identical real-time data.
+
+### Role Access & Platform Matrix
+
+| Role | Phone App | Website |
+|---|---|---|
+| **Owner** | View alerts, approvals, quick business status | Full dashboard, reports, employees, stock, payments, settings |
+| **Admin / TL** | Monitor team, assign delivery, handle exceptions | Operations dashboard, route/beat monitoring, approvals |
+| **Sales Executive** | Add shop, visit, order, collect payment, GPS | Basic web view only if needed (My shops & orders) |
+| **Warehouse** | Pick, pack, stock entry, expiry/damage update | Godown dashboard, stock reports, GRN/inward |
+| **Delivery** | Route, OTP delivery, collect payment, cash handover | Basic trip/cash history only |
+
+### Client Demo Pitch
+> **"Sir, field staff will use the mobile app, and owner/admin can control the full business from web dashboard or mobile app. Same data will sync in real time."**
