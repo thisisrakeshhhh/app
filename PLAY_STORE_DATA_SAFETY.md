@@ -1,107 +1,54 @@
-# Google Play Console Data Safety Questionnaire Mapping
+# Google Play Store — Data Safety Form Checklist
 
-This document provides exact, verified answers for completing the **Data Safety** form in the Google Play Console for **RouteFlow** (`com.routeflow.app`).
-
----
-
-## 1. Overview & Data Collection Summary
-
-* **Does your app collect or share any of the required user data types?**  
-  **Yes**
-* **Is all of the user data collected by your app encrypted in transit?**  
-  **Yes** (Enforced over HTTPS / TLS 1.3 for all external network communications)
-* **Do you provide a way for users to request that their data be deleted?**  
-  **Yes** (Users can request account or transaction review/deletion via distributor administrator or privacy@routeflow.com)
+Use these exact answers when filling out the **Data Safety** questionnaire in the Google Play Console for `com.routeflow.app`:
 
 ---
 
-## 2. Detailed Data Type Declarations
-
-### A. Location
-1. **Approximate location (`ACCESS_COARSE_LOCATION`)**
-   * **Collected?** Yes
-   * **Shared?** No (Not shared with third-party data brokers/advertisers)
-   * **Processed ephemerally?** No (Stored with shift attendance and store visit records)
-   * **Is this data required or optional?** Required for Field Sales & Delivery duty verification
-   * **Purposes:**
-     * App functionality (Verifying store visits and beat route coverage)
-     * Fraud prevention, security, and compliance (Ensuring authentic physical check-ins)
-
-2. **Precise location (`ACCESS_FINE_LOCATION`)**
-   * **Collected?** Yes
-   * **Shared?** No
-   * **Processed ephemerally?** No
-   * **Is this data required or optional?** Required for Shift Tracking
-   * **Purposes:**
-     * App functionality (Foreground shift tracking during active work duty)
-     * Fraud prevention, security, and compliance (Accurate GPS verification of store delivery/order locations)
+## 1. Data Collection and Security
+- **Does your app collect or share any of the required user data types?**  
+  👉 **Yes**
+- **Is all of the user data collected by your app encrypted in transit?**  
+  👉 **Yes** (All requests use HTTPS / TLS 1.3 encryption)
+- **Do you provide a way for users to request that their data be deleted?**  
+  👉 **Yes** (Distributor administrators can delete accounts and records, or email `privacy@routeflow.in`)
 
 ---
+
+## 2. Specific Data Categories
+
+### A. Location Data
+- **Approximate location collected?** 👉 **Yes**
+- **Precise location collected?** 👉 **Yes**
+  - *Collected or Shared:* Collected only (Not shared with 3rd parties)
+  - *Ephemeral or Stored:* Stored (Saved to D1 shift log for attendance & distance audit)
+  - *Required or Optional:* Required for field sales and delivery shift tracking
+  - *Purpose:* **App functionality**, **Analytics**, **Fraud prevention, security, and compliance**
 
 ### B. Personal Info
-1. **Name**
-   * **Collected?** Yes (Employee name & Retailer contact person name)
-   * **Shared?** No
-   * **Purposes:**
-     * App functionality (Displaying user identity, assigning orders, shift management)
-     * Account management
-
-2. **Phone number**
-   * **Collected?** Yes (Retailer store mobile number)
-   * **Shared?** Yes (Shared exclusively with authorized telecom SMS gateway for sending the 6-digit delivery confirmation OTP)
-   * **Purposes:**
-     * App functionality (Dispatching delivery OTPs via SMS)
-     * Account management & retailer identification
-
-3. **User IDs**
-   * **Collected?** Yes (Internal employee UUID / username)
-   * **Shared?** No
-   * **Purposes:**
-     * App functionality (Authentication, role-based access control, and audit logs)
-     * Account management
-
----
+- **Name:** 👉 **Yes** (Employee full name, store owner name)
+  - *Purpose:* App functionality, Account management
+- **Email address / Username:** 👉 **Yes**
+  - *Purpose:* App functionality, Authentication
+- **Phone number:** 👉 **Yes**
+  - *Purpose:* Delivery OTP SMS dispatch, account communications
 
 ### C. Financial Info
-1. **Purchase history / Commercial Orders**
-   * **Collected?** Yes (Wholesale order line items, invoices, returns, credit note amounts)
-   * **Shared?** No
-   * **Purposes:**
-     * App functionality (Wholesale order booking, warehouse fulfillment, credit limit tracking)
+- **Purchase history / Transaction info:** 👉 **Yes** (Wholesale order history, cash collection records)
+  - *Purpose:* App functionality, Fraud prevention
 
-2. **Other financial info (Outstanding Balances, Cash Collections)**
-   * **Collected?** Yes (Retailer ledger balances, cash collected by salesperson/driver, cash handover records)
-   * **Shared?** No
-   * **Purposes:**
-     * App functionality (Daily cash reconciliation and distributor credit control)
+### D. Device or other identifiers
+- **Device or other IDs:** 👉 **Yes** (Device model, session ID)
+  - *Purpose:* Fraud prevention, security, account session management
 
 ---
 
-### D. Actions / User Activity
-1. **App interactions**
-   * **Collected?** Yes (Check-in timestamps, order booking events, OTP submission timestamps)
-   * **Shared?** No
-   * **Purposes:**
-     * App functionality (Daily audit trail and operations reporting)
-     * Fraud prevention and compliance
+## 3. Privacy Policy Link
+- **Store Listing Privacy Policy URL:**  
+  `https://appdashboardadmin.vercel.app/privacy`
 
 ---
 
-### E. Device or Other Identifiers
-* **Device or other IDs**  
-  * **Collected?** No (RouteFlow does not read IMEI, Android ID, MAC address, or Advertising ID / AAID)
-
----
-
-## 3. Data Safety Summary Checklist for Play Console
-
-| Data Type | Collected | Shared | Ephemeral | Purpose |
-| :--- | :---: | :---: | :---: | :--- |
-| **Approximate Location** | Yes | No | No | App functionality, Fraud prevention |
-| **Precise Location** | Yes | No | No | App functionality (Active Shift Tracking) |
-| **Name** | Yes | No | No | App functionality, Account management |
-| **Phone number** | Yes | Yes (SMS Gateway) | No | App functionality (Delivery OTP Dispatch) |
-| **User IDs** | Yes | No | No | Account management, Authentication |
-| **Purchase History / Orders** | Yes | No | No | App functionality (B2B Distribution) |
-| **Other Financial Info** | Yes | No | No | App functionality (Ledger & Handover) |
-| **App Interactions / Audits** | Yes | No | No | App functionality, Fraud prevention |
+## 4. Sensitive Permissions Declaration
+- `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION`: Used for Kirana shop GPS check-in and shift tracking.
+- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_LOCATION`: Active foreground notification displayed while recording on-duty shift distance.
+- `POST_NOTIFICATIONS`: Order status updates and delivery arrival alerts.

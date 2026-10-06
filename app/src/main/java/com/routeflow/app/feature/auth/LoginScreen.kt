@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.routeflow.app.R
+import com.routeflow.app.BuildConfig
 import com.routeflow.app.core.design.RFColors
 
 @Composable
@@ -275,87 +276,89 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            if (BuildConfig.BUILD_TYPE != "release") {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            // Quick Jaipur Field Accounts Autofill (2 comfortable rows)
-            Text(
-                text = "Jaipur Operations Accounts (Click to Fill):",
-                style = MaterialTheme.typography.labelSmall,
-                color = RFColors.Secondary,
-                fontWeight = FontWeight.SemiBold
-            )
+                // Quick Jaipur Field Accounts Autofill (2 comfortable rows)
+                Text(
+                    text = "Jaipur Operations Accounts (Click to Fill):",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = RFColors.Secondary,
+                    fontWeight = FontWeight.SemiBold
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 1: Management & Sales
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-            ) {
-                listOf(
-                    "owner" to "Owner",
-                    "admin" to "Admin",
-                    "sales" to "Sales"
-                ).forEach { (user, label) ->
-                    val isSelected = state.username == user
-                    OutlinedButton(
-                        onClick = {
-                            onUsernameChange(user)
-                            onPasswordChange("password123")
-                        },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isSelected) RFColors.Primary else Color.White,
-                            contentColor = if (isSelected) Color.White else RFColors.Primary
-                        ),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) RFColors.Primary else RFColors.Outline
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                // Row 1: Management & Sales
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
+                    listOf(
+                        "owner" to "Owner",
+                        "admin" to "Admin",
+                        "sales" to "Sales"
+                    ).forEach { (user, label) ->
+                        val isSelected = state.username == user
+                        OutlinedButton(
+                            onClick = {
+                                onUsernameChange(user)
+                                onPasswordChange("password123")
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) RFColors.Primary else Color.White,
+                                contentColor = if (isSelected) Color.White else RFColors.Primary
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) RFColors.Primary else RFColors.Outline
+                            ),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-            // Row 2: Warehouse & Delivery
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-            ) {
-                listOf(
-                    "warehouse" to "Warehouse Manager",
-                    "delivery" to "Delivery Executive"
-                ).forEach { (user, label) ->
-                    val isSelected = state.username == user
-                    OutlinedButton(
-                        onClick = {
-                            onUsernameChange(user)
-                            onPasswordChange("password123")
-                        },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isSelected) RFColors.Primary else Color.White,
-                            contentColor = if (isSelected) Color.White else RFColors.Primary
-                        ),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) RFColors.Primary else RFColors.Outline
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                // Row 2: Warehouse & Delivery
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
+                    listOf(
+                        "warehouse" to "Warehouse Manager",
+                        "delivery" to "Delivery Executive"
+                    ).forEach { (user, label) ->
+                        val isSelected = state.username == user
+                        OutlinedButton(
+                            onClick = {
+                                onUsernameChange(user)
+                                onPasswordChange("password123")
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) RFColors.Primary else Color.White,
+                                contentColor = if (isSelected) Color.White else RFColors.Primary
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) RFColors.Primary else RFColors.Outline
+                            ),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

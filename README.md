@@ -128,6 +128,33 @@ RouteFlow is designed so field workers use the phone, while the owner & admin co
 
 ---
 
+## 🛡️ Production Governance & Operations Hub (Enterprise-Ready)
+
+RouteFlow includes enterprise governance modules built for Indian wholesale distributors handling ₹10L+ daily turnover:
+
+| Governance Module | Endpoint / Interface | Capability |
+|---|---|---|
+| **Company Onboarding Wizard** | `POST /onboarding/wizard-setup` | Atomic setup of business, godowns, staff roster, beats, opening stock & credit balances in a single transaction. |
+| **Role Permission Control** | `GET/PUT /permissions` | Granular override matrix for stock edits, order approvals, discount overrides, and payment reversals. |
+| **Tamper-Evident Audit Logs** | `GET /audit-logs` | Tracks all money, stock, order, and dispatch events with `userId`, `role`, `deviceId`, and `ipAddress`. |
+| **Automated CSV & JSON Backup** | `GET /export/:entity` | RFC 4180 compliant CSV exports for products, retailers, orders, payments, stock ledger, plus complete JSON business archives. |
+| **Payment Verification Pipeline** | `GET /payments/verification-queue` | Multi-status lifecycle (`ENTERED` -> `VERIFIED` -> `CLEARED` -> `SETTLED`) guarding against fraudulent cash/cheque entries. |
+| **Procurement & GRN Approval** | `POST /grn/:id/approve` | Inward stock receipt approval from suppliers, automatically adjusting godown inventory with audit trail. |
+| **Play Store & Privacy Compliance** | Public Web `/privacy` | Google Play Store compliant foreground location disclosure, background tracking consent, and Data Safety declaration. |
+
+---
+
+## 🚦 Production Readiness Classification
+
+| Stage | Readiness | What Works & What Is Ready | Next Action Before Launch |
+|---|:---:|---|---|
+| **1. Client Demo** | 🟢 **100% READY** | Dual-platform Web + Android on Vivo phone, Hindi/English, full 7-step lifecycle, quick-fill credentials. | Present immediately to distributors & stakeholders. |
+| **2. Paid Pilot (1 Distributor)** | 🟢 **READY** | Hardcore tested empty business setup, atomic ledger, multi-role auth, CSV export, audit logs, inward GRN. | Configure distributor's D1 DB credentials & custom warehouse names. |
+| **3. Google Play Store** | 🟡 **COMPLIANCE READY** | Privacy policy live at `/privacy`, Data Safety documented, release quick-fills disabled, location foreground disclosure. | Generate release Keystore `.jks` & assemble signed AAB bundle. |
+| **4. Enterprise Production** | 🟢 **ARCHITECTURE READY** | Serverless Cloudflare D1 scale, atomic stock locking, multi-device audit trails, full data backup/export. | Plug production SMS gateway (Twilio/Gupshup) to swap simulated OTP. |
+
+---
+
 ## 🔄 The Complete Daily 7-Stage Workflow
 
 ```

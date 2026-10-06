@@ -10,6 +10,7 @@ import { batchRouter } from './batch';
 import { sign, verify } from '@tsndr/cloudflare-worker-jwt';
 import bcrypt from 'bcryptjs';
 import { tripRouter } from './trips';
+import { governanceRouter } from './governance';
 
 type Bindings = {
   DB: D1Database;
@@ -2334,5 +2335,6 @@ app.route('/', dailyCycle(authMiddleware));
 app.route('/', fieldCycle(authMiddleware));
 app.route('/batches', batchRouter(authMiddleware));
 app.route('/trips', tripRouter(authMiddleware));
+app.route('/', governanceRouter(authMiddleware));
 
 export default app;
