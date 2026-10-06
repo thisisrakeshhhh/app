@@ -42,6 +42,7 @@ service-account*.json
 node_modules/
 **/node_modules/
 *.png
+!docs/screenshots/*.png
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
