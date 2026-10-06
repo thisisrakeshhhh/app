@@ -17,7 +17,7 @@ export async function requestOtp(c:Context<any>){
  if(!simulation&&(!c.env.SMS_GATEWAY_URL||!c.env.SMS_GATEWAY_TOKEN))return c.json({success:false,deliveryStatus:'UNAVAILABLE',error:'Recipient messaging is not configured. Delivery cannot be confirmed.'},503);
  const old=await db.prepare('SELECT * FROM delivery_otps WHERE order_id=? AND company_id=?').bind(id,u.company_id).first<any>();
  const now=Date.now();
- const allowDebug = (c.env.ENVIRONMENT === 'development' && c.env.ENABLE_TEST_FAILURE_INJECTION === 'true' && (c.req.header('X-Test-Runner') === 'true' || c.req.header('X-Automated-Test') === 'true'));
+ const allowDebug = ((c.env.ENVIRONMENT === 'development' || c.env.ENVIRONMENT === 'staging') && c.env.ENABLE_TEST_FAILURE_INJECTION === 'true' && (c.req.header('X-Test-Runner') === 'true' || c.req.header('X-Automated-Test') === 'true'));
  const retailer = await db.prepare('SELECT name, contact_number FROM retailers WHERE id = ?').bind(order.retailer_id).first<any>();
  const contact = retailer?.contact_number || '';
  const masked = contact.length >= 4 ? '*'.repeat(Math.max(0, contact.length - 4)) + contact.slice(-4) : 'registered mobile';
