@@ -173,10 +173,60 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   if(c.get('user').role!=='OWNER')return bad(c,'Owner required',403);
   return c.json({handovers:(await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(c.get('user').company_id).all()).results});
  });
+ app.get('/cash-handovers', async c => {
+  const u = c.get('user');
+  if (['OWNER', 'ADMIN'].includes(u.role)) {
+   return c.json({ handovers: (await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(u.company_id).all()).results });
+  }
+  const rows = await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE company_id=? AND user_id=? ORDER BY submitted_at DESC LIMIT 100').bind(u.company_id, u.sub).all<Row>();
+  return c.json({ handovers: rows.results, ...await cash(c.env.DB, u.company_id, u.sub) });
+ });
+ app.post('/cash-handovers', async c => {
+  const u = c.get('user');
+  if (!['SALESPERSON', 'DELIVERY_EXECUTIVE'].includes(u.role)) return bad(c, 'Field employee required', 403);
+  const b = await c.req.json<Row>();
+  b.amountPaise = b.amountPaise ?? b.amount_paise;
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
+  const prior = await replay(c, 'HANDOVER', b); if (prior) return prior;
+  if (!money(b.amountPaise)) return bad(c, 'Invalid cash amount');
+  const held = await cash(c.env.DB, u.company_id, u.sub);
+  if (b.amountPaise > held.cashHeldPaise) return bad(c, 'Amount exceeds cash held');
+  const pending = await c.env.DB.prepare("SELECT 1 FROM cash_handovers WHERE company_id=? AND user_id=? AND status='PENDING'").bind(u.company_id, u.sub).first();
+  if (pending) return bad(c, 'Pending handover exists');
+  const id = `hnd_${crypto.randomUUID()}`;
+  return commit(c, 'HANDOVER', b, [
+    c.env.DB.prepare("INSERT INTO cash_handovers(id,company_id,user_id,amount_paise,status,submitted_at,notes,expected_amount_paise) VALUES(?,?,?,?,'PENDING',?,?,?)").bind(id, u.company_id, u.sub, b.amountPaise, Date.now(), b.notes || null, held.cashHeldPaise),
+    audit(c, 'HANDOVER_REQUESTED', id, b)
+  ], { success: true, handoverId: id, id, status: 'PENDING', amountPaise: b.amountPaise });
+ });
+ app.post('/cash-handovers/:id/acknowledge', async c => {
+  const u = c.get('user');
+  if (u.role !== 'OWNER' && u.role !== 'ADMIN') return bad(c, 'Owner or Admin required', 403);
+  const row = await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE id=? AND company_id=?').bind(c.req.param('id'), u.company_id).first<Row>();
+  if (!row) return bad(c, 'Handover not found', 404);
+  const b = await c.req.json<Row>();
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `ack_${row.id}`;
+  const action = b.action || (b.status === 'ACCEPTED' ? 'ACCEPT' : b.status === 'REJECTED' ? 'REJECT' : null);
+  b.action = action;
+  const prior = await replay(c, `ACK_${row.id}`, b); if (prior) return prior;
+  if (row.user_id === u.sub) return bad(c, 'A different employee must acknowledge physical cash', 403);
+  if (!['ACCEPT', 'REJECT'].includes(action) || row.status !== 'PENDING') return bad(c, 'Invalid handover transition', 409);
+  const received = action === 'ACCEPT' ? (b.receivedAmountPaise ?? row.amount_paise) : 0;
+  if (!money(received, true) || received > row.amount_paise) return bad(c, 'Accepted amount must be between zero and declared amount');
+  const discrepancy = action === 'ACCEPT' ? received - row.amount_paise : 0;
+  if ((discrepancy !== 0 || action === 'REJECT') && !b.notes?.trim()) return bad(c, 'Discrepancy or rejection requires notes');
+  const status = action === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED';
+  return commit(c, `ACK_${row.id}`, b, [
+    c.env.DB.prepare('UPDATE cash_handovers SET status=?,acknowledged_at=?,acknowledged_by=?,received_amount_paise=?,discrepancy_paise=?,resolution_notes=? WHERE id=?').bind(status, Date.now(), u.sub, received, discrepancy, b.notes || null, row.id),
+    audit(c, `HANDOVER_${status}`, row.id, b)
+  ], { success: true, status, receivedAmountPaise: received, discrepancyPaise: discrepancy });
+ });
  app.post('/owner/handovers/:id/acknowledge', async c => {
   const u=c.get('user'); if(u.role!=='OWNER')return bad(c,'Owner required',403);
   const row=await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE id=? AND company_id=?').bind(c.req.param('id'),u.company_id).first<Row>(); if(!row)return bad(c,'Handover not found',404);
-  const b=await c.req.json<Row>(); const prior=await replay(c,`ACK_${row.id}`,b);if(prior)return prior;
+  const b=await c.req.json<Row>();
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `ack_${row.id}`;
+  const prior=await replay(c,`ACK_${row.id}`,b);if(prior)return prior;
   if(row.user_id===u.sub)return bad(c,'A different employee must acknowledge physical cash',403);
   if(!['ACCEPT','REJECT'].includes(b.action)||row.status!=='PENDING')return bad(c,'Invalid handover transition',409);
   const received=b.action==='ACCEPT'?(b.receivedAmountPaise??row.amount_paise):0;
