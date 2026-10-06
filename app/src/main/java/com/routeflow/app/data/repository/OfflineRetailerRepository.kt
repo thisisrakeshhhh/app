@@ -38,10 +38,28 @@ class OfflineRetailerRepository @Inject constructor(
             syncRetailersFromServer()
             Result.success(Unit)
         } else {
-            Result.failure(Exception(resp.message ?: "Failed to create retailer"))
+            saveLocalRetailer(request)
+            Result.success(Unit)
         }
     } catch (e: Exception) {
-        Result.failure(e)
+        saveLocalRetailer(request)
+        Result.success(Unit)
+    }
+
+    private suspend fun saveLocalRetailer(request: CreateRetailerRequest) {
+        val id = request.id ?: "RET-${System.currentTimeMillis()}"
+        val entity = RetailerEntity(
+            id = id,
+            name = request.name,
+            beatId = request.beatId,
+            address = request.address,
+            contactNumber = request.contactNumber,
+            latitude = request.latitude ?: 0.0,
+            longitude = request.longitude ?: 0.0,
+            creditLimitPaise = request.creditLimitPaise,
+            outstandingAmountPaise = 0L
+        )
+        retailerDao.insertRetailers(listOf(entity))
     }
 
     override suspend fun updateRetailer(id: String, request: UpdateRetailerRequest): Result<Unit> = try {

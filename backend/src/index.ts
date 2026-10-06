@@ -1754,8 +1754,8 @@ app.get('/owner/driver-held-stock', authMiddleware, async (c) => {
 
 app.post('/products', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
   }
 
   const body = await c.req.json();
@@ -1922,22 +1922,30 @@ app.post('/inventory/adjust', authMiddleware, async (c) => {
 
 app.post('/retailers', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  if (!['OWNER', 'ADMIN', 'SALESPERSON'].includes(user.role)) {
+    return c.json({ error: 'Permission denied: owner, admin, or salesperson role required' }, 403);
   }
 
   const body = await c.req.json();
   const name = body.name?.trim();
-  const beatId = body.beatId || body.beat_id;
+  let beatId = body.beatId || body.beat_id;
+  if (!beatId && user.role === 'SALESPERSON') {
+    const assigned = await c.env.DB.prepare('SELECT beat_id FROM user_beat_assignments WHERE user_id = ? AND company_id = ?')
+      .bind(user.sub, user.company_id).first() as any;
+    beatId = assigned?.beat_id || 'BEAT-04';
+  } else if (!beatId) {
+    beatId = 'BEAT-04';
+  }
+
   const address = body.address?.trim() || '';
   const contactNumber = body.contactNumber || body.contact_number || '';
-  const creditLimitPaise = body.creditLimitPaise ?? body.credit_limit_paise ?? 0;
+  const creditLimitPaise = body.creditLimitPaise ?? body.credit_limit_paise ?? (user.role === 'SALESPERSON' ? 500000 : 0);
   const paymentTermsDays = body.paymentTermsDays ?? body.payment_terms_days ?? 7;
-  const latitude = body.latitude ?? null;
-  const longitude = body.longitude ?? null;
+  const latitude = typeof body.latitude === 'number' ? body.latitude : (body.latitude ? parseFloat(body.latitude) : null);
+  const longitude = typeof body.longitude === 'number' ? body.longitude : (body.longitude ? parseFloat(body.longitude) : null);
 
-  if (!name || !beatId || !contactNumber || typeof creditLimitPaise !== 'number') {
-    return c.json({ error: 'name, beatId, contactNumber, and numeric creditLimitPaise are required' }, 400);
+  if (!name) {
+    return c.json({ error: 'Retailer or wholesale shop name is required' }, 400);
   }
 
   const id = body.id || `ret_${crypto.randomUUID().slice(0, 8)}`;
@@ -1950,20 +1958,20 @@ app.post('/retailers', authMiddleware, async (c) => {
     ).bind(id, user.company_id, name, beatId, address, contactNumber, latitude, longitude, creditLimitPaise, paymentTermsDays),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'RETAILER_CREATED', id, `Retailer: ${name}, Beat: ${beatId}, Limit: ${creditLimitPaise}`, now)
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'RETAILER_CREATED', id, `Retailer: ${name}, Beat: ${beatId}, Limit: ${creditLimitPaise}, Lat: ${latitude}, Lng: ${longitude}`, now)
   ];
 
   await c.env.DB.batch(statements);
   return c.json({
     success: true,
-    retailer: { id, name, beatId, address, contactNumber, creditLimitPaise, outstandingAmountPaise: 0, isActive: true, paymentTermsDays }
+    retailer: { id, name, beatId, address, contactNumber, creditLimitPaise, outstandingAmountPaise: 0, isActive: true, paymentTermsDays, latitude, longitude }
   });
 });
 
 app.put('/retailers/:id', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  if (!['OWNER', 'ADMIN'].includes(user.role)) {
+    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
   }
 
   const id = c.req.param('id');

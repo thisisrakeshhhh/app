@@ -15,7 +15,11 @@ import {
   RefreshCw,
   Wallet,
   Building,
-  RotateCcw
+  RotateCcw,
+  Plus,
+  MapPin,
+  Phone,
+  X
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -70,6 +74,31 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Add Retailer Modal State
+  const [showAddRetailerModal, setShowAddRetailerModal] = useState(false);
+  const [newRetailer, setNewRetailer] = useState({
+    name: '',
+    contactNumber: '',
+    address: '',
+    creditLimitRupees: '5000',
+    beatId: 'BEAT-04',
+    latitude: '',
+    longitude: ''
+  });
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [creatingRetailer, setCreatingRetailer] = useState(false);
+
+  // Add Product Modal State
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    category: 'General',
+    priceRupees: '100',
+    unit: 'Pack',
+    stockQuantity: '50'
+  });
+  const [creatingProduct, setCreatingProduct] = useState(false);
 
   useEffect(() => {
     const u = getStoredUser();
@@ -155,6 +184,102 @@ export default function DashboardPage() {
       alert(`Handover reconciliation error: ${err.message}`);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDetectLocation = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNewRetailer((prev) => ({
+          ...prev,
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6),
+        }));
+        setDetectingLocation(false);
+      },
+      (err) => {
+        alert('Could not retrieve location: ' + err.message);
+        setDetectingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleCreateRetailer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRetailer.name.trim()) return;
+    setCreatingRetailer(true);
+    try {
+      const creditPaise = Math.round((parseFloat(newRetailer.creditLimitRupees) || 0) * 100);
+      await apiFetch('/retailers', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newRetailer.name.trim(),
+          contactNumber: newRetailer.contactNumber.trim(),
+          address: newRetailer.address.trim(),
+          creditLimitPaise: creditPaise,
+          beatId: newRetailer.beatId || 'BEAT-04',
+          latitude: newRetailer.latitude ? parseFloat(newRetailer.latitude) : undefined,
+          longitude: newRetailer.longitude ? parseFloat(newRetailer.longitude) : undefined,
+        }),
+      });
+      setMessage('Shop / Retailer added successfully!');
+      setShowAddRetailerModal(false);
+      setNewRetailer({
+        name: '',
+        contactNumber: '',
+        address: '',
+        creditLimitRupees: '5000',
+        beatId: 'BEAT-04',
+        latitude: '',
+        longitude: ''
+      });
+      await loadAllData();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to create retailer');
+    } finally {
+      setCreatingRetailer(false);
+    }
+  };
+
+  const handleCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProduct.name.trim()) return;
+    setCreatingProduct(true);
+    try {
+      const pricePaise = Math.round((parseFloat(newProduct.priceRupees) || 0) * 100);
+      const stock = parseInt(newProduct.stockQuantity) || 0;
+      await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newProduct.name.trim(),
+          category: newProduct.category.trim() || 'General',
+          pricePaise,
+          unit: newProduct.unit.trim() || 'Unit',
+          stockQuantity: stock,
+        }),
+      });
+      setMessage('Product added to catalog successfully!');
+      setShowAddProductModal(false);
+      setNewProduct({
+        name: '',
+        category: 'General',
+        priceRupees: '100',
+        unit: 'Pack',
+        stockQuantity: '50'
+      });
+      await loadAllData();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to create product');
+    } finally {
+      setCreatingProduct(false);
     }
   };
 
@@ -601,9 +726,18 @@ export default function DashboardPage() {
         {/* 4. PRODUCTS TAB */}
         {activeTab === 'products' && (
           <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Master Products Catalog</h1>
-              <p className="text-xs sm:text-sm text-slate-500">Inventory items available for wholesale distribution</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Master Products Catalog</h1>
+                <p className="text-xs sm:text-sm text-slate-500">Inventory items available for wholesale distribution</p>
+              </div>
+              <button
+                onClick={() => setShowAddProductModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Product</span>
+              </button>
             </div>
 
             {/* Mobile Cards (Visible on screens < 768px) */}
@@ -673,9 +807,18 @@ export default function DashboardPage() {
         {/* 5. RETAILERS TAB */}
         {activeTab === 'retailers' && (
           <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Retailers & Distribution Network</h1>
-              <p className="text-xs sm:text-sm text-slate-500">Registered shops and wholesale distribution accounts</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Retailers & Distribution Network</h1>
+                <p className="text-xs sm:text-sm text-slate-500">Registered shops and wholesale distribution accounts</p>
+              </div>
+              <button
+                onClick={() => setShowAddRetailerModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Retailer / Shop</span>
+              </button>
             </div>
 
             {/* Mobile Cards (Visible on screens < 768px) */}
@@ -743,6 +886,250 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ADD RETAILER MODAL */}
+        {showAddRetailerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Add New Shop / Wholesale</h3>
+                  <p className="text-xs text-slate-500">Register a new retail or wholesale counter</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddRetailerModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateRetailer} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Shop / Wholesale Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Laxmi Wholesale & Retail"
+                    value={newRetailer.name}
+                    onChange={(e) => setNewRetailer({ ...newRetailer, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Contact Phone
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        placeholder="e.g. 9876543210"
+                        value={newRetailer.contactNumber}
+                        onChange={(e) => setNewRetailer({ ...newRetailer, contactNumber: e.target.value })}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Credit Limit (₹)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="5000"
+                      value={newRetailer.creditLimitRupees}
+                      onChange={(e) => setNewRetailer({ ...newRetailer, creditLimitRupees: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Shop #14, Main Wholesale Market"
+                    value={newRetailer.address}
+                    onChange={(e) => setNewRetailer({ ...newRetailer, address: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Location / GPS Coordinates
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleDetectLocation}
+                      disabled={detectingLocation}
+                      className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer disabled:opacity-50"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      {detectingLocation ? 'Detecting...' : '📍 Auto-Detect Location'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Latitude"
+                      value={newRetailer.latitude}
+                      onChange={(e) => setNewRetailer({ ...newRetailer, latitude: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Longitude"
+                      value={newRetailer.longitude}
+                      onChange={(e) => setNewRetailer({ ...newRetailer, longitude: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddRetailerModal(false)}
+                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingRetailer}
+                    className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {creatingRetailer ? 'Adding...' : 'Add Shop'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ADD PRODUCT MODAL */}
+        {showAddProductModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Add Product to Catalog</h3>
+                  <p className="text-xs text-slate-500">Add an inventory item available for wholesale distribution</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddProductModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateProduct} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Product / Item Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Masala Chai 500g Pack"
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Category
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Beverages, Spices"
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Unit
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Pack, Box, Kg"
+                      value={newProduct.unit}
+                      onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="100.00"
+                      value={newProduct.priceRupees}
+                      onChange={(e) => setNewProduct({ ...newProduct, priceRupees: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Warehouse Stock *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="50"
+                      value={newProduct.stockQuantity}
+                      onChange={(e) => setNewProduct({ ...newProduct, stockQuantity: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductModal(false)}
+                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingProduct}
+                    className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {creatingProduct ? 'Adding...' : 'Add Product'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

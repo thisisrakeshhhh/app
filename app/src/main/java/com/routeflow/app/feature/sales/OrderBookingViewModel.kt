@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.entity.OrderEntity
 import com.routeflow.app.core.database.entity.OrderItemEntity
+import com.routeflow.app.core.network.dto.CreateProductRequest
 import com.routeflow.app.domain.model.Product
 import com.routeflow.app.domain.repository.OrderRepository
 import com.routeflow.app.domain.repository.ProductRepository
@@ -168,6 +169,26 @@ class OrderBookingViewModel @Inject constructor(
             orderRepository.createOrder(order, orderItems)
             _orderSubmittedId.value = orderId
             _isSubmitting.value = false
+        }
+    }
+
+    fun addNewProduct(
+        name: String,
+        category: String,
+        unit: String,
+        priceRupees: Double,
+        stockQuantity: Int
+    ) {
+        viewModelScope.launch {
+            val req = CreateProductRequest(
+                id = "PROD-${System.currentTimeMillis().toString().takeLast(6)}",
+                name = name.trim(),
+                category = category.trim().ifEmpty { "General" },
+                pricePaise = (priceRupees * 100).toLong(),
+                stockQuantity = stockQuantity,
+                unit = unit.trim().ifEmpty { "Unit" }
+            )
+            productRepository.createProduct(req)
         }
     }
 }

@@ -609,7 +609,11 @@ fun RouteFlowApp(
                 val salesListState by viewModel.state.collectAsStateWithLifecycle()
                 RetailerListScreen(
                     state = salesListState,
-                    onRetailerClick = { id -> navController.navigate("sales/visit/$id") }
+                    onRetailerClick = { id -> navController.navigate("sales/visit/$id") },
+                    onAddRetailer = { name, address, contact, lat, lng ->
+                        viewModel.createRetailer(name, address, contact, lat, lng)
+                    },
+                    onClearMessages = { viewModel.clearMessages() }
                 )
             }
 
@@ -719,7 +723,8 @@ fun RouteFlowApp(
                         onSearchChange = viewModel::updateSearch,
                         onCategorySelect = viewModel::selectCategory,
                         onQuantityChange = viewModel::updateQuantity,
-                        onSubmit = viewModel::submitOrder
+                        onSubmit = viewModel::submitOrder,
+                        onAddNewProduct = viewModel::addNewProduct
                     )
                 }
             }

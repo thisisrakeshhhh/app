@@ -14,3 +14,19 @@ JWT_REFRESH_EXPIRY = "2592000" # 30 days
 ENVIRONMENT = "development"
 ENABLE_TEST_FAILURE_INJECTION = "true"
 SMS_MODE = "simulated"
+
+[env.staging]
+name = "routeflow-api-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "routeflow-db-staging"
+database_id = "0fd38279-d473-44a8-84a2-76da1a1b7b56"
+
+[env.staging.vars]
+JWT_ACCESS_EXPIRY = "900"
+JWT_REFRESH_EXPIRY = "2592000"
+ENVIRONMENT = "staging"
+ENABLE_TEST_FAILURE_INJECTION = "true"
+SMS_MODE = "simulated"
+
