@@ -39,55 +39,101 @@ Unlike heavy corporate enterprise software (Bizom, FieldAssist) or single-shop b
 
 ---
 
-## 4. Visual Workflow & Screenshots (Captured from Physical Device)
+## 4. Visual Walkthrough & Screenshots Tour (30 Total Screenshots)
 
-### Phase 1: Authentication & Localization
-The app features instant 1-tap demo credential selectors and dynamic English/Hindi localization.
+### Section A: Web Operations Console (Office & Owner Management)
 
-| 01. Login Screen (English) | 02. Login Screen (Hindi - हिन्दी) |
+| 13. Web Login Portal | 14. Web Owner Dashboard Overview |
 |:---:|:---:|
-| ![Login Screen](docs/screenshots/01_login_screen.png) | ![Login Screen Hindi](docs/screenshots/02_login_hindi_screen.png) |
-| *Role selectors: Owner, Admin, Sales, Warehouse, Delivery* | *Complete localized interface without text clipping* |
+| <img src="docs/screenshots/13_web_login_portal.png" width="480" /> | <img src="docs/screenshots/14_web_owner_dashboard.png" width="480" /> |
+| *Role Quick-Fills for Owner, Admin, Sales, Godown, Driver* | *Delivered sales, live Godown stock & outstanding credit* |
+
+| 15. Web Orders Management & Approval | 16. Web Godown Inventory & Stock Levels |
+|:---:|:---:|
+| <img src="docs/screenshots/15_web_orders_management.png" width="480" /> | <img src="docs/screenshots/16_web_godown_inventory.png" width="480" /> |
+| *Status filters (Pending, Approved, Dispatched, Delivered)* | *SKU stock counts, wholesale pricing & instant updates* |
+
+| 17. Web Retailer Directory | 18. Web Cash Handovers Ledger |
+|:---:|:---:|
+| <img src="docs/screenshots/17_web_retailer_directory.png" width="480" /> | <img src="docs/screenshots/18_web_cash_reconciliation.png" width="480" /> |
+| *Registered kirana stores, credit limits & beat mapping* | *Driver collection audit and 1-click cash reconciliation* |
+
+| 19. Web Add Retailer Modal (GPS & Beat) | 20. Web Add Product Modal (Godown SKU) |
+|:---:|:---:|
+| <img src="docs/screenshots/19_web_add_retailer_modal.png" width="480" /> | <img src="docs/screenshots/20_web_add_product_modal.png" width="480" /> |
+| *Auto GPS detection, credit limit and phone verification* | *Item creation with wholesale unit pricing and opening stock* |
 
 ---
 
-### Phase 2: Owner & Business Overview
-The distributor owner monitors operations, approvals, outstanding credit, and exceptions.
+### Section B: Mobile App — Authentication & Executive Overview
+
+| 01. Mobile Login Screen (English) | 02. Mobile Login Screen (Hindi - हिन्दी) |
+|:---:|:---:|
+| <img src="docs/screenshots/01_login_screen.png" width="340" /> | <img src="docs/screenshots/02_login_hindi_screen.png" width="340" /> |
+| *Role selectors: Owner, Admin, Sales, Warehouse, Delivery* | *Localized Hindi login screen without text clipping* |
 
 | 03. Owner Dashboard (English) | 04. Owner Dashboard (Hindi - हिन्दी) |
 |:---:|:---:|
-| ![Owner Dashboard](docs/screenshots/03_owner_dashboard.png) | ![Owner Dashboard Hindi](docs/screenshots/04_owner_dashboard_hindi.png) |
-| *Business KPIs: Approvals, Stock, Delivered Sales, Outstanding* | *Local language interface for Indian business owners* |
+| <img src="docs/screenshots/03_owner_dashboard.png" width="340" /> | <img src="docs/screenshots/04_owner_dashboard_hindi.png" width="340" /> |
+| *Executive KPI cards: Approvals, Stock, Delivered Sales* | *Hindi localized metrics for Indian business owners* |
+
+| 27. Owner Orders & Approvals Hub | 28. Owner Master Business Godown Hub |
+|:---:|:---:|
+| <img src="docs/screenshots/27_owner_orders_approvals.png" width="340" /> | <img src="docs/screenshots/28_owner_business_hub.png" width="340" /> |
+| *Atomic order approvals & physical stock reservation* | *Godown catalog, product pricing & category breakdown* |
+
+| 29. Owner Team Management & Roster | 30. Owner Field Operations Activity |
+|:---:|:---:|
+| <img src="docs/screenshots/29_owner_team_management.png" width="340" /> | <img src="docs/screenshots/30_owner_field_activity.png" width="340" /> |
+| *Staff directory, assigned beats, phone & role permissions* | *Live field check-ins, sales visits, and GPS audit log* |
 
 ---
 
-### Phase 3: Field Sales Operations (Beat, Shops & GPS)
-Sales executives visit shops on their beat, onboard new retailers with phone GPS, and book orders.
+### Section C: Mobile App — Field Sales Operations
 
-| 05. Sales Today Beat | 06. Beat Shops List |
+| 05. Sales Today Beat (`BEAT-04`) | 06. Beat Retailer Directory |
 |:---:|:---:|
-| ![Sales Beat](docs/screenshots/05_sales_today_beat.png) | ![Shops List](docs/screenshots/06_sales_shops_list.png) |
-| *Assigned Beat, visit progress, order totals, target tracker* | *Active shops on route with outstanding balances and Check-In* |
+| <img src="docs/screenshots/05_sales_today_beat.png" width="340" /> | <img src="docs/screenshots/06_sales_shops_list.png" width="340" /> |
+| *Assigned Beat, visit progress, order totals, target tracker* | *Active shops on route with outstanding balances & Check-In* |
 
 | 07. Add Shop with Phone GPS | 08. Product Catalog & Order Booking |
 |:---:|:---:|
-| ![Add Shop GPS](docs/screenshots/07_sales_add_shop_gps.png) | ![Order Booking](docs/screenshots/08_sales_order_booking.png) |
+| <img src="docs/screenshots/07_sales_add_shop_gps.png" width="340" /> | <img src="docs/screenshots/08_sales_order_booking.png" width="340" /> |
 | *1-Tap GPS coordinate capture for new Kirana onboarding* | *Warehouse stock badges, schemes (Buy 10 Get 1 Free), instant cart* |
+
+| 21. Sales Collections & Ledger | 22. Sales Profile & Shift Attendance |
+|:---:|:---:|
+| <img src="docs/screenshots/21_sales_collections_ledger.png" width="340" /> | <img src="docs/screenshots/22_sales_profile_shift.png" width="340" /> |
+| *Store payment records, receipt ledger & cash collections* | *Attendance shift tracker, language toggle & security* |
+
+| 23. Sales Offline Sync & Logout |
+|:---:|
+| <img src="docs/screenshots/23_sales_offline_sync_logout.png" width="340" /> |
+| *Room DB local cache sync with Cloudflare server & secure logout* |
 
 ---
 
-### Phase 4: Warehouse Picking, Delivery & Cash Handover
-Godown picking desk, driver OTP delivery verification, and physical cash handover reconciliation.
+### Section D: Mobile App — Warehouse Fulfillment & Delivery Verification
 
-| 09. Warehouse Picking Queue | 10. Delivery Route & Assigned Orders |
+| 09. Warehouse Godown Picking Desk | 24. Warehouse Stock Inventory & Badges |
 |:---:|:---:|
-| ![Warehouse Picking](docs/screenshots/09_warehouse_picking_queue.png) | ![Delivery List](docs/screenshots/10_delivery_assigned_orders.png) |
-| *Godown desk: Approved orders, item checklists, carton packing* | *Driver dispatch list with amount due and shop location* |
+| <img src="docs/screenshots/09_warehouse_picking_queue.png" width="340" /> | <img src="docs/screenshots/24_warehouse_stock_inventory.png" width="340" /> |
+| *Picking queue, item-by-item checklist & carton packing* | *Godown SKU counts, threshold alerts & inventory levels* |
 
-| 11. Server OTP Delivery Verification | 12. Cash Custody & Owner Reconciliation |
+| 25. Warehouse Customer Returns Desk | 26. Delivery Day Overview & Trip Summary |
 |:---:|:---:|
-| ![Delivery OTP](docs/screenshots/11_delivery_otp_verification.png) | ![Cash Handover](docs/screenshots/12_cash_handover_reconciliation.png) |
-| *6-Digit Server OTP verification and store person name proof* | *Driver cash custody ledger and 1-tap owner settlement* |
+| <img src="docs/screenshots/25_warehouse_returns_desk.png" width="340" /> | <img src="docs/screenshots/26_delivery_day_overview.png" width="340" /> |
+| *Damaged / rejected goods inspection desk* | *Assigned route trip progress & stops remaining* |
+
+| 10. Delivery Route & Assigned Orders | 11. Server 6-Digit OTP Delivery Proof |
+|:---:|:---:|
+| <img src="docs/screenshots/10_delivery_assigned_orders.png" width="340" /> | <img src="docs/screenshots/11_delivery_otp_verification.png" width="340" /> |
+| *Driver dispatch list with amount due & shop address* | *Server-validated 6-digit OTP delivery confirmation* |
+
+| 12. Cash Custody & Owner Settlement |
+|:---:|
+| <img src="docs/screenshots/12_cash_handover_reconciliation.png" width="340" /> |
+| *Driver physical COD cash handover & owner reconciliation to ₹0.00* |
 
 ---
 
