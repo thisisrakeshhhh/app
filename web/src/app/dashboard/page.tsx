@@ -100,6 +100,12 @@ export default function DashboardPage() {
   });
   const [creatingProduct, setCreatingProduct] = useState(false);
 
+  // Delivery Assignment State
+  const [deliveryExecutives, setDeliveryExecutives] = useState<any[]>([]);
+  const [assignModalOrder, setAssignModalOrder] = useState<any | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+  const [assigningLoading, setAssigningLoading] = useState(false);
+
   useEffect(() => {
     const u = getStoredUser();
     if (!u) {
@@ -130,6 +136,14 @@ export default function DashboardPage() {
       // 4. Fetch Retailers
       const retRes = await apiFetch<any>('/retailers').catch(() => ({ retailers: [] }));
       setRetailers(Array.isArray(retRes) ? retRes : retRes.retailers || []);
+
+      // 5. Fetch Delivery Executives
+      const devRes = await apiFetch<any>('/delivery-executives').catch(() => []);
+      const devList = Array.isArray(devRes) ? devRes : devRes.executives || [];
+      setDeliveryExecutives(devList);
+      if (devList.length > 0 && !selectedDriverId) {
+        setSelectedDriverId(devList[0].id);
+      }
 
       // Compute overview stats
       const pendingOrders = orderList.filter((o: any) => o.status === 'PENDING_APPROVAL' || o.status === 'PENDING').length;
@@ -280,6 +294,42 @@ export default function DashboardPage() {
       alert(err.message || 'Failed to create product');
     } finally {
       setCreatingProduct(false);
+    }
+  };
+
+  const handleAssignDelivery = async () => {
+    if (!assignModalOrder || !selectedDriverId) return;
+    setAssigningLoading(true);
+    try {
+      const orderId = assignModalOrder.id;
+      // If order is APPROVED, mark items picked and pack it first so dispatch trigger succeeds
+      if (assignModalOrder.status === 'APPROVED') {
+        const itemsRes = await apiFetch<any>(`/orders/${orderId}/items`).catch(() => []);
+        const itemsList = Array.isArray(itemsRes) ? itemsRes : itemsRes.items || [];
+        for (const it of itemsList) {
+          if (!it.is_picked) {
+            await apiFetch(`/orders/${orderId}/items/${it.product_id || it.productId}/pick`, {
+              method: 'PUT',
+              body: JSON.stringify({ isPicked: true })
+            }).catch(() => {});
+          }
+        }
+        await apiFetch(`/orders/${orderId}/pack`, { method: 'POST' }).catch(() => {});
+      }
+
+      await apiFetch(`/orders/${orderId}/dispatch`, {
+        method: 'POST',
+        body: JSON.stringify({ deliveryEmployeeId: selectedDriverId }),
+      });
+
+      setMessage(`Order ${orderId} assigned to delivery driver & dispatched!`);
+      setAssignModalOrder(null);
+      await loadAllData();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      alert(`Assignment failed: ${err.message}`);
+    } finally {
+      setAssigningLoading(false);
     }
   };
 
@@ -530,6 +580,14 @@ export default function DashboardPage() {
                         {actionLoading === o.id ? 'Approving...' : 'Approve Order'}
                       </button>
                     )}
+                    {(o.status === 'APPROVED' || o.status === 'PACKED') && (
+                      <button
+                        onClick={() => setAssignModalOrder(o)}
+                        className="w-full flex items-center justify-center py-2.5 px-4 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer min-h-[40px]"
+                      >
+                        Assign Delivery
+                      </button>
+                    )}
                   </div>
                 ))
               )}
@@ -586,6 +644,13 @@ export default function DashboardPage() {
                                 className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer"
                               >
                                 {actionLoading === o.id ? 'Approving...' : 'Approve'}
+                              </button>
+                            ) : o.status === 'APPROVED' || o.status === 'PACKED' ? (
+                              <button
+                                onClick={() => setAssignModalOrder(o)}
+                                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer"
+                              >
+                                Assign Delivery
                               </button>
                             ) : (
                               <span className="text-xs text-slate-400">—</span>
@@ -1130,6 +1195,89 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ASSIGN DELIVERY MODAL */}
+        {assignModalOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Assign Goods to Delivery</h3>
+                  <p className="text-xs text-slate-500">Dispatch order to designated delivery executive</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAssignModalOrder(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Order ID:</span>
+                    <span className="font-mono font-bold text-slate-900">{assignModalOrder.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Retailer / Shop:</span>
+                    <span className="font-semibold text-slate-900">{assignModalOrder.retailer_name || assignModalOrder.retailer_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Total Value:</span>
+                    <span className="font-bold text-slate-900">₹{((assignModalOrder.total_amount_paise || (assignModalOrder as any).total_amount * 100 || 0) / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">Status:</span>
+                    <span className="font-semibold text-amber-700">{assignModalOrder.status}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Select Delivery Executive *
+                  </label>
+                  {deliveryExecutives.length === 0 ? (
+                    <div className="p-3 bg-amber-50 text-amber-800 text-xs rounded-xl border border-amber-200">
+                      No active delivery executives found. Please ensure a delivery executive account exists.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedDriverId}
+                      onChange={(e) => setSelectedDriverId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition cursor-pointer"
+                    >
+                      {deliveryExecutives.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.fullName || d.username} (@{d.username})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAssignModalOrder(null)}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAssignDelivery}
+                  disabled={assigningLoading || !selectedDriverId}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                >
+                  {assigningLoading ? 'Assigning...' : 'Assign & Dispatch'}
+                </button>
+              </div>
             </div>
           </div>
         )}

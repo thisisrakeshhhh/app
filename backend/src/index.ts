@@ -345,8 +345,8 @@ app.get('/products', authMiddleware, async (c) => {
 
 app.get('/delivery-executives', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: warehouse or owner role required' }, 403);
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: warehouse, owner, or admin role required' }, 403);
   }
 
   const { results } = await c.env.DB.prepare(
@@ -890,8 +890,8 @@ app.post('/orders/:id/pick-item', authMiddleware, async (c) => {
 
 app.post('/orders/:id/pack', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: warehouse role required' }, 403);
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: warehouse, owner, or admin role required' }, 403);
   }
 
   const orderId = c.req.param('id');
@@ -942,8 +942,8 @@ app.post('/orders/:id/pack', authMiddleware, async (c) => {
 
 app.post('/orders/:id/dispatch', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: warehouse role required' }, 403);
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: warehouse, owner, or admin role required' }, 403);
   }
 
   const orderId = c.req.param('id');
