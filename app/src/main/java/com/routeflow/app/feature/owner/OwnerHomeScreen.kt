@@ -89,18 +89,20 @@ fun OwnerHomeScreen(
                         color = Color(0xFF64748B)
                     )
                 }
-                Surface(
-                    color = Color(0xFFEFF6FF),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
-                ) {
-                    Text(
-                        text = "Step 1/8 • Demo",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2563EB)
-                    )
+                if (com.routeflow.app.BuildConfig.STAGING_MODE) {
+                    Surface(
+                        color = Color(0xFFEFF6FF),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
+                    ) {
+                        Text(
+                            text = "Step 1/8 • Demo",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2563EB)
+                        )
+                    }
                 }
             }
 

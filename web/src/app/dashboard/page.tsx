@@ -23,7 +23,11 @@ import {
   AlertTriangle,
   FileText,
   ShoppingBag,
-  DollarSign
+  DollarSign,
+  Printer,
+  Receipt,
+  BarChart3,
+  CreditCard
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -58,7 +62,7 @@ interface CashHandover {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'control_room' | 'exceptions' | 'orders' | 'handovers' | 'products' | 'retailers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'control_room' | 'exceptions' | 'cash_control' | 'reports' | 'orders' | 'handovers' | 'products' | 'retailers'>('overview');
   
   // Operating System State
   const [controlRoomData, setControlRoomData] = useState<any | null>(null);
@@ -168,17 +172,19 @@ export default function DashboardPage() {
         setSelectedDriverId(devList[0].id);
       }
 
-      // 6. Fetch Operating System Modules (Owner Control Room, Exceptions, Day Book, Purchase)
-      const [pulseRes, excRes, dayRes, purRes] = await Promise.all([
+      // 6. Fetch Operating System Modules (Owner Control Room, Exceptions, Day Book, Purchase, Cash Control)
+      const [pulseRes, excRes, dayRes, purRes, cashRes] = await Promise.all([
         apiFetch<any>('/control-room/pulse').catch(() => null),
         apiFetch<any>('/exceptions/feed').catch(() => ({ exceptions: [] })),
         apiFetch<any>('/day-book/today').catch(() => null),
-        apiFetch<any>('/purchase-planning/suggestions').catch(() => ({ purchaseList: [] }))
+        apiFetch<any>('/purchase-planning/suggestions').catch(() => ({ purchaseList: [] })),
+        apiFetch<any>('/cash-control/daily-book').catch(() => null)
       ]);
       setControlRoomData(pulseRes);
       setExceptionsList(excRes?.exceptions || []);
       setDayBookData(dayRes);
       setPurchaseList(purRes?.purchaseList || []);
+      setCashBookData(cashRes);
 
       // Compute overview stats
       const pendingOrders = orderList.filter((o: any) => o.status === 'PENDING_APPROVAL' || o.status === 'PENDING').length;
@@ -233,6 +239,18 @@ export default function DashboardPage() {
       alert(`Handover reconciliation error: ${err.message}`);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleOpenRetailer360 = async (retailerId: string) => {
+    setRetailer360Loading(true);
+    try {
+      const res = await apiFetch<any>(`/retailers/${retailerId}/360`);
+      setSelectedRetailer360(res);
+    } catch (err: any) {
+      alert(`Failed to load Retailer 360 profile: ${err.message}`);
+    } finally {
+      setRetailer360Loading(false);
     }
   };
 
@@ -435,6 +453,8 @@ export default function DashboardPage() {
             ...(isOwnerOrAdmin ? [{ id: 'overview', label: 'Overview', icon: Building }] : []),
             ...(isOwnerOrAdmin ? [{ id: 'control_room', label: 'Control Room', icon: DollarSign }] : []),
             ...(isOwnerOrAdmin ? [{ id: 'exceptions', label: `Exceptions (${exceptionsList.length})`, icon: AlertTriangle }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'cash_control', label: 'Cash Control', icon: CreditCard }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'reports', label: 'Reports', icon: FileText }] : []),
             { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
             ...(isOwnerOrAdmin || isDelivery ? [{ id: 'handovers', label: `Cash Handover (${handovers.filter(h => h.status === 'PENDING').length})`, icon: Wallet }] : []),
             ...(isOwnerOrAdmin || isWarehouse || isSales ? [{ id: 'products', label: `Products (${products.length})`, icon: Truck }] : []),
@@ -736,6 +756,169 @@ export default function DashboardPage() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 1.3 CASH CONTROL TAB */}
+        {activeTab === 'cash_control' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Daily Cash Book & Handover Control</h1>
+                <p className="text-xs sm:text-sm text-slate-500">Real-time reconciliation of cash collected, delivery handovers, and operating expenses</p>
+              </div>
+            </div>
+
+            {/* Cash Flow Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Settled Cash In</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-emerald-600">
+                  ₹{((cashBookData?.summary?.cashInPaise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Total settled collections today</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Operating Expenses</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-rose-600">
+                  ₹{((cashBookData?.summary?.expensesPaise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Fuel, loading & petty cash spent</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Net Cash in Hand</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-blue-600">
+                  ₹{((cashBookData?.summary?.netCashInHandPaise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Physical cash awaiting safe deposit</p>
+              </div>
+            </div>
+
+            {/* Recent Cash Handovers & Expenses Split */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-emerald-600" />
+                    Delivery Driver Handovers
+                  </h3>
+                  <span className="text-xs text-slate-400">{cashBookData?.handovers?.length || 0} Records</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {!cashBookData?.handovers || cashBookData.handovers.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-slate-400">No driver cash submissions today</p>
+                  ) : (
+                    cashBookData.handovers.map((h: any) => (
+                      <div key={h.id} className="py-2.5 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{h.driver_name || 'Driver'}</p>
+                          <p className="text-slate-400 text-[11px]">{new Date(h.submitted_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-slate-900">₹{(h.amount_paise / 100).toFixed(2)}</p>
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            h.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                          }`}>
+                            {h.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-rose-600" />
+                    Today Business Expenses
+                  </h3>
+                  <span className="text-xs text-slate-400">{cashBookData?.expenses?.length || 0} Entries</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {!cashBookData?.expenses || cashBookData.expenses.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-slate-400">No expenses recorded today</p>
+                  ) : (
+                    cashBookData.expenses.map((e: any) => (
+                      <div key={e.id} className="py-2.5 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{e.category}: {e.description || 'Expense'}</p>
+                          <p className="text-slate-400 text-[11px]">{e.paid_by_name || 'Owner'} • {e.payment_mode}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-rose-600">-₹{(e.amount_paise / 100).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 1.4 REPORTS TAB */}
+        {activeTab === 'reports' && (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Printable Reports & Statements</h1>
+              <p className="text-xs sm:text-sm text-slate-500">Download and print audit-ready business slips, daily closing reports, and retailer ledgers</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl w-fit mb-3">
+                    <Printer className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">Daily Business Closing Slip</h3>
+                  <p className="text-xs text-slate-500 mt-1">Official end-of-day summary with booked sales, cash/UPI collections, expenses and stock deductions.</p>
+                </div>
+                <a
+                  href="/api/reports/printable/daily-closing"
+                  target="_blank"
+                  className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition"
+                >
+                  View & Print Closing Slip
+                </a>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-purple-50 text-purple-600 rounded-xl w-fit mb-3">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">Retailer Ledger Statement</h3>
+                  <p className="text-xs text-slate-500 mt-1">Full statement showing invoices, payments, returns, and outstanding credit balance for kirana shops.</p>
+                </div>
+                <a
+                  href="/api/reports/printable/retailer-ledger?id=ret_001"
+                  target="_blank"
+                  className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition"
+                >
+                  View Sample Retailer Statement
+                </a>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl w-fit mb-3">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-sm">Inventory Movement Ledger</h3>
+                  <p className="text-xs text-slate-500 mt-1">Godown stock ledger tracking supplier inward GRNs, delivery dispatch deductions, and audit corrections.</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('products')}
+                  className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition cursor-pointer"
+                >
+                  View Godown Movement
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1152,6 +1335,14 @@ export default function DashboardPage() {
                         {r.address}
                       </div>
                     )}
+                    <div className="pt-2 border-t border-slate-100 flex justify-end">
+                      <button
+                        onClick={() => handleOpenRetailer360(r.id)}
+                        className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                      >
+                        View Retailer 360 →
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -1167,12 +1358,13 @@ export default function DashboardPage() {
                       <th className="px-6 py-4">Contact</th>
                       <th className="px-6 py-4">Address</th>
                       <th className="px-6 py-4">Credit Limit</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {retailers.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                        <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                           No retailers found
                         </td>
                       </tr>
@@ -1184,6 +1376,14 @@ export default function DashboardPage() {
                           <td className="px-6 py-4 text-slate-500">{r.address || '—'}</td>
                           <td className="px-6 py-4 font-semibold text-slate-900">
                             ₹{((r.credit_limit_paise || 0) / 100).toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleOpenRetailer360(r.id)}
+                              className="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                            >
+                              Retailer 360
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1516,6 +1716,104 @@ export default function DashboardPage() {
                   className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
                 >
                   {assigningLoading ? 'Assigning...' : 'Assign & Dispatch'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RETAILER 360 DOSSIER MODAL */}
+        {selectedRetailer360 && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{selectedRetailer360.retailer?.name}</h3>
+                    <p className="text-xs text-slate-500">Beat: {selectedRetailer360.retailer?.beat_name || selectedRetailer360.retailer?.beat_id} • Phone: {selectedRetailer360.retailer?.contact_number || 'None'}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRetailer360(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Financial Snapshot */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Outstanding Credit</span>
+                  <div className="text-base font-extrabold text-rose-600 mt-1">
+                    ₹{((selectedRetailer360.retailer?.outstanding_amount_paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Credit Limit</span>
+                  <div className="text-base font-extrabold text-slate-900 mt-1">
+                    ₹{((selectedRetailer360.retailer?.credit_limit_paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Credit Utilization</span>
+                  <div className="text-base font-extrabold text-amber-600 mt-1">
+                    {selectedRetailer360.retailer?.credit_limit_paise > 0
+                      ? `${Math.round(((selectedRetailer360.retailer?.outstanding_amount_paise || 0) / selectedRetailer360.retailer?.credit_limit_paise) * 100)}%`
+                      : '0%'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Order History */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Recent Orders (Last 5)</h4>
+                <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                  {selectedRetailer360.orders?.length === 0 ? (
+                    <p className="p-4 text-center text-xs text-slate-400">No orders recorded yet</p>
+                  ) : (
+                    selectedRetailer360.orders?.map((o: any) => (
+                      <div key={o.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
+                        <div>
+                          <p className="font-mono font-bold text-slate-900">{o.id.slice(0, 14)}...</p>
+                          <p className="text-slate-400 text-[11px]">{new Date(o.created_at).toLocaleDateString('en-IN')} • By {o.booked_by_name || 'Sales'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-slate-900">₹{(o.total_amount_paise / 100).toFixed(2)}</p>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            {o.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Actions: WhatsApp Statement Share */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                {selectedRetailer360.whatsAppShareUrl ? (
+                  <a
+                    href={selectedRetailer360.whatsAppShareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
+                  >
+                    <span>💬 Share Statement on WhatsApp</span>
+                  </a>
+                ) : (
+                  <span className="text-xs text-slate-400">No phone for WhatsApp</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRetailer360(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>
