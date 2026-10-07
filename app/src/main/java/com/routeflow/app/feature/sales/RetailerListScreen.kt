@@ -2,14 +2,18 @@ package com.routeflow.app.feature.sales
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -18,12 +22,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -41,6 +49,7 @@ import com.routeflow.app.core.design.RFColors
 fun RetailerListScreen(
     state: RetailerListState,
     onRetailerClick: (String) -> Unit,
+    onStartShift: (() -> Unit)? = null,
     onAddRetailer: ((name: String, address: String, contact: String, lat: Double?, lng: Double?) -> Unit)? = null,
     onClearMessages: (() -> Unit)? = null
 ) {
@@ -55,6 +64,55 @@ fun RetailerListScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // 1. Compact Shift Status Banner (Off Duty warning if applicable)
+                if (!state.isOnShift && onStartShift != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                            border = BorderStroke(1.dp, Color(0xFFFECACA))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFDC2626))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Duty Off — Start shift for GPS",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF991B1B)
+                                    )
+                                }
+
+                                Button(
+                                    onClick = onStartShift,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Start Duty", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Beat Header Card
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -85,8 +143,9 @@ fun RetailerListScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = RFColors.TextPrimary
                                     )
+                                    val visitedCount = state.retailers.count { it.visitStatus == "VISITED" }
                                     Text(
-                                        text = "${state.retailers.size} active shops in beat",
+                                        text = "${state.retailers.size} shops in beat · $visitedCount visited",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = RFColors.TextSecondary
                                     )
@@ -146,7 +205,7 @@ fun RetailerListScreen(
                     }
                 }
 
-                items(state.retailers) { item ->
+                items(state.retailers, key = { it.retailer.id }) { item ->
                     RetailerCard(item, onRetailerClick)
                 }
             }
@@ -198,66 +257,58 @@ private fun AddShopDialog(
 
     fun detectGps() {
         isDetectingGps = true
+        gpsStatus = "Locating via GPS…"
         try {
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            if (locationManager != null) {
-                val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                if (hasFine || hasCoarse) {
-                    val loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                        ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                        ?: locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-                    if (loc != null) {
-                        latitude = loc.latitude
-                        longitude = loc.longitude
-                        gpsStatus = "Location captured: ${String.format("%.5f", loc.latitude)}, ${String.format("%.5f", loc.longitude)}"
-                    } else {
-                        latitude = 28.6139
-                        longitude = 77.2090
-                        gpsStatus = "Default city coordinates set (28.6139, 77.2090)"
-                    }
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            val fineOk = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val coarseOk = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            if (lm != null && (fineOk || coarseOk)) {
+                val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                if (loc != null) {
+                    latitude = loc.latitude
+                    longitude = loc.longitude
+                    gpsStatus = "GPS locked: %.4f, %.4f (±%.0fm)".format(loc.latitude, loc.longitude, loc.accuracy)
                 } else {
-                    gpsStatus = "Location permission needed"
+                    gpsStatus = "No location cached. Turn on device GPS."
                 }
+            } else {
+                gpsStatus = "Location permission required."
             }
         } catch (e: Exception) {
-            gpsStatus = "Location unavailable: ${e.message}"
+            gpsStatus = "GPS error: ${e.message}"
         } finally {
             isDetectingGps = false
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                      permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        val granted = perms[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
             detectGps()
         } else {
-            gpsStatus = "GPS permission denied"
+            gpsStatus = "Permission denied. GPS optional."
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Storefront, contentDescription = null, tint = Color(0xFF2563EB))
-                Spacer(Modifier.width(10.dp))
-                Text("Add Shop / Wholesale", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-            }
+            Text("Onboard New Retailer", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Shop / Wholesale Name *") },
-                    placeholder = { Text("e.g. Laxmi Super Store") },
+                    label = { Text("Shop Name *") },
+                    placeholder = { Text("e.g. Gupta General Store") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp)
@@ -266,11 +317,11 @@ private fun AddShopDialog(
                 OutlinedTextField(
                     value = contactNumber,
                     onValueChange = { contactNumber = it },
-                    label = { Text("Contact Phone") },
+                    label = { Text("Contact Mobile") },
                     placeholder = { Text("e.g. 9876543210") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     shape = RoundedCornerShape(10.dp)
                 )
 
@@ -278,22 +329,20 @@ private fun AddShopDialog(
                     value = address,
                     onValueChange = { address = it },
                     label = { Text("Shop Address") },
-                    placeholder = { Text("e.g. Main Market, Shop #12") },
+                    placeholder = { Text("e.g. Shop 12, Main Market, Sector 4") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 )
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (latitude != null) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
-                    ),
-                    border = BorderStroke(1.dp, if (latitude != null) Color(0xFF86EFAC) else Color(0xFFE2E8F0)),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = BorderStroke(1.dp, if (latitude != null) Color(0xFF86EFAC) else Color(0xFFE2E8F0))
                 ) {
                     Column(Modifier.padding(12.dp)) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -372,15 +421,21 @@ private fun RetailerCard(
     item: RetailerItemState,
     onRetailerClick: (String) -> Unit
 ) {
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = { onRetailerClick(item.retailer.id) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        border = BorderStroke(
+            1.dp,
+            if (item.isHighCreditRisk) Color(0xFFFCA5A5) else Color(0xFFE2E8F0)
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            // Header Row: Shop Name & Status Badge
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -399,48 +454,135 @@ private fun RetailerCard(
 
             Spacer(Modifier.height(4.dp))
 
+            // Address & Phone
             Text(
                 text = item.retailer.address,
                 style = MaterialTheme.typography.bodySmall,
                 color = RFColors.TextSecondary
             )
 
-            Spacer(Modifier.height(14.dp))
+            if (item.retailer.contactNumber.isNotBlank()) {
+                Text(
+                    text = "Ph: ${item.retailer.contactNumber}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF64748B)
+                )
+            }
 
+            Spacer(Modifier.height(10.dp))
+
+            // Financial & Credit Risk Row
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
+                    val outstanding = item.retailer.outstandingAmountPaise
+                    val (label, amountText, color) = when {
+                        outstanding < 0 -> Triple("Advance Balance", CurrencyFormatter.formatPaise(-outstanding), Color(0xFF15803D))
+                        outstanding > 0 -> Triple("Pending Udhaar", CurrencyFormatter.formatPaise(outstanding), Color(0xFFDC2626))
+                        else -> Triple("Balance", "₹0 (Settled)", Color(0xFF64748B))
+                    }
+
                     Text(
-                        text = stringResource(R.string.retailer_outstanding),
+                        text = label,
                         style = MaterialTheme.typography.labelSmall,
                         color = RFColors.TextSecondary
                     )
-                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = CurrencyFormatter.formatPaise(item.retailer.outstandingAmountPaise),
+                        text = amountText,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (item.retailer.outstandingAmountPaise > 0) Color(0xFFDC2626) else Color(0xFF15803D)
+                        color = color
                     )
                 }
 
+                if (item.isHighCreditRisk) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(12.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "High Credit Risk",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDC2626)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Field Action Buttons: Check In (>=48dp), Call, Map
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Call Button
+                OutlinedButton(
+                    onClick = {
+                        val phone = item.retailer.contactNumber.trim()
+                        if (phone.isNotBlank()) {
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                            try { context.startActivity(intent) } catch (_: Exception) {}
+                        }
+                    },
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(18.dp), tint = Color(0xFF2563EB))
+                }
+
+                // Map Button
+                OutlinedButton(
+                    onClick = {
+                        val lat = item.retailer.latitude
+                        val lng = item.retailer.longitude
+                        val addr = item.retailer.address
+                        val uri = if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+                            Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(item.retailer.name)})")
+                        } else {
+                            Uri.parse("geo:0,0?q=${Uri.encode(addr)}")
+                        }
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        try { context.startActivity(intent) } catch (_: Exception) {}
+                    },
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Icon(Icons.Default.Map, contentDescription = "Map", modifier = Modifier.size(18.dp), tint = Color(0xFF16A34A))
+                }
+
+                // Primary Check In CTA
                 Button(
                     onClick = { onRetailerClick(item.retailer.id) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
-                    ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    )
                 ) {
                     Text(
                         text = stringResource(R.string.check_in_button),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 14.sp
                     )
                     Spacer(Modifier.width(6.dp))
                     Icon(
@@ -459,7 +601,7 @@ private fun RetailerCard(
 private fun VisitStatusBadge(status: String) {
     val (textRes, bgColor, textColor) = when (status) {
         "VISITED" -> Triple(R.string.visited, Color(0xFFDCFCE7), Color(0xFF15803D))
-        "VISITING" -> Triple(R.string.in_progress, Color(0xFFDBEAFE), Color(0xFF1E40AF))
+        "IN_PROGRESS", "VISITING" -> Triple(R.string.in_progress, Color(0xFFDBEAFE), Color(0xFF1E40AF))
         else -> Triple(R.string.pending, Color(0xFFFEF3C7), Color(0xFF92400E))
     }
     Surface(

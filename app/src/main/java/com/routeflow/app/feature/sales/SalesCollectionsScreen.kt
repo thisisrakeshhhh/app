@@ -1,44 +1,30 @@
 package com.routeflow.app.feature.sales
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.routeflow.app.R
+import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.domain.model.Retailer
 import kotlinx.coroutines.launch
@@ -52,8 +38,10 @@ fun SalesCollectionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedRetailerForCollection by remember { mutableStateOf<Retailer?>(null) }
+    var selectedRetailerForLedger by remember { mutableStateOf<Retailer?>(null) }
 
-    val totalOutstandingPaise = retailers.sumOf { it.outstandingAmountPaise }
+    val positiveDuePaise = retailers.filter { it.outstandingAmountPaise > 0 }.sumOf { it.outstandingAmountPaise }
+    val advancePaise = retailers.filter { it.outstandingAmountPaise < 0 }.sumOf { -it.outstandingAmountPaise }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -68,95 +56,101 @@ fun SalesCollectionsScreen(
                 fontWeight = FontWeight.Black,
                 color = RFColors.TextPrimary
             )
-            // Total Outstanding Card
+
+            // Total Outstanding & Advance Summary Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = RFColors.Primary),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E3A8A)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Total Beat Outstanding",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "₹${"%,d".format(totalOutstandingPaise / 100)}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${retailers.count { it.outstandingAmountPaise > 0 }} shops with pending balances",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                }
-            }
-
-            Text(
-                text = "Retailer Balances",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(retailers, key = { it.id }) { retailer ->
-                    Card(
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = retailer.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RFColors.TextPrimary
-                                )
-                                Text(
-                                    text = "Credit Limit: ₹${"%,d".format(retailer.creditLimitPaise / 100)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = RFColors.TextSecondary
-                                )
-                                Text(
-                                    text = "Outstanding: ₹${"%,d".format(retailer.outstandingAmountPaise / 100)}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (retailer.outstandingAmountPaise > 0) RFColors.Error else RFColors.Success
-                                )
-                            }
+                        Column {
+                            Text(
+                                text = "Total Beat Pending Udhaar",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "₹${"%,d".format(positiveDuePaise / 100)}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
 
-                            if (retailer.outstandingAmountPaise > 0) {
-                                OutlinedButton(
-                                    onClick = { selectedRetailerForCollection = retailer }
-                                ) {
-                                    Text("Collect", style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
+                        Surface(
+                            color = Color(0xFF2563EB).copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = "${retailers.count { it.outstandingAmountPaise > 0 }} Shops Due",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+
+                    if (advancePaise > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Total Advance Credit Held:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                            Text(
+                                text = "₹${"%,d".format(advancePaise / 100)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF86EFAC)
+                            )
                         }
                     }
                 }
             }
+
+            Text(
+                text = "Retailer Khata & Udhaar Ledger",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = RFColors.TextPrimary
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(retailers, key = { it.id }) { retailer ->
+                    RetailerCollectionCard(
+                        retailer = retailer,
+                        onCollect = { selectedRetailerForCollection = retailer },
+                        onViewLedger = { selectedRetailerForLedger = retailer }
+                    )
+                }
+            }
         }
+
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 
+    // Modal: Collect Payment Dialog
     selectedRetailerForCollection?.let { retailer ->
         CollectPaymentDialog(
             retailer = retailer,
@@ -170,6 +164,168 @@ fun SalesCollectionsScreen(
             }
         )
     }
+
+    // Modal: View Ledger Statement Dialog
+    selectedRetailerForLedger?.let { retailer ->
+        ViewLedgerDialog(
+            retailer = retailer,
+            onDismiss = { selectedRetailerForLedger = null }
+        )
+    }
+}
+
+@Composable
+private fun RetailerCollectionCard(
+    retailer: Retailer,
+    onCollect: () -> Unit,
+    onViewLedger: () -> Unit
+) {
+    val outstanding = retailer.outstandingAmountPaise
+    val isAdvance = outstanding < 0
+    val isPendingDue = outstanding > 0
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(
+            1.dp,
+            if (isPendingDue && outstanding > (retailer.creditLimitPaise * 0.8)) Color(0xFFFCA5A5) else Color(0xFFE2E8F0)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            // Header Row: Shop Name & Credit Limit
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = retailer.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.TextPrimary
+                    )
+                    Text(
+                        text = retailer.address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RFColors.TextSecondary,
+                        maxLines = 1
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Text(
+                        text = "Limit: ₹${"%,d".format(retailer.creditLimitPaise / 100)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF475569),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Outstanding vs Advance Display Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = when {
+                            isAdvance -> "Advance Balance (जमा राशि)"
+                            isPendingDue -> "Pending Udhaar (बाकी रकम)"
+                            else -> "Account Balance"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = RFColors.TextSecondary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = when {
+                            isAdvance -> "₹${"%,d".format(-outstanding / 100)}"
+                            isPendingDue -> "₹${"%,d".format(outstanding / 100)}"
+                            else -> "₹0 (Settled)"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = when {
+                            isAdvance -> Color(0xFF15803D)
+                            isPendingDue -> Color(0xFFDC2626)
+                            else -> Color(0xFF64748B)
+                        }
+                    )
+                }
+
+                if (isPendingDue && outstanding > (retailer.creditLimitPaise * 0.8)) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Text(
+                            text = "High Risk",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFDC2626),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Action Buttons: View Ledger & Collect Payment
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onViewLedger,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                ) {
+                    Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF475569))
+                    Spacer(Modifier.width(6.dp))
+                    Text("View Ledger", fontWeight = FontWeight.Bold, color = Color(0xFF475569), fontSize = 13.sp)
+                }
+
+                Button(
+                    onClick = onCollect,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isPendingDue) Color(0xFF2563EB) else Color(0xFF0D9488),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = if (isAdvance) "Add Deposit" else "Collect",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -178,7 +334,9 @@ private fun CollectPaymentDialog(
     onDismiss: () -> Unit,
     onConfirm: (amountPaise: Long, method: String, reference: String) -> Unit
 ) {
-    var amountText by remember { mutableStateOf("") }
+    val outstanding = retailer.outstandingAmountPaise
+    val defaultAmount = if (outstanding > 0) (outstanding / 100).toString() else ""
+    var amountText by remember { mutableStateOf(defaultAmount) }
     var selectedMethod by remember { mutableStateOf("CASH") }
     var referenceText by remember { mutableStateOf("") }
 
@@ -187,30 +345,49 @@ private fun CollectPaymentDialog(
         title = { Text("Collect from ${retailer.name}", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Outstanding Due: ₹${retailer.outstandingAmountPaise / 100}", color = RFColors.Error, fontWeight = FontWeight.SemiBold)
+                if (outstanding > 0) {
+                    Text(
+                        text = "Pending Udhaar: ₹${"%,d".format(outstanding / 100)}",
+                        color = Color(0xFFDC2626),
+                        fontWeight = FontWeight.Bold
+                    )
+                } else if (outstanding < 0) {
+                    Text(
+                        text = "Customer has Advance: ₹${"%,d".format(-outstanding / 100)}",
+                        color = Color(0xFF15803D),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = { Text("Collection Amount (₹) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp)
                 )
-                Text("Payment Mode:")
+
+                Text("Payment Mode:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("CASH", "UPI", "CHEQUE").forEach { mode ->
-                        androidx.compose.material3.FilterChip(
+                        FilterChip(
                             selected = selectedMethod == mode,
                             onClick = { selectedMethod = mode },
-                            label = { Text(mode) }
+                            label = { Text(mode, fontWeight = FontWeight.Bold) }
                         )
                     }
                 }
+
                 OutlinedTextField(
                     value = referenceText,
                     onValueChange = { referenceText = it },
                     label = { Text("Receipt / Ref Number (Optional)") },
+                    placeholder = { Text("e.g. UPI-12345 or Cheque #") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp)
                 )
             }
         },
@@ -221,16 +398,112 @@ private fun CollectPaymentDialog(
                     onConfirm(amt * 100, selectedMethod, referenceText.trim())
                 },
                 enabled = (amountText.toLongOrNull() ?: 0L) > 0,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RFColors.Primary,
-                    contentColor = Color.White
-                )
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
             ) {
                 Text("Record Receipt", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFF64748B)) }
+        }
+    )
+}
+
+@Composable
+private fun ViewLedgerDialog(
+    retailer: Retailer,
+    onDismiss: () -> Unit
+) {
+    val outstanding = retailer.outstandingAmountPaise
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color(0xFF2563EB))
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(retailer.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("Khata & Ledger Statement", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Key Metrics Box
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Credit Limit:", color = Color(0xFF64748B), style = MaterialTheme.typography.bodySmall)
+                            Text(CurrencyFormatter.formatPaise(retailer.creditLimitPaise), fontWeight = FontWeight.Bold)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Payment Terms:", color = Color(0xFF64748B), style = MaterialTheme.typography.bodySmall)
+                            Text("7 Days (Standard)", fontWeight = FontWeight.Bold)
+                        }
+                        HorizontalDivider(color = Color(0xFFE2E8F0))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Current Balance:", fontWeight = FontWeight.Bold)
+                            Text(
+                                text = when {
+                                    outstanding < 0 -> "Advance: " + CurrencyFormatter.formatPaise(-outstanding)
+                                    outstanding > 0 -> "Due: " + CurrencyFormatter.formatPaise(outstanding)
+                                    else -> "₹0 (Settled)"
+                                },
+                                fontWeight = FontWeight.Black,
+                                color = when {
+                                    outstanding < 0 -> Color(0xFF15803D)
+                                    outstanding > 0 -> Color(0xFFDC2626)
+                                    else -> Color(0xFF64748B)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "Recent Transactions Overview",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Surface(
+                    color = Color(0xFFF1F5F9),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            text = "• Invoices & receipts are synced with central distributor books.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF475569)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "• WhatsApp statement PDF is accessible from the web dashboard Reports tab.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF475569)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                Text("Close", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         }
     )
 }

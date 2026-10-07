@@ -8,10 +8,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
@@ -36,6 +41,8 @@ fun SalesHomeScreen(
     employee: Employee,
     state: SalesHomeState,
     onStartVisits: () -> Unit,
+    onStartShift: () -> Unit = {},
+    onContinueRoute: (nextRetailerId: String?) -> Unit = { onStartVisits() },
     onSyncNow: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -47,7 +54,7 @@ fun SalesHomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Welcome Header Card
+        // 1. Welcome & Shift Status Header Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -59,41 +66,276 @@ fun SalesHomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFEFF6FF)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = null,
-                        tint = RFColors.Accent,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEFF6FF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = null,
+                            tint = RFColors.Accent,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.hello_user, employee.name),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = RFColors.TextPrimary
+                        )
+                        Text(
+                            text = stringResource(employee.role.labelRes),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = RFColors.Accent,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.hello_user, employee.name),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = RFColors.TextPrimary
-                    )
-                    Text(
-                        text = stringResource(employee.role.labelRes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = RFColors.Accent,
-                        fontWeight = FontWeight.Medium
-                    )
+
+                // High-visibility duty status badge
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (state.isOnShift) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                    border = BorderStroke(1.dp, if (state.isOnShift) Color(0xFF86EFAC) else Color(0xFFE2E8F0))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (state.isOnShift) Color(0xFF16A34A) else Color(0xFF94A3B8))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (state.isOnShift) stringResource(R.string.on_shift) else stringResource(R.string.off_shift),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (state.isOnShift) Color(0xFF15803D) else Color(0xFF64748B)
+                        )
+                    }
                 }
             }
         }
 
-        // Pending Sync Banner
+        // 2. Off Duty Guidance Card & Primary "Start Duty" Action
+        if (!state.isOnShift) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Route,
+                            contentDescription = null,
+                            tint = RFColors.Accent,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Ready to start today's field route?",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
+                            )
+                            Text(
+                                text = "Start duty to activate GPS location and track shop visits",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = RFColors.TextSecondary
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onStartShift,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2563EB),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.start_shift),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        } else {
+            // 3. On Duty — Next Shop to Visit & Continue Route Hero Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF16A34A))
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Today's Route Active",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
+                        }
+                        Surface(
+                            color = Color(0xFFDCFCE7),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = state.beatName,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF166534),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = Color(0xFFDCFCE7), thickness = 1.dp)
+
+                    if (state.nextShop != null) {
+                        Column {
+                            Text(
+                                text = "NEXT SHOP TO VISIT",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D),
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = state.nextShop.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = RFColors.TextPrimary
+                            )
+                            Text(
+                                text = state.nextShop.address,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF475569)
+                            )
+                            if (state.nextShop.outstandingAmountPaise > 0) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Pending Udhaar: ₹${"%,d".format(state.nextShop.outstandingAmountPaise / 100)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFDC2626)
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { onContinueRoute(state.nextShop.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF16A34A),
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                        ) {
+                            Text(
+                                text = "Continue Route — Visit Shop",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White
+                            )
+                        }
+                    } else {
+                        // All shops visited
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "All Beat Visits Completed!",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF15803D)
+                                )
+                                Text(
+                                    text = "Great job! All assigned shops visited today.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF166534)
+                                )
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = onStartVisits,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Review All Shops", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Pending Sync Banner
         if (state.pendingSyncCount > 0 || state.isSyncing) {
             Card(
                 modifier = Modifier
@@ -166,105 +408,67 @@ fun SalesHomeScreen(
             }
         }
 
-        // Today's Beat Hero Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Route,
-                            contentDescription = null,
-                            tint = RFColors.Accent,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.todays_beat),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = RFColors.TextSecondary
-                        )
-                    }
-                    Surface(
-                        color = Color(0xFFEFF6FF),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = state.beatName,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = RFColors.Accent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
+        // 5. Four Key Field Metrics Grid
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Today's Field Performance",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = RFColors.TextPrimary
+            )
 
-                Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Metric 1: Visited
+                MetricBox(
+                    modifier = Modifier.weight(1f),
+                    title = "Visits Done",
+                    value = "${state.shopsVisited} / ${state.totalShops}",
+                    subtext = "${state.remainingShops} remaining",
+                    icon = Icons.Default.CheckCircle,
+                    accentColor = Color(0xFF15803D)
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Visited Metric Box
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        color = Color(0xFFF8FAFC),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(R.string.visited),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = RFColors.TextSecondary
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "${state.shopsVisited} / ${state.totalShops}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = if (state.shopsVisited > 0) RFColors.Success else RFColors.TextPrimary
-                            )
-                        }
-                    }
+                // Metric 2: Today Orders
+                MetricBox(
+                    modifier = Modifier.weight(1f),
+                    title = "Today Orders",
+                    value = CurrencyFormatter.formatPaise(state.todayOrderValuePaise),
+                    subtext = "${state.recentOrders.size} booked",
+                    icon = Icons.Default.ShoppingCart,
+                    accentColor = Color(0xFF2563EB)
+                )
+            }
 
-                    // Orders Metric Box
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        color = Color(0xFFF8FAFC),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(R.string.tab_orders),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = RFColors.TextSecondary
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = CurrencyFormatter.formatPaise(state.todayOrderValuePaise),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = RFColors.TextPrimary
-                            )
-                        }
-                    }
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Metric 3: Pending Udhaar in Beat
+                MetricBox(
+                    modifier = Modifier.weight(1f),
+                    title = "Pending Udhaar",
+                    value = CurrencyFormatter.formatPaise(state.pendingCollectionPaise),
+                    subtext = "In assigned beat",
+                    icon = Icons.Default.Payments,
+                    accentColor = Color(0xFFD97706)
+                )
+
+                // Metric 4: Remaining Shops
+                MetricBox(
+                    modifier = Modifier.weight(1f),
+                    title = "Remaining",
+                    value = "${state.remainingShops} Shops",
+                    subtext = "Beat route pending",
+                    icon = Icons.Default.Store,
+                    accentColor = Color(0xFF475569)
+                )
             }
         }
 
-        // Monthly Target Progress Card
+        // 6. Monthly Target Progress Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -336,7 +540,7 @@ fun SalesHomeScreen(
             }
         }
 
-        // Recent Orders Section
+        // 7. Recent Orders Section
         if (state.recentOrders.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -374,36 +578,84 @@ fun SalesHomeScreen(
             }
         }
 
-        Spacer(Modifier.height(4.dp))
-
-        // Big Primary CTA Button
-        Button(
+        // 8. Secondary CTA: View Full Beat Shops
+        OutlinedButton(
             onClick = onStartVisits,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2563EB),
-                contentColor = Color.White
-            ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, Color(0xFF2563EB))
         ) {
             Icon(
                 imageVector = Icons.Default.Store,
                 contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = stringResource(R.string.start_shop_visits),
+                text = "View Beat Route & All Shops",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color(0xFF2563EB)
             )
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun MetricBox(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    subtext: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accentColor: Color
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.White,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shadowElevation = 1.dp
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = RFColors.TextSecondary,
+                    fontWeight = FontWeight.Medium
+                )
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                color = RFColors.TextPrimary,
+                maxLines = 1
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtext,
+                style = MaterialTheme.typography.labelSmall,
+                color = RFColors.TextSecondary,
+                fontSize = 11.sp
+            )
+        }
     }
 }

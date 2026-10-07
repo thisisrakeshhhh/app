@@ -2,20 +2,26 @@ package com.routeflow.app.feature.sales
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.routeflow.app.core.database.dao.VisitDao
 import com.routeflow.app.core.network.dto.CreateRetailerRequest
 import com.routeflow.app.domain.model.Retailer
 import com.routeflow.app.domain.repository.RetailerRepository
+import com.routeflow.app.domain.repository.SessionRepository
+import com.routeflow.app.domain.repository.ShiftRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RetailerListState(
     val beatName: String = "Sector Beat — BEAT-04",
+    val isOnShift: Boolean = false,
     val retailers: List<RetailerItemState> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -25,27 +31,61 @@ data class RetailerListState(
 
 data class RetailerItemState(
     val retailer: Retailer,
-    val visitStatus: String = "NOT_VISITED" // NOT_VISITED, VISITING, VISITED
+    val visitStatus: String = "PENDING", // PENDING, IN_PROGRESS, VISITED
+    val isHighCreditRisk: Boolean = false
 )
 
 @HiltViewModel
 class RetailerListViewModel @Inject constructor(
-    private val retailerRepository: RetailerRepository
+    private val retailerRepository: RetailerRepository,
+    private val sessionRepository: SessionRepository,
+    private val shiftRepository: ShiftRepository,
+    private val visitDao: VisitDao
 ) : ViewModel() {
 
     private val _isSaving = MutableStateFlow(false)
     private val _message = MutableStateFlow<String?>(null)
     private val _error = MutableStateFlow<String?>(null)
 
+    private val employeeVisits = sessionRepository.activeEmployee.flatMapLatest { emp ->
+        if (emp != null) visitDao.getVisitsByEmployee(emp.id)
+        else flowOf(emptyList())
+    }
+
+    private val activeVisitFlow = sessionRepository.activeEmployee.flatMapLatest { emp ->
+        if (emp != null) visitDao.getActiveVisit(emp.id)
+        else flowOf(null)
+    }
+
     val state: StateFlow<RetailerListState> = combine(
         retailerRepository.getRetailersByBeat("BEAT-04"),
-        _isSaving,
-        _message,
-        _error
-    ) { retailers, isSaving, message, error ->
+        shiftRepository.activeShift,
+        employeeVisits,
+        activeVisitFlow,
+        combine(_isSaving, _message, _error) { isSaving, message, error -> Triple(isSaving, message, error) }
+    ) { retailers, shift, visits, activeVisit, (isSaving, message, error) ->
+        val isOnShift = shift != null && shift.status == "ON_SHIFT"
+        val completedRetailerIds = visits.filter { it.status == "COMPLETED" }.map { it.retailerId }.toSet()
+        val activeRetailerId = activeVisit?.retailerId
+
+        val items = retailers.map { retailer ->
+            val status = when {
+                activeRetailerId == retailer.id -> "IN_PROGRESS"
+                completedRetailerIds.contains(retailer.id) -> "VISITED"
+                else -> "PENDING"
+            }
+            val isHighRisk = retailer.outstandingAmountPaise > (retailer.creditLimitPaise * 0.8) && retailer.creditLimitPaise > 0
+            RetailerItemState(
+                retailer = retailer,
+                visitStatus = status,
+                isHighCreditRisk = isHighRisk
+            )
+        }
+
         RetailerListState(
             beatName = "Sector Beat — BEAT-04",
-            retailers = retailers.map { RetailerItemState(it) },
+            isOnShift = isOnShift,
+            retailers = items,
             isLoading = false,
             isSaving = isSaving,
             message = message,
@@ -56,6 +96,12 @@ class RetailerListViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = RetailerListState(isLoading = true)
     )
+
+    fun startShift(lat: Double? = null, lng: Double? = null) {
+        viewModelScope.launch {
+            shiftRepository.startShift(lat, lng)
+        }
+    }
 
     fun createRetailer(
         name: String,

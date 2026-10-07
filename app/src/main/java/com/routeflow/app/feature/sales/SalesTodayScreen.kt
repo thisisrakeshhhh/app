@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.routeflow.app.R
+import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.domain.model.Retailer
 
@@ -242,7 +243,7 @@ private fun ShiftControlCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isOnShift) Color(0xFFF0FDF4) else Color.White
         ),
@@ -250,102 +251,79 @@ private fun ShiftControlCard(
             1.dp,
             if (isOnShift) Color(0xFFBBF7D0) else Color(0xFFE2E8F0)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(if (isOnShift) Color(0xFF16A34A) else Color(0xFF94A3B8))
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(if (isOnShift) Color(0xFF16A34A) else Color(0xFF94A3B8))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
                     Text(
                         text = if (isOnShift) stringResource(R.string.on_shift) else stringResource(R.string.off_shift),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (isOnShift) Color(0xFF15803D) else RFColors.TextPrimary
                     )
-                }
-
-                if (isOnShift) {
-                    Surface(
-                        color = Color(0xFFDCFCE7),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = Color(0xFF16A34A),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.gps_active),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF15803D),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    Text(
+                        text = if (isOnShift) "Live GPS Active" else "Tap Start to track route",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isOnShift) Color(0xFF16A34A) else Color(0xFF64748B)
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
 
             if (isOnShift) {
                 OutlinedButton(
                     onClick = onEndShift,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
+                    modifier = Modifier.height(40.dp),
                     enabled = !isLoading,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color(0xFFFEF2F2),
                         contentColor = Color(0xFFDC2626)
-                    )
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFFDC2626))
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFFDC2626))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = stringResource(R.string.end_shift),
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFDC2626)
+                        color = Color(0xFFDC2626),
+                        fontSize = 13.sp
                     )
                 }
             } else {
                 Button(
                     onClick = onStartShift,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
+                    modifier = Modifier.height(40.dp),
                     enabled = !isLoading,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
                     ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = stringResource(R.string.start_shift),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 13.sp
                     )
                 }
             }
@@ -406,10 +384,12 @@ private fun ShopRowCard(
     isCompleted: Boolean,
     onClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isHighCreditRisk = retailer.outstandingAmountPaise > (retailer.creditLimitPaise * 0.8) && retailer.creditLimitPaise > 0
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(
@@ -417,85 +397,181 @@ private fun ShopRowCard(
             when {
                 isCurrentActive -> Color(0xFF93C5FD)
                 isCompleted -> Color(0xFF86EFAC)
+                isHighCreditRisk -> Color(0xFFFCA5A5)
                 else -> Color(0xFFE2E8F0)
             }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Column(Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Status icon circle
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                isCurrentActive -> Color(0xFFDBEAFE)
-                                isCompleted -> Color(0xFFDCFCE7)
-                                else -> Color(0xFFF1F5F9)
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    when {
-                        isCurrentActive -> Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(22.dp))
-                        isCompleted -> Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(22.dp))
-                        else -> Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(22.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when {
+                                    isCurrentActive -> Color(0xFFDBEAFE)
+                                    isCompleted -> Color(0xFFDCFCE7)
+                                    else -> Color(0xFFF1F5F9)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when {
+                            isCurrentActive -> Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(20.dp))
+                            isCompleted -> Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(20.dp))
+                            else -> Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(20.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column {
+                        Text(
+                            text = retailer.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = RFColors.TextPrimary
+                        )
+                        Text(
+                            text = retailer.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = RFColors.TextSecondary,
+                            maxLines = 1
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
-
-                Column {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = when {
+                        isCurrentActive -> Color(0xFFDBEAFE)
+                        isCompleted -> Color(0xFFDCFCE7)
+                        else -> Color(0xFFFEF3C7)
+                    }
+                ) {
                     Text(
-                        text = retailer.name,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = when {
+                            isCurrentActive -> stringResource(R.string.in_progress)
+                            isCompleted -> stringResource(R.string.visited)
+                            else -> stringResource(R.string.pending)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = RFColors.TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${retailer.address} · " + stringResource(R.string.due_amount, "%,d".format(retailer.outstandingAmountPaise / 100)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = RFColors.TextSecondary
+                        color = when {
+                            isCurrentActive -> Color(0xFF1E40AF)
+                            isCompleted -> Color(0xFF15803D)
+                            else -> Color(0xFF92400E)
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            // High Contrast Status Badge
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = when {
-                    isCurrentActive -> Color(0xFFDBEAFE)
-                    isCompleted -> Color(0xFFDCFCE7)
-                    else -> Color(0xFFFEF3C7)
-                }
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Outstanding vs Advance line
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = when {
-                        isCurrentActive -> stringResource(R.string.in_progress)
-                        isCompleted -> stringResource(R.string.visited)
-                        else -> stringResource(R.string.pending)
+                val outstanding = retailer.outstandingAmountPaise
+                val (balLabel, balValue, balColor) = when {
+                    outstanding < 0 -> Triple("Advance:", CurrencyFormatter.formatPaise(-outstanding), Color(0xFF15803D))
+                    outstanding > 0 -> Triple("Pending Udhaar:", CurrencyFormatter.formatPaise(outstanding), Color(0xFFDC2626))
+                    else -> Triple("Balance:", "₹0", Color(0xFF64748B))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "$balLabel ", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                    Text(text = balValue, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = balColor)
+                }
+
+                if (isHighCreditRisk) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Text(
+                            text = "High Credit Risk",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFDC2626),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Action Buttons: Call, Map, Check In
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (retailer.contactNumber.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${retailer.contactNumber}"))
+                            try { context.startActivity(intent) } catch (_: Exception) {}
+                        },
+                        modifier = Modifier.height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Text("Call", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val lat = retailer.latitude
+                        val lng = retailer.longitude
+                        val uri = if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+                            android.net.Uri.parse("geo:$lat,$lng?q=$lat,$lng(${android.net.Uri.encode(retailer.name)})")
+                        } else {
+                            android.net.Uri.parse("geo:0,0?q=${android.net.Uri.encode(retailer.address)}")
+                        }
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                        try { context.startActivity(intent) } catch (_: Exception) {}
                     },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        isCurrentActive -> Color(0xFF1E40AF)
-                        isCompleted -> Color(0xFF15803D)
-                        else -> Color(0xFF92400E)
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Text("Map", fontWeight = FontWeight.Bold, color = Color(0xFF16A34A))
+                }
+
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isCurrentActive) Color(0xFF1D4ED8) else Color(0xFF2563EB),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = if (isCurrentActive) "Continue Visit" else stringResource(R.string.check_in_button),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
     }

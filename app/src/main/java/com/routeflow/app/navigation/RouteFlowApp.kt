@@ -587,6 +587,14 @@ fun RouteFlowApp(
                         employee = employee,
                         state = salesState,
                         onStartVisits = { navController.navigate(SALES_TODAY) },
+                        onStartShift = salesViewModel::startShift,
+                        onContinueRoute = { nextRetailerId ->
+                            if (nextRetailerId != null) {
+                                navController.navigate("sales/visit/$nextRetailerId")
+                            } else {
+                                navController.navigate(SALES_TODAY)
+                            }
+                        },
                         onSyncNow = salesViewModel::syncNow
                     )
                 }
@@ -610,6 +618,7 @@ fun RouteFlowApp(
                 RetailerListScreen(
                     state = salesListState,
                     onRetailerClick = { id -> navController.navigate("sales/visit/$id") },
+                    onStartShift = { viewModel.startShift() },
                     onAddRetailer = { name, address, contact, lat, lng ->
                         viewModel.createRetailer(name, address, contact, lat, lng)
                     },
@@ -655,8 +664,10 @@ fun RouteFlowApp(
             composable(SALES_PROFILE) {
                 if (employee != null) {
                     val salesViewModel: SalesViewModel = hiltViewModel()
+                    val salesState by salesViewModel.state.collectAsStateWithLifecycle()
                     SalesProfileScreen(
                         employee = employee,
+                        salesState = salesState,
                         currentLanguage = currentLanguage,
                         onLanguageChange = onLanguageChange,
                         onSyncNow = salesViewModel::syncNow,
@@ -683,7 +694,8 @@ fun RouteFlowApp(
                     onStockCheck = {
                         val targetId = visitState.retailer?.id ?: retailerId
                         if (targetId.isNotBlank()) navController.navigate("sales/stock-check/$targetId")
-                    }
+                    },
+                    onCollectPayment = viewModel::recordCollection
                 )
             }
 
