@@ -71,22 +71,49 @@ fun OwnerHomeScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Business Overview",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Owner Control Room",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "Daily Wholesale & Cash Control",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                Surface(
+                    color = Color(0xFFEFF6FF),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Text(
+                        text = "Step 1/8 • Demo",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
+                }
+            }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
-                    title = "Pending Approvals",
+                    title = "Order Approvals",
                     value = state.pendingApprovalsCount.toString(),
                     icon = Icons.Default.PendingActions,
                     color = if (state.pendingApprovalsCount > 0) RouteFlowStatus.Pending else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
-                    title = "Low Stock Items",
+                    title = "Godown Low Stock",
                     value = state.lowStockCount.toString(),
                     icon = Icons.Default.Warning,
                     color = if (state.lowStockCount > 0) RouteFlowStatus.Rejected else MaterialTheme.colorScheme.primary,
@@ -95,14 +122,14 @@ fun OwnerHomeScreen(
             }
 
             MetricRowCard(
-                title = "Delivered Sales Today",
+                title = "Today's Delivered Sales",
                 value = CurrencyFormatter.formatPaise(state.deliveredSalesTodayPaise),
                 icon = Icons.Default.TrendingUp,
                 color = RouteFlowStatus.Completed
             )
 
             MetricRowCard(
-                title = "Retailer Outstanding",
+                title = "Pending Udhaar (Market Credit)",
                 value = CurrencyFormatter.formatPaise(state.totalOutstandingPaise),
                 icon = Icons.Default.Assignment,
                 color = RouteFlowStatus.Rejected
@@ -110,7 +137,7 @@ fun OwnerHomeScreen(
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
-                    title = "Picking/Packing",
+                    title = "Godown Packing",
                     value = "${state.fulfillmentQueueCount}",
                     icon = Icons.Default.Inventory,
                     color = MaterialTheme.colorScheme.tertiary,
