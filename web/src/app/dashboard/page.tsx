@@ -19,7 +19,11 @@ import {
   Plus,
   MapPin,
   Phone,
-  X
+  X,
+  AlertTriangle,
+  FileText,
+  ShoppingBag,
+  DollarSign
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -54,7 +58,16 @@ interface CashHandover {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'handovers' | 'products' | 'retailers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'control_room' | 'exceptions' | 'orders' | 'handovers' | 'products' | 'retailers'>('overview');
+  
+  // Operating System State
+  const [controlRoomData, setControlRoomData] = useState<any | null>(null);
+  const [exceptionsList, setExceptionsList] = useState<any[]>([]);
+  const [dayBookData, setDayBookData] = useState<any | null>(null);
+  const [purchaseList, setPurchaseList] = useState<any[]>([]);
+  const [cashBookData, setCashBookData] = useState<any | null>(null);
+  const [selectedRetailer360, setSelectedRetailer360] = useState<any | null>(null);
+  const [retailer360Loading, setRetailer360Loading] = useState(false);
   
   const [metrics, setMetrics] = useState<OverviewMetrics>({
     pendingApprovals: 0,
@@ -155,6 +168,18 @@ export default function DashboardPage() {
         setSelectedDriverId(devList[0].id);
       }
 
+      // 6. Fetch Operating System Modules (Owner Control Room, Exceptions, Day Book, Purchase)
+      const [pulseRes, excRes, dayRes, purRes] = await Promise.all([
+        apiFetch<any>('/control-room/pulse').catch(() => null),
+        apiFetch<any>('/exceptions/feed').catch(() => ({ exceptions: [] })),
+        apiFetch<any>('/day-book/today').catch(() => null),
+        apiFetch<any>('/purchase-planning/suggestions').catch(() => ({ purchaseList: [] }))
+      ]);
+      setControlRoomData(pulseRes);
+      setExceptionsList(excRes?.exceptions || []);
+      setDayBookData(dayRes);
+      setPurchaseList(purRes?.purchaseList || []);
+
       // Compute overview stats
       const pendingOrders = orderList.filter((o: any) => o.status === 'PENDING_APPROVAL' || o.status === 'PENDING').length;
       const picking = orderList.filter((o: any) => o.status === 'APPROVED' || o.status === 'PICKING' || o.status === 'PACKED').length;
@@ -165,12 +190,12 @@ export default function DashboardPage() {
 
       setMetrics({
         pendingApprovals: pendingOrders,
-        lowStockItems: 0,
-        deliveredSalesToday: deliveredToday || 13500,
-        retailerOutstanding: 5930000,
+        lowStockItems: pulseRes?.inventory?.lowStockCount || 0,
+        deliveredSalesToday: pulseRes?.todaySales?.deliveredPaise || deliveredToday || 13500,
+        retailerOutstanding: pulseRes?.todayCollections?.netCashInHandPaise || 5930000,
         pickingPacking: picking,
         outForDelivery: outForDelivery,
-        exceptions: 0,
+        exceptions: excRes?.exceptions?.length || 0,
       });
     } catch (err: any) {
       console.error(err);
@@ -408,6 +433,8 @@ export default function DashboardPage() {
 
           const visibleTabs = [
             ...(isOwnerOrAdmin ? [{ id: 'overview', label: 'Overview', icon: Building }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'control_room', label: 'Control Room', icon: DollarSign }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'exceptions', label: `Exceptions (${exceptionsList.length})`, icon: AlertTriangle }] : []),
             { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
             ...(isOwnerOrAdmin || isDelivery ? [{ id: 'handovers', label: `Cash Handover (${handovers.filter(h => h.status === 'PENDING').length})`, icon: Wallet }] : []),
             ...(isOwnerOrAdmin || isWarehouse || isSales ? [{ id: 'products', label: `Products (${products.length})`, icon: Truck }] : []),
@@ -549,6 +576,166 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 1.1 OWNER CONTROL ROOM TAB */}
+        {activeTab === 'control_room' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Owner Control Room</h1>
+                <p className="text-xs sm:text-sm text-slate-500">Live operational command center for daily wholesale & cash flow control</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/api/reports/printable/daily-closing"
+                  target="_blank"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Print Daily Closing Slip
+                </a>
+              </div>
+            </div>
+
+            {/* Live Financial & Ops Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Booked Sales Today</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-blue-600">
+                  ₹{((controlRoomData?.todaySales?.bookedPaise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">{controlRoomData?.todaySales?.totalOrders || 0} Total Orders Booked</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Cash Collected</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-emerald-600">
+                  ₹{((controlRoomData?.todayCollections?.cashCollectedPaise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Net in Hand: ₹{((controlRoomData?.todayCollections?.netCashInHandPaise || 0) / 100).toLocaleString('en-IN')}</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Pending Approvals</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-amber-600">
+                  {controlRoomData?.todaySales?.pendingApprovals || 0}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Awaiting owner sign-off</p>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase">Critical Low Stock</span>
+                <div className="mt-1.5 text-2xl font-extrabold text-rose-600">
+                  {controlRoomData?.inventory?.lowStockCount || 0} SKUs
+                </div>
+                <p className="mt-1 text-xs text-slate-400">{controlRoomData?.inventory?.outOfStockCount || 0} Out of Stock</p>
+              </div>
+            </div>
+
+            {/* Split Sections: Top Overdue Retailers & Tomorrow Purchase Suggestions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Overdue Retailers Card */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                    <Store className="w-4 h-4 text-purple-600" />
+                    Top Overdue Retailers
+                  </h3>
+                  <span className="text-xs text-slate-400">Credit Risk Watch</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {controlRoomData?.topOverdueRetailers?.length === 0 ? (
+                    <p className="py-4 text-center text-xs text-slate-400">No overdue balances recorded</p>
+                  ) : (
+                    controlRoomData?.topOverdueRetailers?.map((r: any) => (
+                      <div key={r.id} className="py-2.5 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{r.name}</p>
+                          <p className="text-slate-400 text-[11px]">{r.contact_number || 'No phone'} • Beat: {r.beat_id}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-rose-600">₹{(r.outstanding_amount_paise / 100).toFixed(2)}</p>
+                          <p className="text-slate-400 text-[10px]">Limit: ₹{(r.credit_limit_paise / 100).toFixed(0)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Tomorrow Purchase Suggestions */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                    Tomorrow Purchase Suggestions
+                  </h3>
+                  <span className="text-xs text-slate-400">Inventory Reorder</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {controlRoomData?.tomorrowPurchaseSuggestions?.length === 0 ? (
+                    <p className="py-4 text-center text-xs text-slate-400">Inventory levels are healthy</p>
+                  ) : (
+                    controlRoomData?.tomorrowPurchaseSuggestions?.map((p: any) => (
+                      <div key={p.id} className="py-2.5 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{p.name}</p>
+                          <p className="text-slate-400 text-[11px]">SKU: {p.sku} • Stock: <span className="font-semibold text-amber-600">{p.stock_quantity} {p.unit}</span></p>
+                        </div>
+                        <div className="text-right">
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[11px] rounded-md border border-emerald-200">
+                            Reorder {p.stock_quantity <= 10 ? 50 : 30} {p.unit}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 1.2 EXCEPTION CENTER TAB */}
+        {activeTab === 'exceptions' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Central Exception Center</h1>
+                <p className="text-xs sm:text-sm text-slate-500">Live operational issues requiring manager/owner intervention</p>
+              </div>
+              <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl self-start">
+                {exceptionsList.length} Active Problems
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {exceptionsList.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 text-sm">
+                  🎉 Zero exceptions detected! Daily warehouse and delivery cycle is running smoothly.
+                </div>
+              ) : (
+                exceptionsList.map((exc, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-start gap-3.5">
+                    <div className={`p-2.5 rounded-xl shrink-0 ${exc.severity === 'HIGH' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-bold text-slate-900 text-sm">{exc.title}</p>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${exc.severity === 'HIGH' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {exc.severity}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-xs mt-1">{exc.description}</p>
+                      <p className="text-slate-400 text-[10px] mt-1.5 font-mono">Alert Type: {exc.type}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

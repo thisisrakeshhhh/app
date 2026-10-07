@@ -160,18 +160,46 @@ Unlike heavy corporate enterprise software (Bizom, FieldAssist) or single-shop b
 
 ---
 
-## 7. Production Readiness Matrix
+## 7. Daily Operating System: 10 Core Business Modules
+
+RouteFlow integrates 10 daily operational modules purpose-built for FMCG & kirana distributors managing daily sales & warehouse dispatch:
+
+1. **Owner Control Room (`/control-room/pulse`)**:
+   - Live command center showing today's booked sales, settled cash, pending approvals, driver cash handovers, failed deliveries, critical low stock, active salesmen/drivers on shift, top overdue retailers, and tomorrow's purchase suggestions.
+2. **Daily Opening & Night Closing Day Book (`/day-book/today` & `/day-book/checklist`)**:
+   - **Morning Opening Checklist**: Verification of pending orders, packed dispatches, low stock, staff attendance, and delivery route readiness.
+   - **Night Closing Snapshot**: Aggregated daily sales totals, collections by mode (Cash, UPI, Cheque), cash handover settlement, undelivered returns, and next-day tasks.
+3. **Central Exception Center (`/exceptions/feed`)**:
+   - Aggregates operational friction points in real-time: failed deliveries, unverified UPI/Cheque entries, pending driver cash handovers, out-of-stock SKUs, near-expiry product batches, and retailers exceeding 80% credit limit.
+4. **Retailer 360 Profile (`/retailers/:id/360`)**:
+   - Comprehensive customer dossier: GPS coordinates, credit limits, ledger balance, order history, last ordered items with 1-click repeat reorder, visit history notes, and dynamic WhatsApp statement share links (`wa.me`).
+5. **Godown Control & Movement Ledger (`/godown/movement-ledger`)**:
+   - Live movement tracking across inward supplier GRNs, physical stock audit adjustments, and damaged/returned items.
+6. **Delivery Control & Dispatch Sequencing (`/trips`)**:
+   - Delivery route sequencing, assigned vehicles, live order delivery statuses, partial deliveries, failure reason categorization, and driver-held return custody.
+7. **Cash Control & Daily Cash Book (`/cash-control/daily-book` & `/cash-control/expenses`)**:
+   - Tracks cash inflow vs business expenses (fuel, loading/unloading, vehicle repair, petty cash) with net cash in hand calculations and owner reconciliation.
+8. **Purchase Planning Engine (`/purchase-planning/suggestions`)**:
+   - Detects fast-moving products and low inventory, generating suggested purchase order unit quantities and estimated procurement costs.
+9. **Staff Control & Attendance (`/staff-control/summary`)**:
+   - Shift start/end times, real-time on-shift status, shop visits logged, and field activity summaries.
+10. **Reports & Printable Slips (`/reports/printable/:docType`)**:
+    - Browser print-ready and PDF-styled documents for Daily Business Closing Slips, Retailer Account Statements, and Tax Invoices.
+
+---
+
+## 8. Production Readiness Matrix
 
 | Milestone | Status | Key Deliverables & Validation |
 |---|:---:|---|
 | **Client Demo** | 🟢 **100% READY** | Dual-platform Web + Android APK verified on physical Vivo phone, English/Hindi localization, complete 7-step business flow. |
-| **Paid Pilot** | 🟢 **READY** | Hardcore tested empty business setup, isolated D1 database, multi-role auth, CSV export, audit logs, inward GRN. |
+| **Paid Pilot** | 🟢 **READY** | Hardcore tested empty business setup, Owner Control Room, Daily Day Book closing, isolated D1 database, multi-role auth, CSV export, audit logs, inward GRN. |
 | **Play Store Launch** | 🟡 **COMPLIANCE READY** | Public Privacy Policy live at `/privacy`, Data Safety documentation complete, quick-fill login disabled in release builds. Needs signed Keystore `.jks`. |
 | **Enterprise Production**| 🟢 **READY** | Cloudflare Workers & D1 serverless scale, atomic stock reservations, fraud-prevention payment queues, full CSV/JSON backup. |
 
 ---
 
-## 8. How to Run & Deploy
+## 9. How to Run & Deploy
 
 ```bash
 # Backend (Cloudflare Workers)
