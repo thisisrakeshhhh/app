@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch, getStoredUser, clearSession, User } from '@/lib/api';
+import { apiFetch, getStoredUser, clearSession, User, API_BASE, getStoredToken } from '@/lib/api';
 import {
   Truck,
   Package,
@@ -123,6 +123,9 @@ export default function DashboardPage() {
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [assigningLoading, setAssigningLoading] = useState(false);
 
+  // Reports Tab State
+  const [selectedReportRetailerId, setSelectedReportRetailerId] = useState<string>('');
+
   useEffect(() => {
     const u = getStoredUser();
     if (!u) {
@@ -162,7 +165,11 @@ export default function DashboardPage() {
 
       // 4. Fetch Retailers
       const retRes = await apiFetch<any>('/retailers').catch(() => ({ retailers: [] }));
-      setRetailers(Array.isArray(retRes) ? retRes : retRes.retailers || []);
+      const retList = Array.isArray(retRes) ? retRes : retRes.retailers || [];
+      setRetailers(retList);
+      if (retList.length > 0 && !selectedReportRetailerId) {
+        setSelectedReportRetailerId(retList[0].id);
+      }
 
       // 5. Fetch Delivery Executives
       const devRes = await apiFetch<any>('/delivery-executives').catch(() => []);
@@ -609,14 +616,17 @@ export default function DashboardPage() {
                 <p className="text-xs sm:text-sm text-slate-500">Live operational command center for daily wholesale & cash flow control</p>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href="/api/reports/printable/daily-closing"
-                  target="_blank"
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+                <button
+                  onClick={() => {
+                    const token = getStoredToken();
+                    const url = `${API_BASE}/reports/printable/daily-closing${token ? `?token=${token}` : ''}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   Print Daily Closing Slip
-                </a>
+                </button>
               </div>
             </div>
 
@@ -878,13 +888,16 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-slate-900 text-sm">Daily Business Closing Slip</h3>
                   <p className="text-xs text-slate-500 mt-1">Official end-of-day summary with booked sales, cash/UPI collections, expenses and stock deductions.</p>
                 </div>
-                <a
-                  href="/api/reports/printable/daily-closing"
-                  target="_blank"
-                  className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition"
+                <button
+                  onClick={() => {
+                    const token = getStoredToken();
+                    const url = `${API_BASE}/reports/printable/daily-closing${token ? `?token=${token}` : ''}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition cursor-pointer"
                 >
                   View & Print Closing Slip
-                </a>
+                </button>
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 flex flex-col justify-between">
@@ -894,14 +907,41 @@ export default function DashboardPage() {
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm">Retailer Ledger Statement</h3>
                   <p className="text-xs text-slate-500 mt-1">Full statement showing invoices, payments, returns, and outstanding credit balance for kirana shops.</p>
+                  
+                  <div className="mt-3">
+                    <label className="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Select Retailer:</label>
+                    <select
+                      value={selectedReportRetailerId}
+                      onChange={(e) => setSelectedReportRetailerId(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition cursor-pointer"
+                    >
+                      {retailers.length === 0 ? (
+                        <option value="">No retailers available</option>
+                      ) : (
+                        retailers.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} ({r.contact_number || r.beat_id || 'Shop'})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
                 </div>
-                <a
-                  href="/api/reports/printable/retailer-ledger?id=ret_001"
-                  target="_blank"
-                  className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition"
+                <button
+                  onClick={() => {
+                    if (!selectedReportRetailerId) {
+                      alert('Please select a retailer first');
+                      return;
+                    }
+                    const token = getStoredToken();
+                    const url = `${API_BASE}/reports/printable/retailer-ledger?id=${selectedReportRetailerId}${token ? `&token=${token}` : ''}`;
+                    window.open(url, '_blank');
+                  }}
+                  disabled={!selectedReportRetailerId}
+                  className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl text-center shadow-xs transition cursor-pointer"
                 >
-                  View Sample Retailer Statement
-                </a>
+                  View Retailer Statement
+                </button>
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 flex flex-col justify-between">

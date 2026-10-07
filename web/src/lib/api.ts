@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://routeflow-api-staging.thisisrakesh21.workers.dev';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://routeflow-api-staging.thisisrakesh21.workers.dev';
 
 export interface User {
   id: string;

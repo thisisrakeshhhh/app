@@ -75,11 +75,13 @@ async function verifyPassword(plain: string, hash: string): Promise<boolean> {
 // Authentication Middleware with Live DB Permissions and Session Validation
 const authMiddleware = async (c: any, next: any) => {
   const authHeader = c.req.header('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  if (!token) {
+    token = c.req.query('token') || null;
+  }
+  if (!token) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
-
-  const token = authHeader.split(' ')[1];
   let verified: any = null;
   try {
     verified = await verify(token, c.env.JWT_SECRET);
