@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -134,12 +135,52 @@ fun SalesCollectionsScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(retailers, key = { it.id }) { retailer ->
-                    RetailerCollectionCard(
-                        retailer = retailer,
-                        onCollect = { selectedRetailerForCollection = retailer },
-                        onViewLedger = { selectedRetailerForLedger = retailer }
-                    )
+                if (retailers.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Store,
+                                    contentDescription = null,
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = "No shops assigned yet",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "Ask Owner/Admin to assign a beat or add retailers",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = RFColors.TextSecondary,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(retailers, key = { it.id }) { retailer ->
+                        RetailerCollectionCard(
+                            retailer = retailer,
+                            onCollect = { selectedRetailerForCollection = retailer },
+                            onViewLedger = { selectedRetailerForLedger = retailer }
+                        )
+                    }
                 }
             }
         }

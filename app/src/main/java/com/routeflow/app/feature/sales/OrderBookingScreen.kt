@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
 import com.routeflow.app.core.design.RFColors
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderBookingScreen(
     state: OrderBookingState,
@@ -39,7 +41,8 @@ fun OrderBookingScreen(
     onCategorySelect: (String?) -> Unit,
     onQuantityChange: (String, Int) -> Unit,
     onSubmit: () -> Unit,
-    onAddNewProduct: ((name: String, category: String, unit: String, priceRupees: Double, stock: Int) -> Unit)? = null
+    onAddNewProduct: ((name: String, category: String, unit: String, priceRupees: Double, stock: Int) -> Unit)? = null,
+    onRetailerSelect: ((String) -> Unit)? = null
 ) {
     var showAddProductDialog by remember { mutableStateOf(false) }
 
@@ -47,11 +50,110 @@ fun OrderBookingScreen(
         LoadingState(Modifier.fillMaxSize())
     } else {
         Column(Modifier.fillMaxSize().imePadding()) {
+            // Retailer Banner / Selector
+            if (state.isRetailerSelectionRequired) {
+                var expanded by remember { mutableStateOf(false) }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Target Retailer Shop",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RFColors.TextSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        if (state.assignedRetailers.isEmpty()) {
+                            Text(
+                                text = "No shops assigned yet",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFDC2626),
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            ExposedDropdownMenuBox(
+                                expanded = expanded,
+                                onExpandedChange = { expanded = !expanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = state.selectedRetailer?.name ?: "Select Retailer",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                    leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = RFColors.Accent) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    state.assignedRetailers.forEach { retailer ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Column {
+                                                    Text(retailer.name, fontWeight = FontWeight.Bold)
+                                                    Text(retailer.address, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                                }
+                                            },
+                                            onClick = {
+                                                onRetailerSelect?.invoke(retailer.id)
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (state.selectedRetailer != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = state.selectedRetailer.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E40AF)
+                            )
+                            Text(
+                                text = state.selectedRetailer.address,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF475569)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Search Bar & Optional Add Product Button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(

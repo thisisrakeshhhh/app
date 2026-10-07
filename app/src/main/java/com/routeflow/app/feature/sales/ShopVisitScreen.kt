@@ -69,8 +69,18 @@ fun ShopVisitScreen(
         }
     }
 
-    if (state.isLoading || state.retailer == null) {
+    if (state.isLoading) {
         LoadingState(Modifier.fillMaxSize())
+    } else if (state.retailer == null) {
+        Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(56.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Shop Not Found", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = RFColors.TextPrimary)
+                Spacer(Modifier.height(6.dp))
+                Text("This retailer is not assigned to your beat or has been removed.", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
     } else {
         val retailer = state.retailer
         val isCheckedIn = state.activeVisit != null

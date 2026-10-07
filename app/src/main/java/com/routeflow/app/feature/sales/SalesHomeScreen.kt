@@ -11,10 +11,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
@@ -224,17 +226,45 @@ fun SalesHomeScreen(
                                 color = Color(0xFF15803D)
                             )
                         }
-                        Surface(
-                            color = Color(0xFFDCFCE7),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = state.beatName,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF166534),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (state.isOfflineCache && state.totalShops > 0) {
+                                Surface(
+                                    color = Color(0xFFFEF3C7),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudOff,
+                                            contentDescription = null,
+                                            tint = Color(0xFFB45309),
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            text = "Offline copy",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFB45309)
+                                        )
+                                    }
+                                }
+                            }
+                            Surface(
+                                color = Color(0xFFDCFCE7),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = state.beatName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF166534),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
                         }
                     }
 
@@ -297,6 +327,44 @@ fun SalesHomeScreen(
                                 modifier = Modifier.size(18.dp),
                                 tint = Color.White
                             )
+                        }
+                    } else if (state.totalShops == 0) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Store,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "No shops assigned yet",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Ask Owner/Admin to assign a beat or add retailers",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = RFColors.TextSecondary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = onSyncNow,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB))
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Sync Again", fontWeight = FontWeight.Bold)
+                            }
                         }
                     } else {
                         // All shops visited

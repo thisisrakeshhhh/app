@@ -206,6 +206,7 @@ class Migration7To8Test {
         val v7Db = openHelper.writableDatabase
 
         // Insert representative version 7 rows
+        v7Db.execSQL("INSERT INTO retailers (id, name, beatId, address, contactNumber, latitude, longitude, creditLimitPaise, outstandingAmountPaise) VALUES ('ret_1', 'Retailer One', 'BEAT-01', 'Test Address', '9999999999', 26.85, 75.76, 500000, 0)")
         v7Db.execSQL("INSERT INTO orders (id, retailerId, employeeId, status, totalAmountPaise, createdAt, updatedAt) VALUES ('ord_101', 'ret_1', 'user_sales', 'SUBMITTED', 45000, 1000, 1000)")
         v7Db.execSQL("INSERT INTO order_items (id, orderId, productId, quantity, freeQuantity, pricePaiseAtTime, isPicked) VALUES ('item_101', 'ord_101', 'prod_1', 2, 0, 22500, 0)")
         v7Db.execSQL("INSERT INTO visits (id, retailerId, employeeId, checkInTime, checkOutTime, latitude, longitude, accuracy, status) VALUES ('vis_101', 'ret_1', 'user_sales', 2000, 2900, 26.85, 75.76, 10.0, 'COMPLETED')")
@@ -221,14 +222,15 @@ class Migration7To8Test {
                 RouteFlowDatabase.MIGRATION_5_6,
                 RouteFlowDatabase.MIGRATION_6_7,
                 RouteFlowDatabase.MIGRATION_7_8,
-                RouteFlowDatabase.MIGRATION_8_9
+                RouteFlowDatabase.MIGRATION_8_9,
+                RouteFlowDatabase.MIGRATION_9_10
             )
             .allowMainThreadQueries()
             .build()
 
-        // Room will validate schema at version 9
+        // Room will validate schema at version 10
         val openDb = roomDb.openHelper.writableDatabase
-        assertEquals(9, openDb.version)
+        assertEquals(10, openDb.version)
 
         // Step 3: Verify existing data survived and migrated columns have expected defaults
         // A. Orders & Order Items
@@ -260,9 +262,16 @@ class Migration7To8Test {
         assertEquals("ENTERED", colCursor.getString(1))
         assertNull(colCursor.getString(2))
         assertEquals("REC-001", colCursor.getString(3))
-        colCursor.close()
+        // E. Retailers: check companyId='', lastSyncedAt=0, source='SERVER'
+        val retCursor = openDb.query("SELECT id, companyId, lastSyncedAt, source FROM retailers WHERE id='ret_1'")
+        assertTrue(retCursor.moveToFirst())
+        assertEquals("ret_1", retCursor.getString(0))
+        assertEquals("", retCursor.getString(1))
+        assertEquals(0L, retCursor.getLong(2))
+        assertEquals("SERVER", retCursor.getString(3))
+        retCursor.close()
 
-        // E. New tables: local_shifts and field_records exist and functional
+        // F. New tables: local_shifts and field_records exist and functional
         val fieldDao: FieldRecordDao = roomDb.fieldRecordDao()
         val shift = LocalShiftEntity(
             id = "shift_mig_1",

@@ -41,7 +41,7 @@ import com.routeflow.app.core.database.entity.VisitEntity
         CollectionRecordEntity::class,
         com.routeflow.app.core.database.entity.StockCheckEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -59,6 +59,14 @@ abstract class RouteFlowDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "routeflow_db"
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `retailers` ADD COLUMN `companyId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `retailers` ADD COLUMN `lastSyncedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `retailers` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'SERVER'")
+            }
+        }
 
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {

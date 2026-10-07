@@ -20,12 +20,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,7 +54,8 @@ fun RetailerListScreen(
     onRetailerClick: (String) -> Unit,
     onStartShift: (() -> Unit)? = null,
     onAddRetailer: ((name: String, address: String, contact: String, lat: Double?, lng: Double?) -> Unit)? = null,
-    onClearMessages: (() -> Unit)? = null
+    onClearMessages: (() -> Unit)? = null,
+    onSyncAgain: (() -> Unit)? = null
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -151,6 +155,33 @@ fun RetailerListScreen(
                                     )
                                 }
                             }
+
+                            if (state.isOfflineCache && state.retailers.isNotEmpty()) {
+                                Surface(
+                                    color = Color(0xFFFEF3C7),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudOff,
+                                            contentDescription = null,
+                                            tint = Color(0xFFB45309),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = "Offline copy",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFB45309)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -205,8 +236,60 @@ fun RetailerListScreen(
                     }
                 }
 
-                items(state.retailers, key = { it.retailer.id }) { item ->
-                    RetailerCard(item, onRetailerClick)
+                if (state.retailers.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Store,
+                                    contentDescription = null,
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = "No shops assigned yet",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "Ask Owner/Admin to assign a beat or add retailers",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = RFColors.TextSecondary,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                if (onSyncAgain != null) {
+                                    Spacer(Modifier.height(16.dp))
+                                    OutlinedButton(
+                                        onClick = onSyncAgain,
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB))
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Sync Again", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    items(state.retailers, key = { it.retailer.id }) { item ->
+                        RetailerCard(item, onRetailerClick)
+                    }
                 }
             }
 

@@ -13,5 +13,8 @@ data class RetailerEntity(
     val latitude: Double,
     val longitude: Double,
     val creditLimitPaise: Long,
-    val outstandingAmountPaise: Long
+    val outstandingAmountPaise: Long,
+    val companyId: String = "",
+    val lastSyncedAt: Long = 0L,
+    val source: String = "SERVER"
 )

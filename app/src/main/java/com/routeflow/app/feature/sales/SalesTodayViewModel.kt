@@ -110,6 +110,20 @@ class SalesTodayViewModel @Inject constructor(
         }
     }
 
+    fun syncRetailers() {
+        viewModelScope.launch {
+            _uiStatus.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = retailerRepository.syncRetailersFromServer()
+            _uiStatus.update {
+                it.copy(
+                    isLoading = false,
+                    message = if (result.isSuccess) "Shops updated" else null,
+                    errorMessage = if (result.isFailure) "Sync failed (Offline copy in use)" else null
+                )
+            }
+        }
+    }
+
     fun clearMessages() {
         _uiStatus.update { it.copy(message = null, errorMessage = null) }
     }

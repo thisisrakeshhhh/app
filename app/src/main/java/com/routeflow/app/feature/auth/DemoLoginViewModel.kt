@@ -71,6 +71,9 @@ class DemoLoginViewModel @Inject constructor(
                 }
 
                 if (role != null) {
+                    if (!demoRepository.isDemoDataSeeded()) {
+                        demoRepository.seedDemoData()
+                    }
                     val employee = employeeRepository.getDemoEmployees().find { it.role == role }
                     if (employee != null) {
                         sessionRepository.login(employee)

@@ -20,11 +20,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RetailerListState(
-    val beatName: String = "Sector Beat — BEAT-04",
+    val beatName: String = "Assigned Beat",
     val isOnShift: Boolean = false,
     val retailers: List<RetailerItemState> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val isOfflineCache: Boolean = false,
     val message: String? = null,
     val error: String? = null
 )
@@ -46,6 +47,8 @@ class RetailerListViewModel @Inject constructor(
     private val _isSaving = MutableStateFlow(false)
     private val _message = MutableStateFlow<String?>(null)
     private val _error = MutableStateFlow<String?>(null)
+    private val _isOffline = MutableStateFlow(false)
+    private val _isRefreshing = MutableStateFlow(false)
 
     private val employeeVisits = sessionRepository.activeEmployee.flatMapLatest { emp ->
         if (emp != null) visitDao.getVisitsByEmployee(emp.id)
@@ -58,12 +61,14 @@ class RetailerListViewModel @Inject constructor(
     }
 
     val state: StateFlow<RetailerListState> = combine(
-        retailerRepository.getRetailersByBeat("BEAT-04"),
+        retailerRepository.getAllRetailers(),
         shiftRepository.activeShift,
         employeeVisits,
         activeVisitFlow,
-        combine(_isSaving, _message, _error) { isSaving, message, error -> Triple(isSaving, message, error) }
-    ) { retailers, shift, visits, activeVisit, (isSaving, message, error) ->
+        combine(_isSaving, _message, _error, _isOffline, _isRefreshing) { isSaving, message, error, isOffline, isRefreshing ->
+            StateExtras(isSaving, message, error, isOffline, isRefreshing)
+        }
+    ) { retailers, shift, visits, activeVisit, extras ->
         val isOnShift = shift != null && shift.status == "ON_SHIFT"
         val completedRetailerIds = visits.filter { it.status == "COMPLETED" }.map { it.retailerId }.toSet()
         val activeRetailerId = activeVisit?.retailerId
@@ -82,20 +87,36 @@ class RetailerListViewModel @Inject constructor(
             )
         }
 
+        val beatName = retailers.firstOrNull()?.beatId?.let { "Assigned Beat — $it" } ?: "Assigned Beat"
+
         RetailerListState(
-            beatName = "Sector Beat — BEAT-04",
+            beatName = beatName,
             isOnShift = isOnShift,
             retailers = items,
-            isLoading = false,
-            isSaving = isSaving,
-            message = message,
-            error = error
+            isLoading = extras.isRefreshing && items.isEmpty(),
+            isSaving = extras.isSaving,
+            isOfflineCache = extras.isOffline,
+            message = extras.message,
+            error = extras.error
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = RetailerListState(isLoading = true)
     )
+
+    init {
+        refreshRetailers()
+    }
+
+    fun refreshRetailers() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val result = retailerRepository.syncRetailersFromServer()
+            _isOffline.value = result.isFailure
+            _isRefreshing.value = false
+        }
+    }
 
     fun startShift(lat: Double? = null, lng: Double? = null) {
         viewModelScope.launch {
@@ -115,10 +136,13 @@ class RetailerListViewModel @Inject constructor(
             _message.value = null
             _error.value = null
 
+            val currentRetailers = state.value.retailers
+            val beatId = currentRetailers.firstOrNull()?.retailer?.beatId ?: "BEAT-01"
+
             val req = CreateRetailerRequest(
                 id = "RET-${System.currentTimeMillis().toString().takeLast(6)}",
                 name = name.trim(),
-                beatId = "BEAT-04",
+                beatId = beatId,
                 address = address.trim(),
                 contactNumber = contactNumber.trim(),
                 creditLimitPaise = 500000L,
@@ -141,4 +165,12 @@ class RetailerListViewModel @Inject constructor(
         _message.value = null
         _error.value = null
     }
+
+    private data class StateExtras(
+        val isSaving: Boolean,
+        val message: String?,
+        val error: String?,
+        val isOffline: Boolean,
+        val isRefreshing: Boolean
+    )
 }

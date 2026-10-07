@@ -1,10 +1,13 @@
 package com.routeflow.app.data.repository
 
+import androidx.room.withTransaction
+import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.RetailerDao
 import com.routeflow.app.core.database.entity.RetailerEntity
 import com.routeflow.app.core.network.api.RouteFlowApi
 import com.routeflow.app.core.network.dto.CreateRetailerRequest
 import com.routeflow.app.core.network.dto.UpdateRetailerRequest
+import com.routeflow.app.core.security.TokenStorage
 import com.routeflow.app.domain.model.Retailer
 import com.routeflow.app.domain.repository.RetailerRepository
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +16,9 @@ import javax.inject.Inject
 
 class OfflineRetailerRepository @Inject constructor(
     private val retailerDao: RetailerDao,
-    private val api: RouteFlowApi
+    private val api: RouteFlowApi,
+    private val tokenStorage: TokenStorage,
+    private val database: RouteFlowDatabase
 ) : RetailerRepository {
     override fun getAllRetailers(): Flow<List<Retailer>> =
         retailerDao.getAllRetailers().map { entities ->
@@ -48,6 +53,7 @@ class OfflineRetailerRepository @Inject constructor(
 
     private suspend fun saveLocalRetailer(request: CreateRetailerRequest) {
         val id = request.id ?: "RET-${System.currentTimeMillis()}"
+        val companyId = tokenStorage.getCompanyId() ?: ""
         val entity = RetailerEntity(
             id = id,
             name = request.name,
@@ -57,7 +63,10 @@ class OfflineRetailerRepository @Inject constructor(
             latitude = request.latitude ?: 0.0,
             longitude = request.longitude ?: 0.0,
             creditLimitPaise = request.creditLimitPaise,
-            outstandingAmountPaise = 0L
+            outstandingAmountPaise = 0L,
+            companyId = companyId,
+            lastSyncedAt = System.currentTimeMillis(),
+            source = "LOCAL"
         )
         retailerDao.insertRetailers(listOf(entity))
     }
@@ -76,6 +85,8 @@ class OfflineRetailerRepository @Inject constructor(
 
     override suspend fun syncRetailersFromServer(): Result<Unit> = try {
         val retailersDto = api.getRetailers()
+        val companyId = tokenStorage.getCompanyId() ?: ""
+        val syncTimestamp = System.currentTimeMillis()
         val entities = retailersDto.map { dto ->
             RetailerEntity(
                 id = dto.id,
@@ -86,10 +97,16 @@ class OfflineRetailerRepository @Inject constructor(
                 latitude = dto.latitude ?: 0.0,
                 longitude = dto.longitude ?: 0.0,
                 creditLimitPaise = dto.creditLimitPaise,
-                outstandingAmountPaise = dto.outstandingAmountPaise
+                outstandingAmountPaise = dto.outstandingAmountPaise,
+                companyId = companyId,
+                lastSyncedAt = syncTimestamp,
+                source = "SERVER"
             )
         }
-        retailerDao.insertRetailers(entities)
+        database.withTransaction {
+            retailerDao.deleteServerRetailers()
+            retailerDao.insertRetailers(entities)
+        }
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
@@ -105,7 +122,10 @@ private fun RetailerEntity.asDomainModel() = Retailer(
     latitude = latitude,
     longitude = longitude,
     creditLimitPaise = creditLimitPaise,
-    outstandingAmountPaise = outstandingAmountPaise
+    outstandingAmountPaise = outstandingAmountPaise,
+    companyId = companyId,
+    lastSyncedAt = lastSyncedAt,
+    source = source
 )
 
 private fun Retailer.asEntity() = RetailerEntity(
@@ -117,5 +137,8 @@ private fun Retailer.asEntity() = RetailerEntity(
     latitude = latitude,
     longitude = longitude,
     creditLimitPaise = creditLimitPaise,
-    outstandingAmountPaise = outstandingAmountPaise
+    outstandingAmountPaise = outstandingAmountPaise,
+    companyId = companyId,
+    lastSyncedAt = lastSyncedAt,
+    source = source
 )

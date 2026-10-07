@@ -608,7 +608,8 @@ fun RouteFlowApp(
                     onStartShift = { viewModel.startShift() },
                     onEndShift = { viewModel.endShift() },
                     onRetailerClick = { id -> navController.navigate("sales/visit/$id") },
-                    onClearMessages = viewModel::clearMessages
+                    onClearMessages = viewModel::clearMessages,
+                    onSyncAgain = { viewModel.syncRetailers() }
                 )
             }
 
@@ -622,7 +623,8 @@ fun RouteFlowApp(
                     onAddRetailer = { name, address, contact, lat, lng ->
                         viewModel.createRetailer(name, address, contact, lat, lng)
                     },
-                    onClearMessages = { viewModel.clearMessages() }
+                    onClearMessages = { viewModel.clearMessages() },
+                    onSyncAgain = { viewModel.refreshRetailers() }
                 )
             }
 
@@ -736,7 +738,8 @@ fun RouteFlowApp(
                         onCategorySelect = viewModel::selectCategory,
                         onQuantityChange = viewModel::updateQuantity,
                         onSubmit = viewModel::submitOrder,
-                        onAddNewProduct = viewModel::addNewProduct
+                        onAddNewProduct = viewModel::addNewProduct,
+                        onRetailerSelect = viewModel::selectRetailer
                     )
                 }
             }

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Store
@@ -38,7 +39,8 @@ fun SalesTodayScreen(
     onStartShift: () -> Unit,
     onEndShift: () -> Unit,
     onRetailerClick: (String) -> Unit,
-    onClearMessages: () -> Unit
+    onClearMessages: () -> Unit,
+    onSyncAgain: (() -> Unit)? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var blockedVisitRetailerName by remember { mutableStateOf<String?>(null) }
@@ -166,12 +168,45 @@ fun SalesTodayScreen(
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
-                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "No shops assigned to your beat.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = RFColors.TextSecondary
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Store,
+                                contentDescription = null,
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(48.dp)
                             )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = "No shops assigned yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Ask Owner/Admin to assign a beat or add retailers",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = RFColors.TextSecondary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            if (onSyncAgain != null) {
+                                Spacer(Modifier.height(16.dp))
+                                OutlinedButton(
+                                    onClick = onSyncAgain,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB))
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Sync Again", fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }

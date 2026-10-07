@@ -32,7 +32,7 @@ data class SalesOrderSummary(
 )
 
 data class SalesHomeState(
-    val beatName: String = "Sector Beat — BEAT-04",
+    val beatName: String = "Assigned Beat",
     val isOnShift: Boolean = false,
     val shopsVisited: Int = 0,
     val totalShops: Int = 0,
@@ -45,6 +45,7 @@ data class SalesHomeState(
     val recentOrders: List<SalesOrderSummary> = emptyList(),
     val pendingSyncCount: Int = 0,
     val isSyncing: Boolean = false,
+    val isOfflineCache: Boolean = false,
     val isLoading: Boolean = false
 )
 
@@ -58,6 +59,7 @@ class SalesViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _isSyncing = MutableStateFlow(false)
+    private val _isOffline = MutableStateFlow(false)
 
     private val employeeVisits = sessionRepository.activeEmployee.flatMapLatest { emp ->
         if (emp != null) visitDao.getVisitsByEmployee(emp.id)
@@ -77,7 +79,7 @@ class SalesViewModel @Inject constructor(
             .map { it.retailerId }
             .toSet()
 
-        val beatRetailers = allRetailers.filter { it.beatId == "BEAT-04" || it.beatId == "BEAT-01" }.ifEmpty { allRetailers }
+        val beatRetailers = allRetailers
         val visitedCount = beatRetailers.count { completedRetailerIds.contains(it.id) }
         val remainingCount = (beatRetailers.size - visitedCount).coerceAtLeast(0)
         val nextShop = beatRetailers.firstOrNull { !completedRetailerIds.contains(it.id) }
@@ -93,8 +95,10 @@ class SalesViewModel @Inject constructor(
         val userOrders = orders.filter { it.employeeId == employee?.id }
         val todayOrders = userOrders.filter { it.createdAt >= todayStart }
 
+        val beatName = allRetailers.firstOrNull()?.beatId?.let { "Assigned Beat — $it" } ?: "Assigned Beat"
+
         SalesHomeState(
-            beatName = "Sector Beat — BEAT-04",
+            beatName = beatName,
             isOnShift = isOnShift,
             shopsVisited = visitedCount,
             totalShops = beatRetailers.size,
@@ -106,13 +110,15 @@ class SalesViewModel @Inject constructor(
         )
     }
 
+    private val syncStatus = combine(_isSyncing, _isOffline) { isSyncing, isOffline -> isSyncing to isOffline }
+
     val state: StateFlow<SalesHomeState> = combine(
         baseState,
         orderRepository.getAllOrders(),
         orderRepository.getPendingSyncOutbox(),
         retailerRepository.getAllRetailers(),
-        _isSyncing
-    ) { base, orders, pendingSyncs, retailers, isSyncing ->
+        syncStatus
+    ) { base, orders, pendingSyncs, retailers, (isSyncing, isOffline) ->
         val employee = sessionRepository.activeEmployee.value
         val userOrders = orders.filter { it.employeeId == employee?.id }
         val userPendingSyncs = pendingSyncs.filter { it.userId == employee?.id && it.type != "QUARANTINED" }
@@ -144,13 +150,21 @@ class SalesViewModel @Inject constructor(
         base.copy(
             recentOrders = recentOrderSummaries,
             pendingSyncCount = userPendingSyncs.size,
-            isSyncing = isSyncing
+            isSyncing = isSyncing,
+            isOfflineCache = isOffline
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SalesHomeState(isLoading = true)
     )
+
+    init {
+        viewModelScope.launch {
+            val result = retailerRepository.syncRetailersFromServer()
+            _isOffline.value = result.isFailure
+        }
+    }
 
     fun startShift(lat: Double? = null, lng: Double? = null) {
         viewModelScope.launch {
@@ -163,6 +177,8 @@ class SalesViewModel @Inject constructor(
         _isSyncing.value = true
         viewModelScope.launch {
             try {
+                val result = retailerRepository.syncRetailersFromServer()
+                _isOffline.value = result.isFailure
                 orderRepository.syncPendingOrders()
             } finally {
                 _isSyncing.value = false
