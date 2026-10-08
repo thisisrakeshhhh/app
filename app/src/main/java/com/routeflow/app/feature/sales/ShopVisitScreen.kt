@@ -231,7 +231,7 @@ fun ShopVisitScreen(
                             val (label, text, color) = when {
                                 outstanding < 0 -> Triple("Advance Balance", CurrencyFormatter.formatPaise(-outstanding), Color(0xFF15803D))
                                 outstanding > 0 -> Triple("Pending Udhaar", CurrencyFormatter.formatPaise(outstanding), Color(0xFFDC2626))
-                                else -> Triple("Balance", "₹0 (Settled)", Color(0xFF64748B))
+                                else -> Triple("Balance", "No Due", Color(0xFF64748B))
                             }
 
                             Column {
@@ -336,8 +336,8 @@ fun ShopVisitScreen(
                                 Icon(Icons.Default.Store, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text(
-                                    text = "Check In (चेक-इन करें)",
-                                    style = MaterialTheme.typography.titleSmall,
+                                    text = "Check In",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     fontSize = 15.sp
@@ -447,7 +447,7 @@ fun ShopVisitScreen(
                         // Action 3: Collect Payment
                         VisitActionTile(
                             modifier = Modifier.weight(1f),
-                            title = "Collect Udhaar",
+                            title = "Collect Payment",
                             subtitle = "Cash / UPI receipt",
                             icon = Icons.Default.Payments,
                             accentColor = Color(0xFFD97706),
@@ -469,25 +469,25 @@ fun ShopVisitScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    // Final Check Out Button
+                    // Final Big Check Out Button
                     Button(
                         onClick = { showCheckoutConfirmDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
+                            .height(52.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1E293B),
                             contentColor = Color.White
                         )
                     ) {
-                        Icon(Icons.Default.AssignmentTurnedIn, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.AssignmentTurnedIn, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Check Out & Complete Visit",
+                            text = "Check Out",
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
-                            style = MaterialTheme.typography.titleSmall
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                 }

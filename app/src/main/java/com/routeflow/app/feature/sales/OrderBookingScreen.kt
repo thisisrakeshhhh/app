@@ -433,7 +433,7 @@ private fun AddProductDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF2563EB))
                 Spacer(Modifier.width(10.dp))
-                Text("Add Item Option", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Add Item", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             }
         },
         text = {

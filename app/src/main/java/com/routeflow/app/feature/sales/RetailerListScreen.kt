@@ -266,7 +266,7 @@ fun RetailerListScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Ask Owner/Admin to assign a beat or add retailers",
+                                    text = "Ask Owner/Admin to assign your beat.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = RFColors.TextSecondary,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -565,7 +565,7 @@ private fun RetailerCard(
                     val (label, amountText, color) = when {
                         outstanding < 0 -> Triple("Advance Balance", CurrencyFormatter.formatPaise(-outstanding), Color(0xFF15803D))
                         outstanding > 0 -> Triple("Pending Udhaar", CurrencyFormatter.formatPaise(outstanding), Color(0xFFDC2626))
-                        else -> Triple("Balance", "₹0 (Settled)", Color(0xFF64748B))
+                        else -> Triple("Balance", "No Due", Color(0xFF64748B))
                     }
 
                     Text(
@@ -682,17 +682,19 @@ private fun RetailerCard(
 
 @Composable
 private fun VisitStatusBadge(status: String) {
-    val (textRes, bgColor, textColor) = when (status) {
-        "VISITED" -> Triple(R.string.visited, Color(0xFFDCFCE7), Color(0xFF15803D))
-        "IN_PROGRESS", "VISITING" -> Triple(R.string.in_progress, Color(0xFFDBEAFE), Color(0xFF1E40AF))
-        else -> Triple(R.string.pending, Color(0xFFFEF3C7), Color(0xFF92400E))
+    val (text, bgColor, textColor) = when (status) {
+        "ORDERED" -> Triple("Ordered", Color(0xFFDCFCE7), Color(0xFF15803D))
+        "NO_ORDER" -> Triple("No Order", Color(0xFFF1F5F9), Color(0xFF475569))
+        "VISITED" -> Triple("Visited", Color(0xFFDBEAFE), Color(0xFF1D4ED8))
+        "IN_PROGRESS", "VISITING" -> Triple("In Progress", Color(0xFFFEF3C7), Color(0xFFD97706))
+        else -> Triple("Pending", Color(0xFFFFFBEB), Color(0xFFB45309))
     }
     Surface(
         color = bgColor,
         shape = RoundedCornerShape(8.dp)
     ) {
         Text(
-            text = stringResource(textRes),
+            text = text,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,

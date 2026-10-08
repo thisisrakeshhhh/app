@@ -39,6 +39,7 @@ data class SalesHomeState(
     val remainingShops: Int = 0,
     val nextShop: Retailer? = null,
     val pendingCollectionPaise: Long = 0,
+    val todayOrdersCount: Int = 0,
     val todayOrderValuePaise: Long = 0,
     val monthlyTargetPaise: Long = 50000000, // ₹5,00,000
     val currentAchievedPaise: Long = 12500000, // ₹1,25,000
@@ -105,6 +106,7 @@ class SalesViewModel @Inject constructor(
             remainingShops = remainingCount,
             nextShop = nextShop,
             pendingCollectionPaise = pendingUdhaar,
+            todayOrdersCount = todayOrders.size,
             todayOrderValuePaise = todayOrders.sumOf { it.totalAmountPaise },
             isLoading = false
         )

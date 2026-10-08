@@ -6,37 +6,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.routeflow.app.R
@@ -54,15 +40,6 @@ fun SalesProfileScreen(
     onSyncNow: () -> Unit,
     onLogout: () -> Unit
 ) {
-    var showForgotPasswordDialog by remember { mutableStateOf(false) }
-    var showChangePasswordDialog by remember { mutableStateOf(false) }
-    var currentPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var passwordChangeSuccess by remember { mutableStateOf(false) }
-    var passwordError by remember { mutableStateOf<String?>(null) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -77,13 +54,13 @@ fun SalesProfileScreen(
             color = RFColors.TextPrimary
         )
 
-        // 1. Profile Info Card (Tight & Clean)
+        // 1. Profile Info Card (Name & Role)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -93,7 +70,7 @@ fun SalesProfileScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(50.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFEFF6FF)),
                     contentAlignment = Alignment.Center
@@ -101,8 +78,8 @@ fun SalesProfileScreen(
                     Icon(
                         imageVector = Icons.Default.AccountCircle,
                         contentDescription = null,
-                        modifier = Modifier.size(34.dp),
-                        tint = RFColors.Accent
+                        modifier = Modifier.size(36.dp),
+                        tint = Color(0xFF2563EB)
                     )
                 }
                 Spacer(modifier = Modifier.width(14.dp))
@@ -117,12 +94,12 @@ fun SalesProfileScreen(
                         text = stringResource(employee.role.labelRes),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = RFColors.Accent
+                        color = Color(0xFF2563EB)
                     )
                     Text(
-                        text = "ID: ${employee.id} · Active Staff",
+                        text = "ID: ${employee.id} • Active Field Staff",
                         style = MaterialTheme.typography.labelSmall,
-                        color = RFColors.TextSecondary
+                        color = Color(0xFF64748B)
                     )
                 }
             }
@@ -179,7 +156,7 @@ fun SalesProfileScreen(
                 }
             }
 
-            // 3. Today's Field Performance Summary Card
+            // 3. Today's Field Activity Summary (Visits, Orders, Collection)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -229,7 +206,7 @@ fun SalesProfileScreen(
                                 Text("Orders", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    CurrencyFormatter.formatPaise(salesState.todayOrderValuePaise),
+                                    "${salesState.todayOrdersCount}",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF2563EB)
@@ -237,7 +214,7 @@ fun SalesProfileScreen(
                             }
                         }
 
-                        // Beat Udhaar Box
+                        // Collection Pending / Beat Udhaar Box
                         Surface(
                             modifier = Modifier.weight(1f),
                             color = Color(0xFFF8FAFC),
@@ -260,7 +237,7 @@ fun SalesProfileScreen(
             }
         }
 
-        // 4. Offline Sync & Cloud Storage Card
+        // 4. Offline Sync Status Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -274,7 +251,7 @@ fun SalesProfileScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         val pendingCount = salesState?.pendingSyncCount ?: 0
                         Icon(
                             imageVector = if (pendingCount > 0) Icons.Default.CloudUpload else Icons.Default.CloudDone,
@@ -283,12 +260,19 @@ fun SalesProfileScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (pendingCount > 0) "$pendingCount Changes Pending Sync" else "All Local Data Synced",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = RFColors.TextPrimary
-                        )
+                        Column {
+                            Text(
+                                text = if (pendingCount > 0) "$pendingCount Changes Pending Sync" else "All Local Data Synced",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
+                            )
+                            Text(
+                                text = "Cloudflare D1 is source of truth",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF64748B)
+                            )
+                        }
                     }
 
                     Button(
@@ -306,7 +290,7 @@ fun SalesProfileScreen(
             }
         }
 
-        // 5. Language Selector Card
+        // 5. Language Switcher Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -316,7 +300,7 @@ fun SalesProfileScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Language, contentDescription = null, tint = RFColors.Accent, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Language, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.switch_language),
@@ -353,87 +337,52 @@ fun SalesProfileScreen(
             }
         }
 
-        // 6. Security & Password Card
+        // 6. Password Guidance Card (Owner/Admin managed)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Security, contentDescription = null, tint = RFColors.Accent, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
                     Text(
-                        text = stringResource(R.string.security_settings),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Password & Access",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = RFColors.TextPrimary
                     )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            currentPassword = ""
-                            newPassword = ""
-                            confirmPassword = ""
-                            passwordError = null
-                            passwordChangeSuccess = false
-                            showChangePasswordDialog = true
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
-                    ) {
-                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp), tint = RFColors.Accent)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.change_password),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = { showForgotPasswordDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color(0xFFFFFBEB),
-                            contentColor = Color(0xFFB45309)
-                        )
-                    ) {
-                        Text(
-                            text = stringResource(R.string.forgot_password),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFB45309)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Contact Owner/Admin to reset password.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         // 7. Logout Button (>=48dp touch target)
         Button(
             onClick = onLogout,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(50.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFDC2626),
@@ -446,194 +395,5 @@ fun SalesProfileScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-    }
-
-    // Modal: Forgot Password
-    if (showForgotPasswordDialog) {
-        AlertDialog(
-            onDismissRequest = { showForgotPasswordDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = null,
-                    tint = RFColors.Accent,
-                    modifier = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = stringResource(R.string.forgot_password_title),
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = stringResource(R.string.forgot_password_instruction),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = RFColors.TextSecondary
-                    )
-                    Surface(
-                        color = Color(0xFFEFF6FF),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Phone, contentDescription = null, tint = RFColors.Accent, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.admin_contact_notice),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = RFColors.Accent
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showForgotPasswordDialog = false },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
-                ) {
-                    Text(stringResource(R.string.confirm), fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    // Modal: Change Password
-    if (showChangePasswordDialog) {
-        AlertDialog(
-            onDismissRequest = { showChangePasswordDialog = false },
-            title = {
-                Text(
-                    text = stringResource(R.string.change_password),
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (passwordChangeSuccess) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFDCFCE7)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF15803D))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = stringResource(R.string.password_changed_success),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF15803D),
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    } else {
-                        OutlinedTextField(
-                            value = currentPassword,
-                            onValueChange = {
-                                currentPassword = it
-                                passwordError = null
-                            },
-                            label = { Text(stringResource(R.string.current_password)) },
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            trailingIcon = {
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Icon(
-                                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = null
-                                    )
-                                }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = {
-                                newPassword = it
-                                passwordError = null
-                            },
-                            label = { Text(stringResource(R.string.new_password)) },
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = confirmPassword,
-                            onValueChange = {
-                                confirmPassword = it
-                                passwordError = null
-                            },
-                            label = { Text(stringResource(R.string.confirm_new_password)) },
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        passwordError?.let { err ->
-                            Text(
-                                text = err,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = RFColors.Error
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                if (passwordChangeSuccess) {
-                    Button(
-                        onClick = { showChangePasswordDialog = false },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
-                    ) {
-                        Text(stringResource(R.string.confirm), fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            if (currentPassword.isBlank()) {
-                                passwordError = "Current password cannot be blank."
-                            } else if (newPassword.length < 6) {
-                                passwordError = "New password must be at least 6 characters."
-                            } else if (newPassword != confirmPassword) {
-                                passwordError = "New passwords do not match."
-                            } else {
-                                passwordChangeSuccess = true
-                            }
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
-                    ) {
-                        Text(stringResource(R.string.save), fontWeight = FontWeight.Bold)
-                    }
-                }
-            },
-            dismissButton = {
-                if (!passwordChangeSuccess) {
-                    TextButton(onClick = { showChangePasswordDialog = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                }
-            }
-        )
     }
 }

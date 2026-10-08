@@ -165,7 +165,7 @@ fun SalesCollectionsScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Ask Owner/Admin to assign a beat or add retailers",
+                                    text = "Ask Owner/Admin to assign your beat.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = RFColors.TextSecondary,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -281,29 +281,22 @@ private fun RetailerCollectionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
+                    val (label, amountText, color) = when {
+                        isAdvance -> Triple("Advance Balance", "₹${"%,d".format(-outstanding / 100)}", Color(0xFF15803D))
+                        isPendingDue -> Triple("Pending Udhaar", "₹${"%,d".format(outstanding / 100)}", Color(0xFFDC2626))
+                        else -> Triple("Balance", "No Due", Color(0xFF64748B))
+                    }
                     Text(
-                        text = when {
-                            isAdvance -> "Advance Balance (जमा राशि)"
-                            isPendingDue -> "Pending Udhaar (बाकी रकम)"
-                            else -> "Account Balance"
-                        },
+                        text = label,
                         style = MaterialTheme.typography.labelSmall,
                         color = RFColors.TextSecondary
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = when {
-                            isAdvance -> "₹${"%,d".format(-outstanding / 100)}"
-                            isPendingDue -> "₹${"%,d".format(outstanding / 100)}"
-                            else -> "₹0 (Settled)"
-                        },
+                        text = amountText,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
-                        color = when {
-                            isAdvance -> Color(0xFF15803D)
-                            isPendingDue -> Color(0xFFDC2626)
-                            else -> Color(0xFF64748B)
-                        }
+                        color = color
                     )
                 }
 

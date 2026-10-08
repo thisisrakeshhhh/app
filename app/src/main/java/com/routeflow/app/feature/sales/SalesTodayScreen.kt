@@ -190,7 +190,7 @@ fun SalesTodayScreen(
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "Ask Owner/Admin to assign a beat or add retailers",
+                                text = "Ask Owner/Admin to assign your beat.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = RFColors.TextSecondary,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -524,7 +524,7 @@ private fun ShopRowCard(
                 val (balLabel, balValue, balColor) = when {
                     outstanding < 0 -> Triple("Advance:", CurrencyFormatter.formatPaise(-outstanding), Color(0xFF15803D))
                     outstanding > 0 -> Triple("Pending Udhaar:", CurrencyFormatter.formatPaise(outstanding), Color(0xFFDC2626))
-                    else -> Triple("Balance:", "₹0", Color(0xFF64748B))
+                    else -> Triple("Balance:", "No Due", Color(0xFF64748B))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = "$balLabel ", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)

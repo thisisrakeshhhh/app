@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.routeflow.app.domain.repository.OrderRepository
+import java.util.Calendar
 import javax.inject.Inject
 
 data class RetailerListState(
@@ -32,7 +34,7 @@ data class RetailerListState(
 
 data class RetailerItemState(
     val retailer: Retailer,
-    val visitStatus: String = "PENDING", // PENDING, IN_PROGRESS, VISITED
+    val visitStatus: String = "PENDING", // PENDING, IN_PROGRESS, VISITED, ORDERED, NO_ORDER
     val isHighCreditRisk: Boolean = false
 )
 
@@ -41,6 +43,7 @@ class RetailerListViewModel @Inject constructor(
     private val retailerRepository: RetailerRepository,
     private val sessionRepository: SessionRepository,
     private val shiftRepository: ShiftRepository,
+    private val orderRepository: OrderRepository,
     private val visitDao: VisitDao
 ) : ViewModel() {
 
@@ -60,22 +63,42 @@ class RetailerListViewModel @Inject constructor(
         else flowOf(null)
     }
 
+    private val visitInfoFlow = combine(employeeVisits, activeVisitFlow) { visits, activeVisit ->
+        visits to activeVisit
+    }
+
     val state: StateFlow<RetailerListState> = combine(
         retailerRepository.getAllRetailers(),
         shiftRepository.activeShift,
-        employeeVisits,
-        activeVisitFlow,
+        orderRepository.getAllOrders(),
+        visitInfoFlow,
         combine(_isSaving, _message, _error, _isOffline, _isRefreshing) { isSaving, message, error, isOffline, isRefreshing ->
             StateExtras(isSaving, message, error, isOffline, isRefreshing)
         }
-    ) { retailers, shift, visits, activeVisit, extras ->
+    ) { retailers, shift, orders, (visits, activeVisit), extras ->
         val isOnShift = shift != null && shift.status == "ON_SHIFT"
-        val completedRetailerIds = visits.filter { it.status == "COMPLETED" }.map { it.retailerId }.toSet()
         val activeRetailerId = activeVisit?.retailerId
+
+        val todayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val currentEmp = sessionRepository.activeEmployee.value
+        val todayOrders = orders.filter { it.createdAt >= todayStart && (currentEmp == null || it.employeeId == currentEmp.id) }
+        val orderedRetailerIds = todayOrders.map { it.retailerId }.toSet()
+
+        val completedVisits = visits.filter { it.status == "COMPLETED" }
+        val noOrderRetailerIds = completedVisits.filter { !it.noOrderReason.isNullOrBlank() }.map { it.retailerId }.toSet()
+        val completedRetailerIds = completedVisits.map { it.retailerId }.toSet()
 
         val items = retailers.map { retailer ->
             val status = when {
                 activeRetailerId == retailer.id -> "IN_PROGRESS"
+                orderedRetailerIds.contains(retailer.id) -> "ORDERED"
+                noOrderRetailerIds.contains(retailer.id) -> "NO_ORDER"
                 completedRetailerIds.contains(retailer.id) -> "VISITED"
                 else -> "PENDING"
             }
