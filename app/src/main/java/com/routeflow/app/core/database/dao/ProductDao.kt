@@ -27,6 +27,13 @@ interface ProductDao {
     @Query("UPDATE products SET reservedQuantity = :newReserved WHERE id = :productId")
     suspend fun updateReservation(productId: String, newReserved: Int)
 
+    @Query("SELECT * FROM products WHERE barcode = :barcode OR sku = :barcode LIMIT 1")
+    suspend fun getProductByBarcode(barcode: String): ProductEntity?
+
+    @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
+    suspend fun getProductById(productId: String): ProductEntity?
+
     @Query("DELETE FROM products")
     suspend fun deleteAllProducts()
 }
+

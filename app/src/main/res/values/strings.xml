@@ -138,10 +138,19 @@
     <string name="tab_collections">Collections</string>
     <string name="tab_profile">Profile</string>
     <string name="tab_queue">Queue</string>
+    <string name="tab_dashboard">Dashboard</string>
     <string name="tab_stock">Stock</string>
     <string name="tab_picking">Picking</string>
+    <string name="tab_pick_pack">Pick/Pack</string>
     <string name="tab_dispatch">Dispatch</string>
     <string name="tab_returns">Returns</string>
+    <string name="godown_stock">Godown Stock</string>
+    <string name="inward_stock">Inward Stock</string>
+    <string name="scan_product">Scan Product</string>
+    <string name="dispatch_batches">Dispatch</string>
+    <string name="return_to_godown">Return to Godown</string>
+    <string name="damaged_stock">Damaged Stock</string>
+
     <string name="tab_trips">Trips</string>
     <string name="tab_deliveries">Deliveries</string>
     <string name="tab_confirm">Confirm</string>

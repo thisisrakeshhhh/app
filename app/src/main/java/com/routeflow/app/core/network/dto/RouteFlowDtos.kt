@@ -53,7 +53,10 @@ data class ProductDto(
     val stockQuantity: Int,
     val reservedQuantity: Int = 0,
     val unit: String,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val barcode: String? = null,
+    val sku: String? = null,
+    val hindiName: String? = null
 )
 
 fun ProductDto.toEntity(): ProductEntity = ProductEntity(
@@ -64,7 +67,10 @@ fun ProductDto.toEntity(): ProductEntity = ProductEntity(
     stockQuantity = stockQuantity,
     reservedQuantity = reservedQuantity,
     unit = unit,
-    imageUrl = imageUrl
+    imageUrl = imageUrl,
+    barcode = barcode,
+    sku = sku,
+    hindiName = hindiName
 )
 
 fun ProductEntity.toDto(): ProductDto = ProductDto(
@@ -75,8 +81,12 @@ fun ProductEntity.toDto(): ProductDto = ProductDto(
     stockQuantity = stockQuantity,
     reservedQuantity = reservedQuantity,
     unit = unit,
-    imageUrl = imageUrl
+    imageUrl = imageUrl,
+    barcode = barcode,
+    sku = sku,
+    hindiName = hindiName
 )
+
 
 @Serializable
 data class OrderDto(

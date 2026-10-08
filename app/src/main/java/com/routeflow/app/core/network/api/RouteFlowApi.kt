@@ -255,4 +255,69 @@ interface RouteFlowApi {
 
     @POST("trips/{id}/complete")
     suspend fun completeTrip(@Path("id") id: String): StatusResponse
+
+    // --- Warehouse / Godown Operations ---
+    @GET("products/by-barcode/{barcode}")
+    suspend fun getProductByBarcode(@Path("barcode") barcode: String): com.routeflow.app.core.network.dto.ProductDto
+
+    @POST("products/{id}/image")
+    suspend fun updateProductImage(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.UploadProductImageRequest): StatusResponse
+
+    @GET("warehouse/stock")
+    suspend fun getWarehouseStock(
+        @retrofit2.http.Query("search") search: String? = null,
+        @retrofit2.http.Query("filter") filter: String? = null
+    ): com.routeflow.app.core.network.dto.WarehouseStockResponse
+
+    @POST("warehouse/stock/adjust")
+    suspend fun adjustWarehouseStock(@Body request: com.routeflow.app.core.network.dto.WarehouseStockAdjustRequest): com.routeflow.app.core.network.dto.WarehouseStockAdjustResponse
+
+    @POST("warehouse/stock/audit")
+    suspend fun auditWarehouseStock(@Body request: com.routeflow.app.core.network.dto.WarehouseStockAuditRequest): com.routeflow.app.core.network.dto.WarehouseStockAuditResponse
+
+    @GET("warehouse/stock/movements")
+    suspend fun getWarehouseMovements(
+        @retrofit2.http.Query("productId") productId: String? = null,
+        @retrofit2.http.Query("limit") limit: Int? = null
+    ): List<com.routeflow.app.core.network.dto.StockMovementDto>
+
+    @GET("warehouse/batches")
+    suspend fun getWarehouseBatches(@retrofit2.http.Query("productId") productId: String? = null): List<com.routeflow.app.core.network.dto.WarehouseBatchDto>
+
+    @POST("warehouse/batches")
+    suspend fun createWarehouseBatch(@Body request: com.routeflow.app.core.network.dto.CreateWarehouseBatchRequest): com.routeflow.app.core.network.dto.WarehouseBatchDto
+
+    @GET("warehouse/batches/near-expiry")
+    suspend fun getWarehouseNearExpiryBatches(): List<com.routeflow.app.core.network.dto.WarehouseBatchDto>
+
+    @GET("warehouse/picking-queue")
+    suspend fun getWarehousePickingQueue(): com.routeflow.app.core.network.dto.PickingQueueResponse
+
+    @POST("warehouse/orders/{id}/start-picking")
+    suspend fun startWarehousePicking(@Path("id") id: String): StatusResponse
+
+    @POST("warehouse/orders/{id}/scan-pick")
+    suspend fun scanPickItem(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.ScanPickRequest): StatusResponse
+
+    @POST("warehouse/orders/{id}/mark-packed")
+    suspend fun markOrderPackedWarehouse(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.MarkPackedRequest): StatusResponse
+
+    @POST("warehouse/dispatch-batches")
+    suspend fun createDispatchBatch(@Body request: com.routeflow.app.core.network.dto.CreateDispatchBatchRequest): com.routeflow.app.core.network.dto.DispatchBatchDto
+
+    @GET("warehouse/dispatch-batches")
+    suspend fun getDispatchBatches(): List<com.routeflow.app.core.network.dto.DispatchBatchDto>
+
+    @POST("warehouse/dispatch-batches/{id}/assign-driver")
+    suspend fun assignDispatchDriver(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.AssignDispatchDriverRequest): StatusResponse
+
+    @POST("warehouse/dispatch-batches/{id}/handover")
+    suspend fun handoverDispatchBatch(@Path("id") id: String): StatusResponse
+
+    @GET("warehouse/returns")
+    suspend fun getWarehouseReturns(): com.routeflow.app.core.network.dto.WarehouseReturnsResponse
+
+    @POST("warehouse/returns/inspect")
+    suspend fun inspectWarehouseReturn(@Body request: com.routeflow.app.core.network.dto.InspectWarehouseReturnRequest): com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse
 }
+

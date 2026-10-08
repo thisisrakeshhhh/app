@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import { tripRouter } from './trips';
 import { governanceRouter } from './governance';
 import { operatingRouter } from './operating';
+import { warehouseRouter } from './warehouse';
 
 type Bindings = {
   DB: D1Database;
@@ -339,13 +340,113 @@ app.get('/retailers', authMiddleware, async (c) => {
 app.get('/products', authMiddleware, async (c) => {
   const user = c.get('user');
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise, mrp_paise AS mrpPaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, sku, image_url AS imageUrl, is_active AS isActive FROM products WHERE company_id = ?'
+    'SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise, mrp_paise AS mrpPaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, sku, barcode, image_url AS imageUrl, product_image_key AS productImageKey, tracks_expiry AS tracksExpiry, is_active AS isActive FROM products WHERE company_id = ?'
   )
     .bind(user.company_id)
     .all();
 
   return c.json(results.map((p: any) => ({ ...p, isActive: Boolean(p.isActive) })));
 });
+
+app.get('/products/by-barcode/:barcode', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const barcode = c.req.param('barcode');
+  const product = await c.env.DB.prepare(
+    `SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise,
+            mrp_paise AS mrpPaise, stock_quantity AS stockQuantity,
+            reserved_quantity AS reservedQuantity, unit, sku, barcode,
+            image_url AS imageUrl, product_image_key AS productImageKey,
+            tracks_expiry AS tracksExpiry, is_active AS isActive
+     FROM products
+     WHERE company_id = ? AND (barcode = ? OR sku = ?)`
+  ).bind(user.company_id, barcode, barcode).first() as any;
+
+  if (!product) {
+    return c.json({ error: `Product not found for barcode: ${barcode}` }, 404);
+  }
+
+  const { results: batches } = await c.env.DB.prepare(
+    `SELECT id, batch_no AS batchNo, mfg_date AS mfgDate, expiry_date AS expiryDate,
+            rack_bin AS rackBin, received_quantity AS receivedQuantity,
+            remaining_quantity AS remainingQuantity, damaged_quantity AS damagedQuantity,
+            status
+     FROM product_batches
+     WHERE company_id = ? AND product_id = ? AND status = 'ACTIVE'
+     ORDER BY expiry_date ASC NULLS LAST`
+  ).bind(user.company_id, product.id).all();
+
+  return c.json({
+    ...product,
+    isActive: Boolean(product.isActive),
+    batches: batches || [],
+  });
+});
+
+app.get('/products/:id', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const product = await c.env.DB.prepare(
+    `SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise,
+            mrp_paise AS mrpPaise, stock_quantity AS stockQuantity,
+            reserved_quantity AS reservedQuantity, unit, sku, barcode,
+            image_url AS imageUrl, product_image_key AS productImageKey,
+            tracks_expiry AS tracksExpiry, is_active AS isActive
+     FROM products
+     WHERE company_id = ? AND id = ?`
+  ).bind(user.company_id, id).first() as any;
+
+  if (!product) {
+    return c.json({ error: `Product not found: ${id}` }, 404);
+  }
+
+  const { results: batches } = await c.env.DB.prepare(
+    `SELECT id, batch_no AS batchNo, mfg_date AS mfgDate, expiry_date AS expiryDate,
+            rack_bin AS rackBin, received_quantity AS receivedQuantity,
+            remaining_quantity AS remainingQuantity, damaged_quantity AS damagedQuantity,
+            status
+     FROM product_batches
+     WHERE company_id = ? AND product_id = ? AND status = 'ACTIVE'
+     ORDER BY expiry_date ASC NULLS LAST`
+  ).bind(user.company_id, product.id).all();
+
+  return c.json({
+    ...product,
+    isActive: Boolean(product.isActive),
+    batches: batches || [],
+  });
+});
+
+app.post('/products/:id/image', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'WAREHOUSE_MANAGER' && user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: warehouse, owner, or admin role required' }, 403);
+  }
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const imageUrl = body.imageUrl || body.image_url;
+  const imageKey = body.imageKey || body.image_key || null;
+
+  if (!imageUrl && !imageKey) {
+    return c.json({ error: 'imageUrl or imageKey is required' }, 400);
+  }
+
+  const existing = await c.env.DB.prepare('SELECT id FROM products WHERE id = ? AND company_id = ?')
+    .bind(id, user.company_id).first();
+  if (!existing) return c.json({ error: 'Product not found' }, 404);
+
+  const now = Date.now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      'UPDATE products SET image_url = COALESCE(?, image_url), product_image_key = COALESCE(?, product_image_key) WHERE id = ? AND company_id = ?'
+    ).bind(imageUrl ?? null, imageKey ?? null, id, user.company_id),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_IMAGE_UPDATED', id, JSON.stringify({ imageUrl, imageKey }), now)
+  ]);
+
+  return c.json({ success: true, id, imageUrl, imageKey });
+});
+
 
 app.get('/delivery-executives', authMiddleware, async (c) => {
   const user = c.get('user');
@@ -2340,5 +2441,7 @@ app.route('/batches', batchRouter(authMiddleware));
 app.route('/trips', tripRouter(authMiddleware));
 app.route('/', governanceRouter(authMiddleware));
 app.route('/', operatingRouter(authMiddleware));
+app.route('/warehouse', warehouseRouter(authMiddleware));
 
 export default app;
+

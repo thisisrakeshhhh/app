@@ -12,5 +12,9 @@ data class ProductEntity(
     val stockQuantity: Int,
     val reservedQuantity: Int = 0, // Added for stock reservation
     val unit: String,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val barcode: String? = null,
+    val sku: String? = null,
+    val hindiName: String? = null
 )
+

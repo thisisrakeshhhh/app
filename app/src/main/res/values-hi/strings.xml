@@ -138,10 +138,19 @@
     <string name="tab_collections">उगाही</string>
     <string name="tab_profile">प्रोफ़ाइल</string>
     <string name="tab_queue">कतार</string>
+    <string name="tab_dashboard">डैशबोर्ड</string>
     <string name="tab_stock">स्टॉक</string>
     <string name="tab_picking">पिकिंग</string>
+    <string name="tab_pick_pack">पिक/पैक</string>
     <string name="tab_dispatch">डिस्पैच</string>
     <string name="tab_returns">वापसी</string>
+    <string name="godown_stock">गोदाम स्टॉक</string>
+    <string name="inward_stock">इनवर्ड स्टॉक</string>
+    <string name="scan_product">स्कैन प्रोडक्ट</string>
+    <string name="dispatch_batches">डिस्पैच</string>
+    <string name="return_to_godown">गोदाम वापसी</string>
+    <string name="damaged_stock">खराब स्टॉक</string>
+
     <string name="tab_trips">ट्रिप्स</string>
     <string name="tab_deliveries">डिलीवरी</string>
     <string name="tab_confirm">पुष्टि</string>

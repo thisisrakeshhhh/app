@@ -115,6 +115,8 @@ import com.routeflow.app.feature.sales.ShopVisitScreen
 import com.routeflow.app.feature.sales.ShopVisitViewModel
 import com.routeflow.app.feature.sales.StockCheckScreen
 import com.routeflow.app.feature.sales.StockCheckViewModel
+import com.routeflow.app.feature.warehouse.BarcodeScannerModal
+import com.routeflow.app.feature.warehouse.DispatchBatchScreen
 import com.routeflow.app.feature.warehouse.PickingScreen
 import com.routeflow.app.feature.warehouse.PickingViewModel
 import com.routeflow.app.feature.warehouse.WarehouseHomeScreen
@@ -155,6 +157,7 @@ private const val SALES_PROFILE = "sales/profile"
 // Warehouse Routes
 private const val WAREHOUSE_PICKING = "warehouse/picking"
 private const val WAREHOUSE_STOCK = "warehouse/stock"
+private const val WAREHOUSE_DISPATCH = "warehouse/dispatch"
 private const val WAREHOUSE_RETURNS = "warehouse/returns"
 
 // Delivery Routes
@@ -259,9 +262,10 @@ fun RouteFlowApp(
                 NavItem(SALES_PROFILE, R.string.tab_profile, Icons.Default.Person)
             )
             EmployeeRole.WAREHOUSE_MANAGER -> listOf(
-                NavItem(RoleDestination.WAREHOUSE.route, R.string.tab_queue, Icons.Default.ListAlt),
+                NavItem(RoleDestination.WAREHOUSE.route, R.string.tab_dashboard, Icons.Default.Home),
                 NavItem(WAREHOUSE_STOCK, R.string.tab_stock, Icons.Default.Inventory2),
-                NavItem(WAREHOUSE_PICKING, R.string.tab_picking, Icons.Default.Checklist),
+                NavItem(WAREHOUSE_PICKING, R.string.tab_pick_pack, Icons.Default.Checklist),
+                NavItem(WAREHOUSE_DISPATCH, R.string.tab_dispatch, Icons.Default.LocalShipping),
                 NavItem(WAREHOUSE_RETURNS, R.string.tab_returns, Icons.Default.AssignmentReturn)
             )
             EmployeeRole.DELIVERY_EXECUTIVE -> listOf(
@@ -313,6 +317,50 @@ fun RouteFlowApp(
                                     fontWeight = FontWeight.Bold,
                                     color = RFColors.TextPrimary
                                 )
+                            },
+                            actions = {
+                                TextButton(onClick = {
+                                    isDemoMode = false
+                                    onDemoLogout()
+                                }, Modifier.testTag("logout")) {
+                                    Text(
+                                        stringResource(R.string.logout),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = RFColors.Error,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.White,
+                                titleContentColor = RFColors.TextPrimary,
+                            )
+                        )
+                    } else if (employee.role == EmployeeRole.WAREHOUSE_MANAGER) {
+                        val whTitle = when (currentRoute) {
+                            RoleDestination.WAREHOUSE.route -> "Godown Desk"
+                            WAREHOUSE_STOCK -> "Godown Stock"
+                            WAREHOUSE_PICKING -> "Picking & Packing"
+                            WAREHOUSE_DISPATCH -> "Dispatch Batches"
+                            WAREHOUSE_RETURNS -> "Returns & RMA"
+                            else -> "Warehouse Godown"
+                        }
+                        TopAppBar(
+                            title = {
+                                Column {
+                                    Text(
+                                        whTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = RFColors.TextPrimary
+                                    )
+                                    Text(
+                                        "Jaipur Godown Depot",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = RFColors.Accent,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             },
                             actions = {
                                 TextButton(onClick = {
@@ -815,46 +863,100 @@ fun RouteFlowApp(
             }
 
             // ==========================================
-            // WAREHOUSE DESTINATIONS
+            // WAREHOUSE DESTINATIONS (5 Tabs & Barcode Modal)
             // ==========================================
             composable(RoleDestination.WAREHOUSE.route) {
                 if (employee != null) {
                     val viewModel: WarehouseViewModel = hiltViewModel()
-                    val warehouseState by viewModel.state.collectAsStateWithLifecycle()
+                    val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
+                    val stockState by viewModel.stockState.collectAsStateWithLifecycle()
+
                     WarehouseHomeScreen(
                         employee = employee,
-                        state = warehouseState,
-                        onViewPicking = { navController.navigate(WAREHOUSE_PICKING) }
+                        state = dashboardState,
+                        onNavigateTab = { route -> navController.navigate(route) },
+                        onScanBarcode = { viewModel.setScanning(true) }
+                    )
+
+                    if (stockState.isScanning) {
+                        BarcodeScannerModal(
+                            onDismiss = { viewModel.setScanning(false) },
+                            onBarcodeScanned = { barcode ->
+                                viewModel.onScanBarcode(barcode)
+                            }
+                        )
+                    }
+                }
+            }
+
+            composable(WAREHOUSE_STOCK) {
+                val viewModel: WarehouseViewModel = hiltViewModel()
+                val stockState by viewModel.stockState.collectAsStateWithLifecycle()
+
+                WarehouseStockScreen(
+                    state = stockState,
+                    onSearchChange = { q -> viewModel.loadStock(search = q) },
+                    onFilterChange = { f -> viewModel.loadStock(filter = f) },
+                    onOpenScanner = { viewModel.setScanning(true) },
+                    onAdjustStock = { pId, qty, reason, notes, bId ->
+                        viewModel.adjustStock(pId, qty, reason, notes, bId)
+                    },
+                    onAuditStock = { pId, physicalCount, notes ->
+                        viewModel.auditStock(pId, physicalCount, notes)
+                    },
+                    onCreateBatch = { request ->
+                        viewModel.createBatch(request)
+                    }
+                )
+
+                if (stockState.isScanning) {
+                    BarcodeScannerModal(
+                        onDismiss = { viewModel.setScanning(false) },
+                        onBarcodeScanned = { barcode ->
+                            viewModel.onScanBarcode(barcode)
+                        }
                     )
                 }
             }
 
             composable(WAREHOUSE_PICKING) {
-                val viewModel: PickingViewModel = hiltViewModel()
-                val pickingState by viewModel.state.collectAsStateWithLifecycle()
+                val viewModel: WarehouseViewModel = hiltViewModel()
+                val pickingOrders by viewModel.pickingQueue.collectAsStateWithLifecycle()
+                var activeScanningOrderId by remember { mutableStateOf<String?>(null) }
+
                 PickingScreen(
-                    state = pickingState,
-                    onTogglePicked = viewModel::toggleItemPicked,
-                    onStartPicking = viewModel::startPicking,
-                    onPacked = viewModel::markPacked,
-                    onOpenDispatch = viewModel::openDispatchDialog,
-                    onSelectDeliveryExecutive = viewModel::selectDeliveryExecutive,
-                    onConfirmDispatch = viewModel::confirmDispatch,
-                    onDismissDispatch = viewModel::dismissDispatchDialog,
-                    onErrorShown = viewModel::clearError
+                    orders = pickingOrders,
+                    isLoading = false,
+                    onRefresh = { viewModel.loadPickingQueue() },
+                    onStartPicking = { orderId -> viewModel.startPicking(orderId) },
+                    onScanPick = { orderId, barcode -> viewModel.scanPickItem(orderId, barcode) },
+                    onMarkPacked = { orderId, cartons, notes -> viewModel.markOrderPacked(orderId, cartons, notes) },
+                    onOpenScannerForOrder = { orderId -> activeScanningOrderId = orderId }
                 )
+
+                activeScanningOrderId?.let { orderId ->
+                    BarcodeScannerModal(
+                        onDismiss = { activeScanningOrderId = null },
+                        onBarcodeScanned = { barcode ->
+                            viewModel.scanPickItem(orderId, barcode)
+                            activeScanningOrderId = null
+                        }
+                    )
+                }
             }
 
-            composable(WAREHOUSE_STOCK) {
-                val viewModel: OwnerMasterViewModel = hiltViewModel()
-                val state by viewModel.state.collectAsStateWithLifecycle()
-                WarehouseStockScreen(
-                    products = state.products,
-                    onAdjustStock = { pId, qty, reason, notes ->
-                        viewModel.adjustStock(pId, "ADDITION", qty, reason, notes ?: "")
+            composable(WAREHOUSE_DISPATCH) {
+                val viewModel: WarehouseViewModel = hiltViewModel()
+                val dispatchState by viewModel.dispatchState.collectAsStateWithLifecycle()
+
+                DispatchBatchScreen(
+                    state = dispatchState,
+                    onRefresh = { viewModel.loadDispatchBatches() },
+                    onCreateBatch = { orderIds, driverId, notes ->
+                        viewModel.createDispatchBatch(orderIds, driverId, notes)
                     },
-                    onCreateBatch = { pId, batchNo, qty, expiryDate, rackBin ->
-                        viewModel.createBatch(pId, batchNo, qty, expiryDate, rackBin)
+                    onHandover = { batchId ->
+                        viewModel.handoverDispatchBatch(batchId)
                     }
                 )
             }

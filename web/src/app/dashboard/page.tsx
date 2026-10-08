@@ -1301,9 +1301,9 @@ export default function DashboardPage() {
                   <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold tracking-wider">
                     <tr>
                       <th className="px-6 py-4">Product Name</th>
-                      <th className="px-6 py-4">SKU</th>
+                      <th className="px-6 py-4">SKU / Barcode</th>
                       <th className="px-6 py-4">Price</th>
-                      <th className="px-6 py-4">Stock</th>
+                      <th className="px-6 py-4">Stock (Godown)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1316,12 +1316,26 @@ export default function DashboardPage() {
                     ) : (
                       products.map((p) => (
                         <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                          <td className="px-6 py-4 font-semibold text-slate-900">{p.name}</td>
-                          <td className="px-6 py-4 font-mono text-xs text-slate-500">{p.sku || p.id}</td>
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-slate-900">{p.name}</div>
+                            {p.hindi_name && <div className="text-xs text-slate-400">{p.hindi_name}</div>}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-mono text-xs text-slate-600">{p.sku || p.id}</div>
+                            {p.barcode && <div className="text-[11px] font-mono text-blue-600 font-semibold">📟 {p.barcode}</div>}
+                          </td>
                           <td className="px-6 py-4 font-semibold text-slate-900">
                             ₹{((p.price_paise || p.price * 100 || 0) / 100).toFixed(2)}
                           </td>
-                          <td className="px-6 py-4 text-slate-600">{p.stock_quantity ?? p.stock ?? 'In Stock'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              (p.stock_quantity ?? p.stock ?? 0) > 20
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}>
+                              {p.stock_quantity ?? p.stock ?? '0'} {p.unit || 'units'}
+                            </span>
+                          </td>
                         </tr>
                       ))
                     )}

@@ -39,9 +39,14 @@ import com.routeflow.app.core.database.entity.VisitEntity
         com.routeflow.app.core.database.entity.LocalShiftEntity::class,
         com.routeflow.app.core.database.entity.FieldRecordEntity::class,
         CollectionRecordEntity::class,
-        com.routeflow.app.core.database.entity.StockCheckEntity::class
+        com.routeflow.app.core.database.entity.StockCheckEntity::class,
+        com.routeflow.app.core.database.entity.ProductBatchEntity::class,
+        com.routeflow.app.core.database.entity.StockMovementEntity::class,
+        com.routeflow.app.core.database.entity.DispatchBatchEntity::class,
+        com.routeflow.app.core.database.entity.DispatchBatchOrderEntity::class,
+        com.routeflow.app.core.database.entity.WarehouseReturnEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -54,11 +59,101 @@ abstract class RouteFlowDatabase : RoomDatabase() {
     abstract fun shiftLocationDao(): ShiftLocationDao
     abstract fun collectionRecordDao(): CollectionRecordDao
     abstract fun stockCheckDao(): com.routeflow.app.core.database.dao.StockCheckDao
-
     abstract fun fieldRecordDao(): com.routeflow.app.core.database.dao.FieldRecordDao
+    abstract fun productBatchDao(): com.routeflow.app.core.database.dao.ProductBatchDao
+    abstract fun stockMovementDao(): com.routeflow.app.core.database.dao.StockMovementDao
+    abstract fun dispatchBatchDao(): com.routeflow.app.core.database.dao.DispatchBatchDao
+    abstract fun warehouseReturnDao(): com.routeflow.app.core.database.dao.WarehouseReturnDao
 
     companion object {
         const val DATABASE_NAME = "routeflow_db"
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `products` ADD COLUMN `barcode` TEXT")
+                db.execSQL("ALTER TABLE `products` ADD COLUMN `sku` TEXT")
+                db.execSQL("ALTER TABLE `products` ADD COLUMN `hindiName` TEXT")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `product_batches` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `companyId` TEXT NOT NULL,
+                        `productId` TEXT NOT NULL,
+                        `batchNo` TEXT NOT NULL,
+                        `mfgDate` INTEGER,
+                        `expiryDate` INTEGER,
+                        `rackBin` TEXT,
+                        `receivedQuantity` INTEGER NOT NULL,
+                        `remainingQuantity` INTEGER NOT NULL,
+                        `committedQuantity` INTEGER NOT NULL DEFAULT 0,
+                        `damagedQuantity` INTEGER NOT NULL DEFAULT 0,
+                        `purchasePricePaise` INTEGER,
+                        `supplierName` TEXT,
+                        `status` TEXT NOT NULL DEFAULT 'ACTIVE',
+                        `createdAt` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `stock_movements` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `companyId` TEXT NOT NULL,
+                        `productId` TEXT NOT NULL,
+                        `batchId` TEXT,
+                        `movementType` TEXT NOT NULL,
+                        `quantity` INTEGER NOT NULL,
+                        `stockBefore` INTEGER NOT NULL,
+                        `stockAfter` INTEGER NOT NULL,
+                        `reason` TEXT NOT NULL,
+                        `notes` TEXT,
+                        `createdBy` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `dispatch_batches` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `companyId` TEXT NOT NULL,
+                        `batchCode` TEXT NOT NULL,
+                        `deliveryExecutiveId` TEXT,
+                        `routeId` TEXT,
+                        `status` TEXT NOT NULL DEFAULT 'CREATED',
+                        `totalOrders` INTEGER NOT NULL DEFAULT 0,
+                        `totalCartons` INTEGER NOT NULL DEFAULT 0,
+                        `createdBy` TEXT NOT NULL,
+                        `notes` TEXT,
+                        `handedOverAt` INTEGER,
+                        `receivedByDriverAt` INTEGER,
+                        `createdAt` INTEGER NOT NULL,
+                        `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `dispatch_batch_orders` (
+                        `dispatchBatchId` TEXT NOT NULL,
+                        `orderId` TEXT NOT NULL,
+                        `cartonsCount` INTEGER NOT NULL DEFAULT 1,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY (`dispatchBatchId`, `orderId`)
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `warehouse_returns` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `companyId` TEXT NOT NULL,
+                        `orderId` TEXT,
+                        `productId` TEXT NOT NULL,
+                        `quantity` INTEGER NOT NULL,
+                        `condition` TEXT NOT NULL,
+                        `photoUrl` TEXT,
+                        `actionTaken` TEXT NOT NULL,
+                        `notes` TEXT,
+                        `inspectedBy` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                """.trimIndent())
+            }
+        }
 
         val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -67,6 +162,7 @@ abstract class RouteFlowDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `retailers` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'SERVER'")
             }
         }
+
 
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {

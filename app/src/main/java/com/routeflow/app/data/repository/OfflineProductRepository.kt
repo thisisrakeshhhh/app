@@ -75,8 +75,12 @@ class OfflineProductRepository @Inject constructor(
                 category = dto.category,
                 pricePaise = dto.pricePaise,
                 stockQuantity = dto.stockQuantity,
+                reservedQuantity = dto.reservedQuantity,
                 unit = dto.unit,
-                imageUrl = dto.imageUrl
+                imageUrl = dto.imageUrl,
+                barcode = dto.barcode,
+                sku = dto.sku,
+                hindiName = dto.hindiName
             )
         }
         productDao.insertProducts(entities)
@@ -113,7 +117,11 @@ private fun ProductEntity.asDomainModel() = Product(
     pricePaise = pricePaise,
     stockQuantity = stockQuantity,
     unit = unit,
-    imageUrl = imageUrl
+    imageUrl = imageUrl,
+    reservedQuantity = reservedQuantity,
+    barcode = barcode,
+    sku = sku,
+    hindiName = hindiName
 )
 
 private fun Product.asEntity() = ProductEntity(
@@ -122,6 +130,11 @@ private fun Product.asEntity() = ProductEntity(
     category = category,
     pricePaise = pricePaise,
     stockQuantity = stockQuantity,
+    reservedQuantity = reservedQuantity,
     unit = unit,
-    imageUrl = imageUrl
+    imageUrl = imageUrl,
+    barcode = barcode,
+    sku = sku,
+    hindiName = hindiName
 )
+

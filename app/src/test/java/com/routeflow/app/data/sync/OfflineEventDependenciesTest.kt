@@ -402,6 +402,26 @@ class OfflineEventDependenciesTest {
         override suspend fun reorderTripStops(id: String, request: com.routeflow.app.core.network.dto.ReorderStopsRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun startTrip(id: String): StatusResponse = StatusResponse(success = true)
         override suspend fun completeTrip(id: String): StatusResponse = StatusResponse(success = true)
+
+        override suspend fun getProductByBarcode(barcode: String): com.routeflow.app.core.network.dto.ProductDto = throw NotImplementedError()
+        override suspend fun updateProductImage(id: String, request: com.routeflow.app.core.network.dto.UploadProductImageRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun getWarehouseStock(search: String?, filter: String?): com.routeflow.app.core.network.dto.WarehouseStockResponse = com.routeflow.app.core.network.dto.WarehouseStockResponse()
+        override suspend fun adjustWarehouseStock(request: com.routeflow.app.core.network.dto.WarehouseStockAdjustRequest): com.routeflow.app.core.network.dto.WarehouseStockAdjustResponse = com.routeflow.app.core.network.dto.WarehouseStockAdjustResponse(success = true)
+        override suspend fun auditWarehouseStock(request: com.routeflow.app.core.network.dto.WarehouseStockAuditRequest): com.routeflow.app.core.network.dto.WarehouseStockAuditResponse = com.routeflow.app.core.network.dto.WarehouseStockAuditResponse(success = true)
+        override suspend fun getWarehouseMovements(productId: String?, limit: Int?): List<com.routeflow.app.core.network.dto.StockMovementDto> = emptyList()
+        override suspend fun getWarehouseBatches(productId: String?): List<com.routeflow.app.core.network.dto.WarehouseBatchDto> = emptyList()
+        override suspend fun createWarehouseBatch(request: com.routeflow.app.core.network.dto.CreateWarehouseBatchRequest): com.routeflow.app.core.network.dto.WarehouseBatchDto = com.routeflow.app.core.network.dto.WarehouseBatchDto(id = "wb_1", productId = request.productId, batchNo = request.batchNo)
+        override suspend fun getWarehouseNearExpiryBatches(): List<com.routeflow.app.core.network.dto.WarehouseBatchDto> = emptyList()
+        override suspend fun getWarehousePickingQueue(): com.routeflow.app.core.network.dto.PickingQueueResponse = com.routeflow.app.core.network.dto.PickingQueueResponse()
+        override suspend fun startWarehousePicking(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun scanPickItem(id: String, request: com.routeflow.app.core.network.dto.ScanPickRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun markOrderPackedWarehouse(id: String, request: com.routeflow.app.core.network.dto.MarkPackedRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun createDispatchBatch(request: com.routeflow.app.core.network.dto.CreateDispatchBatchRequest): com.routeflow.app.core.network.dto.DispatchBatchDto = com.routeflow.app.core.network.dto.DispatchBatchDto(id = "db_1", batchCode = "DSP-TEST")
+        override suspend fun getDispatchBatches(): List<com.routeflow.app.core.network.dto.DispatchBatchDto> = emptyList()
+        override suspend fun assignDispatchDriver(id: String, request: com.routeflow.app.core.network.dto.AssignDispatchDriverRequest): StatusResponse = StatusResponse(success = true)
+        override suspend fun handoverDispatchBatch(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun getWarehouseReturns(): com.routeflow.app.core.network.dto.WarehouseReturnsResponse = com.routeflow.app.core.network.dto.WarehouseReturnsResponse()
+        override suspend fun inspectWarehouseReturn(request: com.routeflow.app.core.network.dto.InspectWarehouseReturnRequest): com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse = com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse(success = true)
     }
 
     // Helper fake TokenStorage
