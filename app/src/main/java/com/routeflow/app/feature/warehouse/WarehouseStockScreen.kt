@@ -21,9 +21,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
@@ -34,20 +34,21 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,15 +56,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.routeflow.app.R
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.CreateWarehouseBatchRequest
-import com.routeflow.app.core.network.dto.ProductDto
 import com.routeflow.app.core.network.dto.WarehouseStockItemDto
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WarehouseStockScreen(
     state: WarehouseStockUiState,
@@ -77,15 +76,16 @@ fun WarehouseStockScreen(
     var selectedProductForAdjustment by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
     var selectedProductForInward by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
     var selectedProductForAudit by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
+    var viewingProductDetails by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header
+            // Compact Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -93,13 +93,13 @@ fun WarehouseStockScreen(
             ) {
                 Column {
                     Text(
-                        text = "Godown Stock / स्टॉक",
-                        style = MaterialTheme.typography.headlineMedium,
+                        text = "Godown Stock / स्टॉक बही",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Manage wholesale inventory, batches & inward GRN",
+                        text = "Inventory balance, batches & inward GRN",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -108,12 +108,13 @@ fun WarehouseStockScreen(
                 Button(
                     onClick = onOpenScanner,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(48.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Scan", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Scan SKU", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
 
@@ -121,7 +122,7 @@ fun WarehouseStockScreen(
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = onSearchChange,
-                placeholder = { Text("Search by name, category, or barcode...") },
+                placeholder = { Text("Search name, SKU, category or barcode...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
                 trailingIcon = {
                     if (state.searchQuery.isNotEmpty()) {
@@ -131,7 +132,7 @@ fun WarehouseStockScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 singleLine = true
             )
 
@@ -142,7 +143,7 @@ fun WarehouseStockScreen(
             ) {
                 val filters = listOf(
                     "ALL" to "All Stock (सभी)",
-                    "LOW_STOCK" to "Low Stock (कम स्टॉक)",
+                    "LOW_STOCK" to "Low Stock (कम)",
                     "NEAR_EXPIRY" to "Near Expiry (जल्द समाप्ति)",
                     "OUT_OF_STOCK" to "Out of Stock (खत्म)",
                     "DAMAGED" to "Damaged (खराब)"
@@ -153,6 +154,7 @@ fun WarehouseStockScreen(
                         selected = isSelected,
                         onClick = { onFilterChange(key) },
                         label = { Text(label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        shape = RoundedCornerShape(6.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF2563EB),
                             selectedLabelColor = Color.White
@@ -166,17 +168,59 @@ fun WarehouseStockScreen(
                     CircularProgressIndicator(color = RFColors.Primary)
                 }
             } else if (state.products.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No products match the selected criteria.", color = Color(0xFF64748B))
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 96.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            color = Color(0xFFEFF6FF),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Inventory, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                            }
+                        }
+                        Text(
+                            text = "No products found in godown",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "Try clearing filters or search terms",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                        Button(
+                            onClick = {
+                                onSearchChange("")
+                                onFilterChange("ALL")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            Text("Reset Filters")
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 96.dp)
                 ) {
                     items(state.products, key = { it.id }) { item ->
                         WarehouseProductStockCard(
                             item = item,
+                            onView = { viewingProductDetails = item },
                             onInward = { selectedProductForInward = item },
                             onAdjust = { selectedProductForAdjustment = item },
                             onAudit = { selectedProductForAudit = item }
@@ -185,6 +229,22 @@ fun WarehouseStockScreen(
                 }
             }
         }
+    }
+
+    // Modal Bottom Sheet: Product Details & Batches
+    viewingProductDetails?.let { item ->
+        ProductDetailBottomSheet(
+            item = item,
+            onDismiss = { viewingProductDetails = null },
+            onInward = {
+                viewingProductDetails = null
+                selectedProductForInward = item
+            },
+            onAdjust = {
+                viewingProductDetails = null
+                selectedProductForAdjustment = item
+            }
+        )
     }
 
     // Dialog: Inward Stock GRN / New Batch
@@ -238,6 +298,7 @@ fun WarehouseStockScreen(
 @Composable
 private fun WarehouseProductStockCard(
     item: WarehouseStockItemDto,
+    onView: () -> Unit,
     onInward: () -> Unit,
     onAdjust: () -> Unit,
     onAudit: () -> Unit
@@ -245,89 +306,148 @@ private fun WarehouseProductStockCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "${item.category} · ₹${item.pricePaise / 100} / unit",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
-                    )
-                    if (!item.barcode.isNullOrBlank()) {
+                // Product Thumbnail Placeholder & Basic Info
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        color = Color(0xFFF1F5F9),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Inventory, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(24.dp))
+                        }
+                    }
+                    Column {
                         Text(
-                            text = "Barcode: ${item.barcode}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF2563EB),
-                            fontWeight = FontWeight.SemiBold
+                            text = item.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
                         )
+                        Text(
+                            text = "${item.category} • SKU: ${item.sku ?: item.id.take(8)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                        if (!item.barcode.isNullOrBlank()) {
+                            Text(
+                                text = "Barcode: ${item.barcode}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF2563EB),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
 
+                // Current Stock Badge
+                val isLow = item.stockQuantity <= 10
                 Surface(
-                    color = if (item.stockQuantity > 20) Color(0xFFDCFCE7) else Color(0xFFFEF3C7),
-                    shape = RoundedCornerShape(8.dp)
+                    color = if (isLow) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         text = "${item.stockQuantity} in stock",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (item.stockQuantity > 20) Color(0xFF166534) else Color(0xFF92400E)
+                        color = if (isLow) Color(0xFFB45309) else Color(0xFF166534)
                     )
                 }
             }
 
-            // Batches Info / Warning Pills
-            if (item.batchCount > 0) {
-                Text(
-                    text = "${item.batchCount} active batch(es) in godown",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF64748B)
-                )
-            }
-            if (item.damagedQuantity > 0) {
+            // Reserved & Batches Info Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Surface(
-                    color = Color(0xFFFEE2E2),
-                    shape = RoundedCornerShape(6.dp)
+                    color = Color(0xFFF8FAFC),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Text(
-                        text = "Damaged / Quarantined: ${item.damagedQuantity} units",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        text = "Available: ${item.availableQuantity} • Reserved: ${item.reservedQuantity}",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF991B1B),
-                        fontWeight = FontWeight.Bold
+                        color = Color(0xFF475569)
                     )
+                }
+                if (item.batchCount > 0) {
+                    Surface(
+                        color = Color(0xFFEFF6FF),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "${item.batchCount} batch(es)",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF2563EB)
+                        )
+                    }
+                }
+                if (item.damagedQuantity > 0) {
+                    Surface(
+                        color = Color(0xFFFEE2E2),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "Damaged: ${item.damagedQuantity}",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF991B1B)
+                        )
+                    }
                 }
             }
 
-            // Action Buttons
+            HorizontalDivider(color = Color(0xFFF1F5F9))
+
+            // Action Buttons (View, Inward, Adjust)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                OutlinedButton(
+                    onClick = onView,
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("View", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+
                 Button(
                     onClick = onInward,
-                    modifier = Modifier.weight(1.2f),
+                    modifier = Modifier
+                        .weight(1.3f)
+                        .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
@@ -336,20 +456,133 @@ private fun WarehouseProductStockCard(
 
                 OutlinedButton(
                     onClick = onAdjust,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 6.dp)
                 ) {
                     Text("Adjust", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                 }
+            }
+        }
+    }
+}
 
-                OutlinedButton(
-                    onClick = onAudit,
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProductDetailBottomSheet(
+    item: WarehouseStockItemDto,
+    onDismiss: () -> Unit,
+    onInward: () -> Unit,
+    onAdjust: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "Category: ${item.category} • Wholesale: ₹${item.pricePaise / 100}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFFE2E8F0))
+
+            // Inventory Breakdown
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
-                    Text("Audit", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${item.stockQuantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
+                        Text("Total Stock", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${item.availableQuantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF16A34A))
+                        Text("Available", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${item.reservedQuantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF0284C7))
+                        Text("Reserved", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
+                    }
+                }
+            }
+
+            // Technical details
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("SKU: ${item.sku ?: item.id}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF334155))
+                Text("Barcode: ${item.barcode ?: "Not assigned"}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF334155))
+                Text("Active Batches: ${item.batchCount}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF334155))
+                Text("Damaged/Quarantine: ${item.damagedQuantity} units", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF991B1B))
+            }
+
+            // CTAs inside bottom sheet
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onInward,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    Text("+ Add Inward Stock", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                Button(
+                    onClick = onAdjust,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text("Mark Damaged / Audit", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

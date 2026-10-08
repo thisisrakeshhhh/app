@@ -84,12 +84,12 @@ fun DispatchBatchScreen(
                 Column {
                     Text(
                         text = "Dispatch Batches / डिस्पैच",
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Group packed orders, assign driver & handover",
+                        text = "Group packed orders, assign driver & vehicle handover",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -102,7 +102,8 @@ fun DispatchBatchScreen(
                     Button(
                         onClick = { isCreateDialogOpen = true },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(48.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
@@ -117,21 +118,53 @@ fun DispatchBatchScreen(
                     CircularProgressIndicator(color = RFColors.Primary)
                 }
             } else if (state.dispatchBatches.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("No dispatch batches created today.", color = Color(0xFF64748B))
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 96.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            color = Color(0xFFEFF6FF),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                            }
+                        }
+                        Text(
+                            text = "No dispatch batches today",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = if (state.packedOrders.isNotEmpty()) "${state.packedOrders.size} packed orders ready to dispatch" else "Pack orders first, then assign delivery driver",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
                         Button(
                             onClick = { isCreateDialogOpen = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(48.dp)
                         ) {
-                            Text("Create First Dispatch Batch")
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Create Dispatch Batch (नया बैच बनाएं)", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 96.dp)
                 ) {
                     items(state.dispatchBatches, key = { it.id }) { batch ->
                         DispatchBatchCard(
@@ -184,13 +217,13 @@ private fun DispatchBatchCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -211,7 +244,7 @@ private fun DispatchBatchCard(
                     )
                 }
 
-                Surface(color = statusBg, shape = RoundedCornerShape(8.dp)) {
+                Surface(color = statusBg, shape = RoundedCornerShape(6.dp)) {
                     Text(
                         text = statusText,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -246,9 +279,11 @@ private fun DispatchBatchCard(
             if (!isHandedOver && !isDelivered) {
                 Button(
                     onClick = onHandover,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(6.dp))
@@ -257,7 +292,7 @@ private fun DispatchBatchCard(
             } else if (isHandedOver) {
                 Surface(
                     color = Color(0xFFF0FDF4),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(6.dp),
                     border = BorderStroke(1.dp, Color(0xFFBBF7D0))
                 ) {
                     Text(

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.Check
@@ -148,22 +150,47 @@ fun WarehouseReturnsScreen(
                     // RMA Tab
                     if (uiState.returns.isEmpty()) {
                         Column(
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                                .padding(bottom = 96.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                Icons.Default.AssignmentReturn,
-                                contentDescription = null,
-                                tint = RFColors.TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(24.dp)
-                            )
-                            Text("No pending return inspections", style = MaterialTheme.typography.titleMedium, color = RFColors.TextSecondary)
+                            Surface(
+                                color = Color(0xFFEFF6FF),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.AssignmentReturn,
+                                        contentDescription = null,
+                                        tint = RFColors.Primary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("No pending return inspections", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = RFColors.TextPrimary)
+                            Text("Customer return requests (RMA) will appear here for verification", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { viewModel.loadData() },
+                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Refresh Returns (रीफ्रेश करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
                         }
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp)
                         ) {
                             items(uiState.returns) { ret ->
                                 ReturnCard(
@@ -180,23 +207,47 @@ fun WarehouseReturnsScreen(
                     // Driver Undelivered Returns Tab
                     if (uiState.undeliveredGoods.isEmpty()) {
                         Column(
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                                .padding(bottom = 96.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                Icons.Default.LocalShipping,
-                                contentDescription = null,
-                                tint = RFColors.TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(24.dp)
-                            )
-                            Text("No driver-held undelivered goods", style = MaterialTheme.typography.titleMedium, color = RFColors.TextSecondary)
-                            Text("All undelivered items have been acknowledged or returned.", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                            Surface(
+                                color = Color(0xFFEFF6FF),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.LocalShipping,
+                                        contentDescription = null,
+                                        tint = RFColors.Primary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("No driver-held undelivered goods", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = RFColors.TextPrimary)
+                            Text("All undelivered items have been acknowledged or returned to godown.", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { viewModel.loadData() },
+                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Refresh Deliveries (रीफ्रेश करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
                         }
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp)
                         ) {
                             items(uiState.undeliveredGoods) { item ->
                                 UndeliveredGoodCard(

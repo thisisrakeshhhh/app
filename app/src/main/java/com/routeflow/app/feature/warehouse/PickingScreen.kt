@@ -83,12 +83,12 @@ fun PickingScreen(
                 Column {
                     Text(
                         text = "Picking & Packing / पिक-पैक",
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "FEFO picking & carton packing for dispatch",
+                        text = "FEFO picking, scan-to-confirm & carton packing",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -104,13 +104,53 @@ fun PickingScreen(
                     CircularProgressIndicator(color = RFColors.Primary)
                 }
             } else if (orders.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No orders pending picking or packing.", color = Color(0xFF64748B))
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 96.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            color = Color(0xFFEFF6FF),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                            }
+                        }
+                        Text(
+                            text = "No picking orders in queue",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "Approved distributor orders will appear here for godown picking",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                        Button(
+                            onClick = onRefresh,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Refresh Queue (रीफ्रेश करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 96.dp)
                 ) {
                     items(orders, key = { it.id }) { item ->
                         PickingOrderItemCard(
@@ -168,13 +208,13 @@ private fun PickingOrderItemCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Top: Order ID & Status Badge
             Row(
@@ -196,7 +236,7 @@ private fun PickingOrderItemCard(
                     )
                 }
 
-                Surface(color = statusBg, shape = RoundedCornerShape(8.dp)) {
+                Surface(color = statusBg, shape = RoundedCornerShape(6.dp)) {
                     Text(
                         text = statusText,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -262,7 +302,7 @@ private fun PickingOrderItemCard(
             if (isPacked && orderDto.cartonsCount > 0) {
                 Surface(
                     color = Color(0xFFF0FDF4),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(6.dp),
                     border = BorderStroke(1.dp, Color(0xFFBBF7D0))
                 ) {
                     Text(
@@ -283,9 +323,11 @@ private fun PickingOrderItemCard(
                 if (isApproved) {
                     Button(
                         onClick = onStartPicking,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                         Spacer(Modifier.width(6.dp))
@@ -294,9 +336,11 @@ private fun PickingOrderItemCard(
                 } else if (isPicking) {
                     Button(
                         onClick = onScanPick,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -305,9 +349,11 @@ private fun PickingOrderItemCard(
 
                     Button(
                         onClick = onMarkPacked,
-                        modifier = Modifier.weight(1.3f),
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
