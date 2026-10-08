@@ -623,14 +623,17 @@ private fun SummaryTile(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = RFColors.TextPrimary,
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 text = subtext,
                 style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFF64748B),
-                fontSize = 11.sp
+                fontSize = 11.sp,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }

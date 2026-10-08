@@ -93,8 +93,8 @@ fun ShopVisitScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // 1. Retailer Profile Header Card
                 Card(
@@ -236,16 +236,25 @@ fun ShopVisitScreen(
 
                             Column {
                                 Text(label, style = MaterialTheme.typography.labelSmall, color = RFColors.TextSecondary)
-                                Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = color)
+                                Text(
+                                    text = text,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = color,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
 
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("Credit Limit", style = MaterialTheme.typography.labelSmall, color = RFColors.TextSecondary)
                                 Text(
-                                    CurrencyFormatter.formatPaise(retailer.creditLimitPaise),
+                                    text = CurrencyFormatter.formatPaise(retailer.creditLimitPaise),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = RFColors.TextPrimary
+                                    color = RFColors.TextPrimary,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -508,9 +517,11 @@ fun ShopVisitScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Pending Udhaar: ₹${"%,d".format(retailer.outstandingAmountPaise / 100)}",
+                        text = "Pending Udhaar: ${CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise)}",
                         color = Color(0xFFDC2626),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                     OutlinedTextField(
                         value = amountText,

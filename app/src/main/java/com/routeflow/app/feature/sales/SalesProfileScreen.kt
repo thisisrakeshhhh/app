@@ -47,13 +47,6 @@ fun SalesProfileScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(
-            text = stringResource(R.string.tab_profile),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            color = RFColors.TextPrimary
-        )
-
         // 1. Profile Info Card (Name & Role)
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -228,7 +221,9 @@ fun SalesProfileScreen(
                                     CurrencyFormatter.formatPaise(salesState.pendingCollectionPaise),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Black,
-                                    color = Color(0xFFD97706)
+                                    color = Color(0xFFD97706),
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -262,13 +257,17 @@ fun SalesProfileScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = if (pendingCount > 0) "$pendingCount Changes Pending Sync" else "All Local Data Synced",
+                                text = if (pendingCount > 0) {
+                                    if (pendingCount == 1) "1 change pending sync" else "$pendingCount changes pending sync"
+                                } else {
+                                    "Data synced with server"
+                                },
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = RFColors.TextPrimary
                             )
                             Text(
-                                text = "Cloudflare D1 is source of truth",
+                                text = if (pendingCount > 0) "Tap Sync Now when internet is available" else "All local records up to date",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF64748B)
                             )
@@ -337,47 +336,9 @@ fun SalesProfileScreen(
             }
         }
 
-        // 6. Password Guidance Card (Owner/Admin managed)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = Color(0xFF64748B),
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Password & Access",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = RFColors.TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Contact Owner/Admin to reset password.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
-                    )
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(10.dp))
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // 7. Logout Button (>=48dp touch target)
+        // 6. Logout Button (>=48dp touch target)
         Button(
             onClick = onLogout,
             modifier = Modifier
@@ -394,6 +355,6 @@ fun SalesProfileScreen(
             Text(stringResource(R.string.logout), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }

@@ -180,7 +180,7 @@ fun OrderBookingScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Add Item", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Request Item", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -222,7 +222,7 @@ fun OrderBookingScreen(
             // Dense Product Cards List
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(state.products, key = { it.product.id }) { item ->
@@ -433,7 +433,7 @@ private fun AddProductDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF2563EB))
                 Spacer(Modifier.width(10.dp))
-                Text("Add Item", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Request New Item", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             }
         },
         text = {
@@ -441,6 +441,25 @@ private fun AddProductDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                Surface(
+                    color = Color(0xFFFFFBEB),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Pending owner approval: Requested items will be reviewed by admin before permanent godown catalog addition.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF92400E)
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -503,7 +522,7 @@ private fun AddProductDialog(
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
             ) {
-                Text("Save Item Option", fontWeight = FontWeight.Bold)
+                Text("Submit Request", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -523,43 +542,81 @@ private fun CartSummary(
     onSubmit: () -> Unit
 ) {
     Surface(
-        shadowElevation = 12.dp,
-        tonalElevation = 4.dp,
+        shadowElevation = if (hasItems) 8.dp else 2.dp,
+        tonalElevation = 2.dp,
         color = Color.White,
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
+        if (!hasItems) {
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFF94A3B8)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Cart is empty • ₹0",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Button(
+                    onClick = {},
+                    enabled = false,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(36.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        disabledContainerColor = Color(0xFFF1F5F9),
+                        disabledContentColor = Color(0xFF94A3B8)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                ) {
+                    Text("Submit Order", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
                     Text(
-                        text = if (hasItems) "$totalItemsCount Items in Cart" else "Cart Empty",
+                        text = "$totalItemsCount ${if (totalItemsCount == 1) "item" else "items"} in cart",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF64748B),
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = CurrencyFormatter.formatPaise(totalPaise),
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
-                        color = if (hasItems) Color(0xFF2563EB) else Color(0xFF94A3B8)
+                        color = Color(0xFF2563EB),
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
                 Button(
                     onClick = onSubmit,
-                    enabled = hasItems && !isSubmitting,
-                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isSubmitting,
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
-                        .height(50.dp)
-                        .defaultMinSize(minWidth = 150.dp),
+                        .height(48.dp)
+                        .defaultMinSize(minWidth = 140.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
@@ -568,27 +625,23 @@ private fun CartSummary(
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text("Submitting…", color = Color.White, fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text("Submit Order", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
-            }
-
-            if (!hasItems) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "Add at least 1 item to submit order",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF94A3B8)
-                )
             }
         }
     }

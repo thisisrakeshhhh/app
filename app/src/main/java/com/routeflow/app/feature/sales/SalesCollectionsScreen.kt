@@ -49,15 +49,8 @@ fun SalesCollectionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = stringResource(R.string.tab_collections),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-                color = RFColors.TextPrimary
-            )
-
             // Total Outstanding & Advance Summary Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -79,10 +72,12 @@ fun SalesCollectionsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "₹${"%,d".format(positiveDuePaise / 100)}",
+                                text = CurrencyFormatter.formatPaise(positiveDuePaise),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Black,
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
@@ -114,10 +109,12 @@ fun SalesCollectionsScreen(
                                 color = Color.White.copy(alpha = 0.8f)
                             )
                             Text(
-                                text = "₹${"%,d".format(advancePaise / 100)}",
+                                text = CurrencyFormatter.formatPaise(advancePaise),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF86EFAC)
+                                color = Color(0xFF86EFAC),
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -133,6 +130,7 @@ fun SalesCollectionsScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (retailers.isEmpty()) {
@@ -263,10 +261,12 @@ private fun RetailerCollectionCard(
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Text(
-                        text = "Limit: ₹${"%,d".format(retailer.creditLimitPaise / 100)}",
+                        text = "Limit: ${CurrencyFormatter.formatPaise(retailer.creditLimitPaise)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF475569),
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -282,8 +282,8 @@ private fun RetailerCollectionCard(
             ) {
                 Column {
                     val (label, amountText, color) = when {
-                        isAdvance -> Triple("Advance Balance", "₹${"%,d".format(-outstanding / 100)}", Color(0xFF15803D))
-                        isPendingDue -> Triple("Pending Udhaar", "₹${"%,d".format(outstanding / 100)}", Color(0xFFDC2626))
+                        isAdvance -> Triple("Advance Balance", CurrencyFormatter.formatPaise(-outstanding), Color(0xFF15803D))
+                        isPendingDue -> Triple("Pending Udhaar", CurrencyFormatter.formatPaise(outstanding), Color(0xFFDC2626))
                         else -> Triple("Balance", "No Due", Color(0xFF64748B))
                     }
                     Text(
@@ -296,7 +296,9 @@ private fun RetailerCollectionCard(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
-                        color = color
+                        color = color,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
@@ -381,15 +383,19 @@ private fun CollectPaymentDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (outstanding > 0) {
                     Text(
-                        text = "Pending Udhaar: ₹${"%,d".format(outstanding / 100)}",
+                        text = "Pending Udhaar: ${CurrencyFormatter.formatPaise(outstanding)}",
                         color = Color(0xFFDC2626),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 } else if (outstanding < 0) {
                     Text(
-                        text = "Customer has Advance: ₹${"%,d".format(-outstanding / 100)}",
+                        text = "Customer has Advance: ${CurrencyFormatter.formatPaise(-outstanding)}",
                         color = Color(0xFF15803D),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 

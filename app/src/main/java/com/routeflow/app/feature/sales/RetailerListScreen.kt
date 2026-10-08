@@ -548,7 +548,9 @@ private fun RetailerCard(
                         text = amountText,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = color
+                        color = color,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
