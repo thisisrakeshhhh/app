@@ -30,10 +30,12 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -277,17 +279,33 @@ fun RouteFlowApp(
             if (employee != null) {
                 Column {
                     if (employee.role == EmployeeRole.SALESPERSON) {
-                        val salesTitle = when (currentRoute) {
-                            RoleDestination.SALES.route -> "Today's Route"
-                            SALES_RETAILER_LIST -> "Assigned Shops"
-                            SALES_COLLECTIONS -> "Collections & Khata"
-                            SALES_PROFILE -> "Field Profile"
-                            else -> if (currentRoute?.startsWith("sales/order") == true) "Order Booking"
-                                else if (currentRoute?.startsWith("sales/visit") == true) "Shop Visit"
-                                else if (currentRoute?.startsWith("sales/stock-check") == true) "Stock Check"
-                                else "RouteFlow Sales"
+                        val isSubScreen = currentRoute?.startsWith("sales/visit") == true ||
+                                          currentRoute?.startsWith("sales/order") == true ||
+                                          currentRoute?.startsWith("sales/stock-check") == true ||
+                                          currentRoute == SALES_TODAY
+                        val salesTitle = when {
+                            currentRoute == RoleDestination.SALES.route -> "Today's Route"
+                            currentRoute == SALES_TODAY -> "Today's Route"
+                            currentRoute == SALES_RETAILER_LIST -> "Assigned Shops"
+                            currentRoute == SALES_COLLECTIONS -> "Collections & Khata"
+                            currentRoute == SALES_PROFILE -> "Field Profile"
+                            currentRoute?.startsWith("sales/order") == true -> "Order Booking"
+                            currentRoute?.startsWith("sales/visit") == true -> "Shop Visit"
+                            currentRoute?.startsWith("sales/stock-check") == true -> "Stock Check"
+                            else -> "RouteFlow Sales"
                         }
                         TopAppBar(
+                            navigationIcon = {
+                                if (isSubScreen) {
+                                    IconButton(onClick = { navController.popBackStack() }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = RFColors.TextPrimary
+                                        )
+                                    }
+                                }
+                            },
                             title = {
                                 Text(
                                     salesTitle,
@@ -357,14 +375,26 @@ fun RouteFlowApp(
             if (employee != null && bottomNavItems.isNotEmpty()) {
                 NavigationBar(
                     containerColor = Color.White,
-                    tonalElevation = 6.dp
+                    tonalElevation = 8.dp
                 ) {
                     bottomNavItems.forEach { item ->
-                        val selected = currentRoute == item.route
+                        val isSelected = when (item.route) {
+                            RoleDestination.SALES.route, SALES_TODAY ->
+                                currentRoute == RoleDestination.SALES.route || currentRoute == SALES_TODAY
+                            SALES_RETAILER_LIST ->
+                                currentRoute == SALES_RETAILER_LIST || currentRoute?.startsWith("sales/visit") == true
+                            SALES_ORDER_BOOKING.replace("{retailerId}", "all"), SALES_ORDER_BOOKING ->
+                                currentRoute?.startsWith("sales/order") == true || currentRoute?.startsWith("sales/stock-check") == true
+                            SALES_COLLECTIONS ->
+                                currentRoute == SALES_COLLECTIONS
+                            SALES_PROFILE ->
+                                currentRoute == SALES_PROFILE
+                            else -> currentRoute == item.route
+                        }
                         NavigationBarItem(
-                            selected = selected,
+                            selected = isSelected,
                             onClick = {
-                                if (currentRoute != item.route) {
+                                if (!isSelected) {
                                     navController.navigate(item.route) {
                                         popUpTo(destination?.route ?: item.route) {
                                             saveState = true
@@ -379,13 +409,13 @@ fun RouteFlowApp(
                                 Text(
                                     stringResource(item.labelRes),
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
                             colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                selectedIconColor = RFColors.Accent,
-                                selectedTextColor = RFColors.Accent,
-                                indicatorColor = Color(0xFFEFF6FF),
+                                selectedIconColor = Color(0xFF1D4ED8),
+                                selectedTextColor = Color(0xFF1D4ED8),
+                                indicatorColor = Color(0xFFDBEAFE),
                                 unselectedIconColor = Color(0xFF94A3B8),
                                 unselectedTextColor = Color(0xFF64748B)
                             )

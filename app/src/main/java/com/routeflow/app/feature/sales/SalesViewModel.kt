@@ -41,6 +41,7 @@ data class SalesHomeState(
     val pendingCollectionPaise: Long = 0,
     val todayOrdersCount: Int = 0,
     val todayOrderValuePaise: Long = 0,
+    val todayIncentivePaise: Long = 0,
     val monthlyTargetPaise: Long = 50000000, // ₹5,00,000
     val currentAchievedPaise: Long = 12500000, // ₹1,25,000
     val recentOrders: List<SalesOrderSummary> = emptyList(),
@@ -95,6 +96,9 @@ class SalesViewModel @Inject constructor(
 
         val userOrders = orders.filter { it.employeeId == employee?.id }
         val todayOrders = userOrders.filter { it.createdAt >= todayStart }
+        val todayOrderValue = todayOrders.sumOf { it.totalAmountPaise }
+        // 2% commission on booked orders + ₹50 (5000 paise) per completed shop visit
+        val todayIncentive = (todayOrderValue * 2 / 100) + (visitedCount * 5000L)
 
         val beatName = allRetailers.firstOrNull()?.beatId?.let { "Assigned Beat — $it" } ?: "Assigned Beat"
 
@@ -107,7 +111,8 @@ class SalesViewModel @Inject constructor(
             nextShop = nextShop,
             pendingCollectionPaise = pendingUdhaar,
             todayOrdersCount = todayOrders.size,
-            todayOrderValuePaise = todayOrders.sumOf { it.totalAmountPaise },
+            todayOrderValuePaise = todayOrderValue,
+            todayIncentivePaise = todayIncentive,
             isLoading = false
         )
     }

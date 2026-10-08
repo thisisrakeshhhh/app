@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -478,6 +479,82 @@ fun SalesHomeScreen(
                     icon = Icons.Default.Payments,
                     accentColor = Color(0xFFD97706)
                 )
+            }
+
+            // Sales Incentive Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF5FF)),
+                border = BorderStroke(1.dp, Color(0xFFE9D5FF)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF3E8FF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MonetizationOn,
+                                contentDescription = null,
+                                tint = Color(0xFF9333EA),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Today's Incentive",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF581C87)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Surface(
+                                    color = Color(0xFFF3E8FF),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "2% + ₹50/visit",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF7E22CE),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Live field commission earned today",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF7E22CE)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = CurrencyFormatter.formatPaise(state.todayIncentivePaise),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF7E22CE),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
 

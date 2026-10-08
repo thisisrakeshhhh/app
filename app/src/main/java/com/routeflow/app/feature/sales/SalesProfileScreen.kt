@@ -228,6 +228,44 @@ fun SalesProfileScreen(
                             }
                         }
                     }
+
+                    // Incentive Box
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFFAF5FF),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE9D5FF))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Today's Field Incentive",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF7E22CE)
+                                )
+                                Text(
+                                    text = "2% of orders + ₹50 per visit completed",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF9333EA)
+                                )
+                            }
+                            Text(
+                                text = CurrencyFormatter.formatPaise(salesState.todayIncentivePaise),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF7E22CE),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
                 }
             }
         }

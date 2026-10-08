@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Remove
@@ -149,50 +150,61 @@ fun OrderBookingScreen(
                 }
             }
 
-            // Search Bar & Optional Add Product Button
-            Row(
+            // Search Bar (Full Width & Clean)
+            OutlinedTextField(
+                value = state.searchQuery,
+                onValueChange = onSearchChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = state.searchQuery,
-                    onValueChange = onSearchChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Search warehouse items…", fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                if (onAddNewProduct != null) {
-                    Spacer(Modifier.width(8.dp))
-                    FilledTonalButton(
-                        onClick = { showAddProductDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.height(48.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFFEFF6FF),
-                            contentColor = Color(0xFF2563EB)
-                        )
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Request Item", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                placeholder = { Text("Search products, SKU or category…", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
+                trailingIcon = {
+                    if (state.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color(0xFF64748B), modifier = Modifier.size(18.dp))
+                        }
                     }
-                }
-            }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF2563EB),
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
+                )
+            )
 
-            // Smooth Horizontal Category Chips Row
+            // Horizontal Filter & Action Chips Row
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
+                    .padding(vertical = 4.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                if (onAddNewProduct != null) {
+                    item {
+                        Surface(
+                            onClick = { showAddProductDialog = true },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFEFF6FF),
+                            border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color(0xFF2563EB))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Request Item", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                            }
+                        }
+                    }
+                }
+
                 item {
                     FilterChip(
                         selected = state.selectedCategory == null,
