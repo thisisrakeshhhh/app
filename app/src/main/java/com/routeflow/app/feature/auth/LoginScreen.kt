@@ -383,7 +383,7 @@ fun LoginScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Cloudflare Edge & Local Live Sync",
+                        text = "Live Server Sync Enabled",
                         style = MaterialTheme.typography.labelSmall,
                         color = RFColors.Secondary,
                         fontWeight = FontWeight.Medium
