@@ -58,6 +58,20 @@ fun RetailerListScreen(
     onSyncAgain: (() -> Unit)? = null
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.message, state.error) {
+        state.message?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            kotlinx.coroutines.delay(2000)
+            onClearMessages?.invoke()
+        }
+        state.error?.let { err ->
+            snackbarHostState.showSnackbar(err)
+            kotlinx.coroutines.delay(2000)
+            onClearMessages?.invoke()
+        }
+    }
 
     if (state.isLoading) {
         LoadingState(Modifier.fillMaxSize())
@@ -65,7 +79,7 @@ fun RetailerListScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // 1. Compact Shift Status Banner (Off Duty warning if applicable)
@@ -132,7 +146,10 @@ fun RetailerListScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Route,
                                     contentDescription = null,
@@ -149,36 +166,44 @@ fun RetailerListScreen(
                                     )
                                     val visitedCount = state.retailers.count { it.visitStatus == "VISITED" }
                                     Text(
-                                        text = "${state.retailers.size} shops in beat · $visitedCount visited",
+                                        text = "${state.retailers.size} shops · $visitedCount visited",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = RFColors.TextSecondary
                                     )
                                 }
                             }
 
-                            if (state.isOfflineCache && state.retailers.isNotEmpty()) {
-                                Surface(
-                                    color = Color(0xFFFEF3C7),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (state.isOfflineCache && state.retailers.isNotEmpty()) {
+                                    Surface(
+                                        color = Color(0xFFFEF3C7),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, Color(0xFFFDE68A))
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CloudOff,
-                                            contentDescription = null,
-                                            tint = Color(0xFFB45309),
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Spacer(Modifier.width(4.dp))
                                         Text(
-                                            text = "Offline copy",
-                                            fontSize = 11.sp,
+                                            text = "Offline",
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFB45309)
+                                            color = Color(0xFFB45309),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                                         )
+                                    }
+                                }
+
+                                if (onAddRetailer != null) {
+                                    Button(
+                                        onClick = {
+                                            onClearMessages?.invoke()
+                                            showAddDialog = true
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.height(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Add Shop", fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                                     }
                                 }
                             }
@@ -186,55 +211,7 @@ fun RetailerListScreen(
                     }
                 }
 
-                if (state.message != null) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
-                            border = BorderStroke(1.dp, Color(0xFF10B981))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF059669))
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    text = state.message,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF065F46),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
 
-                if (state.error != null) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                            border = BorderStroke(1.dp, Color(0xFFEF4444))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFDC2626))
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    text = state.error,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF991B1B),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
 
                 if (state.retailers.isEmpty()) {
                     item {
@@ -266,7 +243,7 @@ fun RetailerListScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Ask Owner/Admin to assign your beat.",
+                                    text = "No shops assigned yet. Contact owner/admin.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = RFColors.TextSecondary,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -293,21 +270,14 @@ fun RetailerListScreen(
                 }
             }
 
-            if (onAddRetailer != null) {
-                ExtendedFloatingActionButton(
-                    onClick = {
-                        onClearMessages?.invoke()
-                        showAddDialog = true
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(20.dp),
-                    containerColor = Color(0xFF2563EB),
-                    contentColor = Color.White,
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Add Shop") },
-                    text = { Text("Add Shop", fontWeight = FontWeight.Bold) }
-                )
-            }
+
+
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            )
         }
     }
 
@@ -482,9 +452,10 @@ private fun AddShopDialog(
             }
         },
         confirmButton = {
+            val isFormValid = name.trim().length >= 3 && address.trim().isNotBlank() && (contactNumber.trim().isEmpty() || contactNumber.trim().matches(Regex("^[0-9]{10}$")))
             Button(
-                onClick = { onConfirm(name, address, contactNumber, latitude, longitude) },
-                enabled = name.isNotBlank() && !isSaving,
+                onClick = { onConfirm(name.trim(), address.trim(), contactNumber.trim(), latitude, longitude) },
+                enabled = isFormValid && !isSaving,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
             ) {

@@ -165,7 +165,7 @@ fun SalesCollectionsScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Ask Owner/Admin to assign your beat.",
+                                    text = "No shops assigned yet. Contact owner/admin.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = RFColors.TextSecondary,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -414,11 +414,26 @@ private fun CollectPaymentDialog(
                     }
                 }
 
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (selectedMethod == "CASH") Color(0xFFF0FDF4) else Color(0xFFFFFBEB),
+                    border = BorderStroke(1.dp, if (selectedMethod == "CASH") Color(0xFFBBF7D0) else Color(0xFFFDE68A)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (selectedMethod == "CASH") "✓ Cash collected directly in hand" else "⏳ UPI / Cheque requires owner/admin verification",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (selectedMethod == "CASH") Color(0xFF15803D) else Color(0xFFB45309),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+
                 OutlinedTextField(
                     value = referenceText,
                     onValueChange = { referenceText = it },
-                    label = { Text("Receipt / Ref Number (Optional)") },
-                    placeholder = { Text("e.g. UPI-12345 or Cheque #") },
+                    label = { Text(if (selectedMethod == "CASH") "Receipt / Note (Optional)" else "Transaction / Cheque Ref *") },
+                    placeholder = { Text(if (selectedMethod == "UPI") "e.g. UPI Ref / UTR number" else if (selectedMethod == "CHEQUE") "e.g. Cheque number & bank" else "e.g. Bill reference") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp)
@@ -426,12 +441,14 @@ private fun CollectPaymentDialog(
             }
         },
         confirmButton = {
+            val amountValid = (amountText.toLongOrNull() ?: 0L) > 0
+            val refValid = selectedMethod == "CASH" || referenceText.isNotBlank()
             Button(
                 onClick = {
                     val amt = amountText.toLongOrNull() ?: 0L
                     onConfirm(amt * 100, selectedMethod, referenceText.trim())
                 },
-                enabled = (amountText.toLongOrNull() ?: 0L) > 0,
+                enabled = amountValid && refValid,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
             ) {

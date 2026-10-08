@@ -276,40 +276,80 @@ fun RouteFlowApp(
         topBar = {
             if (employee != null) {
                 Column {
-                    TopAppBar(
-                        title = {
-                            Column {
+                    if (employee.role == EmployeeRole.SALESPERSON) {
+                        val salesTitle = when (currentRoute) {
+                            RoleDestination.SALES.route -> "Today's Route"
+                            SALES_RETAILER_LIST -> "Assigned Shops"
+                            SALES_COLLECTIONS -> "Collections & Khata"
+                            SALES_PROFILE -> "Field Profile"
+                            else -> if (currentRoute?.startsWith("sales/order") == true) "Order Booking"
+                                else if (currentRoute?.startsWith("sales/visit") == true) "Shop Visit"
+                                else if (currentRoute?.startsWith("sales/stock-check") == true) "Stock Check"
+                                else "RouteFlow Sales"
+                        }
+                        TopAppBar(
+                            title = {
                                 Text(
-                                    "RouteFlow",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
+                                    salesTitle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
                                 )
-                                Text(
-                                    stringResource(employee.role.labelRes),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = RFColors.Accent,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        },
-                        actions = {
-                            TextButton(onClick = {
-                                isDemoMode = false
-                                onDemoLogout()
-                            }, Modifier.testTag("logout")) {
-                                Text(
-                                    stringResource(R.string.logout),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = RFColors.Error,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.White,
-                            titleContentColor = RFColors.TextPrimary,
+                            },
+                            actions = {
+                                TextButton(onClick = {
+                                    isDemoMode = false
+                                    onDemoLogout()
+                                }, Modifier.testTag("logout")) {
+                                    Text(
+                                        stringResource(R.string.logout),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = RFColors.Error,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.White,
+                                titleContentColor = RFColors.TextPrimary,
+                            )
                         )
-                    )
+                    } else {
+                        TopAppBar(
+                            title = {
+                                Column {
+                                    Text(
+                                        "RouteFlow",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        stringResource(employee.role.labelRes),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = RFColors.Accent,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            },
+                            actions = {
+                                TextButton(onClick = {
+                                    isDemoMode = false
+                                    onDemoLogout()
+                                }, Modifier.testTag("logout")) {
+                                    Text(
+                                        stringResource(R.string.logout),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = RFColors.Error,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.White,
+                                titleContentColor = RFColors.TextPrimary,
+                            )
+                        )
+                    }
                 }
             }
         },

@@ -266,7 +266,7 @@ fun SalesHomeScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Ask Owner/Admin to assign your beat.",
+                        text = "No shops assigned yet. Contact owner/admin.",
                         style = MaterialTheme.typography.bodySmall,
                         color = RFColors.TextSecondary,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

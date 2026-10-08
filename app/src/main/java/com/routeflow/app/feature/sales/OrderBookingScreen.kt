@@ -316,8 +316,8 @@ private fun ProductCard(
                     Text(
                         text = when {
                             item.product.stockQuantity <= 0 -> "Out of Stock"
-                            item.product.stockQuantity <= 10 -> "In Stock: ${item.product.stockQuantity} (Low Stock)"
-                            else -> "In Stock: ${item.product.stockQuantity} units"
+                            item.product.stockQuantity <= 10 -> "Low Stock (${item.product.stockQuantity})"
+                            else -> "In Stock"
                         },
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,

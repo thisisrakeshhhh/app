@@ -154,6 +154,23 @@ class RetailerListViewModel @Inject constructor(
         latitude: Double?,
         longitude: Double?
     ) {
+        val trimmedName = name.trim()
+        val trimmedAddress = address.trim()
+        val trimmedContact = contactNumber.trim()
+
+        if (trimmedName.length < 3) {
+            _error.value = "Shop name must be at least 3 characters"
+            return
+        }
+        if (trimmedAddress.isBlank()) {
+            _error.value = "Shop address cannot be empty"
+            return
+        }
+        if (trimmedContact.isNotEmpty() && !trimmedContact.matches(Regex("^[0-9]{10}$"))) {
+            _error.value = "Phone number must be a valid 10-digit number"
+            return
+        }
+
         viewModelScope.launch {
             _isSaving.value = true
             _message.value = null
@@ -164,10 +181,10 @@ class RetailerListViewModel @Inject constructor(
 
             val req = CreateRetailerRequest(
                 id = "RET-${System.currentTimeMillis().toString().takeLast(6)}",
-                name = name.trim(),
+                name = trimmedName,
                 beatId = beatId,
-                address = address.trim(),
-                contactNumber = contactNumber.trim(),
+                address = trimmedAddress,
+                contactNumber = trimmedContact,
                 creditLimitPaise = 500000L,
                 paymentTermsDays = 7,
                 latitude = latitude,
@@ -176,7 +193,7 @@ class RetailerListViewModel @Inject constructor(
             val result = retailerRepository.createRetailer(req)
             _isSaving.value = false
             if (result.isSuccess) {
-                _message.value = "Shop '$name' added successfully!"
+                _message.value = "Shop added successfully"
                 retailerRepository.syncRetailersFromServer()
             } else {
                 _error.value = result.exceptionOrNull()?.message ?: "Failed to add shop"
