@@ -1,26 +1,26 @@
 package com.routeflow.app.feature.warehouse
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.AssignmentReturn
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -30,19 +30,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,17 +58,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.routeflow.app.R
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.InspectItemRequest
-import com.routeflow.app.core.network.dto.ReturnItemDto
 import com.routeflow.app.core.network.dto.ReturnRequestDto
 import com.routeflow.app.core.network.dto.UndeliveredGoodsDto
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,103 +91,143 @@ fun WarehouseReturnsScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
+            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.tab_returns),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                    color = RFColors.TextPrimary
-                )
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Returns & RMA",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(text = "•", color = Color(0xFF94A3B8))
+                        Text(
+                            text = "वापसी निरीक्षण",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                    Text(
+                        text = "Customer returns verification & driver undelivered items",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
+
                 IconButton(
                     onClick = { viewModel.loadData() },
                     modifier = Modifier.testTag("refresh_returns_button")
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = RFColors.Primary)
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFF2563EB))
                 }
             }
-            TabRow(selectedTabIndex = selectedTab) {
+
+            // Clean 2 Tabs
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color.White,
+                contentColor = Color(0xFF2563EB)
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Customer RMA (${uiState.returns.size})", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
+                    text = {
+                        Text(
+                            text = "Customer Returns (${uiState.returns.size})",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
                     modifier = Modifier.testTag("tab_customer_rma")
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Driver Returns (${uiState.undeliveredGoods.size})", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
+                    text = {
+                        Text(
+                            text = "Driver Returns (${uiState.undeliveredGoods.size})",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
                     modifier = Modifier.testTag("tab_driver_returns")
                 )
             }
 
             when {
                 uiState.isLoading -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = RFColors.Primary)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Loading requests…")
                     }
                 }
 
                 selectedTab == 0 -> {
-                    // RMA Tab
+                    // Customer RMA Tab
                     if (uiState.returns.isEmpty()) {
-                        Column(
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(16.dp)
-                                .padding(bottom = 96.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                                .padding(bottom = 120.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Surface(
-                                color = Color(0xFFEFF6FF),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                modifier = Modifier.size(56.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(24.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.AssignmentReturn,
-                                        contentDescription = null,
-                                        tint = RFColors.Primary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
+                                Surface(
+                                    color = Color(0xFFEFF6FF),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.size(52.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.AssignmentReturn,
+                                            contentDescription = null,
+                                            tint = Color(0xFF2563EB),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
                                 }
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("No pending return inspections", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = RFColors.TextPrimary)
-                            Text("Customer return requests (RMA) will appear here for verification", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = { viewModel.loadData() },
-                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(48.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Refresh Returns (रीफ्रेश करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(
+                                    text = "No pending return inspections",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = "Customer return requests (RMA) will appear here for verification",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF64748B),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                OutlinedButton(
+                                    onClick = { viewModel.loadData() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Text("Refresh Returns", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                                }
                             }
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(uiState.returns) { ret ->
                                 ReturnCard(
@@ -206,48 +243,59 @@ fun WarehouseReturnsScreen(
                 selectedTab == 1 -> {
                     // Driver Undelivered Returns Tab
                     if (uiState.undeliveredGoods.isEmpty()) {
-                        Column(
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(16.dp)
-                                .padding(bottom = 96.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                                .padding(bottom = 120.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Surface(
-                                color = Color(0xFFEFF6FF),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                modifier = Modifier.size(56.dp)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(24.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.LocalShipping,
-                                        contentDescription = null,
-                                        tint = RFColors.Primary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
+                                Surface(
+                                    color = Color(0xFFEFF6FF),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.size(52.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.LocalShipping,
+                                            contentDescription = null,
+                                            tint = Color(0xFF2563EB),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
                                 }
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("No driver-held undelivered goods", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = RFColors.TextPrimary)
-                            Text("All undelivered items have been acknowledged or returned to godown.", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = { viewModel.loadData() },
-                                colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(48.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Refresh Deliveries (रीफ्रेश करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(
+                                    text = "No driver-held undelivered goods",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = "All undelivered items have been acknowledged or returned to godown.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF64748B),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                OutlinedButton(
+                                    onClick = { viewModel.loadData() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Text("Refresh Deliveries", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                                }
                             }
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(uiState.undeliveredGoods) { item ->
                                 UndeliveredGoodCard(
@@ -308,13 +356,19 @@ private fun UndeliveredGoodCard(
     onAcknowledge: () -> Unit
 ) {
     val totalQty = item.undeliveredPaidQuantity + item.undeliveredFreeQuantity
+    val readableReason = formatReturnReason(item.reason)
+
     Card(
-        modifier = Modifier.fillMaxWidth().testTag("undelivered_card_${item.id}"),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("undelivered_card_${item.id}"),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -323,48 +377,90 @@ private fun UndeliveredGoodCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    item.productName ?: item.productId,
+                    text = item.productName ?: item.productId,
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color(0xFF0F172A)
                 )
+                Surface(
+                    color = Color(0xFFFEF2F2),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA))
+                ) {
+                    Text(
+                        text = "Held: $totalQty units",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+
+            // Reason Chip & Driver
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = Color(0xFFEFF6FF),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = readableReason,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
+                }
+                Text("•", color = Color(0xFF94A3B8))
                 Text(
-                    "Held: $totalQty units",
-                    fontWeight = FontWeight.Bold,
-                    color = RFColors.Error,
-                    style = MaterialTheme.typography.titleSmall
+                    text = "Driver: ${item.driverName ?: item.driverId}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF475569)
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Driver: ${item.driverName ?: item.driverId}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                Text("•", style = MaterialTheme.typography.bodySmall)
-                Text("Reason: ${item.reason}", style = MaterialTheme.typography.bodySmall, color = RFColors.Error)
-            }
-
-            Text("Retailer: ${item.retailerName ?: "Unknown"} (${item.retailerAddress ?: ""})", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+            Text(
+                text = "Retailer: ${item.retailerName ?: "Retail Kirana"} (${item.retailerAddress ?: ""})",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF64748B)
+            )
 
             if (!item.notes.isNullOrBlank()) {
-                Text("Notes: ${item.notes}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                Text(
+                    text = "Notes: ${item.notes}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B)
+                )
             }
 
             if (!item.rescheduledFor.isNullOrBlank()) {
-                Text("Rescheduled for: ${item.rescheduledFor}", style = MaterialTheme.typography.bodySmall, color = RFColors.Primary)
+                Text(
+                    text = "Rescheduled for: ${item.rescheduledFor}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF2563EB)
+                )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            HorizontalDivider(color = Color(0xFFF1F5F9))
 
             Button(
                 onClick = onAcknowledge,
                 enabled = !isProcessing,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().testTag("ack_button_${item.id}"),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("ack_button_${item.id}"),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = RFColors.Primary,
+                    containerColor = Color(0xFF2563EB),
                     contentColor = Color.White
                 )
             ) {
                 if (isProcessing) {
-                    CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Processing…", color = Color.White)
                 } else {
@@ -376,94 +472,28 @@ private fun UndeliveredGoodCard(
 }
 
 @Composable
-private fun AcknowledgeReturnDialog(
-    item: UndeliveredGoodsDto,
-    onDismiss: () -> Unit,
-    onConfirm: (saleable: Int, damaged: Int, shortage: Int, notes: String?) -> Unit
-) {
-    val totalQty = item.undeliveredPaidQuantity + item.undeliveredFreeQuantity
-    var saleableStr by remember { mutableStateOf(totalQty.toString()) }
-    var damagedStr by remember { mutableStateOf("0") }
-    var shortageStr by remember { mutableStateOf("0") }
-    var notes by remember { mutableStateOf("") }
-
-    val saleable = saleableStr.toIntOrNull() ?: 0
-    val damaged = damagedStr.toIntOrNull() ?: 0
-    val shortage = shortageStr.toIntOrNull() ?: 0
-    val isValid = (saleable >= 0 && damaged >= 0 && shortage >= 0) && (saleable + damaged + shortage == totalQty)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.acknowledge_return), fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text("Product: ${item.productName ?: item.productId}", fontWeight = FontWeight.SemiBold)
-                Text("Total Undelivered: $totalQty units", style = MaterialTheme.typography.bodyMedium, color = RFColors.Error)
-                Text("Disposition must sum to total undelivered units:", style = MaterialTheme.typography.bodySmall)
-
-                OutlinedTextField(
-                    value = saleableStr,
-                    onValueChange = { saleableStr = it },
-                    label = { Text(stringResource(R.string.saleable_restocked)) },
-                    modifier = Modifier.fillMaxWidth().testTag("ack_saleable_input")
-                )
-
-                OutlinedTextField(
-                    value = damagedStr,
-                    onValueChange = { damagedStr = it },
-                    label = { Text(stringResource(R.string.damaged_writeoff)) },
-                    modifier = Modifier.fillMaxWidth().testTag("ack_damaged_input")
-                )
-
-                OutlinedTextField(
-                    value = shortageStr,
-                    onValueChange = { shortageStr = it },
-                    label = { Text(stringResource(R.string.shortage_qty)) },
-                    modifier = Modifier.fillMaxWidth().testTag("ack_shortage_input")
-                )
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text(stringResource(R.string.notes)) },
-                    placeholder = { Text("e.g. Verified return from driver") },
-                    modifier = Modifier.fillMaxWidth().testTag("ack_notes_input")
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(saleable, damaged, shortage, notes.trim().ifEmpty { null }) },
-                enabled = isValid,
-                modifier = Modifier.testTag("confirm_ack_button")
-            ) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-@Composable
 private fun ReturnCard(
     returnRequest: ReturnRequestDto,
     isProcessing: Boolean,
     onInspect: () -> Unit
 ) {
+    val readableStatus = when (returnRequest.status) {
+        "PENDING_INSPECTION" -> "Inspection Pending"
+        "PENDING" -> "Inspection Pending"
+        "APPROVED" -> "Approved"
+        "REJECTED" -> "Rejected"
+        else -> returnRequest.status.replace("_", " ")
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -472,45 +502,58 @@ private fun ReturnCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    returnRequest.retailer_name ?: "Retailer ${returnRequest.retailer_id}",
+                    text = returnRequest.retailer_name ?: "Retailer ${returnRequest.retailer_id}",
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color(0xFF0F172A)
                 )
-                Text(
-                    returnRequest.status,
-                    fontWeight = FontWeight.Bold,
-                    color = if (returnRequest.status == "PENDING") RFColors.Error else RFColors.Primary,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Surface(
+                    color = if (returnRequest.status.contains("PENDING")) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = readableStatus,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                        color = if (returnRequest.status.contains("PENDING")) Color(0xFFB45309) else Color(0xFF166534),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
 
-            returnRequest.items.forEach { item ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(item.product_name ?: item.product_id, style = MaterialTheme.typography.bodySmall)
-                    Text("×${item.requested_quantity}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                returnRequest.items.forEach { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(item.product_name ?: item.product_id, style = MaterialTheme.typography.bodySmall, color = Color(0xFF334155))
+                        Text("×${item.requested_quantity} units", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                    }
                 }
             }
 
             if (returnRequest.status == "PENDING" || returnRequest.status == "PENDING_INSPECTION") {
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+
                 Button(
                     onClick = onInspect,
                     enabled = !isProcessing,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = RFColors.Primary,
+                        containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
                     )
                 ) {
                     if (isProcessing) {
-                        CircularProgressIndicator(modifier = Modifier.width(18.dp).height(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Processing…", color = Color.White)
                     } else {
-                        Icon(Icons.Default.AssignmentReturn, contentDescription = null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.AssignmentReturn, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Inspect Return", color = Color.White, fontWeight = FontWeight.Bold)
                     }
@@ -533,31 +576,40 @@ private fun InspectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Inspect Return", fontWeight = FontWeight.Bold) },
+        title = { Text("Inspect Return", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text("Retailer: ${returnRequest.retailer_name ?: returnRequest.retailer_id}", fontWeight = FontWeight.SemiBold)
-                Text("For each item, enter saleable and damaged quantities:", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
+                Text("Enter verified quantities for return disposition:", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
 
                 returnRequest.items.forEach { item ->
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    ) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("${item.product_name ?: item.product_id}  ×${item.requested_quantity}", fontWeight = FontWeight.SemiBold)
+                            Text("${item.product_name ?: item.product_id} (Requested: ${item.requested_quantity})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(
                                     value = saleableQty[item.product_id] ?: "0",
                                     onValueChange = { saleableQty[item.product_id] = it },
-                                    label = { Text("Saleable") },
-                                    modifier = Modifier.weight(1f)
+                                    label = { Text("Saleable (Restock)") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    singleLine = true
                                 )
                                 OutlinedTextField(
                                     value = damagedQty[item.product_id] ?: "0",
                                     onValueChange = { damagedQty[item.product_id] = it },
-                                    label = { Text("Damaged") },
-                                    modifier = Modifier.weight(1f)
+                                    label = { Text("Damaged (Writeoff)") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    singleLine = true
                                 )
                             }
                         }
@@ -567,32 +619,146 @@ private fun InspectionDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (optional)") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Inspection Notes") },
+                    placeholder = { Text("e.g. Seal intact on tea packs") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onReject(notes.trim().ifEmpty { null }) }) {
-                    Text("Reject")
-                }
-                Button(
-                    onClick = {
-                        val inspectItems = returnRequest.items.map { item ->
-                            val s = saleableQty[item.product_id]?.toIntOrNull() ?: 0
-                            val d = damagedQty[item.product_id]?.toIntOrNull() ?: 0
-                            InspectItemRequest(productId = item.product_id, saleableQuantity = s, damagedQuantity = d)
-                        }
-                        onApprove(inspectItems, notes.trim().ifEmpty { null })
+            Button(
+                onClick = {
+                    val inspectItems = returnRequest.items.map { item ->
+                        val saleable = saleableQty[item.product_id]?.toIntOrNull() ?: 0
+                        val damaged = damagedQty[item.product_id]?.toIntOrNull() ?: 0
+                        InspectItemRequest(
+                            productId = item.product_id,
+                            saleableQuantity = saleable,
+                            damagedQuantity = damaged,
+                            saleableFreeQuantity = 0,
+                            damagedFreeQuantity = 0
+                        )
                     }
-                ) {
-                    Text("Approve")
-                }
+                    onApprove(inspectItems, notes.trim().ifEmpty { null })
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(48.dp)
+            ) {
+                Text("Approve Restock", fontWeight = FontWeight.Bold, color = Color.White)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TextButton(
+                    onClick = { onReject(notes.trim().ifEmpty { null }) },
+                    modifier = Modifier.height(48.dp)
+                ) {
+                    Text("Reject Return", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                    Text("Cancel", color = Color(0xFF64748B))
+                }
+            }
         }
     )
+}
+
+@Composable
+private fun AcknowledgeReturnDialog(
+    item: UndeliveredGoodsDto,
+    onDismiss: () -> Unit,
+    onConfirm: (saleable: Int, damaged: Int, shortage: Int, notes: String?) -> Unit
+) {
+    val totalQty = item.undeliveredPaidQuantity + item.undeliveredFreeQuantity
+    var saleableStr by remember { mutableStateOf(totalQty.toString()) }
+    var damagedStr by remember { mutableStateOf("0") }
+    var shortageStr by remember { mutableStateOf("0") }
+    var notes by remember { mutableStateOf("") }
+
+    val saleable = saleableStr.toIntOrNull() ?: 0
+    val damaged = damagedStr.toIntOrNull() ?: 0
+    val shortage = shortageStr.toIntOrNull() ?: 0
+    val isValid = (saleable >= 0 && damaged >= 0 && shortage >= 0) && (saleable + damaged + shortage == totalQty)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.acknowledge_return), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Product: ${item.productName ?: item.productId}", fontWeight = FontWeight.SemiBold)
+                Text("Total Undelivered: $totalQty units", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                Text("Disposition must sum to total undelivered units:", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+
+                OutlinedTextField(
+                    value = saleableStr,
+                    onValueChange = { saleableStr = it },
+                    label = { Text(stringResource(R.string.saleable_restocked)) },
+                    modifier = Modifier.fillMaxWidth().testTag("ack_saleable_input"),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = damagedStr,
+                    onValueChange = { damagedStr = it },
+                    label = { Text(stringResource(R.string.damaged_writeoff)) },
+                    modifier = Modifier.fillMaxWidth().testTag("ack_damaged_input"),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = shortageStr,
+                    onValueChange = { shortageStr = it },
+                    label = { Text(stringResource(R.string.shortage_qty)) },
+                    modifier = Modifier.fillMaxWidth().testTag("ack_shortage_input"),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text(stringResource(R.string.notes)) },
+                    placeholder = { Text("e.g. Verified return from driver") },
+                    modifier = Modifier.fillMaxWidth().testTag("ack_notes_input"),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(saleable, damaged, shortage, notes.trim().ifEmpty { null }) },
+                enabled = isValid,
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                modifier = Modifier.height(48.dp).testTag("confirm_ack_button")
+            ) {
+                Text(stringResource(R.string.confirm), fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                Text(stringResource(R.string.cancel), color = Color(0xFF64748B))
+            }
+        }
+    )
+}
+
+private fun formatReturnReason(rawReason: String?): String {
+    return when (rawReason?.uppercase()) {
+        "SHOP_CLOSED" -> "Shop Closed"
+        "DAMAGED" -> "Damaged"
+        "WRONG_ITEM" -> "Wrong Item"
+        "PARTIAL_RETURN" -> "Partial Return"
+        "CUSTOMER_CANCELLED" -> "Customer Cancelled"
+        "REJECTED" -> "Rejected"
+        null -> "Return"
+        else -> rawReason.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+    }
 }

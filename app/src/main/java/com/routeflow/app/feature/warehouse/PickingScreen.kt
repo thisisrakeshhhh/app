@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Inventory2
@@ -31,7 +30,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.PickingOrderDto
 
@@ -71,8 +70,8 @@ fun PickingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header
             Row(
@@ -80,15 +79,23 @@ fun PickingScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Picking & Packing",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(text = "•", color = Color(0xFF94A3B8))
+                        Text(
+                            text = "पिक-पैक",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                     Text(
-                        text = "Picking & Packing / पिक-पैक",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "FEFO picking, scan-to-confirm & carton packing",
+                        text = "Warehouse task list with FEFO batch recommendation",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -107,50 +114,51 @@ fun PickingScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 96.dp),
+                        .padding(bottom = 120.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(24.dp)
                     ) {
                         Surface(
                             color = Color(0xFFEFF6FF),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(52.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                                Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(26.dp))
                             }
                         }
                         Text(
                             text = "No picking orders in queue",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
                         )
                         Text(
                             text = "Approved distributor orders will appear here for godown picking",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
-                        Button(
+                        OutlinedButton(
                             onClick = onRefresh,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Refresh Queue (रीफ्रेश करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Refresh Queue", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
                         }
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     items(orders, key = { it.id }) { item ->
                         PickingOrderItemCard(
@@ -165,7 +173,7 @@ fun PickingScreen(
         }
     }
 
-    // Dialog: Mark Order Packed (Cartons count, crates, notes)
+    // Dialog: Mark Order Packed
     packingOrder?.let { item ->
         WarehousePackDialog(
             order = item,
@@ -195,15 +203,18 @@ private fun PickingOrderItemCard(
         else -> Color(0xFFFEF3C7)
     }
     val statusText = when {
-        isPacked -> "PACKED (पैक हो गया)"
-        isPicking -> "IN PICKING (पिकिंग चालू)"
-        else -> "READY TO PICK (तैयार)"
+        isPacked -> "Packed"
+        isPicking -> "In Picking"
+        else -> "Ready to Pick"
     }
     val statusColor = when {
         isPacked -> Color(0xFF166534)
         isPicking -> Color(0xFF0369A1)
         else -> Color(0xFFB45309)
     }
+
+    val pickedCount = orderDto.items.count { it.isPicked }
+    val totalCount = orderDto.items.size
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -213,19 +224,19 @@ private fun PickingOrderItemCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Top: Order ID & Status Badge
+            // Top Row: Retailer & Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = orderDto.id,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Order #${orderDto.id.takeLast(6).uppercase()}",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
                     )
@@ -239,7 +250,7 @@ private fun PickingOrderItemCard(
                 Surface(color = statusBg, shape = RoundedCornerShape(6.dp)) {
                     Text(
                         text = statusText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = statusColor
@@ -247,117 +258,147 @@ private fun PickingOrderItemCard(
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFF1F5F9))
+            // Progress pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Items: $totalCount SKU(s)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF475569),
+                    fontWeight = FontWeight.SemiBold
+                )
 
-            // Items to pick
-            Text(
-                text = "Items in Order (${orderDto.items.size}):",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF334155)
-            )
-
-            orderDto.items.forEach { item ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.productName ?: item.productId,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1E293B)
-                        )
-                        if (item.suggestedBatch != null) {
-                            Text(
-                                text = "FEFO Suggested Batch: ${item.suggestedBatch.batchNo}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF2563EB)
-                            )
-                        }
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "${item.quantity} units",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-                        if (item.isPicked) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = "Picked",
-                                tint = Color(0xFF16A34A),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (isPacked && orderDto.cartonsCount > 0) {
                 Surface(
-                    color = Color(0xFFF0FDF4),
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                    color = Color(0xFFF1F5F9),
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = "Packed: ${orderDto.cartonsCount} carton(s) ready for dispatch",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF166534),
-                        fontWeight = FontWeight.SemiBold
+                        text = "Progress: $pickedCount / $totalCount picked",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (pickedCount == totalCount && totalCount > 0) Color(0xFF16A34A) else Color(0xFF2563EB)
                     )
                 }
             }
 
-            // Action CTAs
+            HorizontalDivider(color = Color(0xFFF1F5F9))
+
+            // Item list with FEFO suggested batch
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                orderDto.items.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (item.isPicked) Color(0xFFF0FDF4) else Color(0xFFF8FAFC), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.productName ?: item.productId,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF1E293B)
+                            )
+                            if (item.suggestedBatch != null) {
+                                Text(
+                                    text = "FEFO Batch: ${item.suggestedBatch.batchNo}${if (!item.suggestedBatch.rackBin.isNullOrBlank()) " • " + item.suggestedBatch.rackBin else ""}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF2563EB),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "${item.quantity} units",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            )
+                            if (item.isPicked) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Picked",
+                                    tint = Color(0xFF16A34A),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFFF1F5F9))
+
+            // Action row with clear CTA and scan visual
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Secondary Scan button
+                OutlinedButton(
+                    onClick = onScanPick,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(48.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp)
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", modifier = Modifier.size(18.dp), tint = Color(0xFF2563EB))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Scan to Pick", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                }
+
+                // Primary action button
                 if (isApproved) {
                     Button(
                         onClick = onStartPicking,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEA580C)),
+                        shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        shape = RoundedCornerShape(8.dp)
+                            .weight(1f)
+                            .height(48.dp)
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Start Picking (पिकिंग शुरू करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Start Picking", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 } else if (isPicking) {
                     Button(
-                        onClick = onScanPick,
+                        onClick = onMarkPacked,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                        shape = RoundedCornerShape(8.dp)
+                            .height(48.dp)
                     ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Scan Pick", fontWeight = FontWeight.Bold, color = Color.White)
+                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Mark Packed", fontWeight = FontWeight.Bold, color = Color.White)
                     }
-
-                    Button(
-                        onClick = onMarkPacked,
+                } else {
+                    Surface(
+                        color = Color(0xFFF0FDF4),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
                         modifier = Modifier
-                            .weight(1.3f)
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                        shape = RoundedCornerShape(8.dp)
+                            .weight(1f)
+                            .height(48.dp)
                     ) {
-                        Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Mark Packed (पैक करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "✓ Packed • Ready for Dispatch",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
+                        }
                     }
                 }
             }
@@ -369,45 +410,52 @@ private fun PickingOrderItemCard(
 private fun WarehousePackDialog(
     order: PickingOrderDto,
     onDismiss: () -> Unit,
-    onConfirm: (cartons: Int, notes: String?) -> Unit
+    onConfirm: (cartonsCount: Int, notes: String?) -> Unit
 ) {
-    var cartonsText by remember { mutableStateOf("1") }
+    var cartonsCountText by remember { mutableStateOf("1") }
     var notesText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pack Order / कार्टन पैकिंग दर्ज करें", fontWeight = FontWeight.Bold) },
+        title = { Text("Mark Order Packed", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Order: ${order.id}", fontWeight = FontWeight.SemiBold, color = Color(0xFF2563EB))
+                Text("Order #${order.id.takeLast(6).uppercase()} packed into cartons for dispatch.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
                 OutlinedTextField(
-                    value = cartonsText,
-                    onValueChange = { cartonsText = it },
-                    label = { Text("Number of Cartons / Crates *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    value = cartonsCountText,
+                    onValueChange = { cartonsCountText = it },
+                    label = { Text("Number of Cartons / Crates") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("Packing Notes (e.g., Heavy box, fragile glass)") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Carton packing notes (optional)") },
+                    placeholder = { Text("e.g. Fragile glass bottles inside") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val c = cartonsText.toIntOrNull() ?: 1
-                    onConfirm(c, notesText.trim().takeIf { it.isNotBlank() })
+                    val cartons = cartonsCountText.toIntOrNull() ?: 1
+                    onConfirm(cartons, notesText.trim().ifEmpty { null })
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(48.dp)
             ) {
-                Text("Confirm Packed (पैक सुरक्षित करें)", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Confirm Packed", fontWeight = FontWeight.Bold, color = Color.White)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                Text("Cancel", color = Color(0xFF64748B))
+            }
         }
     )
 }

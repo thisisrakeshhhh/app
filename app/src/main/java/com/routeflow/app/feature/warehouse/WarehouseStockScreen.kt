@@ -19,13 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -58,7 +59,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.CreateWarehouseBatchRequest
 import com.routeflow.app.core.network.dto.WarehouseStockItemDto
@@ -83,49 +86,57 @@ fun WarehouseStockScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Compact Header
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Godown Stock",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(text = "•", color = Color(0xFF94A3B8))
+                        Text(
+                            text = "गोदाम स्टॉक और बैच",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                     Text(
-                        text = "Godown Stock / स्टॉक बही",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "Inventory balance, batches & inward GRN",
+                        text = "Real-time stock counts, FEFO batches & inward GRN",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
                 }
 
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
 
                 Button(
                     onClick = onOpenScanner,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(44.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    modifier = Modifier.height(48.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Scan", fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
+                    Text("Scan", fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
                 }
             }
 
-            // Search Bar
+            // Search Bar (Sticky at top)
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = onSearchChange,
-                placeholder = { Text("Search name, SKU, category or barcode...") },
+                placeholder = { Text("Search name, SKU, category or barcode...", color = Color(0xFF94A3B8), fontSize = 13.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
                 trailingIcon = {
                     if (state.searchQuery.isNotEmpty()) {
@@ -141,22 +152,22 @@ fun WarehouseStockScreen(
 
             // Filter Chips
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 val filters = listOf(
-                    "ALL" to "All Stock (सभी)",
-                    "LOW_STOCK" to "Low Stock (कम)",
-                    "NEAR_EXPIRY" to "Near Expiry (जल्द समाप्ति)",
-                    "OUT_OF_STOCK" to "Out of Stock (खत्म)",
-                    "DAMAGED" to "Damaged (खराब)"
+                    "ALL" to "All Stock",
+                    "LOW_STOCK" to "Low Stock",
+                    "NEAR_EXPIRY" to "Near Expiry",
+                    "OUT_OF_STOCK" to "Out of Stock",
+                    "DAMAGED" to "Damaged"
                 )
                 items(filters) { (key, label) ->
                     val isSelected = state.activeFilter == key
                     FilterChip(
                         selected = isSelected,
                         onClick = { onFilterChange(key) },
-                        label = { Text(label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         shape = RoundedCornerShape(6.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF2563EB),
@@ -174,59 +185,52 @@ fun WarehouseStockScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 96.dp),
+                        .padding(bottom = 120.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(24.dp)
                     ) {
                         Surface(
                             color = Color(0xFFEFF6FF),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(52.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Inventory, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                                Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(26.dp))
                             }
                         }
                         Text(
-                            text = "No products found in godown",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            text = "No stock found. Add inward stock or sync godown data.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF334155),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
-                        Text(
-                            text = "Try clearing filters or search terms",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
-                        )
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 onSearchChange("")
                                 onFilterChange("ALL")
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Text("Reset Filters")
+                            Text("Clear Filters", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
                         }
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     items(state.products, key = { it.id }) { item ->
-                        WarehouseProductStockCard(
+                        CompactProductStockRow(
                             item = item,
-                            onView = { viewingProductDetails = item },
-                            onInward = { selectedProductForInward = item },
-                            onAdjust = { selectedProductForAdjustment = item },
-                            onAudit = { selectedProductForAudit = item }
+                            onClick = { viewingProductDetails = item }
                         )
                     }
                 }
@@ -299,174 +303,141 @@ fun WarehouseStockScreen(
 }
 
 @Composable
-private fun WarehouseProductStockCard(
+private fun CompactProductStockRow(
     item: WarehouseStockItemDto,
-    onView: () -> Unit,
-    onInward: () -> Unit,
-    onAdjust: () -> Unit,
-    onAudit: () -> Unit
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+            // Category / Thumbnail icon
+            Surface(
+                color = Color(0xFFF1F5F9),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.size(38.dp)
             ) {
-                // Product Thumbnail Placeholder & Basic Info
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Inventory2,
+                        contentDescription = null,
+                        tint = Color(0xFF475569),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Info column
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Surface(
-                        color = Color(0xFFF1F5F9),
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Inventory, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(24.dp))
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = item.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-                        Text(
-                            text = "${item.category} • SKU: ${item.sku ?: item.id.take(8)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
-                        )
-                        if (!item.barcode.isNullOrBlank()) {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (item.stockQuantity <= 10) {
+                        Surface(
+                            color = Color(0xFFFEF3C7),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
                             Text(
-                                text = "Barcode: ${item.barcode}",
+                                text = "Low Stock",
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF2563EB),
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFB45309),
+                                fontSize = 10.sp
                             )
                         }
                     }
                 }
 
-                // Current Stock Badge
-                val isLow = item.stockQuantity <= 10
-                Surface(
-                    color = if (isLow) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = "${item.stockQuantity} in stock",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isLow) Color(0xFFB45309) else Color(0xFF166534)
-                    )
-                }
-            }
+                Text(
+                    text = "${item.category} • SKU: ${item.sku ?: item.id.take(8)}${if (!item.barcode.isNullOrBlank()) " • " + item.barcode else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF64748B),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            // Reserved & Batches Info Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = Color(0xFFF8FAFC),
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Available: ${item.availableQuantity} • Reserved: ${item.reservedQuantity}",
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        text = "Available: ${item.availableQuantity}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF475569)
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF16A34A)
                     )
-                }
-                if (item.batchCount > 0) {
-                    Surface(
-                        color = Color(0xFFEFF6FF),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFCBD5E1)
+                    )
+                    Text(
+                        text = "Reserved: ${item.reservedQuantity}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF64748B)
+                    )
+                    if (item.batchCount > 0) {
                         Text(
-                            text = "${item.batchCount} batch(es)",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            text = "•",
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFCBD5E1)
+                        )
+                        Text(
+                            text = "${item.batchCount} batches",
+                            style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFF2563EB)
                         )
                     }
                 }
-                if (item.damagedQuantity > 0) {
-                    Surface(
-                        color = Color(0xFFFEE2E2),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = "Damaged: ${item.damagedQuantity}",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF991B1B)
-                        )
-                    }
-                }
             }
 
-            HorizontalDivider(color = Color(0xFFF1F5F9))
-
-            // Action Buttons (View, Inward, Adjust)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Total stock pill + Tap chevron
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                OutlinedButton(
-                    onClick = onView,
-                    modifier = Modifier
-                        .weight(0.9f)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp)
+                Surface(
+                    color = if (item.stockQuantity <= 10) Color(0xFFFFFBEB) else Color(0xFFF0FDF4),
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(1.dp, if (item.stockQuantity <= 10) Color(0xFFFDE68A) else Color(0xFFBBF7D0))
                 ) {
-                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("View", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "${item.stockQuantity}",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = if (item.stockQuantity <= 10) Color(0xFFB45309) else Color(0xFF15803D)
+                    )
                 }
-
-                Button(
-                    onClick = onInward,
-                    modifier = Modifier
-                        .weight(1.3f)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("+ Inward (आवक)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-
-                OutlinedButton(
-                    onClick = onAdjust,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp)
-                ) {
-                    Text("Adjust", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                }
+                Text(
+                    text = "Total Pcs",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF94A3B8),
+                    fontSize = 10.sp
+                )
             }
         }
     }
@@ -487,17 +458,19 @@ private fun ProductDetailBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 10.dp)
                 .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-                .padding(bottom = 28.dp),
+                .padding(bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.name,
                         style = MaterialTheme.typography.titleLarge,
@@ -512,57 +485,55 @@ private fun ProductDetailBottomSheet(
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFE2E8F0))
+            HorizontalDivider(color = Color(0xFFF1F5F9))
 
-            // Inventory Breakdown
+            // Stock Summary (3 cards)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Card(
+                StockMetricCard(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${item.stockQuantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF0F172A))
-                        Text("Total Stock", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
-                    }
-                }
-                Card(
+                    label = "Total Stock",
+                    value = "${item.stockQuantity}",
+                    valueColor = Color(0xFF0F172A)
+                )
+                StockMetricCard(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${item.availableQuantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF16A34A))
-                        Text("Available", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
-                    }
-                }
-                Card(
+                    label = "Available",
+                    value = "${item.availableQuantity}",
+                    valueColor = Color(0xFF16A34A)
+                )
+                StockMetricCard(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    label = "Reserved",
+                    value = "${item.reservedQuantity}",
+                    valueColor = Color(0xFF0284C7)
+                )
+            }
+
+            // Technical Details & Batch Status
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${item.reservedQuantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF0284C7))
-                        Text("Reserved", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
+                    DetailRow(label = "SKU", value = item.sku ?: item.id)
+                    DetailRow(label = "Barcode", value = item.barcode ?: "Not assigned")
+                    DetailRow(label = "Registered Batches", value = "${item.batchCount} active batch(es)")
+                    if (item.damagedQuantity > 0) {
+                        DetailRow(label = "Damaged / Quarantine", value = "${item.damagedQuantity} units", valueColor = Color(0xFF991B1B))
                     }
+                    DetailRow(label = "Stock Status", value = if (item.stockQuantity <= 10) "Low Stock Alert" else "Healthy Stock", valueColor = if (item.stockQuantity <= 10) Color(0xFFB45309) else Color(0xFF15803D))
                 }
             }
 
-            // Technical details
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("SKU: ${item.sku ?: item.id}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF334155))
-                Text("Barcode: ${item.barcode ?: "Not assigned"}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF334155))
-                Text("Active Batches: ${item.batchCount}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF334155))
-                Text("Damaged/Quarantine: ${item.damagedQuantity} units", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF991B1B))
-            }
-
-            // CTAs inside bottom sheet
+            // Primary Actions (Minimum 48dp touch height)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -575,21 +546,59 @@ private fun ProductDetailBottomSheet(
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                 ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("+ Add Inward Stock", fontWeight = FontWeight.Bold, color = Color.White)
                 }
 
-                Button(
+                OutlinedButton(
                     onClick = onAdjust,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    border = BorderStroke(1.dp, Color(0xFFEF4444))
                 ) {
-                    Text("Mark Damaged / Audit", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Mark Damaged", fontWeight = FontWeight.Bold, color = Color(0xFFDC2626))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StockMetricCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    valueColor: Color
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = valueColor)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B), maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String,
+    valueColor: Color = Color(0xFF334155)
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+        Text(text = value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = valueColor)
     }
 }
 
@@ -600,51 +609,63 @@ private fun WarehouseInwardDialog(
     onConfirm: (batchNo: String, qty: Int, purchasePrice: Long?, mfgEpoch: Long?, expEpoch: Long?, rackBin: String?, supplier: String?) -> Unit
 ) {
     var batchNo by remember { mutableStateOf("B-" + System.currentTimeMillis().toString().takeLast(5)) }
-    var qtyText by remember { mutableStateOf("50") }
-    var daysToExpiryText by remember { mutableStateOf("180") }
+    var qtyText by remember { mutableStateOf("10") }
+    var purchasePriceText by remember { mutableStateOf("") }
     var rackBinText by remember { mutableStateOf("RACK-A1") }
-    var supplierText by remember { mutableStateOf("Jaipur Wholesale Depot") }
+    var supplierText by remember { mutableStateOf("Main Factory Depot") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Inward Stock / आवक माल दर्ज करें", fontWeight = FontWeight.Bold) },
+        title = {
+            Column {
+                Text("Add Inward Stock (आवक)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("SKU: ${item.name}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(item.name, fontWeight = FontWeight.SemiBold, color = Color(0xFF2563EB))
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 OutlinedTextField(
                     value = batchNo,
                     onValueChange = { batchNo = it },
-                    label = { Text("Batch Number / बैच नंबर *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Batch Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
                     value = qtyText,
                     onValueChange = { qtyText = it },
-                    label = { Text("Quantity Received / आवक मात्रा *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Received Quantity (Units)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
-                    value = daysToExpiryText,
-                    onValueChange = { daysToExpiryText = it },
-                    label = { Text("Expiry in Days / समाप्ति दिवस") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    value = purchasePriceText,
+                    onValueChange = { purchasePriceText = it },
+                    label = { Text("Purchase Price (₹, optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
                     value = rackBinText,
                     onValueChange = { rackBinText = it },
-                    label = { Text("Rack / Bin Location / रैक स्थान") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Godown Rack / Bin Location") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
                     value = supplierText,
                     onValueChange = { supplierText = it },
-                    label = { Text("Supplier Name / सप्लायर") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Supplier / Mill Source") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
             }
         },
@@ -652,17 +673,28 @@ private fun WarehouseInwardDialog(
             Button(
                 onClick = {
                     val qty = qtyText.toIntOrNull() ?: 1
-                    val days = daysToExpiryText.toLongOrNull() ?: 90L
-                    val expEpoch = (System.currentTimeMillis() / 1000) + (days * 86400L)
-                    onConfirm(batchNo.trim(), qty, null, null, expEpoch, rackBinText.trim(), supplierText.trim())
+                    val pricePaise = purchasePriceText.toDoubleOrNull()?.let { (it * 100).toLong() }
+                    onConfirm(
+                        batchNo.trim(),
+                        qty,
+                        pricePaise,
+                        null,
+                        null,
+                        rackBinText.trim().ifEmpty { null },
+                        supplierText.trim().ifEmpty { null }
+                    )
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(48.dp)
             ) {
-                Text("Confirm Inward (आवक करें)", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Confirm Inward (दर्ज करें)", fontWeight = FontWeight.Bold, color = Color.White)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                Text("Cancel", color = Color(0xFF64748B))
+            }
         }
     )
 }
@@ -673,73 +705,69 @@ private fun WarehouseStockAdjustDialog(
     onDismiss: () -> Unit,
     onConfirm: (changeQty: Int, reason: String, notes: String?, batchId: String?) -> Unit
 ) {
-    var qtyText by remember { mutableStateOf("1") }
-    var isDeduction by remember { mutableStateOf(true) }
-    var reason by remember { mutableStateOf("DAMAGE") }
-    var notes by remember { mutableStateOf("") }
+    var changeQtyText by remember { mutableStateOf("-1") }
+    var selectedReason by remember { mutableStateOf("DAMAGED") }
+    var notesText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Stock Adjustment / स्टॉक सुधार", fontWeight = FontWeight.Bold) },
+        title = {
+            Column {
+                Text("Adjust Stock / Damage", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text(item.name, style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("${item.name} (Current: ${item.stockQuantity})", fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { isDeduction = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isDeduction) Color(0xFFDC2626) else Color(0xFFE2E8F0)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("- Deduct / घटायें", color = if (isDeduction) Color.White else Color.Black)
-                    }
-                    Button(
-                        onClick = { isDeduction = false },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (!isDeduction) Color(0xFF16A34A) else Color(0xFFE2E8F0)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("+ Add / जोड़ें", color = if (!isDeduction) Color.White else Color.Black)
+                Text("Reason for adjustment:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val reasons = listOf("DAMAGED" to "Damaged", "EXPIRED" to "Expired", "CORRECTION" to "Audit")
+                    reasons.forEach { (code, label) ->
+                        FilterChip(
+                            selected = selectedReason == code,
+                            onClick = { selectedReason = code },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(6.dp)
+                        )
                     }
                 }
                 OutlinedTextField(
-                    value = qtyText,
-                    onValueChange = { qtyText = it },
-                    label = { Text("Quantity / मात्रा *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    value = changeQtyText,
+                    onValueChange = { changeQtyText = it },
+                    label = { Text("Quantity change (e.g. -2 or 5)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it },
-                    label = { Text("Reason (DAMAGE, EXPIRY, CORRECTION)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes / विवरण") },
-                    modifier = Modifier.fillMaxWidth()
+                    value = notesText,
+                    onValueChange = { notesText = it },
+                    label = { Text("Notes / Reason") },
+                    placeholder = { Text("e.g. Carton wet in monsoon") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val rawQty = qtyText.toIntOrNull() ?: 1
-                    val change = if (isDeduction) -rawQty else rawQty
-                    onConfirm(change, reason.trim(), notes.trim().takeIf { it.isNotBlank() }, null)
+                    val qty = changeQtyText.toIntOrNull() ?: 0
+                    if (qty != 0) {
+                        onConfirm(qty, selectedReason, notesText.trim().ifEmpty { null }, null)
+                    }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(48.dp)
             ) {
-                Text("Save Adjustment", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Save Adjustment", fontWeight = FontWeight.Bold, color = Color.White)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                Text("Cancel", color = Color(0xFF64748B))
+            }
         }
     )
 }
@@ -751,27 +779,28 @@ private fun WarehouseStockAuditDialog(
     onConfirm: (physicalCount: Int, notes: String?) -> Unit
 ) {
     var countText by remember { mutableStateOf(item.stockQuantity.toString()) }
-    var notes by remember { mutableStateOf("Physical godown audit count") }
+    var notesText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Physical Stock Audit / भौतिक गिनती", fontWeight = FontWeight.Bold) },
+        title = { Text("Physical Stock Audit", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(item.name, fontWeight = FontWeight.SemiBold)
-                Text("System Book Quantity: ${item.stockQuantity}", color = Color(0xFF64748B))
+                Text("System Recorded: ${item.stockQuantity} units", style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = countText,
                     onValueChange = { countText = it },
-                    label = { Text("Physical Count on Shelf / वास्तविक गिनती *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Physical Count on Rack") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true
                 )
                 OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Audit Notes") },
-                    modifier = Modifier.fillMaxWidth()
+                    value = notesText,
+                    onValueChange = { notesText = it },
+                    label = { Text("Audit notes") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
         },
@@ -779,15 +808,18 @@ private fun WarehouseStockAuditDialog(
             Button(
                 onClick = {
                     val count = countText.toIntOrNull() ?: item.stockQuantity
-                    onConfirm(count, notes.trim())
+                    onConfirm(count, notesText.trim().ifEmpty { null })
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(48.dp)
             ) {
-                Text("Reconcile Stock", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Confirm Count", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                Text("Cancel")
+            }
         }
     )
 }

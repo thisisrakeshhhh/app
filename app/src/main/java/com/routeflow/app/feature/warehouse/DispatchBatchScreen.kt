@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.DispatchBatchDto
 import com.routeflow.app.core.network.dto.PickingOrderDto
@@ -72,8 +73,8 @@ fun DispatchBatchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header
             Row(
@@ -81,34 +82,37 @@ fun DispatchBatchScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Dispatch Batches / डिस्पैच",
+                        text = "Dispatch Batches",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Group packed orders, assign driver & vehicle handover",
+                        text = "Trip manifests & driver vehicle handover",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFF2563EB))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(onClick = onRefresh, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
                     }
                     Button(
                         onClick = { isCreateDialogOpen = true },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.height(48.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 10.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("+ Create Batch", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("New Batch", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
                 }
             }
@@ -121,32 +125,34 @@ fun DispatchBatchScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 96.dp),
+                        .padding(bottom = 120.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(24.dp)
                     ) {
                         Surface(
                             color = Color(0xFFEFF6FF),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(52.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(26.dp))
                             }
                         }
                         Text(
                             text = "No dispatch batches today",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
                         )
                         Text(
                             text = if (state.packedOrders.isNotEmpty()) "${state.packedOrders.size} packed orders ready to dispatch" else "Pack orders first, then assign delivery driver",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Button(
                             onClick = { isCreateDialogOpen = true },
@@ -156,18 +162,18 @@ fun DispatchBatchScreen(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
                             Spacer(Modifier.width(6.dp))
-                            Text("Create Dispatch Batch (नया बैच बनाएं)", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Create Dispatch Batch", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     items(state.dispatchBatches, key = { it.id }) { batch ->
-                        DispatchBatchCard(
+                        DispatchManifestCard(
                             batch = batch,
                             onHandover = { onHandover(batch.id) }
                         )
@@ -191,7 +197,7 @@ fun DispatchBatchScreen(
 }
 
 @Composable
-private fun DispatchBatchCard(
+private fun DispatchManifestCard(
     batch: DispatchBatchDto,
     onHandover: () -> Unit
 ) {
@@ -204,9 +210,9 @@ private fun DispatchBatchCard(
         else -> Color(0xFFFEF3C7)
     }
     val statusText = when {
-        isDelivered -> "DELIVERED"
-        isHandedOver -> "HANDED OVER (OUT FOR DELIVERY)"
-        else -> "READY FOR HANDOVER"
+        isDelivered -> "Delivered"
+        isHandedOver -> "Out for Delivery"
+        else -> "Ready for Dispatch"
     }
     val statusColor = when {
         isDelivered -> Color(0xFF166534)
@@ -222,32 +228,48 @@ private fun DispatchBatchCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Header row with Batch code & Status badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = batch.batchCode,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "Orders: ${batch.totalOrders} • Cartons: ${batch.totalCartons}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        color = Color(0xFFEFF6FF),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Trip Manifest: ${batch.batchCode}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "${batch.totalOrders} order(s) • ${batch.totalCartons} carton(s)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                 }
 
                 Surface(color = statusBg, shape = RoundedCornerShape(6.dp)) {
                     Text(
                         text = statusText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = statusColor
@@ -257,15 +279,38 @@ private fun DispatchBatchCard(
 
             HorizontalDivider(color = Color(0xFFF1F5F9))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = if (batch.deliveryExecutiveName != null) "Assigned Driver: ${batch.deliveryExecutiveName}" else "Unassigned Driver",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF334155)
-                )
+            // Driver assignment info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
+                    Text(
+                        text = if (batch.deliveryExecutiveName != null) "Assigned: ${batch.deliveryExecutiveName}" else "Unassigned Driver",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF334155)
+                    )
+                }
+
+                Surface(
+                    color = Color(0xFFF8FAFC),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Text(
+                        text = "Route 04 (Jaipur Beat)",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF64748B),
+                        fontSize = 11.sp
+                    )
+                }
             }
 
             if (!batch.notes.isNullOrBlank()) {
@@ -276,6 +321,7 @@ private fun DispatchBatchCard(
                 )
             }
 
+            // Handover button
             if (!isHandedOver && !isDelivered) {
                 Button(
                     onClick = onHandover,
@@ -285,23 +331,30 @@ private fun DispatchBatchCard(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Handover to Driver (गाड़ी रवाना करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Handover to Driver", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             } else if (isHandedOver) {
                 Surface(
                     color = Color(0xFFF0FDF4),
                     shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "✓ Handed over to driver. Driver will deliver via delivery route.",
-                        modifier = Modifier.padding(10.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF166534),
-                        fontWeight = FontWeight.Medium
-                    )
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "Handed over to driver. Currently out for delivery.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF166534),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -323,14 +376,14 @@ private fun CreateDispatchBatchDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Dispatch Batch / डिस्पैच बैच बनायें", fontWeight = FontWeight.Bold) },
+        title = { Text("Create Dispatch Batch", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Select packed orders to include in batch:", fontWeight = FontWeight.SemiBold)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Select packed orders to include in batch:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                 if (packedOrders.isEmpty()) {
-                    Text("No orders currently marked PACKED. Pack orders first in Pick/Pack tab.", color = Color(0xFFDC2626))
+                    Text("No orders currently marked Packed. Pack orders first in Picking tab.", color = Color(0xFFDC2626), style = MaterialTheme.typography.bodySmall)
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         packedOrders.forEach { orderDto ->
                             val isChecked = selectedOrders.contains(orderDto.id)
                             Row(
@@ -339,53 +392,56 @@ private fun CreateDispatchBatchDialog(
                                     .clickable {
                                         if (isChecked) selectedOrders.remove(orderDto.id)
                                         else selectedOrders.add(orderDto.id)
-                                    },
+                                    }
+                                    .background(if (isChecked) Color(0xFFEFF6FF) else Color.Transparent, RoundedCornerShape(6.dp))
+                                    .padding(vertical = 4.dp, horizontal = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(
                                     checked = isChecked,
-                                    onCheckedChange = { check ->
-                                        if (check) selectedOrders.add(orderDto.id)
+                                    onCheckedChange = {
+                                        if (it) selectedOrders.add(orderDto.id)
                                         else selectedOrders.remove(orderDto.id)
                                     }
                                 )
-                                Column(Modifier.padding(start = 6.dp)) {
-                                    Text(orderDto.id, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                    Text("Retailer: ${orderDto.retailerId} (${orderDto.cartonsCount} cartons)", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                                Spacer(Modifier.width(4.dp))
+                                Column {
+                                    Text("Order #${orderDto.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                    Text("${orderDto.items.size} SKU(s)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
                                 }
                             }
                         }
                     }
                 }
 
-                // Driver selector dropdown
-                if (drivers.isNotEmpty()) {
-                    Text("Assign Delivery Driver:", fontWeight = FontWeight.SemiBold)
-                    ExposedDropdownMenuBox(
+                Text("Assign Delivery Driver:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                ExposedDropdownMenuBox(
+                    expanded = isDriverExpanded,
+                    onExpandedChange = { isDriverExpanded = it }
+                ) {
+                    val driverName = drivers.find { it.id == selectedDriverId }?.fullName ?: "Select Driver"
+                    OutlinedTextField(
+                        value = driverName,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDriverExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    ExposedDropdownMenu(
                         expanded = isDriverExpanded,
-                        onExpandedChange = { isDriverExpanded = !isDriverExpanded }
+                        onDismissRequest = { isDriverExpanded = false }
                     ) {
-                        val currentDriverName = drivers.find { it.id == selectedDriverId }?.fullName ?: "Select driver"
-                        OutlinedTextField(
-                            value = currentDriverName,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDriverExpanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = isDriverExpanded,
-                            onDismissRequest = { isDriverExpanded = false }
-                        ) {
-                            drivers.forEach { driver ->
-                                DropdownMenuItem(
-                                    text = { Text(driver.fullName) },
-                                    onClick = {
-                                        selectedDriverId = driver.id
-                                        isDriverExpanded = false
-                                    }
-                                )
-                            }
+                        drivers.forEach { driver ->
+                            DropdownMenuItem(
+                                text = { Text(driver.fullName) },
+                                onClick = {
+                                    selectedDriverId = driver.id
+                                    isDriverExpanded = false
+                                }
+                            )
                         }
                     }
                 }
@@ -393,24 +449,30 @@ private fun CreateDispatchBatchDialog(
                 OutlinedTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("Dispatch Route Notes (e.g. Malviya Nagar morning)") },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Trip / Vehicle Notes") },
+                    placeholder = { Text("e.g. Loading into Van #RJ-14-1234") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(selectedOrders.toList(), selectedDriverId, notesText.trim().takeIf { it.isNotBlank() })
+                    onConfirm(selectedOrders.toList(), selectedDriverId, notesText.trim().ifEmpty { null })
                 },
                 enabled = selectedOrders.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(48.dp)
             ) {
-                Text("Create Dispatch Batch", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Confirm Batch", fontWeight = FontWeight.Bold, color = Color.White)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
+                Text("Cancel", color = Color(0xFF64748B))
+            }
         }
     )
 }
