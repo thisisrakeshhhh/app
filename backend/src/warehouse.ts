@@ -896,7 +896,8 @@ export function warehouseRouter(authMiddleware: MiddlewareHandler<WarehouseEnv>)
     // Fetch undelivered items and customer return requests
     const { results: undelivered } = await c.env.DB.prepare(
       `SELECT u.id, u.order_id AS orderId, u.product_id AS productId, p.name AS productName,
-              u.quantity, u.driver_id AS driverId, usr.full_name AS driverName,
+              (COALESCE(u.undelivered_paid_quantity, 0) + COALESCE(u.undelivered_free_quantity, 0)) AS quantity,
+              u.driver_id AS driverId, usr.full_name AS driverName,
               u.status, u.reason, u.created_at AS createdAt
        FROM undelivered_goods u
        JOIN products p ON p.id = u.product_id
