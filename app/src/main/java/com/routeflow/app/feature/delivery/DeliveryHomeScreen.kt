@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,75 +44,78 @@ fun DeliveryHomeScreen(
         LoadingState(Modifier.fillMaxSize())
     } else {
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Your Delivery Day",
-                        style = MaterialTheme.typography.headlineMedium,
+                        text = "Your Delivery Day / आज की डिलीवरी",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Route Navigation & OTP Delivery",
+                        text = "Route navigation, carton delivery & OTP verification",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
                 }
-                if (com.routeflow.app.BuildConfig.STAGING_MODE) {
-                    Surface(
-                        color = Color(0xFFEFF6FF),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
-                    ) {
-                        Text(
-                            text = "Step 5/8 • Demo",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2563EB)
-                        )
-                    }
+                Surface(
+                    color = Color(0xFFEFF6FF),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Text(
+                        text = "Active Route / एक्टिव रूट",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
                 }
             }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             ) {
-                Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
+                Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
                     Column {
                         Text("${state.assignedCount} Deliveries Assigned", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Jaipur Wholesale Distribution Route", style = MaterialTheme.typography.bodySmall)
+                        Text("Jaipur Wholesale Distribution Route", style = MaterialTheme.typography.bodySmall, color = Color(0xFF475569))
                     }
                 }
             }
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 DeliveryMetricCard(
-                    title = "Completed",
+                    title = "Completed / पूर्ण",
                     value = state.completedCount.toString(),
                     icon = Icons.Default.CheckCircle,
                     color = RouteFlowStatus.Completed,
                     modifier = Modifier.weight(1f)
                 )
                 DeliveryMetricCard(
-                    title = "Collected",
+                    title = "Cash Collected / जमा",
                     value = CurrencyFormatter.formatPaise(state.paymentsCollectedPaise),
                     icon = Icons.Default.Payments,
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = Color(0xFF16A34A),
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(8.dp))
 
             Button(
                 onClick = onViewDeliveries,
@@ -126,7 +131,7 @@ fun DeliveryHomeScreen(
             ) {
                 Icon(Icons.Default.Assignment, contentDescription = null, tint = Color.White)
                 Spacer(Modifier.size(8.dp))
-                Text("View Delivery List", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("View Delivery List (रूट सूची देखें)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.routeflow.app.R
+import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.CashHandoverDto
 import java.text.SimpleDateFormat
@@ -88,12 +89,13 @@ fun DeliveryHandoverScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .padding(bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.tab_cash),
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = "Cash Custody / नकद हैंडओवर",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
                     color = RFColors.TextPrimary
                 )
@@ -101,24 +103,25 @@ fun DeliveryHandoverScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = RFColors.Primary),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = "Cash to Hand Over",
+                            text = "Cash to Hand Over / जमा नकदी",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = Color.White.copy(alpha = 0.85f)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "₹${"%,d".format(uiState.cashHeldPaise / 100)}",
+                            text = CurrencyFormatter.formatPaise(uiState.cashHeldPaise),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Collected: ₹${"%,d".format(uiState.totalCollectedPaise / 100)}  |  Settled: ₹${"%,d".format(uiState.totalSettledPaise / 100)}",
+                            text = "Collected: ${CurrencyFormatter.formatPaise(uiState.totalCollectedPaise)}  |  Settled: ${CurrencyFormatter.formatPaise(uiState.totalSettledPaise)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.9f)
                         )
@@ -129,7 +132,8 @@ fun DeliveryHandoverScreen(
                 uiState.pendingHandover?.let { pending ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -144,7 +148,7 @@ fun DeliveryHandoverScreen(
                                     color = Color(0xFFF57C00)
                                 )
                                 Text(
-                                    "₹${"%,d".format(pending.amount_paise / 100)} submitted — awaiting owner acknowledgement",
+                                    "${CurrencyFormatter.formatPaise(pending.amount_paise)} submitted — awaiting owner acknowledgement",
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -220,7 +224,7 @@ fun DeliveryHandoverScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Cash to hand over: ₹${"%,d".format(cashHeld / 100)}",
+                        "Cash to hand over: ${CurrencyFormatter.formatPaise(cashHeld)}",
                         fontWeight = FontWeight.SemiBold,
                         color = RFColors.Primary
                     )
@@ -250,7 +254,7 @@ fun DeliveryHandoverScreen(
                         contentColor = Color.White
                     )
                 ) {
-                    Text("Submit ₹${"%,d".format(cashHeld / 100)}", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Submit ${CurrencyFormatter.formatPaise(cashHeld)}", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -279,7 +283,7 @@ private fun HandoverHistoryCard(handover: CashHandoverDto) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("₹${"%,d".format(handover.amount_paise / 100)}", fontWeight = FontWeight.Bold)
+                Text(CurrencyFormatter.formatPaise(handover.amount_paise), fontWeight = FontWeight.Bold)
                 Text(handover.status, color = statusColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
             }
             Text(
@@ -288,9 +292,9 @@ private fun HandoverHistoryCard(handover: CashHandoverDto) {
                 color = RFColors.TextSecondary
             )
             handover.discrepancy_paise?.takeIf { it != 0L }?.let { disc ->
-                val sign = if (disc > 0) "+" else ""
+                val sign = if (disc > 0) "+" else "-"
                 Text(
-                    "Discrepancy: $sign₹${"%,d".format(disc / 100)}",
+                    "Discrepancy: $sign${CurrencyFormatter.formatPaise(kotlin.math.abs(disc))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (disc != 0L) RFColors.Error else RFColors.Success
                 )

@@ -30,7 +30,12 @@ data class DeliveryHomeState(
 data class DeliveryItemState(
     val order: OrderEntity,
     val retailerName: String,
-    val retailerAddress: String
+    val retailerAddress: String,
+    val contactNumber: String = "",
+    val stopSequence: Int = 1,
+    val totalCartons: Int = 1,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0
 )
 
 data class DeliveryDetailState(
@@ -65,10 +70,11 @@ class DeliveryViewModel @Inject constructor(
     val detailState = _detailState.asStateFlow()
 
     val state: StateFlow<DeliveryHomeState> = orderRepository.getAllOrders().map { orders ->
+        val completed = orders.filter { it.status == "DELIVERED" || it.status == "PARTIALLY_DELIVERED" }
         DeliveryHomeState(
             assignedCount = orders.count { it.status == "OUT_FOR_DELIVERY" },
-            completedCount = orders.count { it.status == "DELIVERED" || it.status == "PARTIALLY_DELIVERED" },
-            paymentsCollectedPaise = 0
+            completedCount = completed.size,
+            paymentsCollectedPaise = completed.sumOf { it.totalAmountPaise }
         )
     }.stateIn(
         scope = viewModelScope,
@@ -80,14 +86,21 @@ class DeliveryViewModel @Inject constructor(
         orderRepository.getAllOrders(),
         retailerRepository.getAllRetailers()
     ) { orders, retailers ->
-        orders.filter { it.status == "OUT_FOR_DELIVERY" }.map { order ->
-            val retailer = retailers.find { it.id == order.retailerId }
-            DeliveryItemState(
-                order = order,
-                retailerName = retailer?.name ?: "Retailer ${order.retailerId}",
-                retailerAddress = retailer?.address ?: "Address not available"
-            )
-        }
+        orders.filter { it.status == "OUT_FOR_DELIVERY" }
+            .sortedBy { it.createdAt }
+            .mapIndexed { index, order ->
+                val retailer = retailers.find { it.id == order.retailerId }
+                DeliveryItemState(
+                    order = order,
+                    retailerName = retailer?.name ?: "Retailer ${order.retailerId}",
+                    retailerAddress = retailer?.address ?: "Address not available",
+                    contactNumber = retailer?.contactNumber ?: "",
+                    stopSequence = index + 1,
+                    totalCartons = 1,
+                    latitude = retailer?.latitude ?: 0.0,
+                    longitude = retailer?.longitude ?: 0.0
+                )
+            }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

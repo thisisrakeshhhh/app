@@ -364,6 +364,46 @@ fun RouteFlowApp(
                                 titleContentColor = RFColors.TextPrimary,
                             )
                         )
+                    } else if (employee.role == EmployeeRole.DELIVERY_EXECUTIVE) {
+                        val isSubScreen = currentRoute?.startsWith("delivery/detail") == true
+                        TopAppBar(
+                            navigationIcon = {
+                                if (isSubScreen) {
+                                    IconButton(onClick = { navController.popBackStack() }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = RFColors.TextPrimary
+                                        )
+                                    }
+                                }
+                            },
+                            title = {
+                                Text(
+                                    "Jaipur Delivery Fleet",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
+                                )
+                            },
+                            actions = {
+                                TextButton(onClick = {
+                                    isDemoMode = false
+                                    onDemoLogout()
+                                }, Modifier.testTag("logout")) {
+                                    Text(
+                                        stringResource(R.string.logout),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = RFColors.Error,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.White,
+                                titleContentColor = RFColors.TextPrimary,
+                            )
+                        )
                     } else {
                         TopAppBar(
                             title = {
@@ -1026,6 +1066,8 @@ fun RouteFlowApp(
                     DeliveryDetailScreen(
                         orderId = item.order.id,
                         retailerName = item.retailerName,
+                        retailerAddress = item.retailerAddress,
+                        contactNumber = item.contactNumber,
                         amountPaise = item.order.totalAmountPaise,
                         detailState = effectiveDetailState,
                         itemsFlow = viewModel.getOrderItems(item.order.id),

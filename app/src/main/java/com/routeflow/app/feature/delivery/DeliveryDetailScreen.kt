@@ -72,6 +72,8 @@ fun DeliveryDetailScreen(
     retailerName: String,
     amountPaise: Long,
     detailState: DeliveryDetailState,
+    retailerAddress: String? = null,
+    contactNumber: String? = null,
     itemsFlow: Flow<List<DeliveryOrderItemUiModel>>? = null,
     onDeliver: (paymentMethod: String, otp: String, recipientName: String, items: List<DeliveryItemCompletionRequest>?) -> Unit,
     onDeliveryFailed: (reason: String, rescheduledDate: String?, notes: String?) -> Unit = { _, _, _ -> },
@@ -86,6 +88,7 @@ fun DeliveryDetailScreen(
     var failRescheduledDate by remember { mutableStateOf("") }
     var failNotes by remember { mutableStateOf("") }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
 
@@ -139,13 +142,45 @@ fun DeliveryDetailScreen(
             .fillMaxSize()
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(bottom = 64.dp)
             .imePadding()
             .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(orderId, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Text(retailerName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+
+            if (!retailerAddress.isNullOrBlank()) {
+                Text(
+                    text = retailerAddress,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B)
+                )
+            }
+
+            if (!contactNumber.isNullOrBlank()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$contactNumber"))
+                            context.startActivity(intent)
+                        },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(32.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Add.let { androidx.compose.material.icons.Icons.Filled.ErrorOutline }, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Call: $contactNumber", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
