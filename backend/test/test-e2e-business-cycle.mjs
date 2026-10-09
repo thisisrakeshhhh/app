@@ -68,25 +68,32 @@ async function run() {
 
   // 3. Sales Order Booking from Warehouse Catalog
   console.log('3. Sales Order Booking: Booking items from warehouse catalog...');
+  const prodRes = await get('/products', salesToken);
+  const products = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data.products || []);
+  const targetProd = products.find(p => p.id === 'P2') || products[0];
+  const unitPrice = targetProd.pricePaise || targetProd.price_paise || 16000;
+  const qty = 2;
+  const orderTotalPaise = unitPrice * qty;
+
   const orderId = `ORD-${Date.now().toString().slice(-6)}`;
   const orderRes = await post('/orders', {
     order: {
       id: orderId,
       retailerId: shopId,
-      totalAmountPaise: 24000
+      totalAmountPaise: orderTotalPaise
     },
     items: [
       {
         id: `ITEM-${Date.now()}`,
-        productId: 'P2',
-        quantity: 2,
-        pricePaiseAtTime: 12000
+        productId: targetProd.id,
+        quantity: qty,
+        pricePaiseAtTime: unitPrice
       }
     ],
     idempotencyKey: `idemp_${orderId}`
   }, salesToken);
   assert.equal(orderRes.status, 200, `Order creation failed: ${JSON.stringify(orderRes.data)}`);
-  console.log(`✓ Order booked by Sales! ID: ${orderId}, Total: ₹240.00, Status: PENDING_APPROVAL\n`);
+  console.log(`✓ Order booked by Sales! ID: ${orderId}, Total: ₹${(orderTotalPaise/100).toFixed(2)}, Status: PENDING_APPROVAL\n`);
 
   // 4. Sales Payment Collection from Shop
   console.log('4. Sales Field Collection: Collecting payment from retailer...');
@@ -107,7 +114,7 @@ async function run() {
   // 6. Warehouse Manager: Picking & Packing Logistics
   console.log('6. Warehouse Manager: Managing logistics (picking & packing goods)...');
   await post(`/orders/${orderId}/start-picking`, {}, warehouseToken);
-  await post(`/orders/${orderId}/pick-item`, { productId: 'P2', isPicked: true }, warehouseToken);
+  await post(`/orders/${orderId}/pick-item`, { productId: targetProd.id, isPicked: true }, warehouseToken);
   const packRes = await post(`/orders/${orderId}/pack`, {}, warehouseToken);
   assert.equal(packRes.status, 200, `Order pack failed: ${JSON.stringify(packRes.data)}`);
   console.log(`✓ Goods picked and packed in warehouse! Status: PACKED\n`);
@@ -136,17 +143,17 @@ async function run() {
   // 9. Delivery Driver Cash Handover & Owner Reconciliation
   console.log('9. Cash Handover: Driver submits collected cash handover to owner...');
   const handoverRes = await post('/cash-handovers', {
-    amountPaise: 24000,
+    amountPaise: orderTotalPaise,
     idempotencyKey: `ho_${Date.now()}`
   }, deliveryToken);
   const handoverId = handoverRes.data.handover?.id || handoverRes.data.id || handoverRes.data.handoverId;
-  console.log(`✓ Cash handover submitted by driver! Amount: ₹240.00, Handover ID: ${handoverId}`);
+  console.log(`✓ Cash handover submitted by driver! Amount: ₹${(orderTotalPaise/100).toFixed(2)}, Handover ID: ${handoverId}`);
 
   if (handoverId) {
     console.log('   Owner acknowledging and reconciling cash handover...');
     const ackRes = await post(`/cash-handovers/${handoverId}/acknowledge`, {
       status: 'ACCEPTED',
-      receivedAmountPaise: 24000
+      receivedAmountPaise: orderTotalPaise
     }, ownerToken);
     console.log(`✓ Cash handover settled & reconciled by Owner! Status: ACCEPTED\n`);
   }
