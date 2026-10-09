@@ -290,7 +290,9 @@ class AccountScopedSyncTest {
         override suspend fun getEmployees(): List<com.routeflow.app.core.network.dto.EmployeeDto> = emptyList()
         override suspend fun createEmployee(request: com.routeflow.app.core.network.dto.CreateEmployeeRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun deactivateEmployee(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun resetEmployeePassword(id: String, request: com.routeflow.app.core.network.dto.ResetEmployeePasswordRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun submitVisit(request: com.routeflow.app.core.network.dto.VisitDto, account: String?): StatusResponse = StatusResponse(success = true)
+
         override suspend fun getVisits(): List<com.routeflow.app.core.network.dto.VisitDto> = emptyList()
         override suspend fun checkoutVisit(visitId: String, request: com.routeflow.app.core.network.dto.CheckoutVisitRequest, account: String?): StatusResponse = StatusResponse(success = true)
         override suspend fun submitStockCheck(request: com.routeflow.app.core.network.dto.StockCheckDto, account: String?): StatusResponse = StatusResponse(success = true)

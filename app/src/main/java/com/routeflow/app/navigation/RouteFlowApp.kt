@@ -550,8 +550,12 @@ fun RouteFlowApp(
                         onViewEmployees = { navController.navigate(OWNER_EMPLOYEES) },
                         onViewHandovers = { navController.navigate(OWNER_HANDOVERS) },
                         onViewCollections = { navController.navigate(OWNER_COLLECTIONS) },
-                        onViewReturns = { navController.navigate(OWNER_RETURNS) }
+                        onViewReturns = { navController.navigate(OWNER_RETURNS) },
+                        onViewTeam = { navController.navigate(OWNER_TEAM) },
+                        onViewReports = { navController.navigate(OWNER_ACTIVITY) },
+                        onRefresh = viewModel::refreshOperations
                     )
+
                 }
             }
 
@@ -613,9 +617,11 @@ fun RouteFlowApp(
                     state = state,
                     onCreateEmployee = viewModel::createEmployee,
                     onDeactivateEmployee = viewModel::deactivateEmployee,
+                    onResetPassword = viewModel::resetEmployeePassword,
                     onClearMessages = viewModel::clearMessages,
                     onBack = { navController.popBackStack() }
                 )
+
             }
 
             composable(OWNER_BEATS) {
@@ -685,8 +691,12 @@ fun RouteFlowApp(
                         onViewEmployees = {},
                         onViewHandovers = {},
                         onViewCollections = {},
-                        onViewReturns = {}
+                        onViewReturns = {},
+                        onViewTeam = { navController.navigate(ADMIN_TEAM) },
+                        onViewReports = { navController.navigate(ADMIN_ACTIVITY) },
+                        onRefresh = viewModel::refreshOperations
                     )
+
                 }
             }
 

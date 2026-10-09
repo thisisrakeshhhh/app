@@ -126,7 +126,7 @@ fun OwnerProductsScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 items(state.products, key = { it.id }) { product ->
                     ProductItemCard(
@@ -142,10 +142,11 @@ fun OwnerProductsScreen(
             onClick = { showAddDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp)
+                .padding(bottom = 90.dp, end = 16.dp)
                 .testTag("add_product_fab"),
             containerColor = MaterialTheme.colorScheme.primary
         ) {
+
             Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White)
         }
     }

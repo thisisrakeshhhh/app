@@ -353,6 +353,12 @@ data class CreateEmployeeRequest(
 )
 
 @Serializable
+data class ResetEmployeePasswordRequest(
+    val newPassword: String
+)
+
+
+@Serializable
 data class VisitDto(
     val id: String,
     val retailerId: String,

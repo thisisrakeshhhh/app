@@ -2218,6 +2218,45 @@ app.put('/employees/:id/deactivate', authMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
+app.put('/employees/:id/reset-password', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
+  }
+
+  const targetUserId = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const newPassword = body.password || body.newPassword;
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    return c.json({ error: 'New password must be at least 6 characters' }, 400);
+  }
+
+  // Ensure target user belongs to the same tenant company
+  const targetUser = await c.env.DB.prepare('SELECT id, full_name, username FROM users WHERE id = ? AND company_id = ?')
+    .bind(targetUserId, user.company_id).first();
+  if (!targetUser) {
+    return c.json({ error: 'Employee not found in your organization' }, 404);
+  }
+
+  const passwordHash = bcrypt.hashSync(newPassword, 10);
+  const now = Date.now();
+
+  const statements = [
+    c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ? AND company_id = ?')
+      .bind(passwordHash, targetUserId, user.company_id),
+    // Instantly revoke all active sessions for this employee
+    c.env.DB.prepare('UPDATE sessions SET is_revoked = 1 WHERE user_id = ? AND company_id = ?')
+      .bind(targetUserId, user.company_id),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), user.company_id, user.sub, 'EMPLOYEE_PASSWORD_RESET', targetUserId, `Password reset by ${user.role} and active sessions revoked`, now)
+  ];
+
+  await c.env.DB.batch(statements);
+  return c.json({ success: true, message: 'Password reset and sessions revoked successfully' });
+});
+
 // ============================================================================
 // SLICE C: SHOP VISITS & FIELD STOCK AUDITS
 // ============================================================================

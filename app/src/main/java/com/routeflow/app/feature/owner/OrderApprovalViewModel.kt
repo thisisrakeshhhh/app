@@ -32,6 +32,9 @@ data class OrderDetailState(
     val order: OrderEntity,
     val items: List<OrderItemWithProduct>,
     val retailerName: String,
+    val creditLimitPaise: Long = 0L,
+    val outstandingBalancePaise: Long = 0L,
+    val hasSufficientStock: Boolean = true,
     val syncState: com.routeflow.app.domain.model.OrderSyncState = com.routeflow.app.domain.model.OrderSyncState.SYNCED,
     val syncError: String? = null
 )
@@ -61,6 +64,12 @@ class OrderApprovalViewModel @Inject constructor(
                 OrderItemWithProduct(item, products.find { it.id == item.productId })
             }
             val retailer = retailerRepository.getRetailerById(order.retailerId).first()
+            val creditLimit = retailer?.creditLimitPaise ?: 0L
+            val outstanding = retailer?.outstandingAmountPaise ?: 0L
+            val hasStock = items.all { (item, product) ->
+                val available = (product?.stockQuantity ?: 0) - (product?.reservedQuantity ?: 0)
+                available >= (item.quantity + item.freeQuantity)
+            }
             val outboxItem = pendingSyncs.firstOrNull { it.payload.contains(order.id) }
             val (syncState, syncError) = when {
                 order.status == "NEEDS_ATTENTION" ->
@@ -76,11 +85,15 @@ class OrderApprovalViewModel @Inject constructor(
                 order = order,
                 items = items,
                 retailerName = retailer?.name ?: "Unknown Retailer",
+                creditLimitPaise = creditLimit,
+                outstandingBalancePaise = outstanding,
+                hasSufficientStock = hasStock,
                 syncState = syncState,
                 syncError = syncError
             )
         }
         uiState.copy(orders = details, isLoading = false)
+
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

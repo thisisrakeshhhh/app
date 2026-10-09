@@ -194,7 +194,8 @@ fun OwnerReturnsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(state.pendingAuthorization, key = { it.id }) { item ->
                                 AuthorizeReturnCard(
@@ -220,7 +221,8 @@ fun OwnerReturnsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(inProgressReturns, key = { it.id }) { item ->
                                 ReceiveOrInspectCard(
@@ -246,7 +248,8 @@ fun OwnerReturnsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(creditReturns, key = { it.id }) { item ->
                                 CreditReturnCard(
@@ -265,8 +268,10 @@ fun OwnerReturnsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                     ) {
+
                         item {
                             Text("Driver-Held Stock (${state.driverHeldStock.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                         }

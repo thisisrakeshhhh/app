@@ -209,6 +209,8 @@ RouteFlow integrates 10 daily operational modules purpose-built for FMCG & kiran
 
 ---
 
+---
+
 ## 8. Warehouse & Godown Operations Module (Blinkit-Style FMCG Fulfillment)
 
 RouteFlow equips warehouse managers and godown munshis with a high-density, real-time fulfillment console designed for rapid physical operations:
@@ -244,12 +246,77 @@ RouteFlow equips warehouse managers and godown munshis with a high-density, real
    - **Driver Undelivered Returns**: Inspect returned items upon driver evening return; categorize into **Saleable (Restock to Available)**, **Damaged (Move to Quarantine)**, or **Shortage (Driver Liability Audit)**.
    - **Customer RMA Returns**: Review shop return requests with defect notes and photo proofs; 1-tap Approve (Credit Note) or Reject.
 
-> [!NOTE]
-> **Product Real Image Upload (Future Enhancement)**: Real product photo capture directly uploaded to Cloudflare R2 object storage is architected as an upcoming release milestone. Currently, high-density SVG/vector brand placeholders ensure instant 60 FPS scrolling and zero godown network latency.
+---
+
+## 9. Owner & Admin Control Room (Wholesale Governance & Fraud Prevention)
+
+For the distributor and business owner (the paying enterprise client), RouteFlow provides a commanding yet straightforward management experience:
+
+### 9.1 Core Governance Capabilities
+
+1. **Control Room Dashboard (Owner Home)**:
+   - **8 Real-Time KPI Cards**: Today Sales, Cash Collected, Pending Udhaar, Pending Approvals, Low Stock Items, Failed Deliveries, Pending Cash Handovers, and Staff On Duty.
+   - **5 Quick Action Shortcuts**: Approve Orders, View Cash & Handovers, Staff Location Monitor, Stock Alert, and Reports.
+   - Clean, professional styling with zero demo tags ("Step 1/8 • Demo" removed completely).
+
+2. **Order Approvals & Risk Engine**:
+   - Order review displaying Retailer Name, Order Amount, Credit Limit, and Current Outstanding Udhaar balance.
+   - **Financial Badges**: Dynamic `Credit OK` vs `Credit Exceeded` calculated directly against credit headroom.
+   - **Stock Availability Badges**: `Stock Ready` vs `Low Stock / Partial` preventing impossible dispatches.
+   - **Structured Rejection Dialog**: Preset operational rejection reasons (Credit Limit Exceeded, Stock Shortage, Route Closed, Payment Overdue).
+
+3. **Employee Management & Security Governance**:
+   - Comprehensive staff roster with active/deactivated badge indicators.
+   - **Role-Gated Password Reset**: Exclusively Owner/Admin can reset staff passwords via secure modal; instantly revokes all active auth sessions on the server (`is_revoked = 1`) to terminate compromised device access immediately.
+   - Beat assignment during onboarding and on-demand staff deactivation.
+
+4. **Retailer Network & Udhaar Khata**:
+   - Kirana directory displaying Credit Limits and Outstanding Balances.
+   - 1-tap **Direct Call** (`tel:`) and **WhatsApp** (`https://wa.me/`) intent buttons.
+   - **Khata Ledger Dialog**: Shows total credit limit, current outstanding Udhaar, available credit headroom, and recent ledger entries.
+   - Shelf stock audit view for retail compliance monitoring.
+
+5. **Cash Reconciliation & Physical Handover**:
+   - Settlement screen for delivery cash custody and sales collections.
+   - Tracks cash discrepancies between physical notes handed over and system-calculated totals with dispute notes.
+   - History archive for auditing past accepted handovers.
+
+6. **4-Tab Operations & Daily Summary Reports**:
+   - **Field Visits**: Log of check-ins, duration, geo-discrepancy warning badges.
+   - **Sales**: Live stream of orders placed today with real-time status (`SUBMITTED`, `OUT_FOR_DELIVERY`, `DELIVERED`).
+   - **Collections**: Payment breakup by cash, UPI, and cheque.
+   - **Godown Stock**: Itemized stock levels and minimum threshold warnings.
+   - **Share Daily Summary**: 1-tap Android share intent to send formatted daily WhatsApp summaries to stakeholders.
+
+7. **Team Live Monitor**:
+   - Live field status of sales executives and delivery drivers.
+   - Stop progress indicator (`X / Y completed`), shift start timestamp, last reported GPS coordinates, and stale location alerts (>15m).
+
+### 9.2 Owner Screenshots Tour
+
+| 01. Owner Control Room | 02. Order Approvals Engine |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_01_home.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_02_approval.png" width="340" /> |
+| *8 Live KPIs, 5 Quick Actions, Zero demo badges* | *Credit Limit vs Udhaar validation & Stock badges* |
+
+| 03. Staff Roles & Password Reset | 04. Retailer Network & Khata |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_03_employees.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_04_retailers.png" width="340" /> |
+| *Active/Deactivated badges, Owner-only password reset* | *Credit headroom, 1-tap WhatsApp/Call, Ledger dialog* |
+
+| 05. Cash Handover Reconciliation | 06. Reports & Operations (Sales) |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_05_handovers.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_06_reports.png" width="340" /> |
+| *Pending handovers, physical discrepancy tracking* | *4-Tab report: Visits, Sales, Collections, Stock* |
+
+| 07. Team Live Monitor | 08. Godown Product Catalog |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_07_team.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_08_stock.png" width="340" /> |
+| *GPS tracking, shift status, stop completion progress* | *Live stock inventory, wholesale pricing, add SKU* |
 
 ---
 
-## 9. 60-Second Client Demo Script
+## 10. 60-Second Client Demo Script
 
 Use this exact field-tested script during investor or distributor client demonstrations:
 
@@ -269,7 +336,7 @@ Use this exact field-tested script during investor or distributor client demonst
 
 ---
 
-## 10. Production Readiness Matrix
+## 11. Production Readiness Matrix
 
 | Milestone | Status | Key Deliverables & Validation |
 |---|:---:|---|

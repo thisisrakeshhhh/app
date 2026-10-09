@@ -97,12 +97,14 @@ fun OwnerTeamScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                 ) {
                     items(state.teamMembers, key = { it.id }) { member ->
                         TeamMemberCard(member = member)
                     }
                 }
+
             }
         }
     }

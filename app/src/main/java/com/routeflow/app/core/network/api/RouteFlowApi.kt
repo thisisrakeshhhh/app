@@ -110,6 +110,10 @@ interface RouteFlowApi {
     @retrofit2.http.PUT("employees/{id}/deactivate")
     suspend fun deactivateEmployee(@Path("id") id: String): StatusResponse
 
+    @retrofit2.http.PUT("employees/{id}/reset-password")
+    suspend fun resetEmployeePassword(@Path("id") id: String, @Body request: com.routeflow.app.core.network.dto.ResetEmployeePasswordRequest): StatusResponse
+
+
     // --- Visits & Stock Checks ---
     @POST("visits")
     suspend fun submitVisit(@Body request: com.routeflow.app.core.network.dto.VisitDto, @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null): StatusResponse

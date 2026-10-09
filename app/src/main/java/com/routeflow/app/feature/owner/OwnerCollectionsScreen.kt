@@ -173,7 +173,8 @@ fun OwnerCollectionsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(state.pendingReviewCollections, key = { it.id }) { item ->
                                 PendingReviewCard(
@@ -198,7 +199,8 @@ fun OwnerCollectionsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(state.settledCollections, key = { it.id }) { item ->
                                 SettledPaymentCard(
@@ -222,12 +224,14 @@ fun OwnerCollectionsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(state.reversedOrRejectedCollections, key = { it.id }) { item ->
                                 AuditPaymentCard(collection = item)
                             }
                         }
+
                     }
                 }
             }

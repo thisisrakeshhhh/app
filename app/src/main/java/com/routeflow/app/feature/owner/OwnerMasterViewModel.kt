@@ -261,7 +261,8 @@ class OwnerMasterViewModel @Inject constructor(
         username: String,
         name: String,
         role: String,
-        passwordHash: String
+        passwordHash: String,
+        beatId: String? = null
     ) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, errorMessage = null) }
@@ -270,7 +271,8 @@ class OwnerMasterViewModel @Inject constructor(
                     username = username,
                     fullName = name,
                     role = role,
-                    password = passwordHash
+                    password = passwordHash,
+                    beatId = beatId
                 )
             )
             if (result.isSuccess) {
@@ -300,6 +302,23 @@ class OwnerMasterViewModel @Inject constructor(
             }
         }
     }
+
+    fun resetEmployeePassword(id: String, name: String, newPassword: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = employeeRepository.resetPassword(id, newPassword)
+            if (result.isSuccess) {
+                val empResult = employeeRepository.getCompanyEmployees()
+                if (empResult.isSuccess) {
+                    _employees.value = empResult.getOrNull() ?: emptyList()
+                }
+                _state.update { it.copy(isLoading = false, successMessage = "Password reset for '$name' - sessions revoked immediately") }
+            } else {
+                _state.update { it.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to reset password") }
+            }
+        }
+    }
+
 
     fun createBeat(name: String, description: String?, workingDays: List<String>) {
         viewModelScope.launch {

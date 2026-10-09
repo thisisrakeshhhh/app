@@ -357,7 +357,9 @@ class OfflineEventDependenciesTest {
         override suspend fun getEmployees(): List<EmployeeDto> = emptyList()
         override suspend fun createEmployee(request: CreateEmployeeRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun deactivateEmployee(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun resetEmployeePassword(id: String, request: com.routeflow.app.core.network.dto.ResetEmployeePasswordRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun getVisits(): List<VisitDto> = emptyList()
+
         override suspend fun getBeats(): List<BeatDto> = emptyList()
         override suspend fun createBeat(request: CreateBeatRequest): CreateBeatResponse = CreateBeatResponse(success = true)
         override suspend fun assignBeat(beatId: String, request: AssignBeatRequest): StatusResponse = StatusResponse(success = true)

@@ -49,4 +49,12 @@ class FakeEmployeeRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun resetPassword(id: String, newPassword: String): Result<Unit> = try {
+        val resp = api.resetEmployeePassword(id, com.routeflow.app.core.network.dto.ResetEmployeePasswordRequest(newPassword))
+        if (resp.success) Result.success(Unit) else Result.failure(Exception(resp.message ?: "Failed to reset password"))
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }
+

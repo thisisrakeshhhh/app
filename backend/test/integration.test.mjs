@@ -1029,6 +1029,68 @@ describe('RouteFlow API End-to-End Integration Suite', () => {
       headers: { Authorization: `Bearer ${newEmpToken}` }
     });
     assert.equal(resPostDeact.status, 401, 'Revoked employee session must return 401');
+
+    // 5. Owner creates employee, resets password, old password fails, new password logs in, old session revoked
+    const resetEmpUser = `reset_user_${Date.now()}`;
+    const resCreateForReset = await fetch(`${BASE_URL}/employees`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        username: resetEmpUser,
+        password: 'InitialPassword@123',
+        fullName: 'Rahul Sharma',
+        role: 'DELIVERY_EXECUTIVE'
+      })
+    });
+    assert.equal(resCreateForReset.status, 200);
+    const resetEmpId = (await resCreateForReset.json()).employee.id;
+
+    // Login with initial password
+    const resInitialLogin = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: resetEmpUser, password: 'InitialPassword@123' })
+    });
+    assert.equal(resInitialLogin.status, 200);
+    const initialToken = (await resInitialLogin.json()).access_token;
+
+    // Non-owner cannot reset password (403)
+    const resForbiddenReset = await fetch(`${BASE_URL}/employees/${resetEmpId}/reset-password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${salesToken}` },
+      body: JSON.stringify({ password: 'HackedPassword@456' })
+    });
+    assert.equal(resForbiddenReset.status, 403, 'Salesperson cannot reset employee passwords');
+
+    // Owner resets employee password
+    const resResetPass = await fetch(`${BASE_URL}/employees/${resetEmpId}/reset-password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}` },
+      body: JSON.stringify({ password: 'NewSecurePassword@456' })
+    });
+    assert.equal(resResetPass.status, 200);
+
+    // Old token must be revoked (401)
+    const resOldTokenCheck = await fetch(`${BASE_URL}/orders`, {
+      headers: { Authorization: `Bearer ${initialToken}` }
+    });
+    assert.equal(resOldTokenCheck.status, 401, 'Sessions must be revoked upon owner password reset');
+
+    // Old password login must fail
+    const resOldLoginFail = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: resetEmpUser, password: 'InitialPassword@123' })
+    });
+    assert.equal(resOldLoginFail.status, 401);
+
+    // New password login must succeed
+    const resNewLoginSuccess = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: resetEmpUser, password: 'NewSecurePassword@456' })
+    });
+    assert.equal(resNewLoginSuccess.status, 200);
   });
 
   test('15. Field Operations: Shop Visit Synchronization and In-Store Stock Audit', async () => {

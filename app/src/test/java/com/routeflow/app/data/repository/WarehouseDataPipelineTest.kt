@@ -315,7 +315,9 @@ class WarehouseDataPipelineTest {
         override suspend fun getEmployees(): List<EmployeeDto> = emptyList()
         override suspend fun createEmployee(request: CreateEmployeeRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun deactivateEmployee(id: String): StatusResponse = StatusResponse(success = true)
+        override suspend fun resetEmployeePassword(id: String, request: com.routeflow.app.core.network.dto.ResetEmployeePasswordRequest): StatusResponse = StatusResponse(success = true)
         override suspend fun getVisits(): List<VisitDto> = emptyList()
+
         override suspend fun submitVisit(request: VisitDto, account: String?): StatusResponse = StatusResponse(success = true)
         override suspend fun checkoutVisit(visitId: String, request: CheckoutVisitRequest, account: String?): StatusResponse = StatusResponse(success = true)
         override suspend fun submitStockCheck(request: StockCheckDto, account: String?): StatusResponse = StatusResponse(success = true)

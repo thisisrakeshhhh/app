@@ -169,7 +169,8 @@ fun OwnerHandoversScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             item {
                                 Card(
@@ -218,7 +219,8 @@ fun OwnerHandoversScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
                         ) {
                             items(state.completedHandovers, key = { it.id }) { item ->
                                 CompletedHandoverCard(handover = item)
@@ -226,6 +228,7 @@ fun OwnerHandoversScreen(
                         }
                     }
                 }
+
             }
         }
 

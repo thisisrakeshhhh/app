@@ -9,4 +9,6 @@ interface EmployeeRepository {
     suspend fun getCompanyEmployees(): Result<List<EmployeeDto>>
     suspend fun createEmployee(request: CreateEmployeeRequest): Result<Unit>
     suspend fun deactivateEmployee(id: String): Result<Unit>
+    suspend fun resetPassword(id: String, newPassword: String): Result<Unit>
 }
+

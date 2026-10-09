@@ -129,8 +129,11 @@ fun OwnerBusinessHubScreen(
                 icon = Icons.Default.People,
                 onClick = onNavigateEmployees
             )
+
+            Spacer(Modifier.height(120.dp))
         }
     }
+
 
 @Composable
 private fun BusinessCard(

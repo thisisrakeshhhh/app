@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -33,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,13 +54,15 @@ import com.routeflow.app.core.network.dto.EmployeeDto
 @Composable
 fun OwnerEmployeesScreen(
     state: OwnerMasterState,
-    onCreateEmployee: (username: String, name: String, role: String, passwordHash: String) -> Unit,
+    onCreateEmployee: (username: String, name: String, role: String, passwordHash: String, beatId: String?) -> Unit,
     onDeactivateEmployee: (id: String, name: String) -> Unit,
+    onResetPassword: (id: String, name: String, newPassword: String) -> Unit = { _, _, _ -> },
     onClearMessages: () -> Unit,
     onBack: () -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var deactivatingEmployee by remember { mutableStateOf<EmployeeDto?>(null) }
+    var resettingPasswordEmployee by remember { mutableStateOf<EmployeeDto?>(null) }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -77,7 +80,7 @@ fun OwnerEmployeesScreen(
             ) {
                 Column {
                     Text("Staff & Roles", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Active team members and field executives", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("${state.employees.size} team members · Roles & Security", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
                 OutlinedButton(onClick = onBack) {
                     Text("Back")
@@ -120,8 +123,8 @@ fun OwnerEmployeesScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 items(state.employees, key = { it.id }) { employee ->
                     Card(
@@ -129,40 +132,81 @@ fun OwnerEmployeesScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.weight(1f)) {
-                                Surface(
-                                    color = if (employee.isActive) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF1F5F9),
-                                    shape = MaterialTheme.shapes.small
-                                ) {
-                                    Icon(
-                                        Icons.Default.Person,
-                                        contentDescription = null,
-                                        tint = if (employee.isActive) MaterialTheme.colorScheme.primary else Color.Gray,
-                                        modifier = Modifier.padding(8.dp).size(24.dp)
-                                    )
-                                }
-                                Column {
-                                    Text(employee.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text("@${employee.username} · ${employee.role}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                                    if (!employee.isActive) {
-                                        Text("Deactivated (Access Revoked)", style = MaterialTheme.typography.labelSmall, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.weight(1f)) {
+                                    Surface(
+                                        color = if (employee.isActive) MaterialTheme.colorScheme.primaryContainer else Color(0xFFFEE2E2),
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Person,
+                                            contentDescription = null,
+                                            tint = if (employee.isActive) MaterialTheme.colorScheme.primary else Color(0xFFDC2626),
+                                            modifier = Modifier.padding(8.dp).size(24.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(employee.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                        Text("@${employee.username} · ${employee.role}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                                     }
                                 }
-                            }
-                            if (employee.isActive && employee.role != "OWNER") {
-                                OutlinedButton(
-                                    onClick = { deactivatingEmployee = employee },
-                                    modifier = Modifier.testTag("deactivate_${employee.id}"),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
+
+                                Surface(
+                                    color = if (employee.isActive) Color(0xFFECFDF5) else Color(0xFFFEF2F2),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, if (employee.isActive) Color(0xFFA7F3D0) else Color(0xFFFECACA))
                                 ) {
-                                    Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.size(4.dp))
-                                    Text("Revoke")
+                                    Text(
+                                        text = if (employee.isActive) "Active" else "Deactivated",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (employee.isActive) Color(0xFF065F46) else Color(0xFF991B1B)
+                                    )
+                                }
+                            }
+
+                            if (employee.assignedBeats.isNotEmpty()) {
+                                Text(
+                                    text = "Assigned Beats: ${employee.assignedBeats.joinToString()}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            if (employee.isActive && employee.role != "OWNER") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { resettingPasswordEmployee = employee },
+                                        modifier = Modifier.weight(1f).testTag("reset_pwd_${employee.id}"),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Reset Password", style = MaterialTheme.typography.labelMedium)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { deactivatingEmployee = employee },
+                                        modifier = Modifier.weight(1f).testTag("deactivate_${employee.id}"),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
+                                    ) {
+                                        Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Revoke", style = MaterialTheme.typography.labelMedium)
+                                    }
                                 }
                             }
                         }
@@ -175,7 +219,7 @@ fun OwnerEmployeesScreen(
             onClick = { showAddDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp)
+                .padding(bottom = 90.dp, end = 16.dp)
                 .testTag("add_employee_fab"),
             containerColor = MaterialTheme.colorScheme.primary
         ) {
@@ -185,9 +229,10 @@ fun OwnerEmployeesScreen(
 
     if (showAddDialog) {
         AddEmployeeDialog(
+            beats = state.beats,
             onDismiss = { showAddDialog = false },
-            onConfirm = { username, name, role, password ->
-                onCreateEmployee(username, name, role, password)
+            onConfirm = { username, name, role, password, beatId ->
+                onCreateEmployee(username, name, role, password, beatId)
                 showAddDialog = false
             }
         )
@@ -217,17 +262,84 @@ fun OwnerEmployeesScreen(
             }
         )
     }
+
+    resettingPasswordEmployee?.let { emp ->
+        ResetPasswordDialog(
+            employee = emp,
+            onDismiss = { resettingPasswordEmployee = null },
+            onConfirm = { newPassword ->
+                onResetPassword(emp.id, emp.fullName, newPassword)
+                resettingPasswordEmployee = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun ResetPasswordDialog(
+    employee: EmployeeDto,
+    onDismiss: () -> Unit,
+    onConfirm: (newPassword: String) -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reset Password for ${employee.fullName}", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Enter a new password for @${employee.username}. All existing login sessions will be revoked immediately.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        if (error != null) error = null
+                    },
+                    label = { Text("New Password (min 6 characters) *") },
+                    singleLine = true,
+                    isError = error != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (error != null) {
+                    Text(error!!, color = Color(0xFFDC2626), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (password.trim().length < 6) {
+                        error = "Password must be at least 6 characters"
+                    } else {
+                        onConfirm(password.trim())
+                    }
+                }
+            ) {
+                Text("Reset & Revoke Sessions")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
 private fun AddEmployeeDialog(
+    beats: List<com.routeflow.app.core.network.dto.BeatDto> = emptyList(),
     onDismiss: () -> Unit,
-    onConfirm: (username: String, name: String, role: String, passwordHash: String) -> Unit
+    onConfirm: (username: String, name: String, role: String, passwordHash: String, beatId: String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf("SALESPERSON") }
+    var selectedBeatId by remember { mutableStateOf<String?>(null) }
 
     val roles = listOf(
         "SALESPERSON" to "Salesperson",
@@ -253,14 +365,26 @@ private fun AddEmployeeDialog(
                         Text(roleLabel, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
+
+                if (selectedRole == "SALESPERSON" && beats.isNotEmpty()) {
+                    Text("Initial Beat Assignment (Optional):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                    beats.forEach { beat ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = selectedBeatId == beat.id,
+                                onClick = { selectedBeatId = if (selectedBeatId == beat.id) null else beat.id }
+                            )
+                            Text(beat.name, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (name.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
-                        // Backend expects simple password or hash
-                        onConfirm(username.trim().lowercase(), name.trim(), selectedRole, password.trim())
+                        onConfirm(username.trim().lowercase(), name.trim(), selectedRole, password.trim(), selectedBeatId)
                     }
                 }
             ) {

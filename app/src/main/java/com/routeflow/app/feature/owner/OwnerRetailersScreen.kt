@@ -1,5 +1,7 @@
 package com.routeflow.app.feature.owner
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,10 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -21,23 +26,22 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.foundation.shape.RoundedCornerShape
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -50,12 +54,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.domain.model.Retailer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun OwnerRetailersScreen(
@@ -66,9 +74,11 @@ fun OwnerRetailersScreen(
     onClearMessages: () -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     var showAddDialog by remember { mutableStateOf(false) }
     var editingRetailer by remember { mutableStateOf<Retailer?>(null) }
     var viewingStockCheckRetailer by remember { mutableStateOf<Retailer?>(null) }
+    var viewingLedgerRetailer by remember { mutableStateOf<Retailer?>(null) }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -86,7 +96,7 @@ fun OwnerRetailersScreen(
             ) {
                 Column {
                     Text("Retailer Network", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("${state.retailers.size} shops registered across beats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("${state.retailers.size} shops registered across Jaipur beats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
                 OutlinedButton(onClick = onBack) {
                     Text("Back")
@@ -129,46 +139,123 @@ fun OwnerRetailersScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 items(state.retailers, key = { it.id }) { retailer ->
+                    val isCreditOver = retailer.outstandingAmountPaise > retailer.creditLimitPaise
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(retailer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("${retailer.address} · ${retailer.contactNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                                Spacer(Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("Credit Limit: ${CurrencyFormatter.formatPaise(retailer.creditLimitPaise)}", style = MaterialTheme.typography.bodySmall)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(retailer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text("${retailer.address} · ${retailer.contactNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                                }
+                                Surface(
+                                    color = if (isCreditOver) Color(0xFFFEF2F2) else Color(0xFFECFDF5),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(1.dp, if (isCreditOver) Color(0xFFFECACA) else Color(0xFFA7F3D0))
+                                ) {
                                     Text(
-                                        "Outstanding: ${CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise)}",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        text = if (isCreditOver) "Over Limit" else "Credit OK",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (retailer.outstandingAmountPaise > retailer.creditLimitPaise) Color(0xFFDC2626) else MaterialTheme.colorScheme.primary
+                                        color = if (isCreditOver) Color(0xFFDC2626) else Color(0xFF065F46)
                                     )
                                 }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        viewingStockCheckRetailer = retailer
-                                        onLoadStockChecks(retailer.id)
-                                    },
-                                    modifier = Modifier.testTag("stock_checks_${retailer.id}")
-                                ) {
-                                    Icon(Icons.Default.Inventory, contentDescription = "View Stock Audits", tint = MaterialTheme.colorScheme.primary)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Column {
+                                    Text("Credit Limit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                    Text(CurrencyFormatter.formatPaise(retailer.creditLimitPaise), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                                 }
-                                IconButton(onClick = { editingRetailer = retailer }, modifier = Modifier.testTag("edit_retailer_${retailer.id}")) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Edit Retailer", tint = MaterialTheme.colorScheme.secondary)
+                                Column {
+                                    Text("Outstanding Udhaar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                    Text(
+                                        CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isCreditOver) Color(0xFFDC2626) else Color(0xFF2563EB)
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            // Action buttons: Call, WhatsApp, Ledger, Stock Audit, Edit
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    // Call Shortcut
+                                    IconButton(
+                                        onClick = {
+                                            val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${retailer.contactNumber}"))
+                                            context.startActivity(dialIntent)
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF16A34A), modifier = Modifier.size(20.dp))
+                                    }
+
+                                    // WhatsApp Shortcut
+                                    IconButton(
+                                        onClick = {
+                                            val cleanPhone = retailer.contactNumber.replace("+91", "").replace(" ", "").replace("-", "").trim()
+                                            val waIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/91$cleanPhone"))
+                                            context.startActivity(waIntent)
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(Icons.Default.Send, contentDescription = "WhatsApp", tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                                    }
+
+                                    // Quick Ledger
+                                    OutlinedButton(
+                                        onClick = { viewingLedgerRetailer = retailer },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Ledger", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    IconButton(
+                                        onClick = {
+                                            viewingStockCheckRetailer = retailer
+                                            onLoadStockChecks(retailer.id)
+                                        },
+                                        modifier = Modifier.size(36.dp).testTag("stock_checks_${retailer.id}")
+                                    ) {
+                                        Icon(Icons.Default.Inventory, contentDescription = "Shelf Stock", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    }
+                                    IconButton(
+                                        onClick = { editingRetailer = retailer },
+                                        modifier = Modifier.size(36.dp).testTag("edit_retailer_${retailer.id}")
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit Retailer", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                                    }
                                 }
                             }
                         }
@@ -181,7 +268,7 @@ fun OwnerRetailersScreen(
             onClick = { showAddDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp)
+                .padding(bottom = 90.dp, end = 16.dp)
                 .testTag("onboard_retailer_fab"),
             containerColor = MaterialTheme.colorScheme.primary
         ) {
@@ -191,6 +278,7 @@ fun OwnerRetailersScreen(
 
     if (showAddDialog) {
         OnboardRetailerDialog(
+            beats = state.beats,
             onDismiss = { showAddDialog = false },
             onConfirm = { name, beat, addr, contact, limit, terms ->
                 onCreateRetailer(name, beat, addr, contact, limit, terms)
@@ -218,6 +306,80 @@ fun OwnerRetailersScreen(
             onDismiss = { viewingStockCheckRetailer = null }
         )
     }
+
+    viewingLedgerRetailer?.let { ret ->
+        RetailerLedgerDialog(
+            retailer = ret,
+            onDismiss = { viewingLedgerRetailer = null }
+        )
+    }
+}
+
+@Composable
+private fun RetailerLedgerDialog(
+    retailer: Retailer,
+    onDismiss: () -> Unit
+) {
+    val headroom = maxOf(0L, retailer.creditLimitPaise - retailer.outstandingAmountPaise)
+    val isOver = retailer.outstandingAmountPaise > retailer.creditLimitPaise
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${retailer.name} · Khata Summary", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "${retailer.address} · Beat: ${retailer.beatId}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+
+                HorizontalDivider()
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Current Outstanding (Udhaar):", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOver) Color(0xFFDC2626) else Color(0xFF2563EB)
+                    )
+                }
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Sanctioned Credit Limit:", style = MaterialTheme.typography.bodyMedium)
+                    Text(CurrencyFormatter.formatPaise(retailer.creditLimitPaise), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Available Credit Headroom:", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        CurrencyFormatter.formatPaise(headroom),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOver) Color(0xFFDC2626) else Color(0xFF16A34A)
+                    )
+                }
+
+                HorizontalDivider()
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Credit Health Status:", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        if (isOver) "⚠️ Overdue / Limit Exceeded" else "✓ Normal Standing",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOver) Color(0xFFDC2626) else Color(0xFF16A34A)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
 
 @Composable
@@ -233,62 +395,45 @@ private fun RetailerStockCheckHistoryDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("${retailer.name} — Shelf Stock", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Text("Audit history recorded by field sales", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Text("Shelf Stock Audit", fontWeight = FontWeight.Bold)
+                Text(retailer.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
             }
         },
         text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                 if (isLoading) {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(32.dp))
-                    }
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else if (stockChecks.isEmpty()) {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Inventory, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(36.dp))
-                            Text("No stock audits recorded yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                            Text("Sales team records shelf stock during shop visits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                        }
-                    }
+                    Text(
+                        "No in-store stock checks reported for this retailer yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(stockChecks, key = { it.id }) { item ->
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(stockChecks) { item ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(item.productName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                        Text(dateFormat.format(Date(item.createdAt)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                    }
-                                    Surface(
-                                        color = Color(0xFFEFF6FF),
-                                        shape = RoundedCornerShape(8.dp),
-                                        border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.3f))
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            "${item.quantity} units",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF1D4ED8),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
+                                        Text(item.productName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        Text("${item.quantity} units", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                                     }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Shelf Stock Audit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        Text(dateFormat.format(Date(item.createdAt)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                    }
+
                                 }
                             }
                         }
@@ -306,11 +451,12 @@ private fun RetailerStockCheckHistoryDialog(
 
 @Composable
 private fun OnboardRetailerDialog(
+    beats: List<com.routeflow.app.core.network.dto.BeatDto> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (name: String, beatId: String, address: String, contact: String, creditLimitPaise: Long, paymentTermsDays: Int) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var beatId by remember { mutableStateOf("BEAT-04") }
+    var beatId by remember { mutableStateOf(beats.firstOrNull()?.id ?: "BEAT-01") }
     var address by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
     var creditLimitRs by remember { mutableStateOf("50000") }
@@ -324,11 +470,26 @@ private fun OnboardRetailerDialog(
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Shop / Business Name *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = contact, onValueChange = { contact = it }, label = { Text("Contact Phone *") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Market / Address *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+                if (beats.isNotEmpty()) {
+                    Text("Beat Assignment:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    beats.forEach { beat ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = beatId == beat.id,
+                                onClick = { beatId = beat.id }
+                            )
+                            Text(beat.name, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else {
+                    OutlinedTextField(value = beatId, onValueChange = { beatId = it }, label = { Text("Beat ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = beatId, onValueChange = { beatId = it }, label = { Text("Beat ID") }, modifier = Modifier.weight(1f), singleLine = true)
+                    OutlinedTextField(value = creditLimitRs, onValueChange = { creditLimitRs = it }, label = { Text("Credit Limit (₹)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.weight(1f))
                     OutlinedTextField(value = paymentTermsDays, onValueChange = { paymentTermsDays = it }, label = { Text("Terms (Days)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                 }
-                OutlinedTextField(value = creditLimitRs, onValueChange = { creditLimitRs = it }, label = { Text("Credit Limit (₹)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -382,11 +543,11 @@ private fun EditRetailerDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Account Active", style = MaterialTheme.typography.bodyMedium)
+                    Text("Shop Active in Territory", fontWeight = FontWeight.Medium)
                     Switch(checked = isActive, onCheckedChange = { isActive = it })
                 }
             }
@@ -399,7 +560,7 @@ private fun EditRetailerDialog(
                     onConfirm(limitPaise, terms, isActive)
                 }
             ) {
-                Text("Save Terms")
+                Text("Save Changes")
             }
         },
         dismissButton = {
