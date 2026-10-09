@@ -82,7 +82,7 @@ Google Play requires developers to complete the Data Safety questionnaire. Below
 - **Does your app collect or share any of the required user data types?**  
   👉 **Yes**
 - **Is all of the user data collected by your app encrypted in transit?**  
-  👉 **Yes** (All API communication is strictly encrypted over TLS 1.3 / HTTPS via Cloudflare).
+  👉 **Yes** (HTTPS/TLS encryption in transit).
 - **Do you provide a way for users to request that their data be deleted?**  
   👉 **Yes** (Distributor admins can deactivate employees and wipe credentials directly; accounts can also request data deletion at `privacy@routeflow.in`).
 
@@ -145,18 +145,19 @@ Provide these exact justifications in the Google Play Console "App access & Perm
 
 When publishing to Google Play **Internal Testing Track**, configure the following credentials in the **App Access** section of the Google Play Console:
 
-### 4.1 Test Accounts (All 4 Operational Roles)
+### 4.1 Test Accounts (Internal testing / staging demo credentials only)
 
-> **Important:** Testing accounts operate on the live staging cloud backend.
+> **NOTICE FOR GOOGLE PLAY REVIEWERS:**  
+> The accounts below are **Internal testing / staging demo credentials only**, connected to the isolated staging cloud environment for app evaluation.
 
-| Role | Username / Mobile | Password / OTP | Responsibility in Demo |
-|---|---|---|---|
-| **Distributor Owner / Admin** | `owner` | `password123` | Complete visibility, order credit approvals, staff management, cash closing. |
-| **Sales Executive** | `sales` | `password123` | Beat route, Kirana shop check-in, order booking, cash collection. |
-| **Warehouse Manager** | `warehouse` | `password123` | Barcode scanning, inward stock, FEFO order picking, carton packing. |
-| **Delivery Driver** | `delivery` | `password123` | Route stops, navigation, customer OTP delivery, cash custody handover. |
+| Role | Username / Mobile | Password / OTP | Status | Responsibility in Demo |
+|---|---|---|---|---|
+| **Distributor Owner / Admin** | `owner` | `password123` | *Internal testing / staging demo credentials only* | Complete visibility, order credit approvals, staff management, cash closing. |
+| **Sales Executive** | `sales` | `password123` | *Internal testing / staging demo credentials only* | Beat route, Kirana shop check-in, order booking, cash collection. |
+| **Warehouse Manager** | `warehouse` | `password123` | *Internal testing / staging demo credentials only* | Barcode scanning, inward stock, FEFO order picking, carton packing. |
+| **Delivery Driver** | `delivery` | `password123` | *Internal testing / staging demo credentials only* | Route stops, navigation, customer OTP delivery, cash custody handover. |
 
-*Alternative Mobile Login (if testing OTP flow):*  
+*Alternative Mobile Login (Internal testing / staging demo credentials only):*  
 - Mobile: `9876543210` (or `owner`)  
 - Default verification code for staging: `123456`
 

@@ -76,7 +76,7 @@ The public privacy policy is live and prerendered at:
 | **Crash Logs & Diagnostics** | Yes | No | Offline sync error recovery & app performance monitoring | Yes |
 
 ### Security Declarations:
-- **Data Encrypted in Transit:** Yes (TLS 1.3 / HTTPS strictly enforced via `network_security_config.xml`).
+- **Data Encrypted in Transit:** Yes (HTTPS/TLS encryption in transit strictly enforced via `network_security_config.xml`).
 - **Account Deletion Supported:** Yes (Admin console 1-click deactivation + email `privacy@routeflow.in`).
 - **Data Collection Required:** Yes (B2B commercial operations software; field staff require login).
 
