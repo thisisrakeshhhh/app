@@ -316,4 +316,17 @@
     <string name="stock_check_synced">✓ सिंक हुआ</string>
     <string name="stock_check_failed">⚠ विफल</string>
     <string name="stock_check_pending_sync">⏳ सिंक बाकी</string>
+
+    <!-- Delivery Profile Strings -->
+    <string name="assigned_route_label">आवंटित रूट</string>
+    <string name="assigned_route_default">जयपुर होलसेल डिस्ट्रीब्यूशन रूट</string>
+    <string name="deliveries_today_label">आज की डिलीवरी</string>
+    <string name="deliveries_assigned_label">आवंटित स्टॉप्स</string>
+    <string name="deliveries_completed_label">पूर्ण डिलीवरी</string>
+    <string name="cash_custody_title">पास में मौजूद नकद राशि</string>
+    <string name="cash_custody_subtitle">डिलीवरी से प्राप्त नकद, जमा करने हेतु तैयार</string>
+    <string name="sync_status_title">सिंक स्थिति</string>
+    <string name="data_synced_server">डेटा सर्वर से सिंक हो चुका है</string>
+    <string name="all_records_up_to_date">सभी स्थानीय रिकॉर्ड अपडेट हैं</string>
+    <string name="admin_pwd_notice">पासवर्ड प्रबंधन केवल मालिक / एडमिन द्वारा</string>
 </resources>

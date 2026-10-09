@@ -316,5 +316,18 @@
     <string name="stock_check_synced">✓ Synced</string>
     <string name="stock_check_failed">⚠ Failed</string>
     <string name="stock_check_pending_sync">⏳ Pending Sync</string>
+
+    <!-- Delivery Profile Strings -->
+    <string name="assigned_route_label">Assigned Route</string>
+    <string name="assigned_route_default">Jaipur Wholesale Distribution Route</string>
+    <string name="deliveries_today_label">Today\'s Deliveries</string>
+    <string name="deliveries_assigned_label">Assigned Stops</string>
+    <string name="deliveries_completed_label">Delivered</string>
+    <string name="cash_custody_title">Cash in Custody</string>
+    <string name="cash_custody_subtitle">Cash collected awaiting owner handover</string>
+    <string name="sync_status_title">Sync Status</string>
+    <string name="data_synced_server">Data synced with server</string>
+    <string name="all_records_up_to_date">All local records up to date</string>
+    <string name="admin_pwd_notice">Password managed by Owner / Admin</string>
 </resources>
 

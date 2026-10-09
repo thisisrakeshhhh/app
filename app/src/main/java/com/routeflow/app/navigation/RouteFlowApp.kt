@@ -80,6 +80,7 @@ import com.routeflow.app.feature.auth.LoginScreen
 import com.routeflow.app.feature.auth.LoginViewModel
 import com.routeflow.app.feature.delivery.DeliveryDetailScreen
 import com.routeflow.app.feature.delivery.DeliveryHandoverScreen
+import com.routeflow.app.feature.delivery.DeliveryHandoverViewModel
 import com.routeflow.app.feature.delivery.DeliveryHomeScreen
 import com.routeflow.app.feature.delivery.DeliveryListScreen
 import com.routeflow.app.feature.delivery.DeliveryProfileScreen
@@ -1023,11 +1024,20 @@ fun RouteFlowApp(
 
             composable(DELIVERY_PROFILE) {
                 if (employee != null) {
+                    val deliveryViewModel: DeliveryViewModel = hiltViewModel()
+                    val handoverViewModel: DeliveryHandoverViewModel = hiltViewModel()
+                    val homeState by deliveryViewModel.state.collectAsStateWithLifecycle()
+                    val handoverState by handoverViewModel.uiState.collectAsStateWithLifecycle()
+
                     DeliveryProfileScreen(
                         employee = employee,
                         isOnShift = false,
                         onStartShift = {},
                         onEndShift = {},
+                        assignedCount = homeState.assignedCount,
+                        completedCount = homeState.completedCount,
+                        cashHeldPaise = handoverState.cashHeldPaise,
+                        pendingHandover = handoverState.pendingHandover != null,
                         currentLanguage = currentLanguage,
                         onLanguageChange = onLanguageChange,
                         onLogout = onDemoLogout
