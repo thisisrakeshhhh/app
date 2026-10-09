@@ -39,7 +39,7 @@ Unlike heavy corporate enterprise software (Bizom, FieldAssist) or single-shop b
 
 ---
 
-## 4. Visual Walkthrough & Screenshots Tour (30 Total Screenshots)
+## 4. Visual Walkthrough & Screenshots Tour (41 Total Screenshots)
 
 ### Section A: Web Operations Console (Office & Owner Management)
 
@@ -153,6 +153,50 @@ Unlike heavy corporate enterprise software (Bizom, FieldAssist) or single-shop b
 |:---:|:---:|
 | <img src="docs/screenshots/12_cash_handover_reconciliation.png" width="340" /> | <img src="docs/screenshots/26_delivery_day_overview.png" width="340" /> |
 | *Driver physical COD cash handover & owner reconciliation to ₹0.00* | *Assigned route trip progress & stops remaining* |
+
+---
+
+### Section F: Mobile App — Owner / Admin Hardcore QA & Governance
+
+| 01. Owner Control Room (Home) | 02. Order Approvals Engine |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_01_home.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_02_approval.png" width="340" /> |
+| *8 KPI Cards, 5 Quick Actions, Zero demo badges* | *Credit Limit vs Udhaar validation & Stock badges* |
+
+| 03. Structured Rejection Modal | 04. Staff Roles & Password Reset |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_02_reject_dialog.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_03_employees.png" width="340" /> |
+| *Operational rejection radio reasons (Credit Exceeded, Out of Stock)* | *Active/Deactivated badges, Owner-only password reset* |
+
+| 05. Remote Password Reset Modal | 06. Retailer Network Directory |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_03_reset_dialog.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_04_retailers.png" width="340" /> |
+| *Instant server session revocation on credential change* | *Credit headroom, 1-tap WhatsApp and Phone Call actions* |
+
+| 07. Retailer Khata Ledger Modal | 08. Cash Handover Reconciliation |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_04_ledger_dialog.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_05_handovers.png" width="340" /> |
+| *Audit headroom, customer Udhaar balance & transaction history* | *Pending driver custody handovers & discrepancy tracking* |
+
+| 09. Operations & Sales Reports | 10. Team Live GPS Monitor |
+|:---:|:---:|
+| <img src="docs/screenshots/owner/qa_owner_06_reports_sales.png" width="340" /> | <img src="docs/screenshots/owner/qa_owner_07_team.png" width="340" /> |
+| *4-Tab report (Visits, Sales, Collections, Stock) & Share intent* | *Staff shift progress, real-time coordinates & Map navigation* |
+
+| 11. Godown Product Inventory |
+|:---:|
+| <img src="docs/screenshots/owner/qa_owner_08_stock.png" width="340" /> |
+| *Wholesale catalog, stock adjustments & inventory add modal* |
+
+---
+
+### Master Screenshots Directory Index
+
+| Subdirectory | Target Audience / Role | Key Screens Included |
+|---|---|---|
+| `docs/screenshots/` | **Web Console & Core Mobile** | Web Login, Web Dashboard, Orders, Retailers, Handover, Mobile Login (EN/HI), Beat Route, Collections, GPS Onboarding |
+| `docs/screenshots/warehouse/` | **Warehouse / Godown** | Godown Desk, Barcode Scanner (CameraX), FEFO Picking, Carton Packing, Dispatch Batches, Returns Inspection |
+| `docs/screenshots/owner/` | **Owner / Admin** | Control Room Dashboard, Order Approvals, Staff Governance & Password Reset, Retailer Khata, Cash Settlement, Operations Reports, Team Monitor |
 
 ---
 

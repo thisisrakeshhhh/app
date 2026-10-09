@@ -293,19 +293,21 @@ fun BarcodeScannerModal(
                             }
                         }
 
-                        // Demo Quick Chips
-                        Text(
-                            text = "Tap to test scanned barcode:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF64748B)
-                        )
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            item { QuickBarcodeChip("8901030000001", "Tea") { onBarcodeScanned("8901030000001") } }
-                            item { QuickBarcodeChip("8901030000002", "Spices") { onBarcodeScanned("8901030000002") } }
-                            item { QuickBarcodeChip("8901030000003", "Rice") { onBarcodeScanned("8901030000003") } }
+                        // Demo Quick Chips (Non-release builds only)
+                        if (com.routeflow.app.BuildConfig.BUILD_TYPE != "release") {
+                            Text(
+                                text = "Tap to test scanned barcode:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF64748B)
+                            )
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                item { QuickBarcodeChip("8901030000001", "Tea") { onBarcodeScanned("8901030000001") } }
+                                item { QuickBarcodeChip("8901030000002", "Spices") { onBarcodeScanned("8901030000002") } }
+                                item { QuickBarcodeChip("8901030000003", "Rice") { onBarcodeScanned("8901030000003") } }
+                            }
                         }
                     }
                 }

@@ -74,8 +74,35 @@ export default function PrivacyPolicyPage() {
 
           <section>
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-5 h-5 text-blue-600" />
+              4. Camera, Photos, Notifications & Diagnostics (Google Play Data Safety)
+            </h2>
+            <div className="space-y-3">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <p className="font-semibold text-slate-900">Camera & Photos Permission</p>
+                <p className="text-sm text-slate-600 mt-1">
+                  Used in warehouse operations exclusively for <strong>optical barcode scanning (CameraX)</strong> and capturing optional product return/damaged goods condition proofs. Camera data is processed on-device for barcode detection; images are only uploaded when a user explicitly attaches photo evidence for damaged returns.
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <p className="font-semibold text-slate-900">Notifications Permission</p>
+                <p className="text-sm text-slate-600 mt-1">
+                  Used strictly for real-time operational alerts including <strong>Order Approval notifications, Dispatch Batch handovers, and Shift Tracker background service status</strong>.
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <p className="font-semibold text-slate-900">Diagnostics & Crash Logs</p>
+                <p className="text-sm text-slate-600 mt-1">
+                  Technical diagnostic data (non-personally identifiable error stack traces, network latency metrics) may be logged to ensure app stability and prevent data loss during offline synchronization.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
               <Lock className="w-5 h-5 text-blue-600" />
-              4. Data Security & Storage
+              5. Data Security & Storage
             </h2>
             <p>
               All communication between RouteFlow mobile devices, web consoles, and our Cloudflare Workers edge network is secured via mandatory HTTPS / TLS 1.3 encryption. Passwords and sensitive session tokens are salted and hashed using bcrypt and SHA-256 before storage in Cloudflare D1 serverless SQLite databases.

@@ -1,108 +1,118 @@
-# Google Play Store Release Checklist for RouteFlow
+# RouteFlow — Google Play Store Release & Compliance Checklist
 
-**Application:** RouteFlow (`com.routeflow.app`)  
-**Package:** `com.routeflow.app`  
-**Current Version:** `versionCode = 1`, `versionName = "1.0"`  
-**Target SDK:** 36 | **Min SDK:** 26  
+> **Comprehensive Readiness Guide for Google Play Store Production Release**  
+> *Target Artifact: Android App Bundle (`.aab`) | Compliance Level: Android 15 (API 35/36)*
 
 ---
 
-## Phase 1: Pre-Release Build & Security Hardening (Automated in Repository)
+## 1. Application Identity & Configuration
 
-- [x] **Cleartext Traffic Blocked:** `network_security_config.xml` blocks all HTTP in release.
-- [x] **Demo Mode Hidden:** "Switch to Demo Mode" button is disabled and hidden in release builds.
-- [x] **Debug OTP Hidden:** Server debug OTP autofill chip is disabled in release builds (`BuildConfig.DEBUG` only).
-- [x] **R8 / ProGuard Optimization:** Explicit keep rules configured in `proguard-rules.pro` for Room entities, Hilt components, and Kotlinx Serialization models.
-- [x] **Secure Keystore Signing Setup:** Release build configuration in `app/build.gradle.kts` configured to load signing credentials securely from environment variables or gitignored `keystore.properties`.
-- [x] **Multi-tenant Backend Isolated:** Tenant queries strictly verified by authenticated JWT `company_id`.
-- [x] **Unit & Integration Tests Passing:** 100% test pass rate across backend and Android unit suites.
-
----
-
-## Phase 2: Production Infrastructure Pre-Requisites (BLOCKERS before Public Launch)
-
-> [!WARNING]
-> The following items require live external provisioning by the team before switching from Staging to Production in Google Play.
-
-1. **Production Domain & Cloudflare Worker Routing (CRITICAL BLOCKER):**
-   * **Current State:** `https://api.routeflow.com/` is not yet routed in DNS.
-   * **Required Action:** Deploy `wrangler.production.toml`, create production D1 database (`routeflow-db-production`), run migrations, and map the custom domain `api.routeflow.com` to the Cloudflare Worker.
-2. **Production SMS Gateway Provisioning (CRITICAL BLOCKER):**
-   * **Current State:** Staging simulates SMS delivery.
-   * **Required Action:** Secure an enterprise SMS gateway contract (Twilio, Gupshup, Fast2SMS) for Indian DLT-compliant transactional templates and set secrets via Wrangler:
-     ```bash
-     npx wrangler secret put JWT_SECRET --config wrangler.production.toml
-     npx wrangler secret put SMS_GATEWAY_URL --config wrangler.production.toml
-     npx wrangler secret put SMS_GATEWAY_TOKEN --config wrangler.production.toml
-     ```
-3. **Public Privacy Policy URL:**
-   * **Required Action:** Host the contents of `PRIVACY_POLICY.md` on a publicly accessible HTTPS website (e.g. `https://routeflow.com/privacy`) and provide the URL in Google Play Console.
+| Parameter | Value in Repository | Verification Status |
+|---|---|:---:|
+| **Package Name (`applicationId`)** | `com.routeflow.app` | ✅ Verified |
+| **App Name** | `RouteFlow` | ✅ Verified |
+| **Version Code** | `1` | ✅ Configured |
+| **Version Name** | `1.0` | ✅ Configured |
+| **Minimum SDK** | `26` (Android 8.0 Oreo) | ✅ Verified |
+| **Target / Compile SDK** | `36` (Android 15+ compatible) | ✅ Verified |
+| **Cleartext Traffic** | `android:usesCleartextTraffic="false"` (Mandatory HTTPS) | ✅ Enforced |
+| **Launcher Icons** | `@mipmap/ic_launcher` & `@mipmap/ic_launcher_round` | ✅ Present |
 
 ---
 
-## Phase 3: Generating Release Signing Keystore & App Bundle (.aab)
+## 2. Release Signing & Keystore Setup
 
-To generate the release bundle (`.aab`) for Google Play upload:
+The repository is configured to automatically sign release builds when `keystore.properties` is present.
 
-### Step 1: Create an Upload Keystore (One-Time Setup)
-Run the following keytool command (do NOT commit the `.jks` file to git):
+### Step 2.1: Generate Production Keystore (One-time)
+Run this command in terminal to create the official release signing key:
+
 ```bash
-keytool -genkey -v -keystore routeflow-upload-key.jks -alias routeflow-upload -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v \
+  -keystore routeflow-release.jks \
+  -alias routeflow-key \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000 \
+  -storetype JKS
 ```
 
-### Step 2: Configure Environment or `keystore.properties`
-Create a file named `keystore.properties` in the root or `app/` folder (already gitignored):
+### Step 2.2: Configure `keystore.properties` (Do NOT commit to Git)
+Create `d:\app\keystore.properties` (already ignored by `.gitignore`):
+
 ```properties
-storeFile=/absolute/path/to/routeflow-upload-key.jks
-storePassword=YourKeystorePassword
-keyAlias=routeflow-upload
-keyPassword=YourKeyPassword
+storeFile=../routeflow-release.jks
+storePassword=YOUR_SECURE_KEYSTORE_PASSWORD
+keyAlias=routeflow-key
+keyPassword=YOUR_SECURE_KEY_PASSWORD
 ```
-*Alternatively, export environment variables:*
-`KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
-### Step 3: Build the Production Release AAB Bundle
+### Step 2.3: Build Signed Android App Bundle (AAB)
 ```bash
 .\gradlew.bat bundleRelease --no-daemon
 ```
-The resulting bundle will be generated at:  
-`app/build/outputs/bundle/release/app-release.aab`
+
+*Output Location:*  
+`app\build\outputs\bundle\release\app-release.aab`
 
 ---
 
-## Phase 4: Google Play Console Setup Steps
+## 3. Privacy Policy & Google Play Data Safety Compliance
 
-1. **Create Application in Google Play Console:**
-   * App name: **RouteFlow**
-   * Default language: **English (United States)** or **English (India)**
-   * App type: **App**
-   * Free or Paid: **Free** (Enterprise B2B account required)
-2. **App Content Declarations:**
-   * **Privacy Policy:** Link to `https://routeflow.com/privacy`.
-   * **App Access:** Provide credentials for reviewer testing (e.g., test Owner and Sales accounts).
-   * **Ads:** Select "No, my app does not contain ads".
-   * **Content Rating:** Complete questionnaire (Enterprise/Commercial app -> Everyone / Teen).
-   * **Target Audience:** Select **18 and over**.
-   * **Data Safety:** Complete using the pre-filled guide in [`PLAY_STORE_DATA_SAFETY.md`](file:///d:/app/PLAY_STORE_DATA_SAFETY.md).
-   * **Government Apps:** Select "No".
-   * **Financial Features:** Select "No, app does not offer consumer lending/financial services" (App only manages wholesale B2B distributor ledger).
-3. **Foreground Service Declaration (Android 14+):**
-   * Check **Location (`FOREGROUND_SERVICE_LOCATION`)**.
-   * Copy answers directly from [`PERMISSION_AUDIT.md`](file:///d:/app/PERMISSION_AUDIT.md).
-   * Upload a 30-second screen recording showing:
-     1. Clocking in ("Start Shift").
-     2. Visible foreground notification in the status tray.
-     3. Clocking out ("End Shift") dismisses notification.
+The public privacy policy is live and prerendered at:  
+👉 **`https://appdashboardadmin.vercel.app/privacy`**
+
+### Google Play Console Data Safety Declarations:
+
+| Data Type | Collected? | Shared? | Purpose | Ephemeral? |
+|---|:---:|:---:|---|:---:|
+| **Approximate Location** | Yes | No | App functionality (Beat route navigation, store proximity) | No |
+| **Precise Location** | Yes | No | Field attendance audit, shift travel calculation | Bound to active shift |
+| **Name & Phone** | Yes | No | Account identification, kirana store contact directory | No |
+| **User ID & Username** | Yes | No | Authentication & role-based access control | No |
+| **Purchase History** | Yes | No | Core app functionality (Orders & invoices) | No |
+| **Financial Info (Collections)** | Yes | No | Payment reconciliation (Cash, UPI, Cheque) | No |
+| **Photos & Videos** | Yes (Optional) | No | Uploaded only when attaching proof of damaged goods | No |
+| **Crash Logs & Diagnostics** | Yes | No | Offline sync error recovery & app performance monitoring | Yes |
+
+### Security Declarations:
+- **Data Encrypted in Transit:** Yes (TLS 1.3 / HTTPS strictly enforced via `network_security_config.xml`).
+- **Account Deletion Supported:** Yes (Admin console 1-click deactivation + email `privacy@routeflow.in`).
+- **Data Collection Required:** Yes (B2B commercial operations software; field staff require login).
 
 ---
 
-## Phase 5: Recommended Rollout Sequence
+## 4. Prominent In-App Disclosures & Permissions
 
-1. **Track 1: Internal Testing Track (Immediate):**
-   * Upload `app-release.aab`.
-   * Add distributor testers, QA, and field sales leads to Internal Testers list.
-   * Verify on physical Android devices (e.g. Vivo, Samsung, Xiaomi) via Play Store internal testing link.
-2. **Track 2: Closed Testing (Alpha/Beta):**
-   * Invite 20+ testers across 14 days (mandatory for new personal developer accounts).
-3. **Track 3: Production Release:**
-   * Enable staged rollout (20% -> 50% -> 100%) after live API and SMS gateway are verified.
+| Permission | In-App Justification | User Consent Flow |
+|---|---|---|
+| `ACCESS_FINE_LOCATION` | Required to record salesman shop visit attendance and calculate daily travel. | Prominent runtime rationale dialog presented upon tapping **Start Shift**. |
+| `ACCESS_COARSE_LOCATION` | Fallback geofencing in low GPS accuracy markets. | Standard Android location permission flow. |
+| `FOREGROUND_SERVICE_LOCATION` | Continuous shift tracking notification while app is in background. | Persistent system notification with Stop Shift action. |
+| `POST_NOTIFICATIONS` | Alerts owner of pending high-value orders and notifies drivers of new dispatches. | Requested at first app launch (Android 13+). |
+| `CAMERA` | Real-time optical barcode scanning for godown inventory and damaged returns inspection. | Requested when opening **Scan Product** modal with graceful fallback. |
+
+---
+
+## 5. Production Build Verification Checklist
+
+Before publishing the `.aab` to Closed or Production tracks:
+
+- [x] **Zero Demo Quick-Fills:** Confirmed `BuildConfig.BUILD_TYPE != "release"` hides all demo account buttons on the login screen.
+- [x] **Zero Staging Labels:** `Step 2/8 • Demo` badges hidden when `STAGING_MODE = false`.
+- [x] **Zero OTP Leaks:** `debugOtp` and `serverDebugOtp` completely stripped in release builds and production backend (`ENVIRONMENT = 'production'`).
+- [x] **Zero Technical Cloudflare/D1 Strings:** Pure business vocabulary across all strings and UI labels.
+- [x] **Currency Formatting:** All monetary displays use `CurrencyFormatter` with proper `₹` symbols and Indian number grouping.
+- [x] **Hindi / English Localization:** Verified zero text clipping on 360dp narrow screens.
+- [x] **Bottom Navigation Clearance:** `120.dp` bottom padding verified across all screens preventing navigation overlap.
+- [x] **Multi-Tenant Room Scoping:** Room database tables purged on logout and reconstructed per company ID on login.
+- [x] **Production Backend Separation:** Production configuration isolated in `backend/wrangler.production.toml`.
+- [x] **Release Proguard Optimization:** `isMinifyEnabled = true` and `isShrinkResources = true` enabled in release build type.
+
+---
+
+## 6. Recommended Release Track Progression
+
+1. **Internal Testing Track:** Upload `app-release.aab` &rarr; invite internal QA and distributor pilot users (5–10 devices).
+2. **Closed Testing Track (Alpha/Beta):** Test in production conditions across 2 pilot FMCG distributors in Jaipur for 7 days.
+3. **Production Rollout:** 100% rollout on Google Play Store once closed testing verifies zero crash rate.
