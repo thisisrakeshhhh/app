@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -91,7 +92,7 @@ fun WarehouseStockScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Godown Stock / स्टॉक बही",
                         style = MaterialTheme.typography.titleLarge,
@@ -105,16 +106,18 @@ fun WarehouseStockScreen(
                     )
                 }
 
+                Spacer(Modifier.width(8.dp))
+
                 Button(
                     onClick = onOpenScanner,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(48.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    modifier = Modifier.height(44.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Scan SKU", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Scan", fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
                 }
             }
 
@@ -484,8 +487,9 @@ private fun ProductDetailBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(

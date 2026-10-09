@@ -337,30 +337,14 @@ fun RouteFlowApp(
                             )
                         )
                     } else if (employee.role == EmployeeRole.WAREHOUSE_MANAGER) {
-                        val whTitle = when (currentRoute) {
-                            RoleDestination.WAREHOUSE.route -> "Godown Desk"
-                            WAREHOUSE_STOCK -> "Godown Stock"
-                            WAREHOUSE_PICKING -> "Picking & Packing"
-                            WAREHOUSE_DISPATCH -> "Dispatch Batches"
-                            WAREHOUSE_RETURNS -> "Returns & RMA"
-                            else -> "Warehouse Godown"
-                        }
                         TopAppBar(
                             title = {
-                                Column {
-                                    Text(
-                                        whTitle,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = RFColors.TextPrimary
-                                    )
-                                    Text(
-                                        "Jaipur Godown Depot",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = RFColors.Accent,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
+                                Text(
+                                    "Jaipur Godown Depot",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
+                                )
                             },
                             actions = {
                                 TextButton(onClick = {

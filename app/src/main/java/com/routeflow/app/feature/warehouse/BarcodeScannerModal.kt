@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOn
@@ -298,13 +299,13 @@ fun BarcodeScannerModal(
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFF64748B)
                         )
-                        Row(
+                        LazyRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            QuickBarcodeChip("8901030000001", "Tea") { onBarcodeScanned("8901030000001") }
-                            QuickBarcodeChip("8901030000002", "Spices") { onBarcodeScanned("8901030000002") }
-                            QuickBarcodeChip("8901030000003", "Rice") { onBarcodeScanned("8901030000003") }
+                            item { QuickBarcodeChip("8901030000001", "Tea") { onBarcodeScanned("8901030000001") } }
+                            item { QuickBarcodeChip("8901030000002", "Spices") { onBarcodeScanned("8901030000002") } }
+                            item { QuickBarcodeChip("8901030000003", "Rice") { onBarcodeScanned("8901030000003") } }
                         }
                     }
                 }

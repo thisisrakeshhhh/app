@@ -494,7 +494,7 @@ private fun ReturnCard(
                 }
             }
 
-            if (returnRequest.status == "PENDING") {
+            if (returnRequest.status == "PENDING" || returnRequest.status == "PENDING_INSPECTION") {
                 Button(
                     onClick = onInspect,
                     enabled = !isProcessing,
