@@ -187,8 +187,8 @@
     <string name="collections_payment_mode">भुगतान का तरीका:</string>
     <string name="collections_receipt_ref">रसीद / रेफरेंस नंबर (वैकल्पिक)</string>
     <string name="collections_record_button">रसीद दर्ज करें</string>
-    <string name="collections_confirmed_badge">✓ सर्वर पर दर्ज</string>
-    <string name="collections_pending_badge">⏳ सिंक बाकी है</string>
+    <string name="collections_confirmed_badge">सर्वर पर दर्ज</string>
+    <string name="collections_pending_badge">सिंक बाकी है</string>
 
     <!-- Cash Handover (Hindi) -->
     <string name="handover_title">नकद जमा (हैंडओवर)</string>
@@ -313,9 +313,9 @@
     <string name="stock_check_record_button">स्टॉक ऑडिट दर्ज करें</string>
     <string name="stock_check_shelf_count">शेल्फ काउंट: %1$d इकाइयाँ</string>
     <string name="stock_check_suggested">सुझाव: %1$d</string>
-    <string name="stock_check_synced">✓ सिंक हुआ</string>
-    <string name="stock_check_failed">⚠ विफल</string>
-    <string name="stock_check_pending_sync">⏳ सिंक बाकी</string>
+    <string name="stock_check_synced">सिंक हुआ</string>
+    <string name="stock_check_failed">विफल</string>
+    <string name="stock_check_pending_sync">सिंक बाकी</string>
 
     <!-- Delivery Profile Strings -->
     <string name="assigned_route_label">आवंटित रूट</string>

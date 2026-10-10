@@ -187,8 +187,8 @@
     <string name="collections_payment_mode">Payment Mode:</string>
     <string name="collections_receipt_ref">Receipt / Ref Number (Optional)</string>
     <string name="collections_record_button">Record Receipt</string>
-    <string name="collections_confirmed_badge">✓ Confirmed</string>
-    <string name="collections_pending_badge">⏳ Pending sync</string>
+    <string name="collections_confirmed_badge">Confirmed</string>
+    <string name="collections_pending_badge">Pending sync</string>
 
     <!-- Cash Handover -->
     <string name="handover_title">Cash Handover</string>
@@ -313,9 +313,9 @@
     <string name="stock_check_record_button">Record Stock Audit</string>
     <string name="stock_check_shelf_count">Shelf Count: %1$d units</string>
     <string name="stock_check_suggested">Suggested: %1$d</string>
-    <string name="stock_check_synced">✓ Synced</string>
-    <string name="stock_check_failed">⚠ Failed</string>
-    <string name="stock_check_pending_sync">⏳ Pending Sync</string>
+    <string name="stock_check_synced">Synced</string>
+    <string name="stock_check_failed">Failed</string>
+    <string name="stock_check_pending_sync">Pending Sync</string>
 
     <!-- Delivery Profile Strings -->
     <string name="assigned_route_label">Assigned Route</string>
