@@ -87,21 +87,7 @@ fun SalesTodayScreen(
                             color = Color(0xFF64748B)
                         )
                     }
-                    if (com.routeflow.app.BuildConfig.STAGING_MODE) {
-                        Surface(
-                            color = Color(0xFFEFF6FF),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, Color(0xFFBFDBFE))
-                        ) {
-                            Text(
-                                text = "Step 2/8 • Demo",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2563EB)
-                            )
-                        }
-                    }
+
                 }
             }
 

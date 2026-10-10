@@ -120,7 +120,7 @@ fun OwnerFieldActivityScreen(
                 IconButton(
                     onClick = {
                         val summaryText = buildString {
-                            appendLine("📊 RouteFlow Daily Business Summary")
+                            appendLine("RouteFlow Daily Business Summary")
                             appendLine("Date: ${SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(Date())}")
                             appendLine("----------------------------------")
                             appendLine("• Today Delivered Sales: ${CurrencyFormatter.formatPaise(todaySalesPaise)}")

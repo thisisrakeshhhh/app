@@ -427,7 +427,7 @@ private fun CollectPaymentDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (selectedMethod == "CASH") "✓ Cash collected directly in hand" else "⏳ UPI / Cheque requires owner/admin verification",
+                        text = if (selectedMethod == "CASH") "Cash collected directly in hand" else "UPI / Cheque requires owner/admin verification",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = if (selectedMethod == "CASH") Color(0xFF15803D) else Color(0xFFB45309),

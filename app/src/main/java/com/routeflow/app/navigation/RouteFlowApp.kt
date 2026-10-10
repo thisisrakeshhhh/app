@@ -856,7 +856,7 @@ fun RouteFlowApp(
                     collectionsVm.eventFlow.collect { event ->
                         when (event) {
                             is com.routeflow.app.feature.sales.CollectionEvent.Success -> {
-                                val badge = if (event.isConfirmed) "✓ Confirmed" else "⏳ Pending sync"
+                                val badge = if (event.isConfirmed) "Confirmed" else "Pending sync"
                                 scope.launch { snackbarHostState.showSnackbar("$badge — ${event.message}. Receipt: ${event.receiptId}") }
                             }
                             is com.routeflow.app.feature.sales.CollectionEvent.Error ->

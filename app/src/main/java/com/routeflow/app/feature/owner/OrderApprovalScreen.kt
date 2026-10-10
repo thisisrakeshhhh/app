@@ -233,7 +233,7 @@ private fun OrderApprovalCard(
                     border = BorderStroke(1.dp, if (detail.hasSufficientStock) Color(0xFFBFDBFE) else Color(0xFFFDE68A))
                 ) {
                     Text(
-                        text = if (detail.hasSufficientStock) "✓ Stock Ready" else "⚠️ Low Stock",
+                        text = if (detail.hasSufficientStock) "Stock Available" else "Low Godown Stock",
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,

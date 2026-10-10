@@ -366,7 +366,7 @@ private fun RetailerLedgerDialog(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Credit Health Status:", style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        if (isOver) "⚠️ Overdue / Limit Exceeded" else "✓ Normal Standing",
+                        if (isOver) "Limit Exceeded" else "Normal Standing",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (isOver) Color(0xFFDC2626) else Color(0xFF16A34A)

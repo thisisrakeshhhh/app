@@ -393,7 +393,7 @@ private fun PickingOrderItemCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = "✓ Packed • Ready for Dispatch",
+                                text = "Packed • Ready for Dispatch",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF15803D)
