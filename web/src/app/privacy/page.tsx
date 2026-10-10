@@ -1,22 +1,28 @@
 import React from 'react';
-import { ShieldCheck, Lock, MapPin, Phone, Database, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Lock, MapPin, Phone, Database, ArrowLeft, Camera, Bell } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-600 text-white px-6 py-8 sm:px-10">
-          <Link href="/login" className="inline-flex items-center gap-2 text-blue-100 hover:text-white text-sm font-medium mb-4">
-            <ArrowLeft className="w-4 h-4" /> Back to Console
+        <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white px-6 py-8 sm:px-10">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 text-blue-100 hover:text-white text-xs sm:text-sm font-medium mb-4 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition backdrop-blur-xs"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Console</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="w-10 h-10 text-blue-200" />
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-sm">
+              <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+            </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold">RouteFlow Privacy Policy</h1>
-              <p className="text-blue-100 text-sm mt-1">
-                Last updated: October 2026 | Compliant with Google Play Store Developer Policies
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">RouteFlow Privacy Policy</h1>
+              <p className="text-blue-100 text-xs sm:text-sm mt-1">
+                Last updated: October 2026 • Compliant with Google Play Store Developer Policies
               </p>
             </div>
           </div>
@@ -29,7 +35,7 @@ export default function PrivacyPolicyPage() {
               <Database className="w-5 h-5 text-blue-600" />
               1. Overview & Scope
             </h2>
-            <p>
+            <p className="text-slate-600">
               RouteFlow (&quot;we&quot;, &quot;our&quot;, or &quot;the Service&quot;) provides wholesale distribution, warehouse fulfillment, and field-sales management software for authorized businesses and their contracted employees. This Privacy Policy outlines how our native mobile application and web management console collect, process, and protect your information.
             </p>
           </section>
@@ -39,11 +45,11 @@ export default function PrivacyPolicyPage() {
               <MapPin className="w-5 h-5 text-blue-600" />
               2. Location Data Collection & Prominent Disclosure
             </h2>
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl my-2 text-slate-800">
+            <div className="bg-amber-50/80 border-l-4 border-amber-500 p-4 rounded-r-xl my-2 text-slate-800">
               <p className="font-semibold text-amber-900 mb-1">
                 Prominent Location Disclosure (Google Play Compliance):
               </p>
-              <p className="text-sm">
+              <p className="text-sm text-slate-700">
                 RouteFlow collects <strong>precise background and foreground location data</strong> when a field sales or delivery employee starts an active duty shift. This data is collected solely to:
               </p>
               <ul className="list-disc ml-5 mt-2 space-y-1 text-sm text-slate-700">
@@ -62,10 +68,10 @@ export default function PrivacyPolicyPage() {
               <Phone className="w-5 h-5 text-blue-600" />
               3. Contact & Business Data
             </h2>
-            <p>
+            <p className="text-slate-600">
               We collect contact information necessary for wholesale commerce:
             </p>
-            <ul className="list-disc ml-5 mt-2 space-y-1">
+            <ul className="list-disc ml-5 mt-2 space-y-1 text-slate-600">
               <li><strong>Retail Store Profiles:</strong> Store trade name, owner name, mobile phone number, and physical store coordinates for delivery dispatch.</li>
               <li><strong>Staff Profiles:</strong> Employee full name, assigned username, mobile number, and role credentials.</li>
               <li><strong>Transactional Data:</strong> Purchase orders, payment receipt records (Cash, UPI, Cheque), and 6-digit delivery verification OTPs.</li>
@@ -79,13 +85,19 @@ export default function PrivacyPolicyPage() {
             </h2>
             <div className="space-y-3">
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
-                <p className="font-semibold text-slate-900">Camera & Photos Permission</p>
+                <div className="flex items-center gap-2 font-semibold text-slate-900">
+                  <Camera className="w-4 h-4 text-blue-600" />
+                  <span>Camera & Photos Permission</span>
+                </div>
                 <p className="text-sm text-slate-600 mt-1">
                   Used in warehouse operations exclusively for <strong>optical barcode scanning (CameraX)</strong> and capturing optional product return/damaged goods condition proofs. Camera data is processed on-device for barcode detection; images are only uploaded when a user explicitly attaches photo evidence for damaged returns.
                 </p>
               </div>
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
-                <p className="font-semibold text-slate-900">Notifications Permission</p>
+                <div className="flex items-center gap-2 font-semibold text-slate-900">
+                  <Bell className="w-4 h-4 text-blue-600" />
+                  <span>Notifications Permission</span>
+                </div>
                 <p className="text-sm text-slate-600 mt-1">
                   Used strictly for real-time operational alerts including <strong>Order Approval notifications, Dispatch Batch handovers, and Shift Tracker background service status</strong>.
                 </p>
@@ -104,16 +116,16 @@ export default function PrivacyPolicyPage() {
               <Lock className="w-5 h-5 text-blue-600" />
               5. Data Security & Storage
             </h2>
-            <p>
-              All communication between RouteFlow mobile devices, web consoles, and our Cloudflare Workers edge network is secured via mandatory HTTPS / TLS 1.3 encryption. Passwords and sensitive session tokens are salted and hashed using bcrypt and SHA-256 before storage in Cloudflare D1 serverless SQLite databases.
+            <p className="text-slate-600">
+              All communication between RouteFlow mobile devices, web consoles, and our Cloudflare Workers edge network is secured via mandatory HTTPS/TLS encryption in transit. Passwords and sensitive session tokens are salted and hashed using bcrypt and SHA-256 before storage in Cloudflare D1 serverless SQLite databases.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-bold text-slate-900 mb-2">
-              5. Data Deletion & Retention
+              6. Data Deletion & Retention
             </h2>
-            <p>
+            <p className="text-slate-600">
               Business owners have full authority to request complete deletion of company records, employee accounts, and retailer registries by contacting their designated account administrator or writing to <code>privacy@routeflow.in</code>. Account sessions may be revoked at any time from the Web Console.
             </p>
           </section>
@@ -121,8 +133,8 @@ export default function PrivacyPolicyPage() {
           <section className="border-t border-slate-200 pt-6">
             <h3 className="font-semibold text-slate-900 mb-1">Developer & Contact Information</h3>
             <p className="text-sm text-slate-600">
-              RouteFlow Technologies | Jaipur, Rajasthan, India<br />
-              Developer Support: <code>support@routeflow.in</code>
+              RouteFlow Technologies • Jaipur, Rajasthan, India<br />
+              Developer Support: <code className="text-blue-600">support@routeflow.in</code>
             </p>
           </section>
         </div>

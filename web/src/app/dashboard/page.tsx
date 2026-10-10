@@ -26,8 +26,13 @@ import {
   DollarSign,
   Printer,
   Receipt,
-  BarChart3,
-  CreditCard
+  CreditCard,
+  Smartphone,
+  Barcode,
+  MessageSquare,
+  CheckCircle2,
+  ChevronRight,
+  TrendingUp
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -428,37 +433,55 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
       {/* Top Navigation */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="p-2 bg-blue-600 rounded-xl shadow-md shadow-blue-500/20">
-              <Truck className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-tr from-blue-700 to-blue-600 rounded-xl shadow-md shadow-blue-500/20 text-white">
+              <Truck className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-bold text-base sm:text-lg text-slate-900 tracking-tight">RouteFlow</span>
-                <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight">RouteFlow</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   {user?.role || 'Executive'}
                 </span>
               </div>
+              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Wholesale Fleet & Godown Operations</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            <span className="text-xs sm:text-sm text-slate-500 hidden md:inline">
-              Welcome, <strong className="text-slate-800">{user?.name}</strong>
-            </span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Status Pill */}
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-medium text-slate-700 text-[11px]">Jaipur Hub Live</span>
+            </div>
+
+            {/* User Profile Card */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs uppercase">
+                {user?.name ? user.name.charAt(0) : 'U'}
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="text-xs font-semibold text-slate-800 leading-tight">{user?.name || 'Administrator'}</p>
+                <p className="text-[10px] text-slate-400 capitalize">{user?.role?.toLowerCase().replace(/_/g, ' ')}</p>
+              </div>
+            </div>
+
             <button
               onClick={loadAllData}
               disabled={loading}
-              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center border border-transparent hover:border-slate-200"
               title="Refresh Data"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-semibold py-1.5 px-2.5 sm:px-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition cursor-pointer min-h-[38px]"
+              className="flex items-center gap-1.5 text-xs font-semibold py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200 hover:border-red-200 transition cursor-pointer min-h-[38px]"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Logout</span>
@@ -475,15 +498,45 @@ export default function DashboardPage() {
           const isSales = role === 'SALESPERSON' || role === 'SALES';
 
           const visibleTabs = [
-            ...(isOwnerOrAdmin ? [{ id: 'overview', label: 'Overview', icon: Building }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'control_room', label: 'Control Room', icon: DollarSign }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'exceptions', label: `Exceptions (${exceptionsList.length})`, icon: AlertTriangle }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'cash_control', label: 'Cash Control', icon: CreditCard }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'reports', label: 'Reports', icon: FileText }] : []),
-            { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
-            ...(isOwnerOrAdmin || isDelivery ? [{ id: 'handovers', label: `Cash Handover (${handovers.filter(h => h.status === 'PENDING').length})`, icon: Wallet }] : []),
-            ...(isOwnerOrAdmin || isWarehouse || isSales ? [{ id: 'products', label: `Products (${products.length})`, icon: Truck }] : []),
-            ...(isOwnerOrAdmin || isSales ? [{ id: 'retailers', label: `Retailers (${retailers.length})`, icon: Store }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'overview', label: 'Overview', icon: Building, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'control_room', label: 'Control Room', icon: DollarSign, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin ? [{
+              id: 'exceptions',
+              label: 'Exceptions',
+              icon: AlertTriangle,
+              badge: exceptionsList.length > 0 ? exceptionsList.length : null,
+              badgeColor: exceptionsList.length > 0 ? 'bg-rose-500 text-white' : ''
+            }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'cash_control', label: 'Cash Control', icon: CreditCard, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'reports', label: 'Reports', icon: FileText, badge: null, badgeColor: '' }] : []),
+            {
+              id: 'orders',
+              label: 'Orders',
+              icon: Package,
+              badge: orders.length,
+              badgeColor: 'bg-slate-200 text-slate-700'
+            },
+            ...(isOwnerOrAdmin || isDelivery ? [{
+              id: 'handovers',
+              label: 'Cash Handover',
+              icon: Wallet,
+              badge: handovers.filter(h => h.status === 'PENDING').length > 0 ? handovers.filter(h => h.status === 'PENDING').length : null,
+              badgeColor: 'bg-amber-500 text-white'
+            }] : []),
+            ...(isOwnerOrAdmin || isWarehouse || isSales ? [{
+              id: 'products',
+              label: 'Products',
+              icon: Truck,
+              badge: products.length,
+              badgeColor: 'bg-slate-200 text-slate-700'
+            }] : []),
+            ...(isOwnerOrAdmin || isSales ? [{
+              id: 'retailers',
+              label: 'Retailers',
+              icon: Store,
+              badge: retailers.length,
+              badgeColor: 'bg-slate-200 text-slate-700'
+            }] : []),
           ];
 
           return (
@@ -495,14 +548,21 @@ export default function DashboardPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[36px] ${
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[36px] ${
                       isSelected
-                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent hover:border-slate-200/60'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
-                    {tab.label}
+                    <span>{tab.label}</span>
+                    {tab.badge !== null && (
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        isSelected ? 'bg-white/20 text-white' : tab.badgeColor || 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {tab.badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -524,9 +584,11 @@ export default function DashboardPage() {
           if (isOwnerOrAdmin) return null;
 
           return (
-            <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl text-blue-900 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="mb-4 sm:mb-6 p-4 bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 border border-blue-200/80 rounded-2xl text-blue-900 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-3">
-                <span className="text-xl sm:text-2xl">📱</span>
+                <div className="p-2.5 bg-blue-100/80 text-blue-700 rounded-xl shrink-0">
+                  <Smartphone className="w-5 h-5" />
+                </div>
                 <div>
                   <p className="font-bold text-slate-900">Mobile App Recommended for Field Roles</p>
                   <p className="text-slate-600 text-xs mt-0.5">
@@ -537,7 +599,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg font-semibold text-[11px] whitespace-nowrap self-start sm:self-center shadow-xs">
+              <span className="px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg font-semibold text-[11px] whitespace-nowrap self-start sm:self-center shadow-xs">
                 Web Fallback Mode
               </span>
             </div>
@@ -545,9 +607,14 @@ export default function DashboardPage() {
         })()}
 
         {message && (
-          <div className="mb-4 sm:mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm flex items-center justify-between">
-            <span>{message}</span>
-            <button onClick={() => setMessage(null)} className="text-xs text-emerald-600 font-bold ml-4 cursor-pointer p-1">✕</button>
+          <div className="mb-4 sm:mb-6 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs sm:text-sm flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{message}</span>
+            </div>
+            <button onClick={() => setMessage(null)} className="text-emerald-600 hover:text-emerald-800 ml-4 cursor-pointer p-1 rounded-lg hover:bg-emerald-100/50 transition">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
@@ -762,8 +829,14 @@ export default function DashboardPage() {
 
             <div className="space-y-3">
               {exceptionsList.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 text-sm">
-                  🎉 Zero exceptions detected! Daily warehouse and delivery cycle is running smoothly.
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center shadow-xs">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mx-auto mb-3">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-sm">Zero Operational Exceptions</h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    All deliveries, godown picklists, and cash reconciliations are operating within normal tolerances.
+                  </p>
                 </div>
               ) : (
                 exceptionsList.map((exc, idx) => (
@@ -1340,7 +1413,12 @@ export default function DashboardPage() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="font-mono text-xs text-slate-600">{p.sku || p.id}</div>
-                            {p.barcode && <div className="text-[11px] font-mono text-blue-600 font-semibold">📟 {p.barcode}</div>}
+                            {p.barcode && (
+                              <div className="text-[11px] font-mono text-blue-600 font-semibold inline-flex items-center gap-1 mt-0.5">
+                                <Barcode className="w-3 h-3 text-blue-500" />
+                                {p.barcode}
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 font-semibold text-slate-900">
                             ₹{((p.price_paise || p.price * 100 || 0) / 100).toFixed(2)}
@@ -1556,7 +1634,7 @@ export default function DashboardPage() {
                       className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer disabled:opacity-50"
                     >
                       <MapPin className="w-3.5 h-3.5" />
-                      {detectingLocation ? 'Detecting...' : '📍 Auto-Detect Location'}
+                      {detectingLocation ? 'Detecting...' : 'Auto-Detect Location'}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1873,9 +1951,10 @@ export default function DashboardPage() {
                     href={selectedRetailer360.whatsAppShareUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition"
                   >
-                    <span>💬 Share Statement on WhatsApp</span>
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Share Statement on WhatsApp</span>
                   </a>
                 ) : (
                   <span className="text-xs text-slate-400">No phone for WhatsApp</span>
