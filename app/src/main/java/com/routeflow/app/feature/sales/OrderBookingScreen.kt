@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -280,10 +281,10 @@ private fun ProductCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(
             1.dp,
-            if (quantity > 0) Color(0xFF93C5FD) else Color(0xFFE2E8F0)
+            if (quantity > 0) Color(0xFF93C5FD) else Color(0xFFF1F5F9)
         ),
         shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (quantity > 0) 2.dp else 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (quantity > 0) 2.5.dp else 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -297,13 +298,13 @@ private fun ProductCard(
                     text = item.product.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = RFColors.TextPrimary
+                    color = Color(0xFF0F172A)
                 )
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = CurrencyFormatter.formatPaise(item.product.pricePaise),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF2563EB)
                     )
@@ -316,14 +317,22 @@ private fun ProductCard(
 
                 Spacer(Modifier.height(6.dp))
 
-                // Warehouse Stock Badge
+                // Warehouse Stock Pill Badge
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = CircleShape,
                     color = when {
-                        item.product.stockQuantity <= 0 -> Color(0xFFFEE2E2)
-                        item.product.stockQuantity <= 10 -> Color(0xFFFEF3C7)
-                        else -> Color(0xFFDCFCE7)
-                    }
+                        item.product.stockQuantity <= 0 -> Color(0xFFFEF2F2)
+                        item.product.stockQuantity <= 10 -> Color(0xFFFFFBEB)
+                        else -> Color(0xFFECFDF5)
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        when {
+                            item.product.stockQuantity <= 0 -> Color(0xFFFECACA)
+                            item.product.stockQuantity <= 10 -> Color(0xFFFDE68A)
+                            else -> Color(0xFFA7F3D0)
+                        }
+                    )
                 ) {
                     Text(
                         text = when {
@@ -331,14 +340,15 @@ private fun ProductCard(
                             item.product.stockQuantity <= 10 -> "Low Stock (${item.product.stockQuantity})"
                             else -> "In Stock"
                         },
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = when {
                             item.product.stockQuantity <= 0 -> Color(0xFFDC2626)
-                            item.product.stockQuantity <= 10 -> Color(0xFFD97706)
-                            else -> Color(0xFF15803D)
-                        }
+                            item.product.stockQuantity <= 10 -> Color(0xFFB45309)
+                            else -> Color(0xFF047857)
+                        },
+                        fontSize = 11.sp
                     )
                 }
 
@@ -346,18 +356,18 @@ private fun ProductCard(
                 if (item.product.name.contains("Chai", ignoreCase = true) || item.product.stockQuantity > 20) {
                     Spacer(Modifier.height(4.dp))
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = CircleShape,
                         color = Color(0xFFFAF5FF),
                         border = BorderStroke(1.dp, Color(0xFFE9D5FF))
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Icon(Icons.Default.CardGiftcard, contentDescription = null, tint = Color(0xFF9333EA), modifier = Modifier.size(11.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                text = "Scheme: Buy 10 Get 1 Free",
+                                text = "Buy 10 Get 1 Free",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF9333EA),
@@ -380,47 +390,79 @@ private fun ProductCard(
 
             Spacer(Modifier.width(12.dp))
 
-            // Quantity Stepper with >=48dp touch targets
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (quantity > 0) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
-                border = BorderStroke(1.dp, if (quantity > 0) Color(0xFFBFDBFE) else Color(0xFFE2E8F0))
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Decrement Button (48dp x 48dp)
-                    IconButton(
-                        onClick = { onQuantityChange(item.product.id, -1) },
-                        enabled = quantity > 0,
-                        modifier = Modifier.size(48.dp)
+            // Zomato/Blinkit ADD button & Stepper
+            if (quantity == 0) {
+                Surface(
+                    onClick = { onQuantityChange(item.product.id, 1) },
+                    modifier = Modifier
+                        .width(84.dp)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.5.dp, Color(0xFF2563EB)),
+                    shadowElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Remove,
-                            contentDescription = "Decrease",
-                            modifier = Modifier.size(20.dp),
-                            tint = if (quantity > 0) Color(0xFF1D4ED8) else Color(0xFFCBD5E1)
+                        Text(
+                            text = "ADD",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF2563EB),
+                            fontSize = 13.sp
                         )
-                    }
-
-                    Text(
-                        text = quantity.toString(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = if (quantity > 0) Color(0xFF1D4ED8) else RFColors.TextPrimary,
-                        modifier = Modifier.padding(horizontal = 6.dp)
-                    )
-
-                    // Increment Button (48dp x 48dp)
-                    IconButton(
-                        onClick = { onQuantityChange(item.product.id, 1) },
-                        enabled = quantity < item.product.stockQuantity,
-                        modifier = Modifier.size(48.dp)
-                    ) {
+                        Spacer(Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Increase",
-                            modifier = Modifier.size(20.dp),
-                            tint = if (quantity < item.product.stockQuantity) Color(0xFF1D4ED8) else Color(0xFFCBD5E1)
+                            contentDescription = "Add item",
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(16.dp)
                         )
+                    }
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.5.dp, Color(0xFF2563EB)),
+                    shadowElevation = 1.dp
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { onQuantityChange(item.product.id, -1) },
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Decrease",
+                                modifier = Modifier.size(18.dp),
+                                tint = Color(0xFF1D4ED8)
+                            )
+                        }
+
+                        Text(
+                            text = quantity.toString(),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF1D4ED8),
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        )
+
+                        IconButton(
+                            onClick = { onQuantityChange(item.product.id, 1) },
+                            enabled = quantity < item.product.stockQuantity,
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Increase",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (quantity < item.product.stockQuantity) Color(0xFF1D4ED8) else Color(0xFFCBD5E1)
+                            )
+                        }
                     }
                 }
             }
@@ -553,13 +595,13 @@ private fun CartSummary(
     isSubmitting: Boolean,
     onSubmit: () -> Unit
 ) {
-    Surface(
-        shadowElevation = if (hasItems) 8.dp else 2.dp,
-        tonalElevation = 2.dp,
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-    ) {
-        if (!hasItems) {
+    if (!hasItems) {
+        Surface(
+            tonalElevation = 0.dp,
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -586,8 +628,8 @@ private fun CartSummary(
                 Button(
                     onClick = {},
                     enabled = false,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(36.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(38.dp),
                     colors = ButtonDefaults.buttonColors(
                         disabledContainerColor = Color(0xFFF1F5F9),
                         disabledContentColor = Color(0xFF94A3B8)
@@ -597,11 +639,21 @@ private fun CartSummary(
                     Text("Submit Order", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
-        } else {
+        }
+    } else {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 8.dp
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -610,7 +662,7 @@ private fun CartSummary(
                         text = "$totalItemsCount ${if (totalItemsCount == 1) "item" else "items"} in cart",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF64748B),
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = CurrencyFormatter.formatPaise(totalPaise),
@@ -625,7 +677,7 @@ private fun CartSummary(
                 Button(
                     onClick = onSubmit,
                     enabled = !isSubmitting,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .height(48.dp)
                         .defaultMinSize(minWidth = 140.dp),
@@ -644,14 +696,14 @@ private fun CartSummary(
                         Spacer(Modifier.width(6.dp))
                         Text("Submitting…", color = Color.White, fontWeight = FontWeight.Bold)
                     } else {
+                        Text("Submit Order", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Spacer(Modifier.width(6.dp))
                         Icon(
                             imageVector = Icons.Default.ShoppingCart,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = Color.White
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Submit Order", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }

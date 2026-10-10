@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -312,29 +313,29 @@ private fun CompactProductStockRow(
             .fillMaxWidth()
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Category / Thumbnail icon
             Surface(
-                color = Color(0xFFF1F5F9),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.size(38.dp)
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.size(40.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Inventory2,
                         contentDescription = null,
-                        tint = Color(0xFF475569),
-                        modifier = Modifier.size(18.dp)
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -357,11 +358,12 @@ private fun CompactProductStockRow(
                     if (item.stockQuantity <= 10) {
                         Surface(
                             color = Color(0xFFFEF3C7),
-                            shape = RoundedCornerShape(4.dp)
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A))
                         ) {
                             Text(
-                                text = "Low Stock",
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                text = "Low",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFB45309),
@@ -381,13 +383,14 @@ private fun CompactProductStockRow(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Available: ${item.availableQuantity}",
+                        text = "Avail: ${item.availableQuantity}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF16A34A)
+                        color = Color(0xFF16A34A),
+                        maxLines = 1
                     )
                     Text(
                         text = "•",
@@ -395,9 +398,10 @@ private fun CompactProductStockRow(
                         color = Color(0xFFCBD5E1)
                     )
                     Text(
-                        text = "Reserved: ${item.reservedQuantity}",
+                        text = "Res: ${item.reservedQuantity}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B),
+                        maxLines = 1
                     )
                     if (item.batchCount > 0) {
                         Text(
@@ -406,37 +410,30 @@ private fun CompactProductStockRow(
                             color = Color(0xFFCBD5E1)
                         )
                         Text(
-                            text = "${item.batchCount} batches",
+                            text = "${item.batchCount}B",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF2563EB)
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2563EB),
+                            maxLines = 1
                         )
                     }
                 }
             }
 
-            // Total stock pill + Tap chevron
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // Total stock pill
+            Surface(
+                color = if (item.stockQuantity <= 10) Color(0xFFFFFBEB) else Color(0xFFECFDF5),
+                shape = CircleShape,
+                border = BorderStroke(1.dp, if (item.stockQuantity <= 10) Color(0xFFFDE68A) else Color(0xFFA7F3D0))
             ) {
-                Surface(
-                    color = if (item.stockQuantity <= 10) Color(0xFFFFFBEB) else Color(0xFFF0FDF4),
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, if (item.stockQuantity <= 10) Color(0xFFFDE68A) else Color(0xFFBBF7D0))
-                ) {
-                    Text(
-                        text = "${item.stockQuantity}",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Black,
-                        color = if (item.stockQuantity <= 10) Color(0xFFB45309) else Color(0xFF15803D)
-                    )
-                }
                 Text(
-                    text = "Total Pcs",
+                    text = "${item.stockQuantity} Pcs",
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF94A3B8),
-                    fontSize = 10.sp
+                    fontWeight = FontWeight.Black,
+                    color = if (item.stockQuantity <= 10) Color(0xFFB45309) else Color(0xFF047857),
+                    fontSize = 11.sp,
+                    maxLines = 1
                 )
             }
         }

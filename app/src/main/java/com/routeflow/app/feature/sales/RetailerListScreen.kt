@@ -556,28 +556,33 @@ private fun RetailerCard(
 
                 if (item.isHighCreditRisk) {
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = CircleShape,
                         color = Color(0xFFFEF2F2),
-                        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                        border = BorderStroke(1.dp, Color(0xFFFECACA))
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
-                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(12.dp))
-                            Spacer(Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(Color(0xFFDC2626), CircleShape)
+                            )
+                            Spacer(Modifier.width(5.dp))
                             Text(
                                 text = "High Credit Risk",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFDC2626)
+                                color = Color(0xFFDC2626),
+                                fontSize = 11.sp
                             )
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
             // Field Action Buttons: Check In (>=48dp), Call, Map
             Row(
@@ -595,8 +600,9 @@ private fun RetailerCard(
                         }
                     },
                     modifier = Modifier.height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
                     Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(18.dp), tint = Color(0xFF2563EB))
                 }
@@ -616,8 +622,9 @@ private fun RetailerCard(
                         try { context.startActivity(intent) } catch (_: Exception) {}
                     },
                     modifier = Modifier.height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
                     Icon(Icons.Default.Map, contentDescription = "Map", modifier = Modifier.size(18.dp), tint = Color(0xFF16A34A))
                 }
@@ -628,11 +635,12 @@ private fun RetailerCard(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
-                    )
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.check_in_button),
@@ -655,23 +663,35 @@ private fun RetailerCard(
 
 @Composable
 private fun VisitStatusBadge(status: String) {
-    val (text, bgColor, textColor) = when (status) {
-        "ORDERED" -> Triple("Ordered", Color(0xFFDCFCE7), Color(0xFF15803D))
-        "NO_ORDER" -> Triple("No Order", Color(0xFFF1F5F9), Color(0xFF475569))
-        "VISITED" -> Triple("Visited", Color(0xFFDBEAFE), Color(0xFF1D4ED8))
-        "IN_PROGRESS", "VISITING" -> Triple("In Progress", Color(0xFFFEF3C7), Color(0xFFD97706))
-        else -> Triple("Pending", Color(0xFFFFFBEB), Color(0xFFB45309))
+    val (text, bgColor, textColor, dotColor) = when (status) {
+        "ORDERED" -> listOf("Ordered", Color(0xFFECFDF5), Color(0xFF047857), Color(0xFF10B981))
+        "NO_ORDER" -> listOf("No Order", Color(0xFFF1F5F9), Color(0xFF475569), Color(0xFF94A3B8))
+        "VISITED" -> listOf("Visited", Color(0xFFEFF6FF), Color(0xFF1D4ED8), Color(0xFF3B82F6))
+        "IN_PROGRESS", "VISITING" -> listOf("In Progress", Color(0xFFFFFBEB), Color(0xFFB45309), Color(0xFFF59E0B))
+        else -> listOf("Pending", Color(0xFFFFFBEB), Color(0xFFB45309), Color(0xFFF59E0B))
     }
     Surface(
-        color = bgColor,
-        shape = RoundedCornerShape(8.dp)
+        color = bgColor as Color,
+        shape = CircleShape,
+        border = BorderStroke(1.dp, (dotColor as Color).copy(alpha = 0.3f))
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(dotColor, CircleShape)
+            )
+            Text(
+                text = text as String,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = textColor as Color,
+                fontSize = 11.sp
+            )
+        }
     }
 }

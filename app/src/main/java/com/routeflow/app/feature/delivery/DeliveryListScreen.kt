@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Inventory2
@@ -143,14 +145,14 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
         onClick = { onClick(item.order.id) },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row: Stop sequence badge + Order ID
+            // Header Row: Stop sequence pill + Order ID
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -158,16 +160,27 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
             ) {
                 Surface(
                     color = Color(0xFFEFF6FF),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = CircleShape,
                     border = BorderStroke(1.dp, Color(0xFFBFDBFE))
                 ) {
-                    Text(
-                        text = "Stop #${item.stopSequence} • स्टॉप ${item.stopSequence}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1D4ED8),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(Color(0xFF2563EB), CircleShape)
+                        )
+                        Text(
+                            text = "Stop #${item.stopSequence}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1D4ED8),
+                            fontSize = 11.sp
+                        )
+                    }
                 }
 
                 Text(
@@ -193,7 +206,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                 )
             }
 
-            // Action & Operational Badges: Cartons count, Call Store, Directions
+            // Operational Badges: Cartons count, Call Store, Directions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -201,23 +214,27 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
             ) {
                 // Cartons badge
                 Surface(
-                    color = Color(0xFFF1F5F9),
-                    shape = RoundedCornerShape(6.dp)
+                    color = Color(0xFFF8FAFC),
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(13.dp))
                         Text(
-                            text = "${item.totalCartons} Carton",
+                            text = "${item.totalCartons} Cartons",
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF334155)
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF334155),
+                            fontSize = 11.sp
                         )
                     }
                 }
+
+                Spacer(Modifier.weight(1f))
 
                 // Call Retailer action
                 if (item.contactNumber.isNotBlank()) {
@@ -226,10 +243,10 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                             val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${item.contactNumber}"))
                             context.startActivity(intent)
                         },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(32.dp),
-                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(38.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
                         Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF2563EB), modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
@@ -245,10 +262,10 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                             val intent = Intent(Intent.ACTION_VIEW, geoUri)
                             context.startActivity(intent)
                         },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(32.dp),
-                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(38.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
                         Icon(Icons.Default.Navigation, contentDescription = "Directions", tint = Color(0xFF16A34A), modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
@@ -279,15 +296,16 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
 
                 Button(
                     onClick = { onClick(item.order.id) },
-                    modifier = Modifier.height(44.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
                     ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Text("Deliver (डिलीवर करें)", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Deliver (डिलीवर)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
                     Spacer(Modifier.width(6.dp))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }

@@ -1,6 +1,7 @@
 package com.routeflow.app.feature.owner
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -159,10 +161,12 @@ private fun OrderApprovalCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -173,7 +177,7 @@ private fun OrderApprovalCard(
                         Text(
                             detail.order.id,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = Color(0xFF2563EB),
                             fontWeight = FontWeight.Bold
                         )
                         OrderSyncBadge(state = detail.syncState, errorMessage = detail.syncError)
@@ -181,13 +185,15 @@ private fun OrderApprovalCard(
                     Text(
                         detail.retailerName,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0F172A)
                     )
                 }
                 Text(
                     CurrencyFormatter.formatPaise(detail.order.totalAmountPaise),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF2563EB)
                 )
             }
 
@@ -197,39 +203,38 @@ private fun OrderApprovalCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Surface(
-                    color = if (isCreditOver) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, if (isCreditOver) Color(0xFFFECACA) else Color(0xFFBBF7D0))
+                    color = if (isCreditOver) Color(0xFFFEF2F2) else Color(0xFFECFDF5),
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, if (isCreditOver) Color(0xFFFECACA) else Color(0xFFA7F3D0))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Icon(
-                            if (isCreditOver) Icons.Default.Warning else Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = if (isCreditOver) Color(0xFFDC2626) else Color(0xFF16A34A),
-                            modifier = Modifier.size(14.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(if (isCreditOver) Color(0xFFDC2626) else Color(0xFF10B981), CircleShape)
                         )
                         Text(
                             text = if (isCreditOver) "Credit Exceeded (Udhaar: ${CurrencyFormatter.formatPaise(detail.outstandingBalancePaise)})"
                             else "Credit OK (Limit: ${CurrencyFormatter.formatPaise(detail.creditLimitPaise)})",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = if (isCreditOver) Color(0xFFB91C1C) else Color(0xFF15803D)
+                            color = if (isCreditOver) Color(0xFFB91C1C) else Color(0xFF047857)
                         )
                     }
                 }
 
                 Surface(
                     color = if (detail.hasSufficientStock) Color(0xFFEFF6FF) else Color(0xFFFFFBEB),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = CircleShape,
                     border = BorderStroke(1.dp, if (detail.hasSufficientStock) Color(0xFFBFDBFE) else Color(0xFFFDE68A))
                 ) {
                     Text(
-                        text = if (detail.hasSufficientStock) "✓ Stock Ready" else "⚠️ Godown Low Stock",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        text = if (detail.hasSufficientStock) "✓ Stock Ready" else "⚠️ Low Stock",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (detail.hasSufficientStock) Color(0xFF1D4ED8) else Color(0xFFB45309)
@@ -237,7 +242,7 @@ private fun OrderApprovalCard(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(color = Color(0xFFF1F5F9))
 
             // Items list
             detail.items.forEach { itemDetail ->
@@ -248,7 +253,8 @@ private fun OrderApprovalCard(
                 ) {
                     Text(
                         "${itemDetail.product?.name ?: "Unknown"} × ${itemDetail.item.quantity}",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF334155)
                     )
                     if (itemDetail.item.freeQuantity > 0) {
                         Text(
@@ -261,30 +267,42 @@ private fun OrderApprovalCard(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(color = Color(0xFFF1F5F9))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = onRejectClick,
-                    modifier = Modifier.weight(1f).testTag("reject_order_${detail.order.id}"),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626))
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("reject_order_${detail.order.id}"),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFFDC2626)
+                    )
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Reject")
+                    Spacer(Modifier.width(6.dp))
+                    Text("Reject", fontWeight = FontWeight.Bold)
                 }
                 Button(
                     onClick = onApprove,
-                    modifier = Modifier.weight(1f).testTag("approve_order_${detail.order.id}"),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("approve_order_${detail.order.id}"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2563EB),
                         contentColor = Color.White
-                    )
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Approve", color = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Approve", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

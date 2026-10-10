@@ -1,6 +1,7 @@
 package com.routeflow.app.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,8 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
@@ -315,27 +320,41 @@ fun RouteFlowApp(
                                 Text(
                                     salesTitle,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RFColors.TextPrimary
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF0F172A)
                                 )
                             },
                             actions = {
-                                TextButton(onClick = {
-                                    isDemoMode = false
-                                    onDemoLogout()
-                                }, Modifier.testTag("logout")) {
-                                    Text(
-                                        stringResource(R.string.logout),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = RFColors.Error,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFFEF2F2),
+                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                                    modifier = Modifier.padding(end = 6.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            isDemoMode = false
+                                            onDemoLogout()
+                                        },
+                                        modifier = Modifier.testTag("logout").height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.logout),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFFDC2626),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.White,
-                                titleContentColor = RFColors.TextPrimary,
-                            )
+                                titleContentColor = Color(0xFF0F172A),
+                            ),
+                            modifier = Modifier.drawBehind {
+                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                            }
                         )
                     } else if (employee.role == EmployeeRole.WAREHOUSE_MANAGER) {
                         TopAppBar(
@@ -343,27 +362,41 @@ fun RouteFlowApp(
                                 Text(
                                     "Jaipur Godown Depot",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RFColors.TextPrimary
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF0F172A)
                                 )
                             },
                             actions = {
-                                TextButton(onClick = {
-                                    isDemoMode = false
-                                    onDemoLogout()
-                                }, Modifier.testTag("logout")) {
-                                    Text(
-                                        stringResource(R.string.logout),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = RFColors.Error,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFFEF2F2),
+                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                                    modifier = Modifier.padding(end = 6.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            isDemoMode = false
+                                            onDemoLogout()
+                                        },
+                                        modifier = Modifier.testTag("logout").height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.logout),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFFDC2626),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.White,
-                                titleContentColor = RFColors.TextPrimary,
-                            )
+                                titleContentColor = Color(0xFF0F172A),
+                            ),
+                            modifier = Modifier.drawBehind {
+                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                            }
                         )
                     } else if (employee.role == EmployeeRole.DELIVERY_EXECUTIVE) {
                         val isSubScreen = currentRoute?.startsWith("delivery/detail") == true
@@ -383,27 +416,41 @@ fun RouteFlowApp(
                                 Text(
                                     "Jaipur Delivery Fleet",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RFColors.TextPrimary
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF0F172A)
                                 )
                             },
                             actions = {
-                                TextButton(onClick = {
-                                    isDemoMode = false
-                                    onDemoLogout()
-                                }, Modifier.testTag("logout")) {
-                                    Text(
-                                        stringResource(R.string.logout),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = RFColors.Error,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFFEF2F2),
+                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                                    modifier = Modifier.padding(end = 6.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            isDemoMode = false
+                                            onDemoLogout()
+                                        },
+                                        modifier = Modifier.testTag("logout").height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.logout),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFFDC2626),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.White,
-                                titleContentColor = RFColors.TextPrimary,
-                            )
+                                titleContentColor = Color(0xFF0F172A),
+                            ),
+                            modifier = Modifier.drawBehind {
+                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                            }
                         )
                     } else {
                         TopAppBar(
@@ -412,7 +459,8 @@ fun RouteFlowApp(
                                     Text(
                                         "RouteFlow",
                                         style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFF0F172A)
                                     )
                                     Text(
                                         stringResource(employee.role.labelRes),
@@ -423,22 +471,36 @@ fun RouteFlowApp(
                                 }
                             },
                             actions = {
-                                TextButton(onClick = {
-                                    isDemoMode = false
-                                    onDemoLogout()
-                                }, Modifier.testTag("logout")) {
-                                    Text(
-                                        stringResource(R.string.logout),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = RFColors.Error,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFFEF2F2),
+                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                                    modifier = Modifier.padding(end = 6.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            isDemoMode = false
+                                            onDemoLogout()
+                                        },
+                                        modifier = Modifier.testTag("logout").height(32.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.logout),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFFDC2626),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.White,
-                                titleContentColor = RFColors.TextPrimary,
-                            )
+                                titleContentColor = Color(0xFF0F172A),
+                            ),
+                            modifier = Modifier.drawBehind {
+                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                            }
                         )
                     }
                 }
@@ -448,7 +510,10 @@ fun RouteFlowApp(
             if (employee != null && bottomNavItems.isNotEmpty()) {
                 NavigationBar(
                     containerColor = Color.White,
-                    tonalElevation = 8.dp
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.drawBehind {
+                        drawLine(Color(0xFFF1F5F9), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
+                    }
                 ) {
                     bottomNavItems.forEach { item ->
                         val isSelected = when (item.route) {
@@ -477,18 +542,18 @@ fun RouteFlowApp(
                                     }
                                 }
                             },
-                            icon = { Icon(item.icon, contentDescription = null) },
+                            icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
                             label = {
                                 Text(
                                     stringResource(item.labelRes),
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             },
                             colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color(0xFF1D4ED8),
-                                selectedTextColor = Color(0xFF1D4ED8),
-                                indicatorColor = Color(0xFFDBEAFE),
+                                selectedIconColor = Color(0xFF2563EB),
+                                selectedTextColor = Color(0xFF2563EB),
+                                indicatorColor = Color(0xFFEFF6FF),
                                 unselectedIconColor = Color(0xFF94A3B8),
                                 unselectedTextColor = Color(0xFF64748B)
                             )
