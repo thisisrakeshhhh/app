@@ -59,6 +59,24 @@ interface CashHandover {
   submitted_at: number;
 }
 
+function formatStatusLabel(status: string | undefined): string {
+  if (!status) return 'Unknown';
+  switch (status.toUpperCase()) {
+    case 'ACCEPTED': return 'Accepted / Settled';
+    case 'PENDING': return 'Pending Verification';
+    case 'APPROVED': return 'Approved';
+    case 'PENDING_APPROVAL': return 'Approval Pending';
+    case 'PICKING': return 'Picking in Progress';
+    case 'PACKED': return 'Packed';
+    case 'OUT_FOR_DELIVERY': return 'Out for Delivery';
+    case 'DELIVERED': return 'Delivered';
+    case 'DELIVERY_FAILED': return 'Delivery Failed';
+    case 'PARTIALLY_DELIVERED': return 'Partially Delivered';
+    case 'REJECTED': return 'Rejected';
+    default: return status.replace(/_/g, ' ');
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -832,7 +850,7 @@ export default function DashboardPage() {
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                             h.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                           }`}>
-                            {h.status}
+                            {formatStatusLabel(h.status)}
                           </span>
                         </div>
                       </div>
@@ -1018,7 +1036,7 @@ export default function DashboardPage() {
                             : 'bg-slate-100 text-slate-700 border border-slate-200'
                         }`}
                       >
-                        {o.status}
+                        {formatStatusLabel(o.status)}
                       </span>
                     </div>
 
@@ -1096,7 +1114,7 @@ export default function DashboardPage() {
                                   : 'bg-slate-100 text-slate-700 border border-slate-200'
                               }`}
                             >
-                              {o.status}
+                              {formatStatusLabel(o.status)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -1155,7 +1173,7 @@ export default function DashboardPage() {
                             : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}
                       >
-                        {h.status}
+                        {formatStatusLabel(h.status)}
                       </span>
                     </div>
 
@@ -1225,7 +1243,7 @@ export default function DashboardPage() {
                                   : 'bg-amber-50 text-amber-700 border border-amber-200'
                               }`}
                             >
-                              {h.status}
+                              {formatStatusLabel(h.status)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -1727,7 +1745,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500 font-medium">Status:</span>
-                    <span className="font-semibold text-amber-700">{assignModalOrder.status}</span>
+                    <span className="font-semibold text-amber-700">{formatStatusLabel(assignModalOrder.status)}</span>
                   </div>
                 </div>
 
@@ -1839,7 +1857,7 @@ export default function DashboardPage() {
                         <div className="text-right">
                           <p className="font-bold text-slate-900">₹{(o.total_amount_paise / 100).toFixed(2)}</p>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                            {o.status}
+                            {formatStatusLabel(o.status)}
                           </span>
                         </div>
                       </div>

@@ -315,7 +315,7 @@ class WarehouseViewModel @Inject constructor(
         viewModelScope.launch {
             val result = warehouseRepository.handoverDispatchBatch(batchId)
             if (result.isSuccess) {
-                _eventFlow.emit(WarehouseUiEvent.Success("Handover complete! Orders are OUT_FOR_DELIVERY."))
+                _eventFlow.emit(WarehouseUiEvent.Success("Handover complete! Orders are Out for Delivery."))
                 loadDispatchBatches()
                 loadDashboardMetrics()
             } else {

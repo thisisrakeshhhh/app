@@ -345,7 +345,7 @@ fun DeliveryDetailScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         OutlinedTextField(
-                                            value = currentReason,
+                                            value = com.routeflow.app.core.util.StatusMapper.statusLabel(currentReason),
                                             onValueChange = {},
                                             readOnly = true,
                                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -358,7 +358,7 @@ fun DeliveryDetailScreen(
                                         ) {
                                             listOf("SHORTAGE", "DAMAGED", "REFUSED", "SHOP_CLOSED", "OTHER").forEach { reasonOption ->
                                                 DropdownMenuItem(
-                                                    text = { Text(reasonOption, style = MaterialTheme.typography.bodySmall) },
+                                                    text = { Text(com.routeflow.app.core.util.StatusMapper.statusLabel(reasonOption), style = MaterialTheme.typography.bodySmall) },
                                                     onClick = {
                                                         undeliveredReasonMap[item.productId] = reasonOption
                                                         expanded = false

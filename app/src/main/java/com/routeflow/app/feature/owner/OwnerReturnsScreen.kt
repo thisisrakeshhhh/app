@@ -317,7 +317,7 @@ fun OwnerReturnsScreen(
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text(exc.retailerName ?: "Retailer", fontWeight = FontWeight.Bold)
                                             Text(
-                                                if (exc.status == "PARTIALLY_DELIVERED") "PARTIALLY DELIVERED" else "DELIVERY FAILED",
+                                                com.routeflow.app.core.util.StatusMapper.statusLabel(exc.status),
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (exc.status == "PARTIALLY_DELIVERED") RFColors.Primary else RFColors.Error,
                                                 style = MaterialTheme.typography.bodySmall
@@ -486,7 +486,7 @@ private fun AuthorizeReturnCard(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(returnReq.retailer_name ?: returnReq.retailer_id, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("STATUS: ${returnReq.status}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = RFColors.Warning)
+                Text("Status: " + com.routeflow.app.core.util.StatusMapper.statusLabel(returnReq.status), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = RFColors.Warning)
             }
             Text("Order ID: ${returnReq.order_id}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
             Text("Requested: ${fmt.format(Date(returnReq.created_at))}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
@@ -542,7 +542,7 @@ private fun ReceiveOrInspectCard(
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(returnReq.retailer_name ?: returnReq.retailer_id, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(returnReq.status, style = MaterialTheme.typography.labelSmall, color = RFColors.Primary, fontWeight = FontWeight.Bold)
+                Text(com.routeflow.app.core.util.StatusMapper.statusLabel(returnReq.status), style = MaterialTheme.typography.labelSmall, color = RFColors.Primary, fontWeight = FontWeight.Bold)
             }
             Text("Order: ${returnReq.order_id}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
 
@@ -582,7 +582,7 @@ private fun CreditReturnCard(
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(returnReq.retailer_name ?: returnReq.retailer_id, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(returnReq.status, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = if (isCredited) RFColors.Success else RFColors.Primary)
+                Text(com.routeflow.app.core.util.StatusMapper.statusLabel(returnReq.status), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = if (isCredited) RFColors.Success else RFColors.Primary)
             }
             Text("Credit Note: ${CurrencyFormatter.formatPaise(returnReq.credit_paise ?: 0L)}", fontWeight = FontWeight.Bold, color = RFColors.Success)
 

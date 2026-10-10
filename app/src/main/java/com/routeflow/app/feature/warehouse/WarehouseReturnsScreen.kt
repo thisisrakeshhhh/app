@@ -477,13 +477,7 @@ private fun ReturnCard(
     isProcessing: Boolean,
     onInspect: () -> Unit
 ) {
-    val readableStatus = when (returnRequest.status) {
-        "PENDING_INSPECTION" -> "Inspection Pending"
-        "PENDING" -> "Inspection Pending"
-        "APPROVED" -> "Approved"
-        "REJECTED" -> "Rejected"
-        else -> returnRequest.status.replace("_", " ")
-    }
+    val readableStatus = com.routeflow.app.core.util.StatusMapper.statusLabel(returnRequest.status)
 
     Card(
         modifier = Modifier.fillMaxWidth(),

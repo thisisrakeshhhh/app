@@ -508,7 +508,7 @@ private fun AuditPaymentCard(collection: CollectionDto) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(collection.retailer_name ?: collection.retailer_id, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Text(
-                    collection.status,
+                    com.routeflow.app.core.util.StatusMapper.statusLabel(collection.status),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (isReversed) RFColors.Error else RFColors.TextSecondary

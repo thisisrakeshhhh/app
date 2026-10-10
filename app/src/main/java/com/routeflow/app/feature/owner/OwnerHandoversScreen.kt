@@ -371,7 +371,7 @@ private fun CompletedHandoverCard(handover: CashHandoverDto) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    handover.status,
+                    text = com.routeflow.app.core.util.StatusMapper.statusLabel(handover.status),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = statusColor

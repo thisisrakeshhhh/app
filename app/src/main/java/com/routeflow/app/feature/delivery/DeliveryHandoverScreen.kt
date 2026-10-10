@@ -284,7 +284,12 @@ private fun HandoverHistoryCard(handover: CashHandoverDto) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(CurrencyFormatter.formatPaise(handover.amount_paise), fontWeight = FontWeight.Bold)
-                Text(handover.status, color = statusColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                Text(
+                    text = com.routeflow.app.core.util.StatusMapper.statusLabel(handover.status),
+                    color = statusColor,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelMedium
+                )
             }
             Text(
                 fmt.format(Date(handover.submitted_at)),
