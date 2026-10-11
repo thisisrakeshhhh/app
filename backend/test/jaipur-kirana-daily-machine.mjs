@@ -138,13 +138,18 @@ Scenario Cast:
 
   // --- STEP 2: SALESMAN STARTS DUTY (RAKESH) ---
   console.log('--- 2. SALESMAN STARTS DUTY (Rakesh) ---');
-  const shiftId = `shift_rakesh_${Date.now()}`;
-  const startShiftRes = await post('/shifts/start', {
-    shiftId,
-    startTime: Date.now(),
-    latitude: 26.8530,
-    longitude: 75.7620
-  }, salesToken);
+  // Check if Rakesh already has an active shift or start one
+  const curShift = await get('/shifts/current', salesToken);
+  let shiftId = curShift.data?.shift?.id;
+  if (!shiftId || curShift.data?.shift?.status !== 'ON_SHIFT') {
+    shiftId = `shift_rakesh_${Date.now()}`;
+    await post('/shifts/start', {
+      shiftId,
+      startTime: Date.now(),
+      latitude: 26.8530,
+      longitude: 75.7620
+    }, salesToken);
+  }
   console.log(`  Rakesh taps 'Start Duty' on mobile app:`);
   console.log(`  - Shift ID:       ${shiftId}`);
   console.log(`  - Assigned Beat:  BEAT-04 (Mansarovar West)`);
@@ -153,11 +158,25 @@ Scenario Cast:
 
   // --- STEP 3: SALESMAN VISITS SHOP (SHARMA GENERAL STORE, MANSAROVAR) ---
   console.log('--- 3. SALESMAN VISITS SHOP (Sharma General Store, Mansarovar) ---');
+  // Ensure any previous active visits are closed before starting new visit
+  const priorVisits = await get('/visits', salesToken);
+  if (Array.isArray(priorVisits.data)) {
+    for (const pv of priorVisits.data) {
+      if (pv.status === 'ACTIVE') {
+        await put(`/visits/${pv.id}/checkout`, {
+          checkOutTime: Date.now(),
+          notes: 'Completed earlier visit'
+        }, salesToken);
+      }
+    }
+  }
+
   const visitId = `visit_sharma_${Date.now()}`;
+  const checkInTime = Date.now();
   const visitRes = await post('/visits', {
     id: visitId,
     retailerId: 'R1',
-    checkInTime: Date.now(),
+    checkInTime,
     latitude: 26.8500,
     longitude: 75.7600,
     status: 'ACTIVE',
@@ -197,12 +216,21 @@ Scenario Cast:
   }, salesToken);
   assert.equal(orderRes.status, 200, `Order creation failed: ${JSON.stringify(orderRes.data)}`);
 
-  console.log(`  Rakesh submits order:`);
+  // Rakesh completes visit and checks out of Sharma General Store
+  const checkOutTime = Date.now() + 1000;
+  const checkoutRes = await put(`/visits/${visitId}/checkout`, {
+    checkOutTime,
+    notes: 'Order booked ₹3,450.00. 18 minutes spent in shop.'
+  }, salesToken);
+  assert.equal(checkoutRes.status, 200, 'Visit checkout failed');
+
+  console.log(`  Rakesh submits order & checks out:`);
   console.log(`  - Order ID:       ${orderId}`);
   console.log(`  - Shop:           Sharma General Store`);
   console.log(`  - Total Amount:   ${formatPaise(totalAmountPaise)}`);
   console.log(`  - Items Ordered:  10x Premium Tea, 5x Biscuit Carton, 2x Oil Tin`);
-  console.log(`  - Order Status:   Approval Pending\n`);
+  console.log(`  - Order Status:   Approval Pending`);
+  console.log(`  - Visit Status:   Checked Out (18 mins dwell time recorded)\n`);
 
   // --- STEP 5: OWNER APPROVES (RAMESH JI) ---
   console.log('--- 5. OWNER APPROVES (Ramesh Ji) ---');
