@@ -50,8 +50,11 @@ import com.routeflow.app.domain.model.Employee
 fun DeliveryHomeScreen(
     employee: Employee,
     state: DeliveryHomeState,
-    onViewDeliveries: () -> Unit
+    onViewDeliveries: () -> Unit,
+    currentLanguage: String = "en"
 ) {
+    val isHindi = currentLanguage == "hi"
+
     if (state.isLoading) {
         LoadingState(Modifier.fillMaxSize())
     } else {
@@ -72,13 +75,13 @@ fun DeliveryHomeScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Delivery Desk / आज का कार्य",
+                        text = if (isHindi) "डिलीवरी डेस्क" else "Delivery Desk",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "${employee.name} • Jaipur Wholesale Fleet",
+                        text = if (isHindi) "${employee.name} • जयपुर वितरण फ्लीट" else "${employee.name} • Jaipur Wholesale Fleet",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -99,7 +102,7 @@ fun DeliveryHomeScreen(
                                 .background(Color(0xFF10B981), CircleShape)
                         )
                         Text(
-                            text = "On Duty",
+                            text = if (isHindi) "ऑन ड्यूटी" else "On Duty",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF047857),
@@ -109,7 +112,7 @@ fun DeliveryHomeScreen(
                 }
             }
 
-            // 2. Route Progress Card (Zomato delivery partner style)
+            // 2. Route Progress Card
             val progress = if (state.assignedCount > 0) {
                 state.completedCount.toFloat() / state.assignedCount.toFloat()
             } else 0f
@@ -150,13 +153,13 @@ fun DeliveryHomeScreen(
                             }
                             Column {
                                 Text(
-                                    text = "${state.assignedCount} Deliveries Assigned",
+                                    text = if (isHindi) "${state.assignedCount} डिलीवरी आवंटित" else "${state.assignedCount} Deliveries Assigned",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF0F172A)
                                 )
                                 Text(
-                                    text = "Jaipur Distribution Route",
+                                    text = if (isHindi) "जयपुर वितरण रूट" else "Jaipur Distribution Route",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color(0xFF64748B)
                                 )
@@ -169,7 +172,7 @@ fun DeliveryHomeScreen(
                             border = BorderStroke(1.dp, Color(0xFFBFDBFE))
                         ) {
                             Text(
-                                text = "${state.completedCount}/${state.assignedCount} Done",
+                                text = if (isHindi) "${state.completedCount}/${state.assignedCount} पूर्ण" else "${state.completedCount}/${state.assignedCount} Done",
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
@@ -193,21 +196,21 @@ fun DeliveryHomeScreen(
                 }
             }
 
-            // 3. Compact 2-column Metrics (Zomato tile style)
+            // 3. Compact 2-column Metrics
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DeliveryMetricCard(
-                    title = "Delivered / पूर्ण",
+                    title = if (isHindi) "पूर्ण डिलीवरी" else "Delivered",
                     value = "${state.completedCount}",
-                    subtitle = "Cartons handed over",
+                    subtitle = if (isHindi) "कार्टन सुपुर्द किए गए" else "Cartons handed over",
                     icon = Icons.Default.CheckCircle,
                     color = Color(0xFF059669),
                     bgColor = Color(0xFFECFDF5),
                     modifier = Modifier.weight(1f)
                 )
                 DeliveryMetricCard(
-                    title = "Cash Custody / रोकड़",
+                    title = if (isHindi) "नकद राशि" else "Cash Custody",
                     value = CurrencyFormatter.formatPaise(state.paymentsCollectedPaise),
-                    subtitle = "Driver cash in hand",
+                    subtitle = if (isHindi) "ड्राइवर के पास रोकड़" else "Driver cash in hand",
                     icon = Icons.Default.Payments,
                     color = Color(0xFF2563EB),
                     bgColor = Color(0xFFEFF6FF),
@@ -217,7 +220,7 @@ fun DeliveryHomeScreen(
 
             Spacer(Modifier.height(4.dp))
 
-            // 4. Primary Zomato-grade Action Button
+            // 4. Primary Action Button
             Button(
                 onClick = onViewDeliveries,
                 modifier = Modifier
@@ -233,7 +236,7 @@ fun DeliveryHomeScreen(
                 Icon(Icons.Default.Route, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "View Route Stops (रूट सूची देखें)",
+                    text = if (isHindi) "रूट सूची देखें" else "View Route Stops",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White

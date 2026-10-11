@@ -293,16 +293,17 @@ fun RouteFlowApp(
                                           currentRoute?.startsWith("sales/order") == true ||
                                           currentRoute?.startsWith("sales/stock-check") == true ||
                                           currentRoute == SALES_TODAY
+                        val isHindi = currentLanguage == "hi"
                         val salesTitle = when {
-                            currentRoute == RoleDestination.SALES.route -> "Today's Route"
-                            currentRoute == SALES_TODAY -> "Today's Route"
-                            currentRoute == SALES_RETAILER_LIST -> "Assigned Shops"
-                            currentRoute == SALES_COLLECTIONS -> "Collections"
-                            currentRoute == SALES_PROFILE -> "Profile"
-                            currentRoute?.startsWith("sales/order") == true -> "Order Booking"
-                            currentRoute?.startsWith("sales/visit") == true -> "Shop Visit"
-                            currentRoute?.startsWith("sales/stock-check") == true -> "Stock Check"
-                            else -> "RouteFlow Sales"
+                            currentRoute == RoleDestination.SALES.route -> if (isHindi) "आज का रूट" else "Today's Route"
+                            currentRoute == SALES_TODAY -> if (isHindi) "आज का रूट" else "Today's Route"
+                            currentRoute == SALES_RETAILER_LIST -> if (isHindi) "आवंटित दुकानें" else "Assigned Shops"
+                            currentRoute == SALES_COLLECTIONS -> if (isHindi) "उगाही और रसीद" else "Collections"
+                            currentRoute == SALES_PROFILE -> if (isHindi) "प्रोफ़ाइल" else "Profile"
+                            currentRoute?.startsWith("sales/order") == true -> if (isHindi) "ऑर्डर बुकिंग" else "Order Booking"
+                            currentRoute?.startsWith("sales/visit") == true -> if (isHindi) "दुकान विज़िट" else "Shop Visit"
+                            currentRoute?.startsWith("sales/stock-check") == true -> if (isHindi) "स्टॉक जाँच" else "Stock Check"
+                            else -> if (isHindi) "रूटफ़्लो सेल्स" else "RouteFlow Sales"
                         }
                         TopAppBar(
                             navigationIcon = {
@@ -435,6 +436,7 @@ fun RouteFlowApp(
                         )
                     } else if (employee.role == EmployeeRole.DELIVERY_EXECUTIVE) {
                         val isSubScreen = currentRoute?.startsWith("delivery/detail") == true
+                        val isHindi = currentLanguage == "hi"
                         TopAppBar(
                             navigationIcon = {
                                 if (isSubScreen) {
@@ -449,7 +451,7 @@ fun RouteFlowApp(
                             },
                             title = {
                                 Text(
-                                    "Jaipur Delivery Fleet",
+                                    if (isHindi) "जयपुर वितरण फ्लीट" else "Jaipur Delivery Fleet",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF0F172A)
@@ -1127,7 +1129,8 @@ fun RouteFlowApp(
                     DeliveryHomeScreen(
                         employee = employee,
                         state = deliveryHomeState,
-                        onViewDeliveries = { navController.navigate(DELIVERY_LIST) }
+                        onViewDeliveries = { navController.navigate(DELIVERY_LIST) },
+                        currentLanguage = currentLanguage
                     )
                 }
             }
@@ -1137,7 +1140,8 @@ fun RouteFlowApp(
                 val listState by viewModel.deliveryList.collectAsStateWithLifecycle()
                 DeliveryListScreen(
                     state = listState,
-                    onDeliveryClick = { id -> navController.navigate("delivery/detail/$id") }
+                    onDeliveryClick = { id -> navController.navigate("delivery/detail/$id") },
+                    currentLanguage = currentLanguage
                 )
             }
 

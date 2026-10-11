@@ -48,8 +48,11 @@ import com.routeflow.app.core.common.CurrencyFormatter
 @Composable
 fun DeliveryListScreen(
     state: List<DeliveryItemState>,
-    onDeliveryClick: (String) -> Unit
+    onDeliveryClick: (String) -> Unit,
+    currentLanguage: String = "en"
 ) {
+    val isHindi = currentLanguage == "hi"
+
     if (state.isEmpty()) {
         Box(
             modifier = Modifier
@@ -76,13 +79,14 @@ fun DeliveryListScreen(
                     }
                 }
                 Text(
-                    text = "No Deliveries Assigned / कोई डिलीवरी नहीं",
+                    text = if (isHindi) "कोई डिलीवरी आवंटित नहीं" else "No Deliveries Assigned",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F172A)
                 )
                 Text(
-                    text = "When dispatch batches are created in the godown, orders will appear here in route stop sequence.",
+                    text = if (isHindi) "जब गोदाम में डिस्पैच बैच तैयार होंगे, तब ऑर्डर यहाँ क्रमबद्ध रूप से दिखाई देंगे।"
+                    else "When dispatch batches are created in the godown, orders will appear here in route stop sequence.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF64748B),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -103,13 +107,13 @@ fun DeliveryListScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Assigned Route / डिलीवरी मार्ग",
+                            text = if (isHindi) "आवंटित रूट" else "Assigned Route",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "${state.size} stops in sequential delivery order",
+                            text = if (isHindi) "${state.size} स्टॉप क्रमबद्ध रूप में" else "${state.size} stops in sequential delivery order",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF64748B)
                         )
@@ -119,7 +123,7 @@ fun DeliveryListScreen(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "${state.size} STOPS",
+                            text = if (isHindi) "${state.size} स्टॉप" else "${state.size} STOPS",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF15803D),
@@ -130,14 +134,14 @@ fun DeliveryListScreen(
             }
 
             items(state) { item ->
-                DeliveryCard(item, onDeliveryClick)
+                DeliveryCard(item, onDeliveryClick, isHindi)
             }
         }
     }
 }
 
 @Composable
-private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
+private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit, isHindi: Boolean = false) {
     val context = LocalContext.current
 
     Card(
@@ -174,7 +178,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                                 .background(Color(0xFF2563EB), CircleShape)
                         )
                         Text(
-                            text = "Stop #${item.stopSequence}",
+                            text = if (isHindi) "स्टॉप #${item.stopSequence}" else "Stop #${item.stopSequence}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1D4ED8),
@@ -225,7 +229,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                     ) {
                         Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(13.dp))
                         Text(
-                            text = "${item.totalCartons} Cartons",
+                            text = if (isHindi) "${item.totalCartons} कार्टन" else "${item.totalCartons} Cartons",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF334155),
@@ -250,7 +254,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                     ) {
                         Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF2563EB), modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Call", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+                        Text(if (isHindi) "कॉल करें" else "Call", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -269,7 +273,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                     ) {
                         Icon(Icons.Default.Navigation, contentDescription = "Directions", tint = Color(0xFF16A34A), modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Map", style = MaterialTheme.typography.labelSmall, color = Color(0xFF16A34A), fontWeight = FontWeight.Bold)
+                        Text(if (isHindi) "नक्शा" else "Map", style = MaterialTheme.typography.labelSmall, color = Color(0xFF16A34A), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -282,7 +286,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
             ) {
                 Column {
                     Text(
-                        text = "Amount Due / बाकी",
+                        text = if (isHindi) "देय राशि" else "Amount Due",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF64748B)
                     )
@@ -305,7 +309,7 @@ private fun DeliveryCard(item: DeliveryItemState, onClick: (String) -> Unit) {
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Text("Deliver (डिलीवर)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    Text(if (isHindi) "डिलीवर करें" else "Deliver", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
                     Spacer(Modifier.width(6.dp))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }

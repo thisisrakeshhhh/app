@@ -576,12 +576,12 @@ fun ShopVisitScreen(
     // Modal: No Order Reason Dialog
     if (showNoOrderDialog) {
         val reasons = listOf(
-            "Shop Closed / दुकान बंद है",
-            "Stock Already Sufficient / पर्याप्त स्टॉक है",
-            "Owner Not Available / मालिक उपलब्ध नहीं",
-            "Payment Dispute / पिछला हिसाब बाकी",
-            "Price Issue / दाम ज्यादा है",
-            "Other / अन्य कारण"
+            "Shop Closed",
+            "Stock Already Sufficient",
+            "Owner Not Available",
+            "Payment Dispute",
+            "Price Issue",
+            "Other Reason"
         )
         var selectedReason by remember { mutableStateOf(reasons[0]) }
 
