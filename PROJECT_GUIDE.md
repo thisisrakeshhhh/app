@@ -360,23 +360,36 @@ For the distributor and business owner (the paying enterprise client), RouteFlow
 
 ---
 
-## 10. 60-Second Client Demo Script
+## 10. Canonical Client Demo Script (Jaipur Kirana Distributor)
 
-Use this exact field-tested script during investor or distributor client demonstrations:
+Use this exact field-tested scenario during distributor and investor demonstrations:
 
-> **"Warehouse manager scans product, adds inward stock, picks order using FEFO batch, packs carton, creates dispatch batch, hands over to delivery person, and inspects returns."**
+### Scenario Profile
+- **Distributor:** Jaipur Wholesale Distributors
+- **Cast:** Owner Ramesh Ji, Admin Amit, Salesman Rakesh, Warehouse Manoj, Delivery Suresh
+- **Retailer:** Sharma General Store, Mansarovar (Beat: BEAT-04)
+- **Order:** 10 Premium Tea (@ ₹145) + 5 Biscuit Cartons (@ ₹200) + 2 Oil Tins (@ ₹500) = **₹3,450.00**
+- **Settlement:** Cash collected at shop = **₹3,450**, Cash handover to owner = **₹3,450** (Accepted / Settled)
+- **P&L / Margin Summary:**
+  - Gross Sale: **₹3,450**
+  - Product Cost: **₹2,850**
+  - Gross Profit: **₹600**
+  - Sales Incentive: **₹35**
+  - **Net Margin Estimate:** **₹565**
 
-### Step-by-Step Demo Flow:
+### Complete Step-by-Step Demo Flow:
 
-| Step | Action on Device | What to Show / Say |
-|---|---|---|
-| **1. Godown Desk** | Tap **Warehouse** role &rarr; view **Godown Desk**. | *"Notice the single clean depot header 'Jaipur Godown Depot', 6 live operational counters, and today's work queue."* |
-| **2. Scan & Stock** | Tap **Scan Product** &rarr; scan barcode or enter `8901030000001`. | *"Camera opens instantly with laser guide. Barcode lookup retrieves Tata Tea Gold with available vs reserved stock and FEFO batches."* |
-| **3. Inward Stock** | Tap **Add Stock** on product card &rarr; enter +25 units, batch `BATCH-2026-OCT`. | *"Stock is updated immediately with atomic Cloudflare D1 ledger entries; low stock warning disappears in real-time."* |
-| **4. Pick Order (FEFO)** | Tap **Pick/Pack** tab &rarr; view `ORD-WH-PICK-01` &rarr; tap **Start Picking**. | *"The system explicitly highlights the FEFO batch (Batch B-202) expiring first, ensuring the godown never ships stale inventory."* |
-| **5. Pack into Cartons** | Tap **Mark Packed** &rarr; enter 3 Cartons &rarr; submit. | *"Order status shifts to PACKED with carton count recorded for driver vehicle loading."* |
-| **6. Dispatch Handover** | Tap **Dispatch** tab &rarr; find `DSP-JPR-001` &rarr; tap **Handover to Driver**. | *"Custody transfers atomically to Delivery Executive Suresh Yadav; orders flip to Dispatched and driver app receives delivery route."* |
-| **7. Returns Inspection** | Tap **Returns** tab &rarr; open Driver Return &rarr; allocate Saleable vs Damaged. | *"Returned units are inspected: good items return to available inventory, while damaged items route to quarantine without accounting leaks."* |
+| Step | Persona | Action on App / Web | Key Business Value |
+|---|---|---|---|
+| **1. Morning Setup** | Owner (Ramesh Ji) / Admin (Amit) | Opens Control Room dashboard & Team Monitor | Live view of staff on duty, assigned beats, baseline ₹0 sales, and stock alerts. |
+| **2. Field Check-In** | Salesman (Rakesh) | Selects Mansarovar West &rarr; Checks in at Sharma General Store | 1-Tap GPS coordinates and store dwell time locked automatically. |
+| **3. Order Booking** | Salesman (Rakesh) | Books 10 Tea, 5 Biscuits, 2 Oil Tins &rarr; Total **₹3,450.00** | Checks stock, applies trade schemes, updates salesman target instantly. |
+| **4. Owner Approval** | Owner (Ramesh Ji) | Reviews credit headroom (₹50,000 limit) &rarr; Taps **Approve** | Stock is atomically reserved in D1 database; prevents double-selling. |
+| **5. Godown Fulfillment**| Warehouse (Manoj) | Picks items via FEFO batches &rarr; Packs into **2 Cartons** | Physical carton custody established; status flips to `PACKED`. |
+| **6. Dispatch Handover**| Admin / Warehouse | Assigns cartons to driver **Suresh Yadav** &rarr; Dispatches | Custody shifts to vehicle; driver app receives stop sequence. |
+| **7. OTP Delivery & COD**| Delivery (Suresh) | Reaches shop &rarr; Verifies 6-digit SMS OTP &rarr; Collects **₹3,450 Cash** | Zero delivery fraud; ₹3,450 enters driver's live cash custody. |
+| **8. Evening Settlement**| Delivery & Owner | Suresh submits **₹3,450** handover &rarr; Ramesh Ji accepts | Exact 0-discrepancy reconciliation; status flips to `Accepted / Settled`. |
+| **9. Final Dashboard**| Owner (Ramesh Ji) | Control Room updates: Sales **₹3,450**, Cash **₹3,450**, Net Margin **₹565** | Full business control live without waiting for manual paperwork. |
 
 ---
 

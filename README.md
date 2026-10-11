@@ -168,13 +168,20 @@ RouteFlow includes enterprise governance modules built for Indian wholesale dist
  Driver Balance to ₹0  Cash into Custody 6-Digit Server OTP       Dispatches Order
 ```
 
-1. **Owner Setup:** Registers company profile, beats, and adds employees.
-2. **Sales Visit & GPS Onboarding:** Salesperson visits kirana stores on beat; taps `+ Add Shop` with 1-tap phone GPS coordinate capture.
-3. **Order Booking:** Books orders with auto-promotions (*Buy 10 Get 1 Free*).
-4. **Owner Approval:** Owner approves order on Web or App; physical stock is atomically reserved.
-5. **Godown Fulfillment:** Warehouse manager picks line items and packs into heavy cartons.
-6. **Driver Dispatch & OTP Delivery:** Delivery executive delivers order with server-validated 6-digit OTP and store person name.
-7. **Cash Reconciliation:** Driver submits collected physical COD cash; Owner verifies and settles driver balance to ₹0.00.
+1. **Owner Setup:** Registers company profile, beats, and adds employees (Ramesh Ji & Amit).
+2. **Sales Visit & GPS Onboarding:** Salesperson (Rakesh) visits kirana stores on beat (Mansarovar West); taps `Check In` at Sharma General Store.
+3. **Order Booking:** Books order (10 Premium Tea @ ₹145, 5 Biscuit Cartons @ ₹200, 2 Oil Tins @ ₹500 = **₹3,450.00**).
+4. **Owner Approval:** Owner (Ramesh Ji) approves order; physical stock is atomically reserved in D1.
+5. **Godown Fulfillment:** Warehouse manager (Manoj) picks items via FEFO batches and packs into 2 heavy cartons.
+6. **Driver Dispatch & OTP Delivery:** Delivery executive (Suresh) delivers with server-validated 6-digit OTP and collects **₹3,450.00 Cash**.
+7. **Cash Reconciliation:** Driver submits collected **₹3,450.00 Cash Handover**; Owner verifies and settles balance to `Accepted / Settled`.
+
+### 💡 Canonical Demo Business Economics:
+- **Gross Sale:** ₹3,450.00
+- **Product Cost:** ₹2,850.00
+- **Gross Profit:** ₹600.00
+- **Sales Incentive:** ₹35.00
+- **Net Margin Estimate:** ₹565.00
 
 ---
 
