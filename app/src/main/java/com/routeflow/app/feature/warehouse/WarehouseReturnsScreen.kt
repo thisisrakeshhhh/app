@@ -92,6 +92,8 @@ fun WarehouseReturnsScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
+        val isHindi = currentLanguage == "hi"
+
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -104,22 +106,14 @@ fun WarehouseReturnsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "Returns & RMA",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF0F172A)
-                        )
-                        Text(text = "•", color = Color(0xFF94A3B8))
-                        Text(
-                            text = "वापसी निरीक्षण",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
-                        )
-                    }
                     Text(
-                        text = "Customer returns verification & driver undelivered items",
+                        text = if (isHindi) "वापसी और रिटर्न" else "Returns & RMA",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = if (isHindi) "ग्राहक रिटर्न और अनडिलीवर्ड माल का सत्यापन" else "Customer returns verification & driver undelivered items",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -144,7 +138,7 @@ fun WarehouseReturnsScreen(
                     onClick = { selectedTab = 0 },
                     text = {
                         Text(
-                            text = "Customer Returns (${uiState.returns.size})",
+                            text = if (isHindi) "ग्राहक रिटर्न (${uiState.returns.size})" else "Customer Returns (${uiState.returns.size})",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
                         )
@@ -156,7 +150,7 @@ fun WarehouseReturnsScreen(
                     onClick = { selectedTab = 1 },
                     text = {
                         Text(
-                            text = "Driver Returns (${uiState.undeliveredGoods.size})",
+                            text = if (isHindi) "ड्राइवर वापसी (${uiState.undeliveredGoods.size})" else "Driver Returns (${uiState.undeliveredGoods.size})",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
                         )

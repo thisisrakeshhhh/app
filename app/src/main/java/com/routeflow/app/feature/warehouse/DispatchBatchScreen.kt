@@ -65,8 +65,10 @@ fun DispatchBatchScreen(
     state: WarehouseDispatchUiState,
     onRefresh: () -> Unit,
     onCreateBatch: (orderIds: List<String>, driverId: String?, notes: String?) -> Unit,
-    onHandover: (batchId: String) -> Unit
+    onHandover: (batchId: String) -> Unit,
+    currentLanguage: String = "en"
 ) {
+    val isHindi = currentLanguage == "hi"
     var isCreateDialogOpen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
@@ -84,13 +86,13 @@ fun DispatchBatchScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Dispatch Batches",
+                        text = if (isHindi) "डिस्पैच बैच" else "Dispatch Batches",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Trip manifests & driver vehicle handover",
+                        text = if (isHindi) "गाड़ी लोडिंग चालान और ड्राइवर हैंडओवर" else "Trip manifests & driver vehicle handover",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -112,7 +114,7 @@ fun DispatchBatchScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("New Batch", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                        Text(if (isHindi) "नया बैच" else "New Batch", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
                 }
             }
@@ -143,13 +145,17 @@ fun DispatchBatchScreen(
                             }
                         }
                         Text(
-                            text = "No dispatch batches today",
+                            text = if (isHindi) "आज कोई डिस्पैच बैच नहीं है" else "No dispatch batches today",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
                         )
                         Text(
-                            text = if (state.packedOrders.isNotEmpty()) "${state.packedOrders.size} packed orders ready to dispatch" else "Pack orders first, then assign delivery driver",
+                            text = if (state.packedOrders.isNotEmpty()) {
+                                if (isHindi) "${state.packedOrders.size} पैक ऑर्डर डिस्पैच हेतु तैयार हैं" else "${state.packedOrders.size} packed orders ready to dispatch"
+                            } else {
+                                if (isHindi) "पहले ऑर्डर पैक करें, फिर डिलीवरी ड्राइवर असाइन करें" else "Pack orders first, then assign delivery driver"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF64748B),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -162,7 +168,11 @@ fun DispatchBatchScreen(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
                             Spacer(Modifier.width(6.dp))
-                            Text("Create Dispatch Batch", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = if (isHindi) "डिस्पैच बैच बनाएं" else "Create Dispatch Batch",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                     }
                 }
@@ -175,6 +185,7 @@ fun DispatchBatchScreen(
                     items(state.dispatchBatches, key = { it.id }) { batch ->
                         DispatchManifestCard(
                             batch = batch,
+                            isHindi = isHindi,
                             onHandover = { onHandover(batch.id) }
                         )
                     }
@@ -187,6 +198,7 @@ fun DispatchBatchScreen(
         CreateDispatchBatchDialog(
             packedOrders = state.packedOrders,
             drivers = state.deliveryExecutives,
+            isHindi = isHindi,
             onDismiss = { isCreateDialogOpen = false },
             onConfirm = { selectedOrderIds, driverId, notes ->
                 onCreateBatch(selectedOrderIds, driverId, notes)
@@ -199,6 +211,7 @@ fun DispatchBatchScreen(
 @Composable
 private fun DispatchManifestCard(
     batch: DispatchBatchDto,
+    isHindi: Boolean,
     onHandover: () -> Unit
 ) {
     val isHandedOver = batch.status == "HANDED_OVER"
@@ -210,9 +223,9 @@ private fun DispatchManifestCard(
         else -> Color(0xFFFEF3C7)
     }
     val statusText = when {
-        isDelivered -> "Delivered"
-        isHandedOver -> "Out for Delivery"
-        else -> "Ready for Dispatch"
+        isDelivered -> if (isHindi) "डिलीवर हो गया" else "Delivered"
+        isHandedOver -> if (isHindi) "डिलीवरी पर रवाना" else "Out for Delivery"
+        else -> if (isHindi) "डिस्पैच तैयार" else "Ready for Dispatch"
     }
     val statusColor = when {
         isDelivered -> Color(0xFF166534)
@@ -253,13 +266,13 @@ private fun DispatchManifestCard(
                     }
                     Column {
                         Text(
-                            text = "Trip Manifest: ${batch.batchCode}",
+                            text = "${if (isHindi) "ट्रिप चालान" else "Trip Manifest"}: ${batch.batchCode}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "${batch.totalOrders} order(s) • ${batch.totalCartons} carton(s)",
+                            text = "${batch.totalOrders} ${if (isHindi) "ऑर्डर" else "order(s)"} • ${batch.totalCartons} ${if (isHindi) "कार्टन" else "carton(s)"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF64748B)
                         )
@@ -291,7 +304,11 @@ private fun DispatchManifestCard(
                 ) {
                     Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
                     Text(
-                        text = if (batch.deliveryExecutiveName != null) "Assigned: ${batch.deliveryExecutiveName}" else "Unassigned Driver",
+                        text = if (batch.deliveryExecutiveName != null) {
+                            "${if (isHindi) "ड्राइवर" else "Assigned"}: ${batch.deliveryExecutiveName}"
+                        } else {
+                            if (isHindi) "बिना ड्राइवर" else "Unassigned Driver"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF334155)
@@ -304,7 +321,7 @@ private fun DispatchManifestCard(
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Text(
-                        text = "Route 04 (Jaipur Beat)",
+                        text = if (isHindi) "रूट 04 (जयपुर बीट)" else "Route 04 (Jaipur Beat)",
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF64748B),
@@ -315,7 +332,7 @@ private fun DispatchManifestCard(
 
             if (!batch.notes.isNullOrBlank()) {
                 Text(
-                    text = "Notes: ${batch.notes}",
+                    text = "${if (isHindi) "नोट्स" else "Notes"}: ${batch.notes}",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF64748B)
                 )
@@ -333,7 +350,7 @@ private fun DispatchManifestCard(
                 ) {
                     Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Handover to Driver", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(if (isHindi) "ड्राइवर को सौंपें" else "Handover to Driver", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             } else if (isHandedOver) {
                 Surface(
@@ -349,7 +366,7 @@ private fun DispatchManifestCard(
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
                         Text(
-                            text = "Handed over to driver. Currently out for delivery.",
+                            text = if (isHindi) "ड्राइवर को सौंप दिया गया। अभी डिलीवरी पर रवाना है।" else "Handed over to driver. Currently out for delivery.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF166534),
                             fontWeight = FontWeight.Medium
@@ -366,6 +383,7 @@ private fun DispatchManifestCard(
 private fun CreateDispatchBatchDialog(
     packedOrders: List<PickingOrderDto>,
     drivers: List<com.routeflow.app.core.network.dto.DeliveryExecutiveDto>,
+    isHindi: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (selectedOrderIds: List<String>, driverId: String?, notes: String?) -> Unit
 ) {
@@ -376,12 +394,26 @@ private fun CreateDispatchBatchDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Dispatch Batch", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
+        title = {
+            Text(
+                text = if (isHindi) "डिस्पैच बैच बनाएं" else "Create Dispatch Batch",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Select packed orders to include in batch:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = if (isHindi) "बैच में शामिल करने हेतु पैक ऑर्डर चुनें:" else "Select packed orders to include in batch:",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
                 if (packedOrders.isEmpty()) {
-                    Text("No orders currently marked Packed. Pack orders first in Picking tab.", color = Color(0xFFDC2626), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = if (isHindi) "कोई भी ऑर्डर पैक नहीं है। पहले पिकिंग टैब में पैक करें।" else "No orders currently marked Packed. Pack orders first in Picking tab.",
+                        color = Color(0xFFDC2626),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         packedOrders.forEach { orderDto ->
@@ -406,20 +438,28 @@ private fun CreateDispatchBatchDialog(
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Column {
-                                    Text("Order #${orderDto.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                    Text("${orderDto.items.size} SKU(s)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
+                                    Text(
+                                        text = "${if (isHindi) "ऑर्डर" else "Order"} #${orderDto.id.takeLast(6).uppercase()}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text("${orderDto.items.size} SKU", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
                                 }
                             }
                         }
                     }
                 }
 
-                Text("Assign Delivery Driver:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = if (isHindi) "डिलीवरी ड्राइवर असाइन करें:" else "Assign Delivery Driver:",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
                 ExposedDropdownMenuBox(
                     expanded = isDriverExpanded,
                     onExpandedChange = { isDriverExpanded = it }
                 ) {
-                    val driverName = drivers.find { it.id == selectedDriverId }?.fullName ?: "Select Driver"
+                    val driverName = drivers.find { it.id == selectedDriverId }?.fullName ?: (if (isHindi) "ड्राइवर चुनें" else "Select Driver")
                     OutlinedTextField(
                         value = driverName,
                         onValueChange = {},
@@ -449,8 +489,8 @@ private fun CreateDispatchBatchDialog(
                 OutlinedTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("Trip / Vehicle Notes") },
-                    placeholder = { Text("e.g. Loading into Van #RJ-14-1234") },
+                    label = { Text(if (isHindi) "गाड़ी / ट्रिप नोट्स" else "Trip / Vehicle Notes") },
+                    placeholder = { Text(if (isHindi) "उदा. वैन #RJ-14-1234 में लोड किया" else "e.g. Loading into Van #RJ-14-1234") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
                 )
@@ -466,12 +506,12 @@ private fun CreateDispatchBatchDialog(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.height(48.dp)
             ) {
-                Text("Confirm Batch", fontWeight = FontWeight.Bold, color = Color.White)
+                Text(if (isHindi) "बैच पुष्टि करें" else "Confirm Batch", fontWeight = FontWeight.Bold, color = Color.White)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
-                Text("Cancel", color = Color(0xFF64748B))
+                Text(if (isHindi) "रद्द करें" else "Cancel", color = Color(0xFF64748B))
             }
         }
     )

@@ -76,8 +76,10 @@ fun WarehouseStockScreen(
     onOpenScanner: () -> Unit,
     onAdjustStock: (productId: String, changeQty: Int, reason: String, notes: String?, batchId: String?) -> Unit,
     onAuditStock: (productId: String, physicalCount: Int, notes: String?) -> Unit,
-    onCreateBatch: (CreateWarehouseBatchRequest) -> Unit
+    onCreateBatch: (CreateWarehouseBatchRequest) -> Unit,
+    currentLanguage: String = "en"
 ) {
+    val isHindi = currentLanguage == "hi"
     var selectedProductForAdjustment by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
     var selectedProductForInward by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
     var selectedProductForAudit by remember { mutableStateOf<WarehouseStockItemDto?>(null) }
@@ -97,22 +99,14 @@ fun WarehouseStockScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "Godown Stock",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF0F172A)
-                        )
-                        Text(text = "•", color = Color(0xFF94A3B8))
-                        Text(
-                            text = "गोदाम स्टॉक और बैच",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
-                        )
-                    }
                     Text(
-                        text = "Real-time stock counts, FEFO batches & inward GRN",
+                        text = if (isHindi) "गोदाम स्टॉक" else "Godown Stock",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = if (isHindi) "रियल-टाइम स्टॉक, FEFO बैच और माल आवक" else "Real-time stock counts, FEFO batches & inward GRN",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -129,7 +123,7 @@ fun WarehouseStockScreen(
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Scan", fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                    Text(if (isHindi) "स्कैन" else "Scan", fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
                 }
             }
 
@@ -137,7 +131,13 @@ fun WarehouseStockScreen(
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = onSearchChange,
-                placeholder = { Text("Search name, SKU, category or barcode...", color = Color(0xFF94A3B8), fontSize = 13.sp) },
+                placeholder = {
+                    Text(
+                        text = if (isHindi) "नाम, SKU या बारकोड खोजें..." else "Search name, SKU, category or barcode...",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp
+                    )
+                },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
                 trailingIcon = {
                     if (state.searchQuery.isNotEmpty()) {
@@ -156,7 +156,13 @@ fun WarehouseStockScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                val filters = listOf(
+                val filters = if (isHindi) listOf(
+                    "ALL" to "सभी स्टॉक",
+                    "LOW_STOCK" to "कम स्टॉक",
+                    "NEAR_EXPIRY" to "जल्द एक्सपायरी",
+                    "OUT_OF_STOCK" to "स्टॉक खत्म",
+                    "DAMAGED" to "खराब माल"
+                ) else listOf(
                     "ALL" to "All Stock",
                     "LOW_STOCK" to "Low Stock",
                     "NEAR_EXPIRY" to "Near Expiry",
@@ -204,7 +210,7 @@ fun WarehouseStockScreen(
                             }
                         }
                         Text(
-                            text = "No stock found. Add inward stock or sync godown data.",
+                            text = if (isHindi) "कोई स्टॉक नहीं मिला। आवक जोड़ें या डेटा सिंक करें।" else "No stock found. Add inward stock or sync godown data.",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF334155),
@@ -218,7 +224,7 @@ fun WarehouseStockScreen(
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Text("Clear Filters", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                            Text(if (isHindi) "फ़िल्टर हटाएं" else "Clear Filters", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
                         }
                     }
                 }
@@ -231,6 +237,7 @@ fun WarehouseStockScreen(
                     items(state.products, key = { it.id }) { item ->
                         CompactProductStockRow(
                             item = item,
+                            isHindi = isHindi,
                             onClick = { viewingProductDetails = item }
                         )
                     }
@@ -306,7 +313,8 @@ fun WarehouseStockScreen(
 @Composable
 private fun CompactProductStockRow(
     item: WarehouseStockItemDto,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isHindi: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -362,7 +370,7 @@ private fun CompactProductStockRow(
                             border = BorderStroke(1.dp, Color(0xFFFDE68A))
                         ) {
                             Text(
-                                text = "Low",
+                                text = if (isHindi) "कम" else "Low",
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
@@ -386,7 +394,7 @@ private fun CompactProductStockRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Avail: ${item.availableQuantity}",
+                        text = if (isHindi) "उपलब्ध: ${item.availableQuantity}" else "Avail: ${item.availableQuantity}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF16A34A),
@@ -398,7 +406,7 @@ private fun CompactProductStockRow(
                         color = Color(0xFFCBD5E1)
                     )
                     Text(
-                        text = "Res: ${item.reservedQuantity}",
+                        text = if (isHindi) "आरक्षित: ${item.reservedQuantity}" else "Res: ${item.reservedQuantity}",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF64748B),
                         maxLines = 1
@@ -410,7 +418,7 @@ private fun CompactProductStockRow(
                             color = Color(0xFFCBD5E1)
                         )
                         Text(
-                            text = "${item.batchCount}B",
+                            text = "${item.batchCount}${if (isHindi) "बैच" else "B"}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF2563EB),
@@ -427,7 +435,7 @@ private fun CompactProductStockRow(
                 border = BorderStroke(1.dp, if (item.stockQuantity <= 10) Color(0xFFFDE68A) else Color(0xFFA7F3D0))
             ) {
                 Text(
-                    text = "${item.stockQuantity} Pcs",
+                    text = "${item.stockQuantity} ${if (isHindi) "नग" else "Pcs"}",
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black,

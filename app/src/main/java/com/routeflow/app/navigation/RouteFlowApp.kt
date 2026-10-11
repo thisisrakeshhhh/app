@@ -362,13 +362,14 @@ fun RouteFlowApp(
                         )
                     } else if (employee.role == EmployeeRole.WAREHOUSE_MANAGER) {
                         val isSubScreen = currentRoute != RoleDestination.WAREHOUSE.route
+                        val isHindi = currentLanguage == "hi"
                         val warehouseTitle = when (currentRoute) {
-                            RoleDestination.WAREHOUSE.route -> "Jaipur Godown Depot"
-                            WAREHOUSE_STOCK -> "Godown Stock • स्टॉक"
-                            WAREHOUSE_PICKING -> "Picking Queue • पिकिंग"
-                            WAREHOUSE_DISPATCH -> "Dispatch Batches • डिस्पैच"
-                            WAREHOUSE_RETURNS -> "Customer Returns • वापसी"
-                            else -> "Jaipur Godown Depot"
+                            RoleDestination.WAREHOUSE.route -> if (isHindi) "जयपुर गोदाम डिपो" else "Jaipur Godown Depot"
+                            WAREHOUSE_STOCK -> if (isHindi) "गोदाम स्टॉक" else "Godown Stock"
+                            WAREHOUSE_PICKING -> if (isHindi) "पिकिंग कतार" else "Picking Queue"
+                            WAREHOUSE_DISPATCH -> if (isHindi) "डिस्पैच बैच" else "Dispatch Batches"
+                            WAREHOUSE_RETURNS -> if (isHindi) "वापसी और रिटर्न" else "Customer Returns"
+                            else -> if (isHindi) "जयपुर गोदाम डिपो" else "Jaipur Godown Depot"
                         }
                         TopAppBar(
                             navigationIcon = {
@@ -1050,7 +1051,8 @@ fun RouteFlowApp(
                     },
                     onCreateBatch = { request ->
                         viewModel.createBatch(request)
-                    }
+                    },
+                    currentLanguage = currentLanguage
                 )
 
                 if (stockState.isScanning) {
@@ -1075,7 +1077,8 @@ fun RouteFlowApp(
                     onStartPicking = { orderId -> viewModel.startPicking(orderId) },
                     onScanPick = { orderId, barcode -> viewModel.scanPickItem(orderId, barcode) },
                     onMarkPacked = { orderId, cartons, notes -> viewModel.markOrderPacked(orderId, cartons, notes) },
-                    onOpenScannerForOrder = { orderId -> activeScanningOrderId = orderId }
+                    onOpenScannerForOrder = { orderId -> activeScanningOrderId = orderId },
+                    currentLanguage = currentLanguage
                 )
 
                 activeScanningOrderId?.let { orderId ->
@@ -1101,7 +1104,8 @@ fun RouteFlowApp(
                     },
                     onHandover = { batchId ->
                         viewModel.handoverDispatchBatch(batchId)
-                    }
+                    },
+                    currentLanguage = currentLanguage
                 )
             }
 

@@ -68,7 +68,8 @@ fun WarehouseHomeScreen(
             CircularProgressIndicator(color = RFColors.Primary)
         }
     } else {
-        val todayStr = rememberFormattedDate()
+        val isHindi = currentLanguage == "hi"
+        val todayStr = rememberFormattedDate(isHindi)
 
         Column(
             modifier = Modifier
@@ -97,28 +98,14 @@ fun WarehouseHomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "Godown Desk",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
-                                )
-                                Text(
-                                    text = "•",
-                                    color = Color(0xFF94A3B8)
-                                )
-                                Text(
-                                    text = "गोदाम डेस्क",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF64748B)
-                                )
-                            }
                             Text(
-                                text = employee.name.ifBlank { "Godown Manager" },
+                                text = if (isHindi) "गोदाम डेस्क" else "Godown Desk",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = employee.name.ifBlank { if (isHindi) "गोदाम प्रबंधक" else "Godown Manager" },
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF334155)
@@ -175,7 +162,7 @@ fun WarehouseHomeScreen(
                                             .background(Color(0xFF16A34A), CircleShape)
                                     )
                                     Text(
-                                        text = "On Duty",
+                                        text = if (isHindi) "ऑन ड्यूटी" else "On Duty",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF15803D)
@@ -208,7 +195,7 @@ fun WarehouseHomeScreen(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "Synced with Central Office",
+                                text = if (isHindi) "केंद्रीय कार्यालय से सिंक" else "Synced with Central Office",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF15803D),
                                 fontWeight = FontWeight.Medium
@@ -221,7 +208,7 @@ fun WarehouseHomeScreen(
             // 2. Compact 2x2 Action Grid
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Quick Operations / त्वरित कार्य",
+                    text = if (isHindi) "त्वरित कार्य" else "Quick Operations",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF475569)
@@ -233,16 +220,16 @@ fun WarehouseHomeScreen(
                 ) {
                     GodownCompactActionTile(
                         modifier = Modifier.weight(1f),
-                        title = "Scan",
-                        subtitle = "बारकोड स्कैन",
+                        title = if (isHindi) "स्कैन" else "Scan",
+                        subtitle = if (isHindi) "बारकोड स्कैन करें" else "Barcode Camera Scan",
                         icon = Icons.Default.QrCodeScanner,
                         accentColor = Color(0xFF2563EB),
                         onClick = onScanBarcode
                     )
                     GodownCompactActionTile(
                         modifier = Modifier.weight(1f),
-                        title = "Inward",
-                        subtitle = "माल आवक GRN",
+                        title = if (isHindi) "माल आवक" else "Inward GRN",
+                        subtitle = if (isHindi) "स्टॉक आवक रसीद" else "Receive Stock",
                         icon = Icons.Default.Inventory2,
                         accentColor = Color(0xFF16A34A),
                         onClick = { onNavigateTab("warehouse/stock") }
@@ -255,16 +242,16 @@ fun WarehouseHomeScreen(
                 ) {
                     GodownCompactActionTile(
                         modifier = Modifier.weight(1f),
-                        title = "Pick",
-                        subtitle = "पिकिंग लिस्ट",
+                        title = if (isHindi) "पिकिंग" else "Pick Orders",
+                        subtitle = if (isHindi) "पिकिंग सूची" else "Batch picking list",
                         icon = Icons.Default.Assignment,
                         accentColor = Color(0xFFEA580C),
                         onClick = { onNavigateTab("warehouse/picking") }
                     )
                     GodownCompactActionTile(
                         modifier = Modifier.weight(1f),
-                        title = "Dispatch",
-                        subtitle = "गाड़ी डिस्पैच",
+                        title = if (isHindi) "डिस्पैच" else "Dispatch",
+                        subtitle = if (isHindi) "गाड़ी लोडिंग चालान" else "Vehicle loading manifest",
                         icon = Icons.Default.LocalShipping,
                         accentColor = Color(0xFF0284C7),
                         onClick = { onNavigateTab("warehouse/dispatch") }
@@ -275,7 +262,7 @@ fun WarehouseHomeScreen(
             // 3. Premium Operational KPI Section (6 dense metrics in 2 rows of 3)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Godown Status / गोदाम स्थिति",
+                    text = if (isHindi) "गोदाम स्थिति" else "Godown Status",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF475569)
@@ -288,22 +275,19 @@ fun WarehouseHomeScreen(
                     GodownKpiCard(
                         modifier = Modifier.weight(1f),
                         count = state.readyToPickCount,
-                        label = "Ready to Pick",
-                        hindi = "पिकिंग बाकी",
+                        label = if (isHindi) "पिकिंग बाकी" else "Ready to Pick",
                         highlightColor = if (state.readyToPickCount > 0) Color(0xFFEA580C) else Color(0xFF64748B)
                     )
                     GodownKpiCard(
                         modifier = Modifier.weight(1f),
                         count = state.packedTodayCount,
-                        label = "Packed",
-                        hindi = "पैक तैयार",
+                        label = if (isHindi) "पैक तैयार" else "Packed",
                         highlightColor = Color(0xFF0284C7)
                     )
                     GodownKpiCard(
                         modifier = Modifier.weight(1f),
                         count = state.dispatchBatchesCount,
-                        label = "Dispatch Ready",
-                        hindi = "डिस्पैच तैयार",
+                        label = if (isHindi) "डिस्पैच तैयार" else "Dispatch Ready",
                         highlightColor = Color(0xFF16A34A)
                     )
                 }
@@ -315,22 +299,19 @@ fun WarehouseHomeScreen(
                     GodownKpiCard(
                         modifier = Modifier.weight(1f),
                         count = state.lowStockCount,
-                        label = "Low Stock",
-                        hindi = "कम स्टॉक",
+                        label = if (isHindi) "कम स्टॉक" else "Low Stock",
                         highlightColor = if (state.lowStockCount > 0) Color(0xFFD97706) else Color(0xFF64748B)
                     )
                     GodownKpiCard(
                         modifier = Modifier.weight(1f),
                         count = state.nearExpiryCount,
-                        label = "Near Expiry",
-                        hindi = "जल्द एक्सपायरी",
+                        label = if (isHindi) "जल्द एक्सपायरी" else "Near Expiry",
                         highlightColor = if (state.nearExpiryCount > 0) Color(0xFFDC2626) else Color(0xFF64748B)
                     )
                     GodownKpiCard(
                         modifier = Modifier.weight(1f),
                         count = state.damagedStockCount,
-                        label = "Damaged",
-                        hindi = "खराब माल",
+                        label = if (isHindi) "खराब माल" else "Damaged",
                         highlightColor = if (state.damagedStockCount > 0) Color(0xFF991B1B) else Color(0xFF64748B)
                     )
                 }
@@ -339,7 +320,7 @@ fun WarehouseHomeScreen(
             // 4. Today's Work Queue (3 compact rows)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Today's Work Queue / आज का कार्य",
+                    text = if (isHindi) "आज का कार्य" else "Today's Work Queue",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF475569)
@@ -359,11 +340,11 @@ fun WarehouseHomeScreen(
                         // Row 1: Picking Queue
                         WorkQueueRow(
                             icon = Icons.Default.Assignment,
-                            title = "Picking Queue",
-                            subtitle = "Orders waiting for batch pick",
+                            title = if (isHindi) "पिकिंग कतार" else "Picking Queue",
+                            subtitle = if (isHindi) "ऑर्डर पिकिंग की प्रतीक्षा में" else "Orders waiting for batch pick",
                             count = state.readyToPickCount,
                             urgencyColor = if (state.readyToPickCount > 0) Color(0xFFEA580C) else Color(0xFF64748B),
-                            actionText = "Start Pick",
+                            actionText = if (isHindi) "शुरू करें" else "Start Pick",
                             onClick = { onNavigateTab("warehouse/picking") }
                         )
 
@@ -372,11 +353,11 @@ fun WarehouseHomeScreen(
                         // Row 2: Dispatch Queue
                         WorkQueueRow(
                             icon = Icons.Default.LocalShipping,
-                            title = "Dispatch Queue",
-                            subtitle = "Cartons ready for vehicle handover",
+                            title = if (isHindi) "डिस्पैच कतार" else "Dispatch Queue",
+                            subtitle = if (isHindi) "गाड़ी लोडिंग हेतु तैयार कार्टन" else "Cartons ready for vehicle handover",
                             count = state.packedTodayCount,
                             urgencyColor = if (state.packedTodayCount > 0) Color(0xFF0284C7) else Color(0xFF64748B),
-                            actionText = "Dispatch",
+                            actionText = if (isHindi) "डिस्पैच" else "Dispatch",
                             onClick = { onNavigateTab("warehouse/dispatch") }
                         )
 
@@ -385,11 +366,11 @@ fun WarehouseHomeScreen(
                         // Row 3: Returns Queue
                         WorkQueueRow(
                             icon = Icons.AutoMirrored.Filled.AssignmentReturn,
-                            title = "Returns Queue",
-                            subtitle = "Customer RMA & driver undelivered items",
+                            title = if (isHindi) "वापसी कतार" else "Returns Queue",
+                            subtitle = if (isHindi) "ग्राहक रिटर्न व डिलीवरी वापसी" else "Customer RMA & undelivered items",
                             count = state.pendingReturnsCount,
                             urgencyColor = if (state.pendingReturnsCount > 0) Color(0xFF7C3AED) else Color(0xFF64748B),
-                            actionText = "Inspect",
+                            actionText = if (isHindi) "जांचें" else "Inspect",
                             onClick = { onNavigateTab("warehouse/returns") }
                         )
                     }
@@ -434,13 +415,13 @@ fun WarehouseHomeScreen(
                         }
                         Column {
                             Text(
-                                text = "Godown Stock Ledger",
+                                text = if (isHindi) "गोदाम स्टॉक लेजर" else "Godown Stock Ledger",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A)
                             )
                             Text(
-                                text = "गोदाम स्टॉक और बैच • View all inventory & SKU",
+                                text = if (isHindi) "सभी इन्वेंट्री व बैच विवरण देखें" else "View all inventory & SKU details",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF64748B)
                             )
@@ -455,7 +436,7 @@ fun WarehouseHomeScreen(
                         contentPadding = PaddingValues(horizontal = 14.dp)
                     ) {
                         Text(
-                            text = "View Stock",
+                            text = if (isHindi) "स्टॉक देखें" else "View Stock",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -531,7 +512,6 @@ private fun GodownKpiCard(
     modifier: Modifier = Modifier,
     count: Int,
     label: String,
-    hindi: String,
     highlightColor: Color
 ) {
     Card(
@@ -542,9 +522,9 @@ private fun GodownKpiCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text(
                 text = count.toString(),
@@ -557,14 +537,8 @@ private fun GodownKpiCard(
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B),
-                maxLines = 1
-            )
-            Text(
-                text = hindi,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF64748B),
                 maxLines = 1,
-                fontSize = 10.sp
+                fontSize = 11.sp
             )
         }
     }
@@ -656,6 +630,7 @@ private fun WorkQueueRow(
     }
 }
 
-private fun rememberFormattedDate(): String {
-    return SimpleDateFormat("EEE, dd MMM yyyy", Locale.ENGLISH).format(Date())
+private fun rememberFormattedDate(isHindi: Boolean): String {
+    val locale = if (isHindi) Locale("hi", "IN") else Locale.ENGLISH
+    return SimpleDateFormat("EEE, dd MMM yyyy", locale).format(Date())
 }

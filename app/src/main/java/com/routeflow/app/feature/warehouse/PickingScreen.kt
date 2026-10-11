@@ -62,8 +62,10 @@ fun PickingScreen(
     onStartPicking: (String) -> Unit,
     onScanPick: (orderId: String, barcode: String) -> Unit,
     onMarkPacked: (orderId: String, cartonsCount: Int, notes: String?) -> Unit,
-    onOpenScannerForOrder: (String) -> Unit
+    onOpenScannerForOrder: (String) -> Unit,
+    currentLanguage: String = "en"
 ) {
+    val isHindi = currentLanguage == "hi"
     var packingOrder by remember { mutableStateOf<PickingOrderDto?>(null) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
@@ -80,22 +82,14 @@ fun PickingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "Picking & Packing",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF0F172A)
-                        )
-                        Text(text = "•", color = Color(0xFF94A3B8))
-                        Text(
-                            text = "पिक-पैक",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
-                        )
-                    }
                     Text(
-                        text = "Warehouse task list with FEFO batch recommendation",
+                        text = if (isHindi) "पिकिंग और पैकिंग" else "Picking & Packing",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = if (isHindi) "FEFO बैच के अनुसार वेयरहाउस कार्य सूची" else "Warehouse task list with FEFO batch recommendation",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -132,13 +126,13 @@ fun PickingScreen(
                             }
                         }
                         Text(
-                            text = "No picking orders in queue",
+                            text = if (isHindi) "कतार में कोई पिकिंग ऑर्डर नहीं है" else "No picking orders in queue",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
                         )
                         Text(
-                            text = "Approved distributor orders will appear here for godown picking",
+                            text = if (isHindi) "स्वीकृत ऑर्डर यहाँ गोदाम पिकिंग के लिए दिखाई देंगे" else "Approved distributor orders will appear here for godown picking",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF64748B),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -150,7 +144,11 @@ fun PickingScreen(
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Refresh Queue", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                            Text(
+                                text = if (isHindi) "कतार रीफ्रेश करें" else "Refresh Queue",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2563EB)
+                            )
                         }
                     }
                 }
@@ -163,6 +161,7 @@ fun PickingScreen(
                     items(orders, key = { it.id }) { item ->
                         PickingOrderItemCard(
                             orderDto = item,
+                            isHindi = isHindi,
                             onStartPicking = { onStartPicking(item.id) },
                             onScanPick = { onOpenScannerForOrder(item.id) },
                             onMarkPacked = { packingOrder = item }
@@ -177,6 +176,7 @@ fun PickingScreen(
     packingOrder?.let { item ->
         WarehousePackDialog(
             order = item,
+            isHindi = isHindi,
             onDismiss = { packingOrder = null },
             onConfirm = { cartons, notes ->
                 onMarkPacked(item.id, cartons, notes)
@@ -189,6 +189,7 @@ fun PickingScreen(
 @Composable
 private fun PickingOrderItemCard(
     orderDto: PickingOrderDto,
+    isHindi: Boolean,
     onStartPicking: () -> Unit,
     onScanPick: () -> Unit,
     onMarkPacked: () -> Unit
@@ -203,9 +204,9 @@ private fun PickingOrderItemCard(
         else -> Color(0xFFFEF3C7)
     }
     val statusText = when {
-        isPacked -> "Packed"
-        isPicking -> "In Picking"
-        else -> "Ready to Pick"
+        isPacked -> if (isHindi) "पैक तैयार" else "Packed"
+        isPicking -> if (isHindi) "पिकिंग जारी" else "In Picking"
+        else -> if (isHindi) "पिकिंग बाकी" else "Ready to Pick"
     }
     val statusColor = when {
         isPacked -> Color(0xFF166534)
@@ -235,13 +236,13 @@ private fun PickingOrderItemCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Order #${orderDto.id.takeLast(6).uppercase()}",
+                        text = "${if (isHindi) "ऑर्डर" else "Order"} #${orderDto.id.takeLast(6).uppercase()}",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Retailer ID: ${orderDto.retailerId}",
+                        text = "${if (isHindi) "दुकानदार ID" else "Retailer ID"}: ${orderDto.retailerId}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B)
                     )
@@ -265,7 +266,7 @@ private fun PickingOrderItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Items: $totalCount SKU(s)",
+                    text = "${if (isHindi) "आइटम" else "Items"}: $totalCount SKU",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF475569),
                     fontWeight = FontWeight.SemiBold
@@ -276,7 +277,7 @@ private fun PickingOrderItemCard(
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = "Progress: $pickedCount / $totalCount picked",
+                        text = if (isHindi) "प्रगति: $pickedCount / $totalCount पिक हुआ" else "Progress: $pickedCount / $totalCount picked",
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -307,7 +308,7 @@ private fun PickingOrderItemCard(
                             )
                             if (item.suggestedBatch != null) {
                                 Text(
-                                    text = "FEFO Batch: ${item.suggestedBatch.batchNo}${if (!item.suggestedBatch.rackBin.isNullOrBlank()) " • " + item.suggestedBatch.rackBin else ""}",
+                                    text = "${if (isHindi) "FEFO बैच" else "FEFO Batch"}: ${item.suggestedBatch.batchNo}${if (!item.suggestedBatch.rackBin.isNullOrBlank()) " • " + item.suggestedBatch.rackBin else ""}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color(0xFF2563EB),
                                     fontSize = 11.sp
@@ -317,7 +318,7 @@ private fun PickingOrderItemCard(
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "${item.quantity} units",
+                                text = "${item.quantity} ${if (isHindi) "यूनिट" else "units"}",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A)
@@ -352,7 +353,12 @@ private fun PickingOrderItemCard(
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", modifier = Modifier.size(18.dp), tint = Color(0xFF2563EB))
                     Spacer(Modifier.width(4.dp))
-                    Text("Scan to Pick", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                    Text(
+                        text = if (isHindi) "स्कैन करें" else "Scan to Pick",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
                 }
 
                 // Primary action button
@@ -367,7 +373,11 @@ private fun PickingOrderItemCard(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Start Picking", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = if (isHindi) "पिकिंग शुरू करें" else "Start Picking",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 } else if (isPicking) {
                     Button(
@@ -380,7 +390,11 @@ private fun PickingOrderItemCard(
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Mark Packed", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = if (isHindi) "पैक मार्क करें" else "Mark Packed",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 } else {
                     Surface(
@@ -393,7 +407,7 @@ private fun PickingOrderItemCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = "Packed • Ready for Dispatch",
+                                text = if (isHindi) "पैक तैयार • डिस्पैच हेतु तैयार" else "Packed • Ready for Dispatch",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF15803D)
@@ -409,6 +423,7 @@ private fun PickingOrderItemCard(
 @Composable
 private fun WarehousePackDialog(
     order: PickingOrderDto,
+    isHindi: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (cartonsCount: Int, notes: String?) -> Unit
 ) {
@@ -417,14 +432,24 @@ private fun WarehousePackDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mark Order Packed", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) },
+        title = {
+            Text(
+                text = if (isHindi) "ऑर्डर पैक मार्क करें" else "Mark Order Packed",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Order #${order.id.takeLast(6).uppercase()} packed into cartons for dispatch.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                Text(
+                    text = if (isHindi) "ऑर्डर #${order.id.takeLast(6).uppercase()} डिस्पैच कार्टन में पैक हुआ।" else "Order #${order.id.takeLast(6).uppercase()} packed into cartons for dispatch.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B)
+                )
                 OutlinedTextField(
                     value = cartonsCountText,
                     onValueChange = { cartonsCountText = it },
-                    label = { Text("Number of Cartons / Crates") },
+                    label = { Text(if (isHindi) "कार्टन / क्रेट्स संख्या" else "Number of Cartons / Crates") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
                     singleLine = true
@@ -432,8 +457,8 @@ private fun WarehousePackDialog(
                 OutlinedTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("Carton packing notes (optional)") },
-                    placeholder = { Text("e.g. Fragile glass bottles inside") },
+                    label = { Text(if (isHindi) "पैकिंग नोट्स (वैकल्पिक)" else "Carton packing notes (optional)") },
+                    placeholder = { Text(if (isHindi) "उदा. कांच की बोतलें सावधानीपूर्वक रखें" else "e.g. Fragile glass bottles inside") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp)
                 )
@@ -449,12 +474,19 @@ private fun WarehousePackDialog(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.height(48.dp)
             ) {
-                Text("Confirm Packed", fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    text = if (isHindi) "पैक पुष्टि करें" else "Confirm Packed",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
-                Text("Cancel", color = Color(0xFF64748B))
+                Text(
+                    text = if (isHindi) "रद्द करें" else "Cancel",
+                    color = Color(0xFF64748B)
+                )
             }
         }
     )
