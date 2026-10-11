@@ -325,6 +325,10 @@ fun RouteFlowApp(
                                 )
                             },
                             actions = {
+                                LanguageSwitchPill(
+                                    currentLanguage = currentLanguage,
+                                    onLanguageChange = onLanguageChange
+                                )
                                 Surface(
                                     shape = CircleShape,
                                     color = Color(0xFFFEF2F2),
@@ -357,16 +361,46 @@ fun RouteFlowApp(
                             }
                         )
                     } else if (employee.role == EmployeeRole.WAREHOUSE_MANAGER) {
+                        val isSubScreen = currentRoute != RoleDestination.WAREHOUSE.route
+                        val warehouseTitle = when (currentRoute) {
+                            RoleDestination.WAREHOUSE.route -> "Jaipur Godown Depot"
+                            WAREHOUSE_STOCK -> "Godown Stock • स्टॉक"
+                            WAREHOUSE_PICKING -> "Picking Queue • पिकिंग"
+                            WAREHOUSE_DISPATCH -> "Dispatch Batches • डिस्पैच"
+                            WAREHOUSE_RETURNS -> "Customer Returns • वापसी"
+                            else -> "Jaipur Godown Depot"
+                        }
                         TopAppBar(
+                            navigationIcon = {
+                                if (isSubScreen) {
+                                    IconButton(onClick = {
+                                        if (!navController.popBackStack()) {
+                                            navController.navigate(RoleDestination.WAREHOUSE.route) {
+                                                popUpTo(RoleDestination.WAREHOUSE.route) { inclusive = true }
+                                            }
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = RFColors.TextPrimary
+                                        )
+                                    }
+                                }
+                            },
                             title = {
                                 Text(
-                                    "Jaipur Godown Depot",
+                                    warehouseTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF0F172A)
                                 )
                             },
                             actions = {
+                                LanguageSwitchPill(
+                                    currentLanguage = currentLanguage,
+                                    onLanguageChange = onLanguageChange
+                                )
                                 Surface(
                                     shape = CircleShape,
                                     color = Color(0xFFFEF2F2),
@@ -421,6 +455,10 @@ fun RouteFlowApp(
                                 )
                             },
                             actions = {
+                                LanguageSwitchPill(
+                                    currentLanguage = currentLanguage,
+                                    onLanguageChange = onLanguageChange
+                                )
                                 Surface(
                                     shape = CircleShape,
                                     color = Color(0xFFFEF2F2),
@@ -471,6 +509,10 @@ fun RouteFlowApp(
                                 }
                             },
                             actions = {
+                                LanguageSwitchPill(
+                                    currentLanguage = currentLanguage,
+                                    onLanguageChange = onLanguageChange
+                                )
                                 Surface(
                                     shape = CircleShape,
                                     color = Color(0xFFFEF2F2),
@@ -975,7 +1017,9 @@ fun RouteFlowApp(
                         employee = employee,
                         state = dashboardState,
                         onNavigateTab = { route -> navController.navigate(route) },
-                        onScanBarcode = { viewModel.setScanning(true) }
+                        onScanBarcode = { viewModel.setScanning(true) },
+                        currentLanguage = currentLanguage,
+                        onLanguageChange = onLanguageChange
                     )
 
                     if (stockState.isScanning) {
@@ -1181,6 +1225,41 @@ fun RouteFlowApp(
         // Registered after NavHost: Back navigates back within the app stack
         BackHandler(enabled = employee != null && navController.previousBackStackEntry != null) {
             navController.popBackStack()
+        }
+    }
+}
+
+@Composable
+private fun LanguageSwitchPill(
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit
+) {
+    Surface(
+        shape = CircleShape,
+        color = Color(0xFFEFF6FF),
+        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+        modifier = Modifier.padding(end = 6.dp)
+    ) {
+        TextButton(
+            onClick = {
+                onLanguageChange(if (currentLanguage == "en") "hi" else "en")
+            },
+            modifier = Modifier.height(32.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Language,
+                contentDescription = "Language",
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (currentLanguage == "en") "हिन्दी" else "English",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF1D4ED8),
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

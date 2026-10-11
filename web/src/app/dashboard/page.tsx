@@ -32,7 +32,9 @@ import {
   MessageSquare,
   CheckCircle2,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  Globe,
+  ArrowLeft
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -86,6 +88,22 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'control_room' | 'exceptions' | 'cash_control' | 'reports' | 'orders' | 'handovers' | 'products' | 'retailers'>('overview');
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('routeflow_lang');
+      if (saved === 'hi' || saved === 'en') setLang(saved);
+    }
+  }, []);
+
+  const toggleLanguage = () => {
+    const next = lang === 'en' ? 'hi' : 'en';
+    setLang(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('routeflow_lang', next);
+    }
+  };
   
   // Operating System State
   const [controlRoomData, setControlRoomData] = useState<any | null>(null);
@@ -471,6 +489,16 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Language Switcher */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-1.5 text-xs font-bold py-1.5 px-2.5 sm:px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition cursor-pointer min-h-[38px]"
+              title="Switch Language / भाषा बदलें"
+            >
+              <Globe className="w-3.5 h-3.5 text-blue-600" />
+              <span>{lang === 'en' ? 'हिन्दी' : 'English'}</span>
+            </button>
+
             <button
               onClick={loadAllData}
               disabled={loading}
@@ -484,7 +512,7 @@ export default function DashboardPage() {
               className="flex items-center gap-1.5 text-xs font-semibold py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200 hover:border-red-200 transition cursor-pointer min-h-[38px]"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout</span>
+              <span className="hidden sm:inline">{lang === 'hi' ? 'लॉगआउट' : 'Logout'}</span>
             </button>
           </div>
         </div>
@@ -498,41 +526,41 @@ export default function DashboardPage() {
           const isSales = role === 'SALESPERSON' || role === 'SALES';
 
           const visibleTabs = [
-            ...(isOwnerOrAdmin ? [{ id: 'overview', label: 'Overview', icon: Building, badge: null, badgeColor: '' }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'control_room', label: 'Control Room', icon: DollarSign, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin || isWarehouse ? [{ id: 'overview', label: lang === 'hi' ? 'अवलोकन' : 'Overview', icon: Building, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'control_room', label: lang === 'hi' ? 'कंट्रोल रूम' : 'Control Room', icon: DollarSign, badge: null, badgeColor: '' }] : []),
             ...(isOwnerOrAdmin ? [{
               id: 'exceptions',
-              label: 'Exceptions',
+              label: lang === 'hi' ? 'समस्याएं' : 'Exceptions',
               icon: AlertTriangle,
               badge: exceptionsList.length > 0 ? exceptionsList.length : null,
               badgeColor: exceptionsList.length > 0 ? 'bg-rose-500 text-white' : ''
             }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'cash_control', label: 'Cash Control', icon: CreditCard, badge: null, badgeColor: '' }] : []),
-            ...(isOwnerOrAdmin ? [{ id: 'reports', label: 'Reports', icon: FileText, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'cash_control', label: lang === 'hi' ? 'कैश कंट्रोल' : 'Cash Control', icon: CreditCard, badge: null, badgeColor: '' }] : []),
+            ...(isOwnerOrAdmin ? [{ id: 'reports', label: lang === 'hi' ? 'रिपोर्ट्स' : 'Reports', icon: FileText, badge: null, badgeColor: '' }] : []),
             {
               id: 'orders',
-              label: 'Orders',
+              label: lang === 'hi' ? 'ऑर्डर्स' : 'Orders',
               icon: Package,
               badge: orders.length,
               badgeColor: 'bg-slate-200 text-slate-700'
             },
             ...(isOwnerOrAdmin || isDelivery ? [{
               id: 'handovers',
-              label: 'Cash Handover',
+              label: lang === 'hi' ? 'कैश हैंडओवर' : 'Cash Handover',
               icon: Wallet,
               badge: handovers.filter(h => h.status === 'PENDING').length > 0 ? handovers.filter(h => h.status === 'PENDING').length : null,
               badgeColor: 'bg-amber-500 text-white'
             }] : []),
             ...(isOwnerOrAdmin || isWarehouse || isSales ? [{
               id: 'products',
-              label: 'Products',
+              label: lang === 'hi' ? 'गोदाम स्टॉक' : 'Products',
               icon: Truck,
               badge: products.length,
               badgeColor: 'bg-slate-200 text-slate-700'
             }] : []),
             ...(isOwnerOrAdmin || isSales ? [{
               id: 'retailers',
-              label: 'Retailers',
+              label: lang === 'hi' ? 'दुकानें' : 'Retailers',
               icon: Store,
               badge: retailers.length,
               badgeColor: 'bg-slate-200 text-slate-700'
@@ -1057,10 +1085,21 @@ export default function DashboardPage() {
         {/* 2. ORDERS TAB */}
         {activeTab === 'orders' && (
           <div className="space-y-4 sm:space-y-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{lang === 'hi' ? 'वापस अवलोकन' : 'Back to Overview'}</span>
+            </button>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Orders & Approvals</h1>
-                <p className="text-xs sm:text-sm text-slate-500">Live order state management from booking to delivery</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                  {lang === 'hi' ? 'ऑर्डर्स और स्वीकृतियां' : 'Orders & Approvals'}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  {lang === 'hi' ? 'बुकिंग से डिलीवरी तक ऑर्डर की स्थिति प्रबंधन' : 'Live order state management from booking to delivery'}
+                </p>
               </div>
 
               {/* Status Filter Chips */}
@@ -1345,10 +1384,21 @@ export default function DashboardPage() {
         {/* 4. PRODUCTS TAB */}
         {activeTab === 'products' && (
           <div className="space-y-4 sm:space-y-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-200 text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{lang === 'hi' ? 'वापस अवलोकन' : 'Back to Overview'}</span>
+            </button>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Master Products Catalog</h1>
-                <p className="text-xs sm:text-sm text-slate-500">Inventory items available for wholesale distribution</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                  {lang === 'hi' ? 'मास्टर उत्पाद कैटलॉग (गोदाम स्टॉक)' : 'Master Products Catalog'}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  {lang === 'hi' ? 'थोक वितरण और गोदाम इन्वेंट्री वस्तुएं' : 'Inventory items available for wholesale distribution'}
+                </p>
               </div>
               <button
                 onClick={() => setShowAddProductModal(true)}
