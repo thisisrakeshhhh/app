@@ -70,7 +70,7 @@ async function run() {
   console.log('3. Sales Order Booking: Booking items from warehouse catalog...');
   const prodRes = await get('/products', salesToken);
   const products = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data.products || []);
-  const targetProd = products.find(p => p.id === 'P2') || products[0];
+  const targetProd = products.find(p => ((p.stockQuantity ?? 0) - (p.reservedQuantity ?? 0)) >= 5) || products[0];
   const unitPrice = targetProd.pricePaise || targetProd.price_paise || 16000;
   const qty = 2;
   const orderTotalPaise = unitPrice * qty;
