@@ -2,7 +2,6 @@ package com.routeflow.app.core.design
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -46,15 +44,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Zomato-grade design system tokens and reusable UI components.
+ * RouteFlow design system tokens and reusable UI components.
  * Characterized by:
- * - 14-16dp soft rounded card geometry with subtle diffuse elevation
+ * - 12-14dp soft rounded card geometry with subtle diffuse elevation
  * - Pill status badges with pastel tints and vibrant dot indicators
- * - Tactile 48dp+ primary and outline action buttons
- * - Iconic Zomato/Blinkit ADD / [-] qty [+] stepper
+ * - Tactile 48dp primary and outline action buttons
+ * - High-speed wholesale quantity stepper (ADD / [-] qty [+])
  * - Floating docked summary/action bottom bar
  */
-object ZomatoTheme {
+object RFDesignTokens {
     val Background = Color(0xFFF8FAFC)
     val Surface = Color.White
     val BorderSubtle = Color(0xFFF1F5F9)
@@ -91,14 +89,14 @@ object ZomatoTheme {
 }
 
 /**
- * Zomato-style elevated white card with 14dp corners and hairline border.
+ * RouteFlow elevated white card with 14dp corners and hairline border.
  */
 @Composable
-fun ZCard(
+fun RFCard(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 14.dp,
     elevation: Dp = 2.dp,
-    borderColor: Color = ZomatoTheme.BorderCard,
+    borderColor: Color = RFDesignTokens.BorderCard,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -130,11 +128,11 @@ fun ZCard(
  * Capsule status badge with optional live dot indicator.
  */
 @Composable
-fun ZPillBadge(
+fun RFPillBadge(
     text: String,
     modifier: Modifier = Modifier,
-    bgColor: Color = ZomatoTheme.BlueBg,
-    textColor: Color = ZomatoTheme.BlueText,
+    bgColor: Color = RFDesignTokens.BlueBg,
+    textColor: Color = RFDesignTokens.BlueText,
     borderColor: Color = Color.Transparent,
     showDot: Boolean = false,
     dotColor: Color = textColor
@@ -173,13 +171,13 @@ fun ZPillBadge(
  * Primary action button with 48dp touch height, 12dp radius, and bold typography.
  */
 @Composable
-fun ZButton(
+fun RFButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     icon: ImageVector? = null,
-    containerColor: Color = ZomatoTheme.BrandBlue,
+    containerColor: Color = RFDesignTokens.BrandBlue,
     contentColor: Color = Color.White,
     elevation: Dp = 1.dp
 ) {
@@ -214,13 +212,13 @@ fun ZButton(
  * Secondary outlined button with 48dp touch height, white container, and hairline slate border.
  */
 @Composable
-fun ZOutlinedButton(
+fun RFOutlinedButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
-    textColor: Color = ZomatoTheme.BrandBlue,
-    borderColor: Color = ZomatoTheme.BorderCard
+    textColor: Color = RFDesignTokens.BrandBlue,
+    borderColor: Color = RFDesignTokens.BorderCard
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -248,12 +246,12 @@ fun ZOutlinedButton(
 }
 
 /**
- * The iconic Zomato/Blinkit quantity stepper:
+ * RouteFlow wholesale quantity stepper:
  * When qty == 0: Displays an "ADD" button with + icon.
  * When qty > 0: Expands into [-] qty [+] with 48dp touch height.
  */
 @Composable
-fun ZQuantityStepper(
+fun RFQuantityStepper(
     quantity: Int,
     onQuantityChange: (Int) -> Unit,
     maxQuantity: Int = 9999,
@@ -267,7 +265,7 @@ fun ZQuantityStepper(
                 .height(42.dp),
             shape = RoundedCornerShape(10.dp),
             color = Color.White,
-            border = BorderStroke(1.5.dp, ZomatoTheme.BrandBlue),
+            border = BorderStroke(1.5.dp, RFDesignTokens.BrandBlue),
             shadowElevation = 1.dp
         ) {
             Row(
@@ -279,14 +277,14 @@ fun ZQuantityStepper(
                     text = "ADD",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
-                    color = ZomatoTheme.BrandBlue,
+                    color = RFDesignTokens.BrandBlue,
                     fontSize = 13.sp
                 )
                 Spacer(Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add item",
-                    tint = ZomatoTheme.BrandBlue,
+                    tint = RFDesignTokens.BrandBlue,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -297,8 +295,8 @@ fun ZQuantityStepper(
                 .width(104.dp)
                 .height(42.dp),
             shape = RoundedCornerShape(10.dp),
-            color = ZomatoTheme.BrandBlueLight,
-            border = BorderStroke(1.5.dp, ZomatoTheme.BrandBlue),
+            color = RFDesignTokens.BrandBlueLight,
+            border = BorderStroke(1.5.dp, RFDesignTokens.BrandBlue),
             shadowElevation = 1.dp
         ) {
             Row(
@@ -313,7 +311,7 @@ fun ZQuantityStepper(
                     Icon(
                         imageVector = Icons.Default.Remove,
                         contentDescription = "Decrease",
-                        tint = ZomatoTheme.BrandBlueDark,
+                        tint = RFDesignTokens.BrandBlueDark,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -322,7 +320,7 @@ fun ZQuantityStepper(
                     text = "$quantity",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = ZomatoTheme.BrandBlueDark,
+                    color = RFDesignTokens.BrandBlueDark,
                     fontSize = 15.sp
                 )
 
@@ -334,7 +332,7 @@ fun ZQuantityStepper(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Increase",
-                        tint = if (quantity < maxQuantity) ZomatoTheme.BrandBlueDark else Color(0xFFCBD5E1),
+                        tint = if (quantity < maxQuantity) RFDesignTokens.BrandBlueDark else Color(0xFFCBD5E1),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -344,10 +342,10 @@ fun ZQuantityStepper(
 }
 
 /**
- * Zomato-style rounded search bar with clear button.
+ * RouteFlow rounded search bar with clear button.
  */
 @Composable
-fun ZSearchBar(
+fun RFSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     placeholder: String,
@@ -360,7 +358,7 @@ fun ZSearchBar(
             Text(
                 placeholder,
                 style = MaterialTheme.typography.bodyMedium,
-                color = ZomatoTheme.TextMuted,
+                color = RFDesignTokens.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -369,7 +367,7 @@ fun ZSearchBar(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = null,
-                tint = ZomatoTheme.TextMuted,
+                tint = RFDesignTokens.TextMuted,
                 modifier = Modifier.size(20.dp)
             )
         },
@@ -379,7 +377,7 @@ fun ZSearchBar(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Clear",
-                        tint = ZomatoTheme.TextMuted,
+                        tint = RFDesignTokens.TextMuted,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -389,8 +387,8 @@ fun ZSearchBar(
         shape = RoundedCornerShape(12.dp),
         singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ZomatoTheme.BrandBlue,
-            unfocusedBorderColor = ZomatoTheme.BorderCard,
+            focusedBorderColor = RFDesignTokens.BrandBlue,
+            unfocusedBorderColor = RFDesignTokens.BorderCard,
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color.White
         )
@@ -401,7 +399,7 @@ fun ZSearchBar(
  * Floating docked action bar with items/price summary on left and primary CTA on right.
  */
 @Composable
-fun ZFloatingBottomBar(
+fun RFFloatingBottomBar(
     leftTitle: String,
     leftSubtitle: String,
     ctaText: String,
@@ -409,7 +407,7 @@ fun ZFloatingBottomBar(
     modifier: Modifier = Modifier,
     ctaEnabled: Boolean = true,
     containerColor: Color = Color.White,
-    borderColor: Color = ZomatoTheme.BorderCard
+    borderColor: Color = RFDesignTokens.BorderCard
 ) {
     Surface(
         modifier = modifier
@@ -432,12 +430,12 @@ fun ZFloatingBottomBar(
                     text = leftTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = ZomatoTheme.TextHeading
+                    color = RFDesignTokens.TextHeading
                 )
                 Text(
                     text = leftSubtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = ZomatoTheme.TextMuted
+                    color = RFDesignTokens.TextMuted
                 )
             }
 
@@ -448,7 +446,7 @@ fun ZFloatingBottomBar(
                 enabled = ctaEnabled,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = ZomatoTheme.BrandBlue,
+                    containerColor = RFDesignTokens.BrandBlue,
                     contentColor = Color.White
                 ),
                 modifier = Modifier.height(44.dp)
@@ -473,7 +471,7 @@ fun ZFloatingBottomBar(
  * Compact KPI metric tile.
  */
 @Composable
-fun ZMetricTile(
+fun RFMetricTile(
     title: String,
     value: String,
     icon: ImageVector,
@@ -481,7 +479,7 @@ fun ZMetricTile(
     modifier: Modifier = Modifier,
     subtitle: String? = null
 ) {
-    ZCard(
+    RFCard(
         modifier = modifier,
         cornerRadius = 12.dp,
         elevation = 1.dp
@@ -513,7 +511,7 @@ fun ZMetricTile(
                     text = value,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
-                    color = ZomatoTheme.TextHeading
+                    color = RFDesignTokens.TextHeading
                 )
             }
 
@@ -521,7 +519,7 @@ fun ZMetricTile(
                 text = title,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = ZomatoTheme.TextBody,
+                color = RFDesignTokens.TextBody,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -530,7 +528,7 @@ fun ZMetricTile(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = ZomatoTheme.TextMuted,
+                    color = RFDesignTokens.TextMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

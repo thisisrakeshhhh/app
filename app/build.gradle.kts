@@ -98,8 +98,18 @@ android {
             signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                null
             }
+        }
+    }
+
+    gradle.taskGraph.whenReady {
+        val requiresReleaseSigning = allTasks.any { task ->
+            val name = task.name
+            name.contains("Release") && (name.startsWith("bundle") || name.startsWith("assemble") || name.startsWith("package"))
+        }
+        if (requiresReleaseSigning && !hasReleaseSigning) {
+            throw GradleException("Release signing configuration missing. Provide keystore.properties or KEYSTORE_* env vars.")
         }
     }
     compileOptions {

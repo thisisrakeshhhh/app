@@ -50,7 +50,7 @@ async function run() {
   console.log('✓ All 4 roles authenticated successfully!\n');
 
   // 2. Sales Lead Generation: Onboard new shop with GPS location & address
-  console.log('2. Sales Front Warrior: Adding new wholesale shop with GPS location...');
+  console.log('2. Sales Executive: Adding new wholesale shop with GPS location...');
   const shopName = `Jai Shree Ram Wholesale & Retail ${Date.now().toString().slice(-4)}`;
   const lat = 28.613939;
   const lng = 77.209021;
