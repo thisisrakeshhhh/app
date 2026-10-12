@@ -47,7 +47,7 @@ All mobile screens captured directly from physical **Vivo 1935** running the Rou
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/device-qa/16_warehouse_dashboard.png" width="220" alt="Warehouse Desk" /><br><b>Godown Fulfillment</b><br>Picking queue, carton packing & low-stock alerts | <img src="docs/screenshots/device-qa/23_delivery_home_route.png" width="220" alt="Delivery Route" /><br><b>Delivery Route</b><br>Assigned stops, navigation & server OTP verification | <img src="docs/screenshots/device-qa/28_delivery_cash_handover.png" width="220" alt="Cash Handover" /><br><b>Cash Custody & Settlement</b><br>COD handover to depot settling balance to ₹0.00 |
 
-> 🖼️ **Looking for all 30 screens?** Browse the complete role-by-role proof gallery in **[docs/SCREENSHOT_GALLERY.md](docs/SCREENSHOT_GALLERY.md)**.
+> Full screenshot gallery: [docs/SCREENSHOT_GALLERY.md](docs/SCREENSHOT_GALLERY.md)
 
 ---
 
@@ -56,7 +56,7 @@ All mobile screens captured directly from physical **Vivo 1935** running the Rou
 | Document | Purpose |
 |---|---|
 | 📋 **[Physical Device Hardcore QA Report](docs/DEVICE_HARDCORE_QA_REPORT.md)** | Full 30-screen runtime verification pass on Vivo 1935 physical device with zero bugs. |
-| 🖼️ **[Complete Screenshot Gallery](docs/SCREENSHOT_GALLERY.md)** | High-resolution visual gallery of all 30 role flows (Auth, Owner, Sales, Godown, Delivery). |
+| 🖼️ **[Complete Screenshot Gallery](docs/SCREENSHOT_GALLERY.md)** | High-resolution visual gallery of mobile role flows and web management console. |
 | 🎯 **[Canonical Client Demo Script](FINAL_CLIENT_DEMO_SCRIPT.md)** | Step-by-step distributor pilot walkthrough (Ramesh Ji → Rakesh → Manoj → Suresh). |
 | 📦 **[Google Play Store Listing Package](PLAY_STORE_LISTING_PACKAGE.md)** | Production release metadata, short/full descriptions, and Data Safety disclosures. |
 | 🏗️ **[Project Architecture & Engineering Guide](PROJECT_GUIDE.md)** | Complete technical manual covering Android Room DB, Cloudflare D1 schema, and APIs. |

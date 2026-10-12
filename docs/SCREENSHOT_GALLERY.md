@@ -1,8 +1,9 @@
-# RouteFlow Physical Device Screenshot Gallery
+# RouteFlow Screenshot Gallery & Visual Proof Pack
 
-> **Verified on Physical Vivo 1935 (Android 10) • Staging Build `com.routeflow.app.staging`**  
-> **Total Screen Proofs:** 30 Verified B2B Flow Screens  
-> **Verification Status:** 100% Passed • All images optimized PNG format
+> **Platform 1: Native Android App (Physical Vivo 1935 • Android 10 • Staging Build `com.routeflow.app.staging`)**  
+> **Platform 2: Web Management Console (Next.js 16 • React 19 • [appdashboardadmin.vercel.app](https://appdashboardadmin.vercel.app))**  
+> **Total Proof Screens:** 49 Verified Screens (40 Mobile + 9 Web Console)  
+> **Validation Status:** 100% Passed • Verified with Python PIL • Optimized PNG format
 
 ---
 
@@ -75,6 +76,42 @@
 | Owner Live Control Room (Settled Day) |
 |:---:|
 | <img src="screenshots/device-qa/29_owner_final_live_status_after_settlement.png" width="220" alt="Settled Live Status" /><br><b>29_owner_final_live_status_after_settlement.png</b><br>Owner dashboard reflecting settled cash, cleared driver balances (₹0.00), and completed day operations |
+
+---
+
+## 7. More Mobile Proof Screens (Deep Workflow Verification)
+
+| 1. Retailer 360 & Khata Balance | 2. Daily Closing Operations Report | 3. Offline Room DB Sync State |
+|:---:|:---:|:---:|
+| <img src="screenshots/device-qa/31_owner_retailer_360.png" width="220" alt="Retailer 360" /><br><b>31_owner_retailer_360.png</b><br>Retailer 360 sheet: Credit limit, outstanding udhaar balance, and ledger history | <img src="screenshots/device-qa/32_owner_daily_closing.png" width="220" alt="Daily Closing" /><br><b>32_owner_daily_closing.png</b><br>Daily closing report: Sales revenue, cash collections, and profit metrics | <img src="screenshots/device-qa/33_sales_sync_status.png" width="220" alt="Sync Status" /><br><b>33_sales_sync_status.png</b><br>Field sales profile view showing Room DB offline queue sync state and network status |
+
+| 4. Godown SKU Product Detail | 5. Delivery Failed Reason Exception | 6. Live Field Activity & GPS Log |
+|:---:|:---:|:---:|
+| <img src="screenshots/device-qa/34_warehouse_product_detail.png" width="220" alt="Product Detail" /><br><b>34_warehouse_product_detail.png</b><br>Godown SKU details sheet with packaging units, batch numbers, and reorder limits | <img src="screenshots/device-qa/35_delivery_failed_reason.png" width="220" alt="Failed Reason" /><br><b>35_delivery_failed_reason.png</b><br>Failed delivery dialog capturing reason codes (Shop Closed, Payment Refused, Damaged) | <img src="screenshots/device-qa/36_owner_field_activity.png" width="220" alt="Field Activity" /><br><b>36_owner_field_activity.png</b><br>Live field activity log tracking salesman beat progress, visits, and GPS breadcrumbs |
+
+| 7. Damaged Stock & Customer RMA | 8. Active In-Store Visit Timer | 9. Staff PIN Reset & Access Dialog |
+|:---:|:---:|:---:|
+| <img src="screenshots/device-qa/37_warehouse_damaged_stock_rma.png" width="220" alt="RMA Inspect" /><br><b>37_warehouse_damaged_stock_rma.png</b><br>Godown RMA inspection modal categorizing items for restock or manufacturer credit | <img src="screenshots/device-qa/38_sales_shop_visit_timer.png" width="220" alt="Visit Timer" /><br><b>38_sales_shop_visit_timer.png</b><br>Active in-store check-in timer recording dwell time, store contact, and coordinates | <img src="screenshots/device-qa/39_owner_employee_reset_dialog.png" width="220" alt="Employee Reset" /><br><b>39_owner_employee_reset_dialog.png</b><br>Owner staff security dialog for PIN reset, device unbinding, and role deactivation |
+
+| 10. Delivery Stop Stop Execution |
+|:---:|
+| <img src="screenshots/device-qa/40_delivery_route_stop_detail.png" width="220" alt="Stop Detail" /><br><b>40_delivery_route_stop_detail.png</b><br>Delivery stop execution detail sheet showing customer invoice, item cartons, and cash due |
+
+---
+
+## 8. Web Console Proof Screens (Office & Management Hub)
+
+| 1. Web Login Portal | 2. Web Owner Dashboard Overview | 3. Orders Management & Approvals |
+|:---:|:---:|:---:|
+| <img src="screenshots/web-console/01_web_login.png" width="240" alt="Web Login" /><br><b>01_web_login.png</b><br>Clean B2B web login portal with quick-fill role credentials (Owner, Admin, Sales, Godown, Driver) | <img src="screenshots/web-console/02_web_owner_dashboard.png" width="240" alt="Web Dashboard" /><br><b>02_web_owner_dashboard.png</b><br>Executive control room: live delivered revenue, godown stock valuation, and receivables | <img src="screenshots/web-console/03_web_orders.png" width="240" alt="Web Orders" /><br><b>03_web_orders.png</b><br>Order management tab with real-time lifecycle filters (Pending, Approved, Dispatched, Delivered) |
+
+| 4. Cash Handover & Ledger Audit | 5. Godown Product Master Catalog | 6. Retailer Directory & Beat Mapping |
+|:---:|:---:|:---:|
+| <img src="screenshots/web-console/04_web_cash_handover.png" width="240" alt="Web Cash Handover" /><br><b>04_web_cash_handover.png</b><br>Driver collection ledger and single-click cash reconciliation reconciling balances to ₹0.00 | <img src="screenshots/web-console/05_web_products.png" width="240" alt="Web Products" /><br><b>05_web_products.png</b><br>Godown SKU inventory counts, unit wholesale prices, and low-stock reorder thresholds | <img src="screenshots/web-console/06_web_retailers.png" width="240" alt="Web Retailers" /><br><b>06_web_retailers.png</b><br>Store contact directory, assigned beats, GPS geofences, and credit limit management |
+
+| 7. Business Performance Reports | 8. Add Retailer Modal (GPS Capture) | 9. Add Product Modal (Godown SKU) |
+|:---:|:---:|:---:|
+| <img src="screenshots/web-console/07_web_reports.png" width="240" alt="Web Reports" /><br><b>07_web_reports.png</b><br>Consolidated performance reports showing revenue trends, cash settlements, and margins | <img src="screenshots/web-console/08_web_add_retailer_gps.png" width="240" alt="Web Add Retailer" /><br><b>08_web_add_retailer_gps.png</b><br>Browser-based GPS detection modal, beat assignment, and retailer credit limit setup | <img src="screenshots/web-console/09_web_add_product_sku.png" width="240" alt="Web Add Product" /><br><b>09_web_add_product_sku.png</b><br>Item creation modal with wholesale unit pricing, tax category, and opening godown stock |
 
 ---
 
