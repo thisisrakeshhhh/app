@@ -34,7 +34,13 @@ import {
   ChevronRight,
   TrendingUp,
   Globe,
-  ArrowLeft
+  ArrowLeft,
+  ShoppingCart,
+  Minus,
+  MoreHorizontal,
+  Key,
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -166,6 +172,26 @@ export default function DashboardPage() {
 
   // Reports Tab State
   const [selectedReportRetailerId, setSelectedReportRetailerId] = useState<string>('');
+
+  // Mobile App-Like & Field Operations State
+  const [orderBookingRetailer, setOrderBookingRetailer] = useState<any | null>(null);
+  const [orderCart, setOrderCart] = useState<{ [productId: string]: number }>({});
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+
+  const [otpModalOrder, setOtpModalOrder] = useState<any | null>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [recipientNameInput, setRecipientNameInput] = useState('');
+  const [otpPaymentMethod, setOtpPaymentMethod] = useState<'CASH' | 'CREDIT'>('CASH');
+  const [otpRequesting, setOtpRequesting] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpStatusNote, setOtpStatusNote] = useState<string | null>(null);
+
+  const [showNewHandoverModal, setShowNewHandoverModal] = useState(false);
+  const [handoverAmountRupees, setHandoverAmountRupees] = useState('3450');
+  const [handoverNotes, setHandoverNotes] = useState('Evening cash depot deposit');
+  const [submittingHandover, setSubmittingHandover] = useState(false);
+
+  const [showMoreMobileMenu, setShowMoreMobileMenu] = useState(false);
 
   useEffect(() => {
     const u = getStoredUser();
@@ -434,6 +460,228 @@ export default function DashboardPage() {
     }
   };
 
+  const handleOpenOrderBooking = (retailer: any) => {
+    setOrderBookingRetailer(retailer);
+    // Initialize demo items: 10 Tea, 5 Biscuits, 2 Oil (or first 3 products)
+    const initialCart: { [id: string]: number } = {};
+    products.forEach((p) => {
+      const name = (p.name || '').toLowerCase();
+      if (name.includes('tea') || name.includes('chai')) initialCart[p.id] = 10;
+      else if (name.includes('biscuit') || name.includes('parle') || name.includes('cookie')) initialCart[p.id] = 5;
+      else if (name.includes('oil') || name.includes('mustard') || name.includes('refined')) initialCart[p.id] = 2;
+    });
+    if (Object.keys(initialCart).length === 0 && products.length > 0) {
+      if (products[0]) initialCart[products[0].id] = 10;
+      if (products[1]) initialCart[products[1].id] = 5;
+      if (products[2]) initialCart[products[2].id] = 2;
+    }
+    setOrderCart(initialCart);
+  };
+
+  const handleQuickFillDemoOrder = () => {
+    const demoCart: { [id: string]: number } = {};
+    products.forEach((p) => {
+      const name = (p.name || '').toLowerCase();
+      if (name.includes('tea') || name.includes('chai')) demoCart[p.id] = 10;
+      else if (name.includes('biscuit') || name.includes('parle') || name.includes('cookie')) demoCart[p.id] = 5;
+      else if (name.includes('oil') || name.includes('mustard') || name.includes('refined')) demoCart[p.id] = 2;
+    });
+    if (Object.keys(demoCart).length === 0 && products.length > 0) {
+      if (products[0]) demoCart[products[0].id] = 10;
+      if (products[1]) demoCart[products[1].id] = 5;
+      if (products[2]) demoCart[products[2].id] = 2;
+    }
+    setOrderCart(demoCart);
+  };
+
+  const handleUpdateCartQuantity = (productId: string, delta: number) => {
+    setOrderCart((prev) => {
+      const current = prev[productId] || 0;
+      const next = Math.max(0, current + delta);
+      if (next === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return { ...prev, [productId]: next };
+    });
+  };
+
+  const calculateCartTotalPaise = () => {
+    let sum = 0;
+    for (const [prodId, qty] of Object.entries(orderCart)) {
+      const prod = products.find((p) => p.id === prodId);
+      const pricePaise = prod ? (prod.price_paise || Math.round((prod.price || 0) * 100)) : 0;
+      sum += pricePaise * qty;
+    }
+    return sum;
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!orderBookingRetailer) return;
+    const items = Object.entries(orderCart)
+      .filter(([_, qty]) => qty > 0)
+      .map(([productId, quantity]) => {
+        const prod = products.find((p) => p.id === productId);
+        const unitPricePaise = prod ? (prod.price_paise || Math.round((prod.price || 0) * 100)) : 10000;
+        return {
+          productId,
+          quantity,
+          unitPricePaise,
+          subtotalPaise: unitPricePaise * quantity,
+        };
+      });
+
+    if (items.length === 0) {
+      alert(lang === 'hi' ? 'कृपया कम से कम एक उत्पाद चुनें।' : 'Please select at least one product.');
+      return;
+    }
+
+    setSubmittingOrder(true);
+    try {
+      const totalAmountPaise = items.reduce((acc, it) => acc + it.subtotalPaise, 0);
+      const orderId = `ord_${Date.now()}`;
+      await apiFetch('/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          order: {
+            id: orderId,
+            retailerId: orderBookingRetailer.id,
+            totalAmountPaise,
+            paymentTerms: 'CASH',
+            notes: 'Booked via Web Console',
+          },
+          items,
+          idempotencyKey: `idemp_${orderId}`,
+        }),
+      });
+
+      setMessage(
+        lang === 'hi'
+          ? `ऑर्डर ₹${(totalAmountPaise / 100).toFixed(2)} सफलतापूर्वक बुक किया गया! मालिक अनुमोदन लंबित।`
+          : `Order ₹${(totalAmountPaise / 100).toFixed(2)} booked successfully! Awaiting owner approval.`
+      );
+      setOrderBookingRetailer(null);
+      setOrderCart({});
+      await loadAllData();
+      setActiveTab('orders');
+      setTimeout(() => setMessage(null), 3500);
+    } catch (err: any) {
+      alert(err.message || 'Order booking failed');
+    } finally {
+      setSubmittingOrder(false);
+    }
+  };
+
+  const handleQuickPickAndPack = async (orderId: string) => {
+    setActionLoading(orderId);
+    try {
+      const itemsRes = await apiFetch<any>(`/orders/${orderId}/items`).catch(() => []);
+      const itemsList = Array.isArray(itemsRes) ? itemsRes : itemsRes.items || [];
+      for (const it of itemsList) {
+        if (!it.is_picked) {
+          await apiFetch(`/orders/${orderId}/items/${it.product_id || it.productId}/pick`, {
+            method: 'PUT',
+            body: JSON.stringify({ isPicked: true }),
+          }).catch(() => {});
+        }
+      }
+      await apiFetch(`/orders/${orderId}/pack`, { method: 'POST' });
+      setMessage(lang === 'hi' ? `ऑर्डर ${orderId} पैक हो गया और डिलीवरी के लिए तैयार है!` : `Order ${orderId} packed and ready for dispatch!`);
+      await loadAllData();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      alert(`Packing error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleOpenOtpModal = (order: any) => {
+    setOtpModalOrder(order);
+    setOtpInput('');
+    setRecipientNameInput(order.retailer_name || 'Sharma General Store');
+    setOtpPaymentMethod('CASH');
+    setOtpStatusNote(null);
+  };
+
+  const handleRequestOtp = async (orderId: string) => {
+    setOtpRequesting(true);
+    try {
+      const res = await apiFetch<any>(`/orders/${orderId}/request-otp`, { method: 'POST' });
+      setOtpStatusNote(res.message || 'OTP sent to retailer mobile');
+      if (res.debugOtp) {
+        setOtpInput(res.debugOtp);
+      }
+    } catch (err: any) {
+      setOtpStatusNote(`Error: ${err.message}`);
+    } finally {
+      setOtpRequesting(false);
+    }
+  };
+
+  const handleConfirmDeliveryWithOtp = async () => {
+    if (!otpModalOrder) return;
+    if (!otpInput.trim() || otpInput.trim().length !== 6) {
+      alert(lang === 'hi' ? 'कृपया 6 अंकों का मान्य OTP दर्ज करें।' : 'Please enter a valid 6-digit OTP.');
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      await apiFetch(`/orders/${otpModalOrder.id}/deliver`, {
+        method: 'POST',
+        body: JSON.stringify({
+          otp: otpInput.trim(),
+          recipientName: recipientNameInput.trim() || 'Store Owner',
+          paymentMethod: otpPaymentMethod,
+        }),
+      });
+      setMessage(
+        lang === 'hi'
+          ? `ऑर्डर डिलीवर हुआ! COD कैश ₹${((otpModalOrder.total_amount_paise || (otpModalOrder as any).total_amount * 100 || 0) / 100).toFixed(2)} कलेक्ट किया गया।`
+          : `Order delivered successfully! Collected ₹${((otpModalOrder.total_amount_paise || (otpModalOrder as any).total_amount * 100 || 0) / 100).toFixed(2)} Cash.`
+      );
+      setOtpModalOrder(null);
+      await loadAllData();
+      setTimeout(() => setMessage(null), 3500);
+    } catch (err: any) {
+      alert(`Delivery OTP verification failed: ${err.message}`);
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  const handleSubmitCashHandover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountPaise = Math.round((parseFloat(handoverAmountRupees) || 0) * 100);
+    if (amountPaise <= 0) {
+      alert(lang === 'hi' ? 'अमान्य राशि' : 'Invalid amount');
+      return;
+    }
+    setSubmittingHandover(true);
+    try {
+      await apiFetch('/cash-handovers', {
+        method: 'POST',
+        body: JSON.stringify({
+          amountPaise,
+          notes: handoverNotes.trim() || 'Cash depot handover',
+        }),
+      });
+      setMessage(
+        lang === 'hi'
+          ? `₹${(amountPaise / 100).toFixed(2)} का कैश हैंडओवर जमा किया गया। मालिक अनुमोदन लंबित।`
+          : `Cash handover of ₹${(amountPaise / 100).toFixed(2)} submitted! Awaiting owner acknowledgement.`
+      );
+      setShowNewHandoverModal(false);
+      await loadAllData();
+      setTimeout(() => setMessage(null), 3500);
+    } catch (err: any) {
+      alert(err.message || 'Handover submission failed');
+    } finally {
+      setSubmittingHandover(false);
+    }
+  };
+
   const handleLogout = () => {
     clearSession();
     router.push('/login');
@@ -600,7 +848,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 flex-1 w-full">
+      <main className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-8 pb-28 md:pb-8 flex-1 w-full">
         {/* Role Banner for Field Roles */}
         {(() => {
           const role = user?.role?.toUpperCase() || 'OWNER';
@@ -1168,18 +1416,54 @@ export default function DashboardPage() {
                       <button
                         onClick={() => handleApproveOrder(o.id)}
                         disabled={actionLoading === o.id}
-                        className="w-full flex items-center justify-center py-2.5 px-4 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer min-h-[40px]"
+                        className="w-full flex items-center justify-center py-2.5 px-4 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer min-h-[44px]"
                       >
-                        {actionLoading === o.id ? 'Approving...' : 'Approve Order'}
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                        {actionLoading === o.id ? (lang === 'hi' ? 'अनुमोदन जारी...' : 'Approving...') : (lang === 'hi' ? 'ऑर्डर स्वीकृत करें' : 'Approve Order')}
                       </button>
                     )}
-                    {(o.status === 'APPROVED' || o.status === 'PACKED') && (
+                    {o.status === 'APPROVED' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleQuickPickAndPack(o.id)}
+                          disabled={actionLoading === o.id}
+                          className="flex items-center justify-center py-2.5 px-3 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer min-h-[44px]"
+                        >
+                          <Package className="w-4 h-4 mr-1.5" />
+                          {actionLoading === o.id ? 'Packing...' : (lang === 'hi' ? 'पैक करें' : 'Pick & Pack')}
+                        </button>
+                        <button
+                          onClick={() => setAssignModalOrder(o)}
+                          className="flex items-center justify-center py-2.5 px-3 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer min-h-[44px]"
+                        >
+                          <Truck className="w-4 h-4 mr-1.5" />
+                          {lang === 'hi' ? 'डिस्पैच करें' : 'Assign Delivery'}
+                        </button>
+                      </div>
+                    )}
+                    {o.status === 'PACKED' && (
                       <button
                         onClick={() => setAssignModalOrder(o)}
-                        className="w-full flex items-center justify-center py-2.5 px-4 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer min-h-[40px]"
+                        className="w-full flex items-center justify-center py-2.5 px-4 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer min-h-[44px]"
                       >
-                        Assign Delivery
+                        <Truck className="w-4 h-4 mr-1.5" />
+                        {lang === 'hi' ? 'डिलीवरी हेतु डिस्पैच' : 'Assign Delivery'}
                       </button>
+                    )}
+                    {o.status === 'OUT_FOR_DELIVERY' && (
+                      <button
+                        onClick={() => handleOpenOtpModal(o)}
+                        className="w-full flex items-center justify-center py-2.5 px-4 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition cursor-pointer min-h-[44px]"
+                      >
+                        <Key className="w-4 h-4 mr-1.5" />
+                        {lang === 'hi' ? 'OTP सत्यापन व डिलीवरी' : 'Verify OTP & Deliver'}
+                      </button>
+                    )}
+                    {o.status === 'DELIVERED' && (
+                      <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 py-2 rounded-xl border border-emerald-200 font-semibold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>{lang === 'hi' ? 'डिलीवर व भुगतान प्राप्त' : 'Delivered & COD Collected'}</span>
+                      </div>
                     )}
                   </div>
                 ))
@@ -1236,15 +1520,44 @@ export default function DashboardPage() {
                                 disabled={actionLoading === o.id}
                                 className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer"
                               >
-                                {actionLoading === o.id ? 'Approving...' : 'Approve'}
+                                {actionLoading === o.id ? 'Approving...' : (lang === 'hi' ? 'स्वीकृत करें' : 'Approve')}
                               </button>
-                            ) : o.status === 'APPROVED' || o.status === 'PACKED' ? (
+                            ) : o.status === 'APPROVED' ? (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleQuickPickAndPack(o.id)}
+                                  disabled={actionLoading === o.id}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition cursor-pointer"
+                                >
+                                  {lang === 'hi' ? 'पैक करें' : 'Pick & Pack'}
+                                </button>
+                                <button
+                                  onClick={() => setAssignModalOrder(o)}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer"
+                                >
+                                  {lang === 'hi' ? 'डिस्पैच' : 'Assign'}
+                                </button>
+                              </div>
+                            ) : o.status === 'PACKED' ? (
                               <button
                                 onClick={() => setAssignModalOrder(o)}
                                 className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer"
                               >
-                                Assign Delivery
+                                {lang === 'hi' ? 'डिस्पैच करें' : 'Assign Delivery'}
                               </button>
+                            ) : o.status === 'OUT_FOR_DELIVERY' ? (
+                              <button
+                                onClick={() => handleOpenOtpModal(o)}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition cursor-pointer flex items-center gap-1"
+                              >
+                                <Key className="w-3.5 h-3.5" />
+                                <span>{lang === 'hi' ? 'OTP डिलीवरी' : 'Verify OTP'}</span>
+                              </button>
+                            ) : o.status === 'DELIVERED' ? (
+                              <span className="text-xs text-emerald-600 font-semibold inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{lang === 'hi' ? 'निपटाया गया' : 'Settled'}</span>
+                              </span>
                             ) : (
                               <span className="text-xs text-slate-400">—</span>
                             )}
@@ -1262,9 +1575,22 @@ export default function DashboardPage() {
         {/* 3. CASH HANDOVERS TAB */}
         {activeTab === 'handovers' && (
           <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Cash Handover Reconciliation</h1>
-              <p className="text-xs sm:text-sm text-slate-500">Acknowledge physical cash collections from delivery executives</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                  {lang === 'hi' ? 'कैश हैंडओवर समाधान' : 'Cash Handover Reconciliation'}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  {lang === 'hi' ? 'डिलीवरी स्टाफ से भौतिक नकद संग्रह और डिपो समाधान' : 'Acknowledge physical cash collections from delivery executives'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNewHandoverModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto min-h-[40px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{lang === 'hi' ? '+ नया हैंडओवर जमा करें' : '+ Submit Cash Handover'}</span>
+              </button>
             </div>
 
             {/* Mobile Cards (Visible on screens < 768px) */}
@@ -1535,12 +1861,19 @@ export default function DashboardPage() {
                         {r.address}
                       </div>
                     )}
-                    <div className="pt-2 border-t border-slate-100 flex justify-end">
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleOpenOrderBooking(r)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition cursor-pointer shadow-xs min-h-[38px]"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                        <span>{lang === 'hi' ? 'ऑर्डर बुक करें' : 'Book Order'}</span>
+                      </button>
                       <button
                         onClick={() => handleOpenRetailer360(r.id)}
-                        className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                        className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition cursor-pointer min-h-[38px]"
                       >
-                        View Retailer 360 →
+                        {lang === 'hi' ? 'खाता 360 →' : 'Retailer 360 →'}
                       </button>
                     </div>
                   </div>
@@ -1578,12 +1911,21 @@ export default function DashboardPage() {
                             ₹{((r.credit_limit_paise || 0) / 100).toLocaleString('en-IN')}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleOpenRetailer360(r.id)}
-                              className="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
-                            >
-                              Retailer 360
-                            </button>
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                onClick={() => handleOpenOrderBooking(r)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition cursor-pointer"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5" />
+                                <span>{lang === 'hi' ? 'ऑर्डर बुक करें' : 'Book Order'}</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenRetailer360(r.id)}
+                                className="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                              >
+                                {lang === 'hi' ? 'खाता 360' : 'Retailer 360'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -2020,7 +2362,528 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* SALES ORDER BOOKING CART MODAL */}
+        {orderBookingRetailer && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-1 sm:hidden shrink-0" />
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                    <ShoppingCart className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                      {lang === 'hi' ? 'ऑर्डर बुक करें' : 'Book Field Order'}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {orderBookingRetailer.name} • Beat {orderBookingRetailer.beat_name || orderBookingRetailer.beat_id || 'BEAT-04'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOrderBookingRetailer(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Quick Fill Button */}
+              <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-xl">
+                <div className="text-xs text-blue-900 font-medium">
+                  {lang === 'hi' ? 'डेमो कैनोनिकल ऑर्डर भरें:' : 'Canonical Demo Preset:'}
+                  <span className="font-bold block sm:inline sm:ml-1">10 Tea + 5 Biscuits + 2 Oil = ₹3,450.00</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleQuickFillDemoOrder}
+                  className="px-2.5 py-1 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition cursor-pointer shrink-0"
+                >
+                  {lang === 'hi' ? 'क्विक-फिल' : 'Quick-Fill'}
+                </button>
+              </div>
+
+              {/* Products Item List with Stepper */}
+              <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                {products.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No products in catalog</p>
+                ) : (
+                  products.map((p) => {
+                    const pricePaise = p.price_paise || Math.round((p.price || 0) * 100);
+                    const qty = orderCart[p.id] || 0;
+                    return (
+                      <div key={p.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">{p.name}</p>
+                          <p className="text-[11px] text-slate-500">
+                            ₹{(pricePaise / 100).toFixed(2)} / {p.unit || 'unit'} • Stock: {p.stock_quantity ?? p.stock ?? 'Available'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartQuantity(p.id, -1)}
+                            disabled={qty === 0}
+                            className="w-8 h-8 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 flex items-center justify-center font-bold disabled:opacity-30 cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="w-7 text-center font-bold text-sm text-slate-900">{qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartQuantity(p.id, 1)}
+                            className="w-8 h-8 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center font-bold cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Cart Summary & Submit */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">
+                    {lang === 'hi' ? 'कुल राशि (देय):' : 'Total Amount Due:'}
+                  </span>
+                  <span className="text-lg font-black text-slate-900">
+                    ₹{(calculateCartTotalPaise() / 100).toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setOrderBookingRetailer(null)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer min-h-[40px]"
+                  >
+                    {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitOrder}
+                    disabled={submittingOrder || calculateCartTotalPaise() === 0}
+                    className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition disabled:opacity-50 cursor-pointer min-h-[40px] flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{submittingOrder ? (lang === 'hi' ? 'बुकिंग जारी...' : 'Submitting...') : (lang === 'hi' ? 'ऑर्डर की पुष्टि करें' : 'Confirm Order')}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DELIVERY OTP VERIFICATION MODAL */}
+        {otpModalOrder && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-1 sm:hidden shrink-0" />
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <Key className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                      {lang === 'hi' ? 'डिलीवरी OTP सत्यापन' : 'Verify Delivery OTP'}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Order #{otpModalOrder.id.slice(-6)} • {otpModalOrder.retailer_name || 'Sharma General Store'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOtpModalOrder(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Order Info & COD Amount */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">{lang === 'hi' ? 'दुकानदार:' : 'Retailer:'}</span>
+                  <span className="font-bold text-slate-900">{otpModalOrder.retailer_name || otpModalOrder.retailer_id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">{lang === 'hi' ? 'कलेक्ट करने योग्य नकद (COD):' : 'Cash to Collect (COD):'}</span>
+                  <span className="font-extrabold text-emerald-700 text-sm">
+                    ₹{((otpModalOrder.total_amount_paise || (otpModalOrder as any).total_amount * 100 || 0) / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Request OTP Button & Status Note */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {lang === 'hi' ? '6-अंकीय OTP कोड' : '6-Digit Delivery OTP'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleRequestOtp(otpModalOrder.id)}
+                    disabled={otpRequesting}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-semibold cursor-pointer underline disabled:opacity-50"
+                  >
+                    {otpRequesting ? 'Requesting...' : (lang === 'hi' ? 'ग्राहक को OTP भेजें (SMS)' : 'Request Customer OTP')}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="e.g. 123456"
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xl font-mono tracking-widest font-black focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                />
+                {otpStatusNote && (
+                  <p className="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-lg border border-blue-100">
+                    {otpStatusNote}
+                  </p>
+                )}
+              </div>
+
+              {/* Recipient Name Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  {lang === 'hi' ? 'प्राप्तकर्ता का नाम' : 'Recipient Name'}
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ramesh Sharma"
+                  value={recipientNameInput}
+                  onChange={(e) => setRecipientNameInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                />
+              </div>
+
+              {/* Payment Method Selector */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  {lang === 'hi' ? 'भुगतान का प्रकार' : 'Payment Method'}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOtpPaymentMethod('CASH')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      otpPaymentMethod === 'CASH'
+                        ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    Cash (COD)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOtpPaymentMethod('CREDIT')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      otpPaymentMethod === 'CREDIT'
+                        ? 'bg-blue-50 border-blue-400 text-blue-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    Credit (Udhaar)
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setOtpModalOrder(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer min-h-[40px]"
+                >
+                  {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeliveryWithOtp}
+                  disabled={otpVerifying || otpInput.length !== 6}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-500/20 transition disabled:opacity-50 cursor-pointer min-h-[40px] flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{otpVerifying ? (lang === 'hi' ? 'सत्यापन जारी...' : 'Verifying...') : (lang === 'hi' ? 'डिलीवरी पूर्ण करें' : 'Confirm Delivery')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUBMIT CASH HANDOVER MODAL */}
+        {showNewHandoverModal && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 max-h-[90vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-1 sm:hidden shrink-0" />
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                      {lang === 'hi' ? 'कैश हैंडओवर जमा करें' : 'Submit Cash Handover'}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {lang === 'hi' ? 'कलेक्शन नकद डिपो कैशियर को सौंपें' : 'Hand over collected COD cash to depot manager'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNewHandoverModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitCashHandover} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    {lang === 'hi' ? 'हैंडओवर राशि (₹) *' : 'Handover Amount (₹) *'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={handoverAmountRupees}
+                    onChange={(e) => setHandoverAmountRupees(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                    placeholder="3450.00"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Canonical demo amount: ₹3,450.00 (Sharma General Store settlement)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    {lang === 'hi' ? 'टिप्पणी / विवरण' : 'Notes / Remarks'}
+                  </label>
+                  <input
+                    type="text"
+                    value={handoverNotes}
+                    onChange={(e) => setHandoverNotes(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                    placeholder="e.g. Evening route COD cash"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewHandoverModal(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer min-h-[40px]"
+                  >
+                    {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingHandover}
+                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-500/20 transition disabled:opacity-50 cursor-pointer min-h-[40px]"
+                  >
+                    {submittingHandover ? (lang === 'hi' ? 'जमा हो रहा है...' : 'Submitting...') : (lang === 'hi' ? 'हैंडओवर जमा करें' : 'Submit Handover')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MOBILE MORE MENU DRAWER */}
+        {showMoreMobileMenu && (
+          <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-t-3xl shadow-2xl w-full p-5 border border-slate-200 max-h-[85vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom duration-200">
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-1 shrink-0" />
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs uppercase">
+                    {user?.name ? user.name.charAt(0) : 'U'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 leading-tight">{user?.name || 'Administrator'}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">{user?.role?.toLowerCase().replace(/_/g, ' ')}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMoreMobileMenu(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Quick Navigation Items */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+                <button
+                  onClick={() => { setActiveTab('control_room'); setShowMoreMobileMenu(false); }}
+                  className="p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200/80 rounded-xl text-left flex items-center gap-2 text-slate-800 hover:text-blue-700 transition cursor-pointer"
+                >
+                  <DollarSign className="w-4 h-4 text-blue-600" />
+                  <span>{lang === 'hi' ? 'कंट्रोल रूम' : 'Control Room'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('exceptions'); setShowMoreMobileMenu(false); }}
+                  className="p-3 bg-slate-50 hover:bg-rose-50 border border-slate-200/80 rounded-xl text-left flex items-center justify-between text-slate-800 hover:text-rose-700 transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    <span>{lang === 'hi' ? 'समस्याएं' : 'Exceptions'}</span>
+                  </div>
+                  {exceptionsList.length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white">
+                      {exceptionsList.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('cash_control'); setShowMoreMobileMenu(false); }}
+                  className="p-3 bg-slate-50 hover:bg-emerald-50 border border-slate-200/80 rounded-xl text-left flex items-center gap-2 text-slate-800 hover:text-emerald-700 transition cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4 text-emerald-600" />
+                  <span>{lang === 'hi' ? 'कैश कंट्रोल' : 'Cash Control'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('reports'); setShowMoreMobileMenu(false); }}
+                  className="p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200/80 rounded-xl text-left flex items-center gap-2 text-slate-800 hover:text-indigo-700 transition cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                  <span>{lang === 'hi' ? 'रिपोर्ट्स' : 'Reports'}</span>
+                </button>
+              </div>
+
+              {/* Utility Row */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => { toggleLanguage(); }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold transition cursor-pointer min-h-[42px]"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span>{lang === 'en' ? 'हिन्दी में बदलें' : 'Switch to English'}</span>
+                </button>
+
+                <button
+                  onClick={() => { loadAllData(); setShowMoreMobileMenu(false); }}
+                  className="flex items-center justify-center p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer min-h-[42px] min-w-[42px]"
+                  title="Refresh"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => { handleLogout(); }}
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-red-50 text-red-700 border border-red-200 text-xs font-bold transition cursor-pointer min-h-[42px]"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{lang === 'hi' ? 'लॉगआउट' : 'Logout'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* NATIVE APP STYLE FIXED BOTTOM NAVIGATION BAR (Mobile Only) */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 z-40 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[56px] ${
+            activeTab === 'overview' || activeTab === 'control_room'
+              ? 'text-blue-600 font-bold'
+              : 'text-slate-500 hover:text-slate-800 font-medium'
+          }`}
+        >
+          <Building className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] leading-tight">{lang === 'hi' ? 'होम' : 'Overview'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[56px] ${
+            activeTab === 'orders'
+              ? 'text-blue-600 font-bold'
+              : 'text-slate-500 hover:text-slate-800 font-medium'
+          }`}
+        >
+          <div className="relative">
+            <Package className="w-5 h-5 mb-0.5" />
+            {orders.length > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 py-0.1 bg-blue-600 text-white text-[9px] font-extrabold rounded-full">
+                {orders.length}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] leading-tight">{lang === 'hi' ? 'ऑर्डर्स' : 'Orders'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[56px] ${
+            activeTab === 'products'
+              ? 'text-blue-600 font-bold'
+              : 'text-slate-500 hover:text-slate-800 font-medium'
+          }`}
+        >
+          <Truck className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] leading-tight">{lang === 'hi' ? 'स्टॉक' : 'Stock'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('handovers')}
+          className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[56px] ${
+            activeTab === 'handovers'
+              ? 'text-blue-600 font-bold'
+              : 'text-slate-500 hover:text-slate-800 font-medium'
+          }`}
+        >
+          <div className="relative">
+            <Wallet className="w-5 h-5 mb-0.5" />
+            {handovers.filter(h => h.status === 'PENDING').length > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 py-0.1 bg-amber-500 text-white text-[9px] font-extrabold rounded-full">
+                {handovers.filter(h => h.status === 'PENDING').length}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] leading-tight">{lang === 'hi' ? 'कैश' : 'Cash'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('retailers')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[56px] ${
+            activeTab === 'retailers'
+              ? 'text-blue-600 font-bold'
+              : 'text-slate-500 hover:text-slate-800 font-medium'
+          }`}
+        >
+          <Store className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] leading-tight">{lang === 'hi' ? 'दुकानें' : 'Shops'}</span>
+        </button>
+
+        <button
+          onClick={() => setShowMoreMobileMenu(true)}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer min-w-[56px] ${
+            showMoreMobileMenu
+              ? 'text-blue-600 font-bold'
+              : 'text-slate-500 hover:text-slate-800 font-medium'
+          }`}
+        >
+          <MoreHorizontal className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] leading-tight">{lang === 'hi' ? 'अधिक' : 'More'}</span>
+        </button>
+      </div>
     </div>
   );
 }

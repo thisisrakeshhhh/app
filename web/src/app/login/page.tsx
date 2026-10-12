@@ -262,70 +262,70 @@ export default function LoginPage() {
                   <span className="text-[10px] text-slate-400 font-medium">Staging Access</span>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => quickFill('owner', 'RouteFlow@2026!', 'owner')}
-                    className={`flex flex-col items-center justify-center py-2 px-1 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`flex items-center gap-2 py-2 px-2.5 text-xs font-semibold rounded-xl border transition cursor-pointer min-h-[42px] ${
                       selectedRole === 'owner'
                         ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <ShieldCheck className="w-4 h-4 text-blue-600 mb-0.5" />
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
                     <span>Owner</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => quickFill('admin', 'RouteFlow@2026!', 'admin')}
-                    className={`flex flex-col items-center justify-center py-2 px-1 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`flex items-center gap-2 py-2 px-2.5 text-xs font-semibold rounded-xl border transition cursor-pointer min-h-[42px] ${
                       selectedRole === 'admin'
                         ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <PackageCheck className="w-4 h-4 text-indigo-600 mb-0.5" />
+                    <PackageCheck className="w-4 h-4 text-indigo-600 shrink-0" />
                     <span>Admin</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => quickFill('sales', 'RouteFlow@2026!', 'sales')}
-                    className={`flex flex-col items-center justify-center py-2 px-1 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`flex items-center gap-2 py-2 px-2.5 text-xs font-semibold rounded-xl border transition cursor-pointer min-h-[42px] ${
                       selectedRole === 'sales'
                         ? 'bg-amber-50 border-amber-400 text-amber-700 shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <Store className="w-4 h-4 text-amber-600 mb-0.5" />
+                    <Store className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Sales</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => quickFill('warehouse', 'RouteFlow@2026!', 'warehouse')}
-                    className={`flex flex-col items-center justify-center py-2 px-1 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`flex items-center gap-2 py-2 px-2.5 text-xs font-semibold rounded-xl border transition cursor-pointer min-h-[42px] ${
                       selectedRole === 'warehouse'
                         ? 'bg-purple-50 border-purple-400 text-purple-700 shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <Layers className="w-4 h-4 text-purple-600 mb-0.5" />
+                    <Layers className="w-4 h-4 text-purple-600 shrink-0" />
                     <span>Warehouse</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => quickFill('delivery', 'RouteFlow@2026!', 'delivery')}
-                    className={`col-span-2 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                    className={`col-span-2 sm:col-span-1 flex items-center justify-center sm:justify-start gap-2 py-2 px-2.5 text-xs font-semibold rounded-xl border transition cursor-pointer min-h-[42px] ${
                       selectedRole === 'delivery'
                         ? 'bg-emerald-50 border-emerald-400 text-emerald-700 shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <Truck className="w-4 h-4 text-emerald-600" />
-                    <span>Delivery Executive</span>
+                    <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Delivery</span>
                   </button>
                 </div>
               </div>
