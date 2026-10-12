@@ -2,6 +2,8 @@
 
 RouteFlow is a pilot-ready B2B distributor operating system for Indian kirana/FMCG wholesalers.
 
+> 📸 **[View full screenshot gallery](docs/SCREENSHOT_GALLERY.md)** (49 verified mobile & web proof screens)
+
 Unified dual-platform system connecting real-world field operations with central business control:
 - **Native Android App**: Field sales beat navigation, offline caching, warehouse FEFO picking & packing, server OTP delivery verification, and physical COD cash custody.
 - **Next.js Web Management Console**: Central office control for live inventory, credit exposure, beat routing, and driver cash reconciliation ([Live Web Console](https://appdashboardadmin.vercel.app)).
