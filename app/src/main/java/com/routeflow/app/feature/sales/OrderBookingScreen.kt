@@ -390,7 +390,7 @@ private fun ProductCard(
 
             Spacer(Modifier.width(12.dp))
 
-            // Zomato/Blinkit ADD button & Stepper
+            // B2B Wholesale ADD button & Stepper
             if (quantity == 0) {
                 Surface(
                     onClick = { onQuantityChange(item.product.id, 1) },

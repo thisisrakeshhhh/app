@@ -101,6 +101,20 @@ async function runHardcoreSalesTestSuite() {
   // 2. SHIFT WORKFLOW (POST /shifts/start, POST /shifts/locations, POST /shifts/end)
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n▶ 2. Sales Shift Lifecycle & Breadcrumb Location Tracking');
+  // Clean up any lingering active shift from prior runs
+  try {
+    const cur = await get('/shifts/current', salesToken);
+    if (cur.data?.shift?.id && ['ON_SHIFT', 'ON_BREAK'].includes(cur.data.shift.status)) {
+      await post('/shifts/end', {
+        shiftId: cur.data.shift.id,
+        endTime: Date.now(),
+        latitude: 26.9124,
+        longitude: 75.7873,
+        idempotencyKey: `cleanup_${cur.data.shift.id}_${Date.now()}`
+      }, salesToken);
+    }
+  } catch (_) {}
+
   const shiftId = `SHIFT-${Date.now()}`;
   const startTime = Date.now() - 30000; // 30 sec ago
   try {

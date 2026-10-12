@@ -163,7 +163,7 @@ fun SalesHomeScreen(
             }
         }
 
-        // 2. One Big Primary Action Button (Zomato/Swiggy style field CTA)
+        // 2. Primary Action Button (Field duty CTA)
         if (!state.isOnShift) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Button(
