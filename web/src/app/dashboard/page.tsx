@@ -610,9 +610,6 @@ export default function DashboardPage() {
     try {
       const res = await apiFetch<any>(`/orders/${orderId}/request-otp`, { method: 'POST' });
       setOtpStatusNote(res.message || 'OTP sent to retailer mobile');
-      if (res.debugOtp) {
-        setOtpInput(res.debugOtp);
-      }
     } catch (err: any) {
       setOtpStatusNote(`Error: ${err.message}`);
     } finally {
@@ -1584,13 +1581,15 @@ export default function DashboardPage() {
                   {lang === 'hi' ? 'डिलीवरी स्टाफ से भौतिक नकद संग्रह और डिपो समाधान' : 'Acknowledge physical cash collections from delivery executives'}
                 </p>
               </div>
-              <button
-                onClick={() => setShowNewHandoverModal(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto min-h-[40px]"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{lang === 'hi' ? '+ नया हैंडओवर जमा करें' : '+ Submit Cash Handover'}</span>
-              </button>
+              {(user?.role === 'DELIVERY_EXECUTIVE' || user?.role === 'SALESPERSON') && (
+                <button
+                  onClick={() => setShowNewHandoverModal(true)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto min-h-[40px]"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{lang === 'hi' ? '+ नया हैंडओवर जमा करें' : '+ Submit Cash Handover'}</span>
+                </button>
+              )}
             </div>
 
             {/* Mobile Cards (Visible on screens < 768px) */}
