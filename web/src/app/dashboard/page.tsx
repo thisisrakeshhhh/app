@@ -429,19 +429,23 @@ export default function DashboardPage() {
     setAssigningLoading(true);
     try {
       const orderId = assignModalOrder.id;
-      // If order is APPROVED, mark items picked and pack it first so dispatch trigger succeeds
-      if (assignModalOrder.status === 'APPROVED') {
-        const itemsRes = await apiFetch<any>(`/orders/${orderId}/items`).catch(() => []);
-        const itemsList = Array.isArray(itemsRes) ? itemsRes : itemsRes.items || [];
+      // If order is APPROVED or PICKING, mark items picked and pack it first so dispatch trigger succeeds
+      if (assignModalOrder.status === 'APPROVED' || assignModalOrder.status === 'PICKING') {
+        const details = await apiFetch<any>(`/orders/${orderId}`).catch(() => null);
+        const itemsList = details?.items || [];
         for (const it of itemsList) {
-          if (!it.is_picked) {
-            await apiFetch(`/orders/${orderId}/items/${it.product_id || it.productId}/pick`, {
-              method: 'PUT',
-              body: JSON.stringify({ isPicked: true })
+          const pid = it.productId || it.product_id;
+          if (!it.isPicked && pid) {
+            await apiFetch(`/orders/${orderId}/pick-item`, {
+              method: 'POST',
+              body: JSON.stringify({ productId: pid, isPicked: true })
             }).catch(() => {});
           }
         }
-        await apiFetch(`/orders/${orderId}/pack`, { method: 'POST' }).catch(() => {});
+        await apiFetch(`/orders/${orderId}/pack`, {
+          method: 'POST',
+          body: JSON.stringify({ boxCount: 1 })
+        });
       }
 
       await apiFetch(`/orders/${orderId}/dispatch`, {
@@ -576,17 +580,21 @@ export default function DashboardPage() {
   const handleQuickPickAndPack = async (orderId: string) => {
     setActionLoading(orderId);
     try {
-      const itemsRes = await apiFetch<any>(`/orders/${orderId}/items`).catch(() => []);
-      const itemsList = Array.isArray(itemsRes) ? itemsRes : itemsRes.items || [];
+      const details = await apiFetch<any>(`/orders/${orderId}`).catch(() => null);
+      const itemsList = details?.items || [];
       for (const it of itemsList) {
-        if (!it.is_picked) {
-          await apiFetch(`/orders/${orderId}/items/${it.product_id || it.productId}/pick`, {
-            method: 'PUT',
-            body: JSON.stringify({ isPicked: true }),
+        const pid = it.productId || it.product_id;
+        if (!it.isPicked && pid) {
+          await apiFetch(`/orders/${orderId}/pick-item`, {
+            method: 'POST',
+            body: JSON.stringify({ productId: pid, isPicked: true }),
           }).catch(() => {});
         }
       }
-      await apiFetch(`/orders/${orderId}/pack`, { method: 'POST' });
+      await apiFetch(`/orders/${orderId}/pack`, {
+        method: 'POST',
+        body: JSON.stringify({ boxCount: 1 })
+      });
       setMessage(lang === 'hi' ? `ऑर्डर ${orderId} पैक हो गया और डिलीवरी के लिए तैयार है!` : `Order ${orderId} packed and ready for dispatch!`);
       await loadAllData();
       setTimeout(() => setMessage(null), 3000);

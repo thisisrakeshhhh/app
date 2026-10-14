@@ -163,8 +163,8 @@ class OrderBookingViewModel @Inject constructor(
             val now = System.currentTimeMillis()
 
             var totalAmount: Long = 0
-            val orderItems = currentCart.map { (productId, quantity) ->
-                val product = allProducts.value.find { it.id == productId }!!
+            val orderItems = currentCart.mapNotNull { (productId, quantity) ->
+                val product = allProducts.value.find { it.id == productId } ?: return@mapNotNull null
                 val freeQty = if (product.name == "Premium Tea") quantity / 10 else 0
                 totalAmount += quantity * product.pricePaise
 
@@ -176,6 +176,11 @@ class OrderBookingViewModel @Inject constructor(
                     freeQuantity = freeQty,
                     pricePaiseAtTime = product.pricePaise
                 )
+            }
+
+            if (orderItems.isEmpty()) {
+                _isSubmitting.value = false
+                return@launch
             }
 
             val order = OrderEntity(
