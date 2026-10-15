@@ -179,6 +179,12 @@ class SalesViewModel @Inject constructor(
         }
     }
 
+    fun endShift(lat: Double? = null, lng: Double? = null) {
+        viewModelScope.launch {
+            shiftRepository.endShift(lat, lng)
+        }
+    }
+
     fun syncNow() {
         if (_isSyncing.value) return
         _isSyncing.value = true

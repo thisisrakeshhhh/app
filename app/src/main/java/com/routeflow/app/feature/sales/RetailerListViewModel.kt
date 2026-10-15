@@ -147,6 +147,12 @@ class RetailerListViewModel @Inject constructor(
         }
     }
 
+    fun endShift(lat: Double? = null, lng: Double? = null) {
+        viewModelScope.launch {
+            shiftRepository.endShift(lat, lng)
+        }
+    }
+
     fun createRetailer(
         name: String,
         address: String,

@@ -28,9 +28,11 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import com.routeflow.app.core.design.RFColors
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,13 +48,13 @@ import androidx.core.content.ContextCompat
 import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
-import com.routeflow.app.core.design.RFColors
 
 @Composable
 fun RetailerListScreen(
     state: RetailerListState,
     onRetailerClick: (String) -> Unit,
     onStartShift: (() -> Unit)? = null,
+    onEndShift: (() -> Unit)? = null,
     onAddRetailer: ((name: String, address: String, contact: String, lat: Double?, lng: Double?) -> Unit)? = null,
     onClearMessages: (() -> Unit)? = null,
     onSyncAgain: (() -> Unit)? = null
@@ -79,17 +81,17 @@ fun RetailerListScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Compact Shift Status Banner (Off Duty warning if applicable)
+                // 1. Compact Shift Status Banner
                 if (!state.isOnShift && onStartShift != null) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                            border = BorderStroke(1.dp, Color(0xFFFECACA))
+                            colors = CardDefaults.cardColors(containerColor = RFColors.DangerLight),
+                            border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.3f))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -103,27 +105,76 @@ fun RetailerListScreen(
                                         modifier = Modifier
                                             .size(8.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFFDC2626))
+                                            .background(RFColors.Danger)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "Duty Off — Start shift for GPS",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF991B1B)
+                                        color = RFColors.Danger
                                     )
                                 }
 
                                 Button(
                                     onClick = onStartShift,
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                     modifier = Modifier.height(36.dp)
                                 ) {
                                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
                                     Text("Start Duty", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                } else if (state.isOnShift && onEndShift != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = RFColors.SuccessLight),
+                            border = BorderStroke(1.dp, RFColors.Success.copy(alpha = 0.3f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(RFColors.Success)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "On Duty — GPS Active",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = RFColors.Success
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = onEndShift,
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.35f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = RFColors.DangerLight,
+                                        contentColor = RFColors.Danger
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(14.dp), tint = RFColors.Danger)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Stop", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

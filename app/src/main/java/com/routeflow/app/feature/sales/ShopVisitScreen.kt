@@ -93,7 +93,7 @@ fun ShopVisitScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(scrollState)
-                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // 1. Retailer Profile Header Card

@@ -311,18 +311,18 @@ fun RouteFlowApp(
         }
     }
 
+    val isHindi = currentLanguage == "hi"
+    val isHomeScreen = currentRoute == RoleDestination.OWNER.route ||
+                       currentRoute == RoleDestination.ADMIN.route ||
+                       currentRoute == RoleDestination.SALES.route ||
+                       currentRoute == SALES_TODAY ||
+                       currentRoute == RoleDestination.WAREHOUSE.route ||
+                       currentRoute == RoleDestination.DELIVERY.route
+    val isSubScreen = !bottomNavItems.any { it.route == currentRoute } && !isHomeScreen
+
     Scaffold(
         topBar = {
             if (employee != null) {
-                val isHindi = currentLanguage == "hi"
-                val isHomeScreen = currentRoute == RoleDestination.OWNER.route ||
-                                   currentRoute == RoleDestination.ADMIN.route ||
-                                   currentRoute == RoleDestination.SALES.route ||
-                                   currentRoute == SALES_TODAY ||
-                                   currentRoute == RoleDestination.WAREHOUSE.route ||
-                                   currentRoute == RoleDestination.DELIVERY.route
-                val isSubScreen = !bottomNavItems.any { it.route == currentRoute } && !isHomeScreen
-
                 val screenTitle = when (currentRoute) {
                     RoleDestination.OWNER.route -> "RouteFlow"
                     OWNER_APPROVALS -> if (isHindi) "ऑर्डर मंज़ूरी" else "Orders"
@@ -427,7 +427,7 @@ fun RouteFlowApp(
             }
         },
         bottomBar = {
-            if (employee != null && bottomNavItems.isNotEmpty()) {
+            if (employee != null && bottomNavItems.isNotEmpty() && !isSubScreen) {
                 NavigationBar(
                     containerColor = Color.White,
                     tonalElevation = 0.dp,
@@ -442,15 +442,15 @@ fun RouteFlowApp(
                             RoleDestination.SALES.route, SALES_TODAY ->
                                 currentRoute == RoleDestination.SALES.route || currentRoute == SALES_TODAY
                             SALES_RETAILER_LIST ->
-                                currentRoute == SALES_RETAILER_LIST || currentRoute?.startsWith("sales/visit") == true
+                                currentRoute == SALES_RETAILER_LIST
                             SALES_ORDER_BOOKING.replace("{retailerId}", "all"), SALES_ORDER_BOOKING ->
-                                currentRoute?.startsWith("sales/order") == true || currentRoute?.startsWith("sales/stock-check") == true
+                                currentRoute?.startsWith("sales/order") == true
                             SALES_COLLECTIONS ->
                                 currentRoute == SALES_COLLECTIONS
                             RoleDestination.WAREHOUSE.route ->
-                                currentRoute == RoleDestination.WAREHOUSE.route || currentRoute == WAREHOUSE_PICKING
+                                currentRoute == RoleDestination.WAREHOUSE.route
                             RoleDestination.DELIVERY.route ->
-                                currentRoute == RoleDestination.DELIVERY.route || currentRoute?.startsWith("delivery/detail") == true
+                                currentRoute == RoleDestination.DELIVERY.route
                             DELIVERY_HANDOVER ->
                                 currentRoute == DELIVERY_HANDOVER
                             DELIVERY_LIST ->
@@ -460,7 +460,7 @@ fun RouteFlowApp(
                         NavigationBarItem(
                             selected = isSelected,
                             onClick = {
-                                if (!isSelected) {
+                                if (currentRoute != item.route) {
                                     navController.navigate(item.route) {
                                         popUpTo(destination?.route ?: item.route) {
                                             saveState = true
@@ -734,6 +734,7 @@ fun RouteFlowApp(
                         state = salesState,
                         onStartVisits = { navController.navigate(SALES_TODAY) },
                         onStartShift = salesViewModel::startShift,
+                        onEndShift = salesViewModel::endShift,
                         onContinueRoute = { nextRetailerId ->
                             if (nextRetailerId != null) {
                                 navController.navigate("sales/visit/$nextRetailerId")
@@ -766,6 +767,7 @@ fun RouteFlowApp(
                     state = salesListState,
                     onRetailerClick = { id -> navController.navigate("sales/visit/$id") },
                     onStartShift = { viewModel.startShift() },
+                    onEndShift = { viewModel.endShift() },
                     onAddRetailer = { name, address, contact, lat, lng ->
                         viewModel.createRetailer(name, address, contact, lat, lng)
                     },

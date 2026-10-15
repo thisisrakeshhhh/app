@@ -21,8 +21,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,17 +48,19 @@ fun SalesHomeScreen(
     state: SalesHomeState,
     onStartVisits: () -> Unit,
     onStartShift: () -> Unit = {},
+    onEndShift: () -> Unit = {},
     onContinueRoute: (nextRetailerId: String?) -> Unit = { onStartVisits() },
     onSyncNow: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val firstName = employee.name.split(" ").firstOrNull() ?: employee.name
+    var showEndShiftConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
+            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // 1. Simple Top Greeting & Duty Status Bar
@@ -170,10 +177,10 @@ fun SalesHomeScreen(
                     onClick = onStartShift,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
+                        .height(52.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
+                        containerColor = RFColors.Primary,
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
@@ -186,7 +193,7 @@ fun SalesHomeScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Start Duty",
+                        text = "Start Route / Duty",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -195,20 +202,20 @@ fun SalesHomeScreen(
                 Text(
                     text = "Tap to begin daily shift, activate GPS and start shop visits",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B),
+                    color = RFColors.TextSecondary,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = { onContinueRoute(state.nextShop?.id) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
+                        .height(52.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF16A34A),
+                        containerColor = RFColors.Success,
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
@@ -227,10 +234,39 @@ fun SalesHomeScreen(
                         tint = Color.White
                     )
                 }
+
+                // Stop Route / End Duty Button
+                OutlinedButton(
+                    onClick = { showEndShiftConfirm = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.35f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = RFColors.DangerLight,
+                        contentColor = RFColors.Danger
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = RFColors.Danger
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Stop Route / End Duty",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.Danger
+                    )
+                }
+
                 Text(
                     text = if (state.nextShop != null) "Next destination: ${state.nextShop.name}" else "Beat route in progress",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF15803D),
+                    color = RFColors.Success,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
@@ -667,6 +703,47 @@ fun SalesHomeScreen(
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (showEndShiftConfirm) {
+        AlertDialog(
+            onDismissRequest = { showEndShiftConfirm = false },
+            title = {
+                Text(
+                    text = "Stop Route & End Duty?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = RFColors.TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to end your daily shift? This will mark you as off-duty and save today's route progress.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RFColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showEndShiftConfirm = false
+                        onEndShift()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RFColors.Danger,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("End Duty", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndShiftConfirm = false }) {
+                    Text("Cancel", color = RFColors.TextSecondary)
+                }
+            }
+        )
     }
 }
 
