@@ -321,7 +321,7 @@ private fun DispatchManifestCard(
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Text(
-                        text = if (isHindi) "रूट 04 (जयपुर बीट)" else "Route 04 (Jaipur Beat)",
+                        text = if (isHindi) "रूट 04 (मुख्य बीट)" else "Route 04 (Primary Beat)",
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF64748B),

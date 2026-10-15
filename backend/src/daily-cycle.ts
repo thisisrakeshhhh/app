@@ -247,7 +247,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   const u=c.get('user');if(u.role!=='OWNER')return bad(c,'Owner required',403);
   const b=await c.req.json<Row>();const prior=await replay(c,'CLOSE_DAY',b);if(prior)return prior;
   const today=new Date(Date.now()+19800000).toISOString().slice(0,10);
-  if(b.businessDate!==today||!b.notes?.trim())return bad(c,'Closing requires today’s Jaipur business date and reconciliation notes');
+  if(b.businessDate!==today||!b.notes?.trim())return bad(c,'Closing requires today’s business date and reconciliation notes');
   const id=crypto.randomUUID();
   // Snapshot is read inside the same batch as the close, including cash remaining
   // and unresolved requests. Closing is a checkpoint, never a balance reset.

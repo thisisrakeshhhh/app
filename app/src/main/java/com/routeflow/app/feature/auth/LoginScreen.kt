@@ -279,9 +279,9 @@ fun LoginScreen(
             if (BuildConfig.BUILD_TYPE != "release") {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Quick Jaipur Field Accounts Autofill (2 comfortable rows)
+                // Quick Staging Accounts Autofill (2 comfortable rows)
                 Text(
-                    text = "Jaipur Operations Accounts (Click to Fill):",
+                    text = "Staging Accounts (Click to Fill):",
                     style = MaterialTheme.typography.labelSmall,
                     color = RFColors.Secondary,
                     fontWeight = FontWeight.SemiBold

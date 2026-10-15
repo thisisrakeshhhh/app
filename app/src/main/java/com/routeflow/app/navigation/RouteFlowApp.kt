@@ -244,7 +244,7 @@ fun RouteFlowApp(
         )
     }
 
-    // Role-specific 5 bottom navigation tabs
+    // Role-specific bottom navigation tabs
     val bottomNavItems = remember(employee?.role) {
         when (employee?.role) {
             EmployeeRole.OWNER -> listOf(
@@ -252,33 +252,31 @@ fun RouteFlowApp(
                 NavItem(OWNER_APPROVALS, R.string.tab_orders, Icons.Default.CheckCircle),
                 NavItem(OWNER_BUSINESS_HUB, R.string.tab_business, Icons.Default.Business),
                 NavItem(OWNER_TEAM, R.string.tab_team, Icons.Default.People),
-                NavItem(OWNER_ACTIVITY, R.string.tab_reports, Icons.Default.Assessment)
+                NavItem(OWNER_ACTIVITY, R.string.tab_more, Icons.Default.Assessment)
             )
             EmployeeRole.ADMIN -> listOf(
-                NavItem(RoleDestination.ADMIN.route, R.string.tab_home, Icons.Default.Home),
+                NavItem(RoleDestination.ADMIN.route, R.string.tab_today, Icons.Default.Today),
                 NavItem(ADMIN_APPROVALS, R.string.tab_orders, Icons.Default.CheckCircle),
+                NavItem(WAREHOUSE_DISPATCH, R.string.tab_dispatch, Icons.Default.LocalShipping),
                 NavItem(ADMIN_TEAM, R.string.tab_team, Icons.Default.People),
-                NavItem(ADMIN_ACTIVITY, R.string.tab_reports, Icons.Default.Assessment)
+                NavItem(ADMIN_ACTIVITY, R.string.tab_more, Icons.Default.Assessment)
             )
             EmployeeRole.SALESPERSON -> listOf(
                 NavItem(RoleDestination.SALES.route, R.string.tab_today, Icons.Default.Today),
                 NavItem(SALES_RETAILER_LIST, R.string.tab_shops, Icons.Default.Store),
-                NavItem(SALES_ORDER_BOOKING.replace("{retailerId}", "all"), R.string.tab_order_booking, Icons.Default.ShoppingCart),
-                NavItem(SALES_COLLECTIONS, R.string.tab_collections, Icons.Default.Payments),
-                NavItem(SALES_PROFILE, R.string.tab_profile, Icons.Default.Person)
+                NavItem(SALES_ORDER_BOOKING.replace("{retailerId}", "all"), R.string.tab_orders, Icons.Default.ShoppingCart),
+                NavItem(SALES_COLLECTIONS, R.string.tab_collections, Icons.Default.Payments)
             )
             EmployeeRole.WAREHOUSE_MANAGER -> listOf(
-                NavItem(RoleDestination.WAREHOUSE.route, R.string.tab_dashboard, Icons.Default.Home),
+                NavItem(RoleDestination.WAREHOUSE.route, R.string.tab_queue, Icons.Default.Checklist),
                 NavItem(WAREHOUSE_STOCK, R.string.tab_stock, Icons.Default.Inventory2),
-                NavItem(WAREHOUSE_PICKING, R.string.tab_pick_pack, Icons.Default.Checklist),
                 NavItem(WAREHOUSE_DISPATCH, R.string.tab_dispatch, Icons.Default.LocalShipping),
                 NavItem(WAREHOUSE_RETURNS, R.string.tab_returns, Icons.Default.AssignmentReturn)
             )
             EmployeeRole.DELIVERY_EXECUTIVE -> listOf(
-                NavItem(RoleDestination.DELIVERY.route, R.string.tab_trips, Icons.Default.Route),
-                NavItem(DELIVERY_LIST, R.string.tab_deliveries, Icons.Default.LocalShipping),
+                NavItem(RoleDestination.DELIVERY.route, R.string.tab_route, Icons.Default.Route),
                 NavItem(DELIVERY_HANDOVER, R.string.tab_cash, Icons.Default.AccountBalanceWallet),
-                NavItem(DELIVERY_PROFILE, R.string.tab_profile, Icons.Default.Person)
+                NavItem(DELIVERY_LIST, R.string.tab_history, Icons.Default.LocalShipping)
             )
             null -> emptyList()
         }
@@ -365,12 +363,12 @@ fun RouteFlowApp(
                         val isSubScreen = currentRoute != RoleDestination.WAREHOUSE.route
                         val isHindi = currentLanguage == "hi"
                         val warehouseTitle = when (currentRoute) {
-                            RoleDestination.WAREHOUSE.route -> if (isHindi) "जयपुर गोदाम डिपो" else "Jaipur Godown Depot"
+                            RoleDestination.WAREHOUSE.route -> if (isHindi) "गोदाम डिपो" else "Godown Depot"
                             WAREHOUSE_STOCK -> if (isHindi) "गोदाम स्टॉक" else "Godown Stock"
                             WAREHOUSE_PICKING -> if (isHindi) "पिकिंग कतार" else "Picking Queue"
                             WAREHOUSE_DISPATCH -> if (isHindi) "डिस्पैच बैच" else "Dispatch Batches"
                             WAREHOUSE_RETURNS -> if (isHindi) "वापसी और रिटर्न" else "Customer Returns"
-                            else -> if (isHindi) "जयपुर गोदाम डिपो" else "Jaipur Godown Depot"
+                            else -> if (isHindi) "गोदाम डिपो" else "Godown Depot"
                         }
                         TopAppBar(
                             navigationIcon = {
@@ -451,7 +449,7 @@ fun RouteFlowApp(
                             },
                             title = {
                                 Text(
-                                    if (isHindi) "जयपुर वितरण फ्लीट" else "Jaipur Delivery Fleet",
+                                    if (isHindi) "वितरण फ्लीट" else "Delivery Fleet",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF0F172A)
@@ -570,8 +568,14 @@ fun RouteFlowApp(
                                 currentRoute?.startsWith("sales/order") == true || currentRoute?.startsWith("sales/stock-check") == true
                             SALES_COLLECTIONS ->
                                 currentRoute == SALES_COLLECTIONS
-                            SALES_PROFILE ->
-                                currentRoute == SALES_PROFILE
+                            RoleDestination.WAREHOUSE.route ->
+                                currentRoute == RoleDestination.WAREHOUSE.route || currentRoute == WAREHOUSE_PICKING
+                            RoleDestination.DELIVERY.route ->
+                                currentRoute == RoleDestination.DELIVERY.route || currentRoute?.startsWith("delivery/detail") == true
+                            DELIVERY_HANDOVER ->
+                                currentRoute == DELIVERY_HANDOVER
+                            DELIVERY_LIST ->
+                                currentRoute == DELIVERY_LIST
                             else -> currentRoute == item.route
                         }
                         NavigationBarItem(
@@ -1015,10 +1019,12 @@ fun RouteFlowApp(
                     val viewModel: WarehouseViewModel = hiltViewModel()
                     val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
                     val stockState by viewModel.stockState.collectAsStateWithLifecycle()
+                    val pickingOrders by viewModel.pickingQueue.collectAsStateWithLifecycle()
 
                     WarehouseHomeScreen(
                         employee = employee,
                         state = dashboardState,
+                        pickingOrders = pickingOrders,
                         onNavigateTab = { route -> navController.navigate(route) },
                         onScanBarcode = { viewModel.setScanning(true) },
                         currentLanguage = currentLanguage,
@@ -1126,9 +1132,12 @@ fun RouteFlowApp(
                 if (employee != null) {
                     val viewModel: DeliveryViewModel = hiltViewModel()
                     val deliveryHomeState by viewModel.state.collectAsStateWithLifecycle()
+                    val deliveryList by viewModel.deliveryList.collectAsStateWithLifecycle()
                     DeliveryHomeScreen(
                         employee = employee,
                         state = deliveryHomeState,
+                        deliveryList = deliveryList,
+                        onDeliveryClick = { id -> navController.navigate("delivery/detail/$id") },
                         onViewDeliveries = { navController.navigate(DELIVERY_LIST) },
                         currentLanguage = currentLanguage
                     )

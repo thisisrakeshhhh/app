@@ -744,7 +744,7 @@ export function operatingRouter(auth: MiddlewareHandler<OpEnv>) {
         <body>
           <div class="header">
             <span class="badge">ROUTEFLOW OFFICIAL CLOSING SLIP</span>
-            <h1>${comp?.name || 'Jaipur Wholesale Distributors'}</h1>
+            <h1>${comp?.name || 'Wholesale Distribution Depot'}</h1>
             <p style="margin: 4px 0 0; color: #64748b;">Daily Business Closing Record • Date: <strong>${todayStr}</strong></p>
           </div>
           <table>
@@ -786,7 +786,7 @@ export function operatingRouter(auth: MiddlewareHandler<OpEnv>) {
         </head>
         <body>
           <div class="header">
-            <h1>${comp?.name || 'Jaipur Wholesale Distributors'}</h1>
+            <h1>${comp?.name || 'Wholesale Distribution Depot'}</h1>
             <p style="margin: 4px 0 0; color: #475569;">Retailer Statement • Shop: <strong>${ret?.name}</strong> • Phone: ${ret?.contact_number || 'N/A'}</p>
             <p style="margin: 4px 0 0; font-size: 14px; font-weight: 700; color: #b91c1c;">Outstanding Due: ₹${((ret?.outstanding_amount_paise || 0) / 100).toFixed(2)}</p>
           </div>

@@ -312,7 +312,7 @@ fun DeliveryProfileScreen(
                                 color = RFColors.TextPrimary
                             )
                             Text(
-                                text = "Daily wholesale delivery route for Jaipur market",
+                                text = "Daily wholesale delivery route for assigned market",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF64748B)
                             )

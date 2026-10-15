@@ -22,10 +22,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SalesTodayState(
+    val employeeName: String = "",
+    val assignedBeat: String = "BEAT-01",
     val activeShift: ShiftDto? = null,
     val activeVisit: VisitEntity? = null,
     val retailers: List<Retailer> = emptyList(),
     val completedVisitRetailerIds: Set<String> = emptySet(),
+    val todayOrdersAmountPaise: Long = 0L,
+    val todayCollectionsAmountPaise: Long = 0L,
     val isLoading: Boolean = false,
     val message: String? = null,
     val errorMessage: String? = null
@@ -42,34 +46,58 @@ class SalesTodayViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val shiftRepository: ShiftRepository,
     private val retailerRepository: RetailerRepository,
-    private val visitDao: VisitDao
+    private val visitDao: VisitDao,
+    private val orderDao: com.routeflow.app.core.database.dao.OrderDao,
+    private val collectionRecordDao: com.routeflow.app.core.database.dao.CollectionRecordDao
 ) : ViewModel() {
 
     private val _uiStatus = MutableStateFlow(SalesUiStatus())
 
     val state: StateFlow<SalesTodayState> = combine(
+        sessionRepository.activeEmployee,
         shiftRepository.activeShift,
         retailerRepository.getAllRetailers(),
-        sessionRepository.activeEmployee.flatMapLatest { employee ->
-            if (employee != null) visitDao.getActiveVisit(employee.id)
-            else flowOf(null)
-        },
-        sessionRepository.activeEmployee.flatMapLatest { employee ->
-            if (employee != null) visitDao.getVisitsByEmployee(employee.id)
-            else flowOf(emptyList())
-        },
+        orderDao.getAllOrders(),
         _uiStatus
-    ) { activeShift, retailers, activeVisit, visits, uiStatus ->
+    ) { employee, activeShift, retailers, orders, uiStatus ->
+        val empId = employee?.id.orEmpty()
+        
+        val startOfDay = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val todayOrdersPaise = orders
+            .filter { it.createdAt >= startOfDay }
+            .sumOf { it.totalAmountPaise }
+
+        val activeVisit = if (empId.isNotBlank()) visitDao.getActiveVisitSync(empId) else null
+        val visits = if (empId.isNotBlank()) visitDao.getVisitsByEmployeeSync(empId) else emptyList()
         val completedIds = visits
             .filter { it.status == "COMPLETED" }
             .map { it.retailerId }
             .toSet()
 
+        val collections = if (empId.isNotBlank()) {
+            collectionRecordDao.getCollectionsByCollector(empId)
+        } else emptyList()
+        val todayCollectionsPaise = collections
+            .filter { it.timestamp >= startOfDay }
+            .sumOf { it.amountPaise }
+
+        val beatName = retailers.firstOrNull { it.beatId.isNotBlank() }?.beatId ?: "BEAT-01"
+
         SalesTodayState(
+            employeeName = employee?.name ?: "Sales Executive",
+            assignedBeat = beatName,
             activeShift = activeShift,
             activeVisit = activeVisit,
             retailers = retailers,
             completedVisitRetailerIds = completedIds,
+            todayOrdersAmountPaise = todayOrdersPaise,
+            todayCollectionsAmountPaise = todayCollectionsPaise,
             isLoading = uiStatus.isLoading,
             message = uiStatus.message,
             errorMessage = uiStatus.errorMessage

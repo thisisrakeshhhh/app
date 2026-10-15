@@ -98,8 +98,8 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
           collected_cash_paise, notes, created_by, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, 'PLANNED', ?, ?, 0, 0, ?, 0, ?, ?, ?, ?)`
       ).bind(
-        tripId, user.company_id, tripNumber, driverId, body.vehicleNumber || 'RJ14-DEFAULT',
-        body.routeArea || 'Jaipur Central', body.startTime || now, orders.length,
+        tripId, user.company_id, tripNumber, driverId, body.vehicleNumber || 'DEL-DEFAULT',
+        body.routeArea || 'Route Area 1', body.startTime || now, orders.length,
         totalAmount, body.notes || null, user.sub, now, now
       ),
       audit(c, 'TRIP_CREATED', tripId, { tripNumber, driverId, orderCount: orders.length })
@@ -129,8 +129,8 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
       driverUserId: driverId,
       driverId,
       driverName: driver.full_name,
-      vehicleNumber: body.vehicleNumber || 'RJ14-DEFAULT',
-      routeArea: body.routeArea || 'Jaipur Central',
+      vehicleNumber: body.vehicleNumber || 'DEL-DEFAULT',
+      routeArea: body.routeArea || 'Route Area 1',
       status: 'PLANNED',
       totalOrders: orders.length,
       totalStops: orders.length,

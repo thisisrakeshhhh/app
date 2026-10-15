@@ -155,6 +155,9 @@
     <string name="tab_deliveries">डिलीवरी</string>
     <string name="tab_confirm">पुष्टि</string>
     <string name="tab_cash">रोकड़ सुपुर्दगी</string>
+    <string name="tab_more">अन्य</string>
+    <string name="tab_route">रूट</string>
+    <string name="tab_history">इतिहास</string>
 
     <!-- Shifts & Beats -->
     <string name="start_shift">ड्यूटी / शिफ्ट शुरू करें</string>
@@ -319,7 +322,7 @@
 
     <!-- Delivery Profile Strings -->
     <string name="assigned_route_label">आवंटित रूट</string>
-    <string name="assigned_route_default">जयपुर होलसेल डिस्ट्रीब्यूशन रूट</string>
+    <string name="assigned_route_default">थोक वितरण रूट</string>
     <string name="deliveries_today_label">आज की डिलीवरी</string>
     <string name="deliveries_assigned_label">आवंटित स्टॉप्स</string>
     <string name="deliveries_completed_label">पूर्ण डिलीवरी</string>

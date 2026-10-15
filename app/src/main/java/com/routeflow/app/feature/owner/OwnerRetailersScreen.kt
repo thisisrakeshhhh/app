@@ -96,7 +96,7 @@ fun OwnerRetailersScreen(
             ) {
                 Column {
                     Text("Retailer Network", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("${state.retailers.size} shops registered across Jaipur beats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("${state.retailers.size} shops registered across active beats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
                 OutlinedButton(onClick = onBack) {
                     Text("Back")

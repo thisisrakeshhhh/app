@@ -1,61 +1,40 @@
 package com.routeflow.app.feature.owner
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.AssignmentReturn
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ReportProblem
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
 import com.routeflow.app.core.design.RFColors
-import com.routeflow.app.core.design.RouteFlowStatus
 import com.routeflow.app.domain.model.Employee
-import com.routeflow.app.domain.model.EmployeeRole
 
 @Composable
 fun OwnerHomeScreen(
@@ -79,11 +58,13 @@ fun OwnerHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color(0xFFF8FAFC))
                 .verticalScroll(scrollState)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header
+            // 1. Header Card
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -91,334 +72,248 @@ fun OwnerHomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Control Room",
-                        style = MaterialTheme.typography.headlineMedium,
+                        text = "Distributor Control Room",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Today's Wholesale & Cash Operations",
+                        text = "Wholesale Operations & Decision Desk",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFF2563EB))
                 }
             }
 
-            // Quick Actions Section
-            Text(
-                text = "Quick Actions",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
+            // 2. Primary Owner Action: Review Pending Orders Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onViewApprovals)
+                    .testTag("primary_action_approvals"),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (state.pendingApprovalsCount > 0) Color(0xFFEFF6FF) else Color.White
+                ),
+                border = BorderStroke(
+                    1.5.dp,
+                    if (state.pendingApprovalsCount > 0) Color(0xFF2563EB) else Color(0xFFE2E8F0)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (state.pendingApprovalsCount > 0) Color(0xFFDBEAFE) else Color(0xFFF1F5F9),
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.PendingActions,
+                                    contentDescription = null,
+                                    tint = if (state.pendingApprovalsCount > 0) Color(0xFF1D4ED8) else Color(0xFF64748B),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                QuickActionButton(
-                    title = "Approve Orders",
-                    badge = if (state.pendingApprovalsCount > 0) "${state.pendingApprovalsCount}" else null,
-                    badgeColor = Color(0xFFDC2626),
-                    icon = Icons.Default.PendingActions,
-                    modifier = Modifier.weight(1f).testTag("quick_action_approvals"),
-                    onClick = onViewApprovals
-                )
-                QuickActionButton(
-                    title = "View Cash",
-                    badge = if (state.pendingHandoverCount > 0) "${state.pendingHandoverCount}" else null,
-                    badgeColor = Color(0xFF2563EB),
-                    icon = Icons.Default.AccountBalanceWallet,
-                    modifier = Modifier.weight(1f).testTag("quick_action_cash"),
-                    onClick = onViewHandovers
-                )
-                QuickActionButton(
-                    title = "Staff Location",
-                    badge = "${state.staffOnDutyCount}",
-                    badgeColor = Color(0xFF16A34A),
-                    icon = Icons.Default.LocationOn,
-                    modifier = Modifier.weight(1f).testTag("quick_action_staff"),
-                    onClick = onViewTeam
-                )
+                        Column {
+                            Text(
+                                text = "Review Pending Orders",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = if (state.pendingApprovalsCount > 0)
+                                    "${state.pendingApprovalsCount} order(s) waiting for approval"
+                                else
+                                    "No pending orders. Queue is clear.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (state.pendingApprovalsCount > 0) Color(0xFF2563EB) else Color(0xFF64748B),
+                                fontWeight = if (state.pendingApprovalsCount > 0) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = if (state.pendingApprovalsCount > 0) Color(0xFF2563EB) else Color(0xFF94A3B8)
+                    )
+                }
             }
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                QuickActionButton(
-                    title = "Stock Alert",
-                    badge = if (state.lowStockCount > 0) "${state.lowStockCount}" else null,
-                    badgeColor = Color(0xFFD97706),
-                    icon = Icons.Default.Warning,
-                    modifier = Modifier.weight(1f).testTag("quick_action_stock"),
-                    onClick = onViewProducts
-                )
-                QuickActionButton(
-                    title = "Reports",
-                    badge = null,
-                    badgeColor = Color(0xFF4B5563),
-                    icon = Icons.Default.Assessment,
-                    modifier = Modifier.weight(1f).testTag("quick_action_reports"),
-                    onClick = onViewReports
-                )
-            }
-
-            // 8 Core Operational KPI Cards
+            // 3. Exactly Four Summary Cards (2x2 Grid)
             Text(
-                text = "Business Metrics",
-                style = MaterialTheme.typography.titleMedium,
+                text = "Key Operations Metrics",
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
+                color = Color(0xFF475569)
             )
 
-            // Row 1: Today Sales & Cash Collected
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard(
-                    title = "Today Sales",
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CleanMetricCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Today's Sales",
                     value = CurrencyFormatter.formatPaise(state.deliveredSalesTodayPaise),
                     icon = Icons.Default.TrendingUp,
-                    color = Color(0xFF16A34A),
-                    modifier = Modifier.weight(1f)
+                    accentColor = Color(0xFF16A34A)
                 )
-                MetricCard(
-                    title = "Cash Collected",
+                CleanMetricCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Today's Collection",
                     value = CurrencyFormatter.formatPaise(state.cashCollectedTodayPaise),
                     icon = Icons.Default.Payments,
-                    color = Color(0xFF2563EB),
-                    modifier = Modifier.weight(1f)
+                    accentColor = Color(0xFF2563EB)
                 )
             }
 
-            // Row 2: Pending Udhaar & Pending Approvals
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard(
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CleanMetricCard(
+                    modifier = Modifier.weight(1f),
                     title = "Pending Udhaar",
                     value = CurrencyFormatter.formatPaise(state.totalOutstandingPaise),
-                    icon = Icons.Default.ReportProblem,
-                    color = Color(0xFFDC2626),
-                    modifier = Modifier.weight(1f)
+                    icon = Icons.Default.Warning,
+                    accentColor = Color(0xFFDC2626)
                 )
-                MetricCard(
+                CleanMetricCard(
+                    modifier = Modifier.weight(1f),
                     title = "Pending Approvals",
                     value = "${state.pendingApprovalsCount}",
                     icon = Icons.Default.PendingActions,
-                    color = if (state.pendingApprovalsCount > 0) Color(0xFFD97706) else Color(0xFF4B5563),
-                    modifier = Modifier.weight(1f)
+                    accentColor = if (state.pendingApprovalsCount > 0) Color(0xFFEA580C) else Color(0xFF64748B)
                 )
             }
 
-            // Row 3: Godown Low Stock & Failed Deliveries
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard(
-                    title = "Low Stock Items",
-                    value = "${state.lowStockCount}",
-                    icon = Icons.Default.Warning,
-                    color = if (state.lowStockCount > 0) Color(0xFFEA580C) else Color(0xFF16A34A),
-                    modifier = Modifier.weight(1f)
-                )
-                MetricCard(
-                    title = "Failed Deliveries",
-                    value = "${state.failedDeliveriesCount}",
-                    icon = Icons.Default.ReportProblem,
-                    color = if (state.failedDeliveriesCount > 0) Color(0xFFDC2626) else Color(0xFF16A34A),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Row 4: Pending Cash Handover & Staff On Duty
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard(
-                    title = "Pending Handover",
-                    value = "${state.pendingHandoverCount} (${CurrencyFormatter.formatPaise(state.pendingHandoverAmountPaise)})",
-                    icon = Icons.Default.AccountBalanceWallet,
-                    color = if (state.pendingHandoverCount > 0) Color(0xFF7C3AED) else Color(0xFF4B5563),
-                    modifier = Modifier.weight(1f)
-                )
-                MetricCard(
-                    title = "Staff On Duty",
-                    value = "${state.staffOnDutyCount} Active",
-                    icon = Icons.Default.Group,
-                    color = Color(0xFF0284C7),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Operations & Verifications Section
+            // 4. Secondary Action Tiles
             Text(
-                text = "Cash & Ledger Reconciliation",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
-                modifier = Modifier.padding(top = 8.dp)
-            )
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onViewHandovers,
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Cash Handover", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = onViewCollections,
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = RFColors.Accent,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Verify UPI/Cheque", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            OutlinedButton(
-                onClick = onViewReturns,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.AssignmentReturn, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Returns & Credit Notes", style = MaterialTheme.typography.labelLarge)
-            }
-
-            // Master Data & Configuration Section
-            if (employee.role == EmployeeRole.OWNER) {
-                Text(
-                    text = "Master Data & Staff Controls",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(
-                        onClick = onViewProducts,
-                        modifier = Modifier.weight(1f).height(50.dp).testTag("nav_products_button"),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Godown Stock", style = MaterialTheme.typography.labelMedium)
-                    }
-
-                    OutlinedButton(
-                        onClick = onViewRetailers,
-                        modifier = Modifier.weight(1f).height(50.dp).testTag("nav_retailers_button"),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Retailers", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = onViewEmployees,
-                    modifier = Modifier.fillMaxWidth().height(50.dp).testTag("nav_employees_button"),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Manage Staff & Reset Passwords", style = MaterialTheme.typography.labelLarge)
-                }
-            }
-
-            // 120dp bottom padding so no content is obscured behind bottom navigation
-            Spacer(Modifier.height(120.dp))
-        }
-    }
-}
-
-@Composable
-private fun QuickActionButton(
-    title: String,
-    badge: String?,
-    badgeColor: Color,
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = Color(0xFFEFF6FF),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(18.dp))
-                    }
-                }
-                if (badge != null) {
-                    Surface(
-                        color = badgeColor.copy(alpha = 0.12f),
-                        shape = CircleShape,
-                        border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.3f))
-                    ) {
-                        Text(
-                            text = badge,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = badgeColor
-                        )
-                    }
-                }
-            }
-            Text(
-                text = title,
+                text = "Secondary Actions",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
-                maxLines = 1
+                color = Color(0xFF475569)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SecondaryActionCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Settle Cash",
+                    badge = if (state.pendingHandoverCount > 0) "${state.pendingHandoverCount}" else null,
+                    badgeColor = Color(0xFF2563EB),
+                    icon = Icons.Default.AccountBalanceWallet,
+                    onClick = onViewHandovers
+                )
+                SecondaryActionCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Stock Alerts",
+                    badge = if (state.lowStockCount > 0) "${state.lowStockCount}" else null,
+                    badgeColor = Color(0xFFEA580C),
+                    icon = Icons.Default.Warning,
+                    onClick = onViewProducts
+                )
+                SecondaryActionCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Exceptions",
+                    badge = if (state.failedDeliveriesCount > 0) "${state.failedDeliveriesCount}" else null,
+                    badgeColor = Color(0xFFDC2626),
+                    icon = Icons.Default.Warning,
+                    onClick = onViewReturns
+                )
+            }
+
+            // 5. Important Alerts / Operational Status
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Operational Pulse",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Staff on Duty", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                        Text("${state.staffOnDutyCount} active", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Low Stock Warning", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                        Text("${state.lowStockCount} items", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if (state.lowStockCount > 0) Color(0xFFEA580C) else Color(0xFF64748B))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Pending Cash Handovers", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                        Text("${state.pendingHandoverCount} drivers", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = if (state.pendingHandoverCount > 0) Color(0xFF2563EB) else Color(0xFF64748B))
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun MetricCard(
+private fun CleanMetricCard(
+    modifier: Modifier = Modifier,
     title: String,
     value: String,
     icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
+    accentColor: Color
 ) {
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
-        shape = RoundedCornerShape(14.dp)
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -426,27 +321,81 @@ private fun MetricCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    title,
+                    text = title,
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF64748B),
                     fontWeight = FontWeight.SemiBold
                 )
-                Surface(
-                    color = color.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
-                    }
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
             }
             Text(
-                value,
+                text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
-                color = if (color == Color(0xFFDC2626)) Color(0xFFDC2626) else Color(0xFF0F172A)
+                color = Color(0xFF0F172A)
             )
+        }
+    }
+}
+
+@Composable
+private fun SecondaryActionCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    badge: String?,
+    badgeColor: Color,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(56.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFF334155))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B),
+                    fontSize = 11.sp
+                )
+            }
+            if (badge != null) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = badgeColor
+                ) {
+                    Text(
+                        text = badge,
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                        fontSize = 10.sp
+                    )
+                }
+            }
         }
     }
 }

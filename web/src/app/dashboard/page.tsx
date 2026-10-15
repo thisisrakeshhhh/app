@@ -388,7 +388,7 @@ export default function DashboardPage() {
           contactNumber: newRetailer.contactNumber.trim(),
           address: newRetailer.address.trim(),
           creditLimitPaise: creditPaise,
-          beatId: newRetailer.beatId || 'BEAT-04',
+          beatId: newRetailer.beatId || 'BEAT-01',
           latitude: newRetailer.latitude ? parseFloat(newRetailer.latitude) : undefined,
           longitude: newRetailer.longitude ? parseFloat(newRetailer.longitude) : undefined,
         }),
@@ -400,7 +400,7 @@ export default function DashboardPage() {
         contactNumber: '',
         address: '',
         creditLimitRupees: '5000',
-        beatId: 'BEAT-04',
+        beatId: 'BEAT-01',
         latitude: '',
         longitude: ''
       });
@@ -632,7 +632,7 @@ export default function DashboardPage() {
   const handleOpenOtpModal = (order: any) => {
     setOtpModalOrder(order);
     setOtpInput('');
-    setRecipientNameInput(order.retailer_name || 'Sharma General Store');
+    setRecipientNameInput(order.retailer_name || 'Store Manager');
     setOtpPaymentMethod('CASH');
     setOtpStatusNote(null);
   };
@@ -752,7 +752,7 @@ export default function DashboardPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="font-medium text-slate-700 text-[11px]">Jaipur Hub Auto-Sync (15s)</span>
+              <span className="font-medium text-slate-700 text-[11px]">Operations Auto-Sync (15s)</span>
             </div>
 
             {/* User Profile Card */}
@@ -2656,7 +2656,7 @@ export default function DashboardPage() {
                       {lang === 'hi' ? 'डिलीवरी OTP सत्यापन' : 'Verify Delivery OTP'}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Order #{otpModalOrder.id.slice(-6)} • {otpModalOrder.retailer_name || 'Sharma General Store'}
+                      Order #{otpModalOrder.id.slice(-6)} • {otpModalOrder.retailer_name || 'Retailer Store'}
                     </p>
                   </div>
                 </div>
@@ -2720,7 +2720,7 @@ export default function DashboardPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Ramesh Sharma"
+                  placeholder="e.g. Store Manager"
                   value={recipientNameInput}
                   onChange={(e) => setRecipientNameInput(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
@@ -2823,7 +2823,7 @@ export default function DashboardPage() {
                     placeholder="3450.00"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Canonical demo amount: ₹3,450.00 (Sharma General Store settlement)
+                    Enter exact physical cash collected from completed deliveries
                   </p>
                 </div>
 

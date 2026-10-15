@@ -15,6 +15,12 @@ interface CollectionRecordDao {
     @Query("SELECT * FROM collection_records WHERE companyId = :companyId AND collectedBy = :userId ORDER BY timestamp DESC")
     fun observeCollections(companyId: String, userId: String): Flow<List<CollectionRecordEntity>>
 
+    @Query("SELECT * FROM collection_records WHERE companyId = :companyId AND collectedBy = :userId ORDER BY timestamp DESC")
+    suspend fun getCollectionsSync(companyId: String, userId: String): List<CollectionRecordEntity>
+
+    @Query("SELECT * FROM collection_records WHERE collectedBy = :userId ORDER BY timestamp DESC")
+    suspend fun getCollectionsByCollector(userId: String): List<CollectionRecordEntity>
+
     @Query("SELECT * FROM collection_records WHERE isSynced = 0 AND companyId = :companyId ORDER BY timestamp ASC")
     suspend fun getPendingCollections(companyId: String): List<CollectionRecordEntity>
 
