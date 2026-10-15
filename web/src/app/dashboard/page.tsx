@@ -213,12 +213,28 @@ export default function DashboardPage() {
     }
     loadAllData(false);
 
-    // Real-time Auto-Refresh: Sync operational state across roles every 10 seconds
-    const interval = setInterval(() => {
-      loadAllData(true);
-    }, 10000);
+    // Automatic Refresh: Refreshes when window returns to foreground and periodically while active
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAllData(true);
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAllData(true);
+      }
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, [router]);
 
   const loadAllData = async (silent = false) => {
@@ -730,13 +746,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Live Status Pill */}
+            {/* Auto-Sync Status Pill */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="font-medium text-slate-700 text-[11px]">Jaipur Hub Live</span>
+              <span className="font-medium text-slate-700 text-[11px]">Jaipur Hub Auto-Sync (15s)</span>
             </div>
 
             {/* User Profile Card */}

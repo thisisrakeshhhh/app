@@ -98,7 +98,7 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(whRes.status, 200, `Warehouse creation failed: ${JSON.stringify(whRes.data)}`);
   const warehouseId = whRes.data.employee.id;
 
-  // 2d. Delivery Executive
+  // 2d. Assigned Delivery Executive (Suresh)
   const delRes = await post('/employees', {
     username: deliveryUsername,
     password: deliveryPassword,
@@ -109,7 +109,20 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(delRes.status, 200, `Delivery creation failed: ${JSON.stringify(delRes.data)}`);
   const deliveryId = delRes.data.employee.id;
 
-  console.log('  ✓ Staff accounts created. Logging in all 4 roles to acquire JWT tokens...');
+  // 2e. Other Delivery Executive (Dinesh - to test strict driver isolation)
+  const del2Username = `dinesh_del_${stamp}`;
+  const del2Password = 'DineshDel@2026!';
+  const del2Res = await post('/employees', {
+    username: del2Username,
+    password: del2Password,
+    fullName: 'Dinesh Kumar',
+    role: 'DELIVERY_EXECUTIVE',
+    phoneNumber: '9829066666'
+  }, ownerToken);
+  assert.equal(del2Res.status, 200, `Second Delivery creation failed: ${JSON.stringify(del2Res.data)}`);
+  const delivery2Id = del2Res.data.employee.id;
+
+  console.log('  ✓ Staff accounts created. Logging in all 5 staff users to acquire JWT tokens...');
   const adminLogin = await post('/auth/login', { username: adminUsername, password: adminPassword });
   assert.equal(adminLogin.status, 200);
   const adminToken = adminLogin.data.access_token;
@@ -126,7 +139,11 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(delLogin.status, 200);
   const delToken = delLogin.data.access_token;
 
-  console.log('  ✓ All 5 roles authenticated with separate sessions!');
+  const del2Login = await post('/auth/login', { username: del2Username, password: del2Password });
+  assert.equal(del2Login.status, 200);
+  const del2Token = del2Login.data.access_token;
+
+  console.log('  ✓ All 6 user sessions authenticated: Owner, Admin, Sales, Warehouse, Assigned Delivery, Other Delivery!');
 
   // ─────────────────────────────────────────────────────────────────────────
   // STEP 3 & 4: CREATE BEAT & ASSIGN SALES
@@ -262,32 +279,53 @@ async function runFreshCompanyRoleChainTest() {
   console.log(`  ✓ Order booked: ${orderId} for ₹${orderTotalPaise / 100} (Status: SUBMITTED)`);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 10, 11, 12: REAL-TIME VISIBILITY RULES BEFORE APPROVAL
+  // ROLE VISIBILITY ACCEPTANCE MATRIX HELPER
+  // Explicitly asserts individual visibility across 6 separate accounts:
+  // Owner, Admin, Warehouse Queue, Warehouse /orders, Assigned Driver, Other Driver
+  // ─────────────────────────────────────────────────────────────────────────
+  async function assertRoleMatrix(stageName, expected) {
+    const ownerRes = await get('/orders', ownerToken);
+    assert.equal(ownerRes.data.some(o => o.id === orderId), expected.owner, `[Matrix ${stageName}] Owner visibility failed`);
+
+    const adminRes = await get('/orders', adminToken);
+    assert.equal(adminRes.data.some(o => o.id === orderId), expected.admin, `[Matrix ${stageName}] Admin visibility failed`);
+
+    const whQueue = await get('/warehouse/picking-queue', whToken);
+    assert.equal(whQueue.data.orders.some(o => o.id === orderId), expected.whQueue, `[Matrix ${stageName}] Warehouse picking queue visibility failed`);
+
+    const whOrders = await get('/orders', whToken);
+    assert.equal(whOrders.data.some(o => o.id === orderId), expected.whOrders, `[Matrix ${stageName}] Warehouse /orders visibility failed`);
+
+    const assignedDelRes = await get('/orders', delToken);
+    assert.equal(assignedDelRes.data.some(o => o.id === orderId), expected.assignedDel, `[Matrix ${stageName}] Assigned Delivery visibility failed`);
+
+    const otherDelRes = await get('/orders', del2Token);
+    assert.equal(otherDelRes.data.some(o => o.id === orderId), expected.otherDel, `[Matrix ${stageName}] Other Delivery (Dinesh) visibility failed`);
+
+    console.log(`  [MATRIX PASS] Stage ${stageName}: Owner(${expected.owner}), Admin(${expected.admin}), WH_Queue(${expected.whQueue}), WH_Orders(${expected.whOrders}), AssignedDel(${expected.assignedDel}), OtherDel(${expected.otherDel})`);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 10, 11, 12: REAL-TIME VISIBILITY RULES BEFORE APPROVAL (SUBMITTED)
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n▶ STEP 10, 11, 12: Asserting Visibility Rules BEFORE Approval...');
-  
-  // 10. Owner & Admin MUST see it in orders list
-  const ownerOrders1 = await get('/orders', ownerToken);
-  assert.ok(ownerOrders1.data.some(o => o.id === orderId), 'Owner must see submitted order');
-  const adminOrders1 = await get('/orders', adminToken);
-  assert.ok(adminOrders1.data.some(o => o.id === orderId), 'Admin must see submitted order');
-  console.log('  [PASS] Owner & Admin see submitted order');
+  await assertRoleMatrix('SUBMITTED', {
+    owner: true,
+    admin: true,
+    whQueue: false,
+    whOrders: false,
+    assignedDel: false,
+    otherDel: false
+  });
 
-  // 11. Warehouse MUST NOT see it before approval
-  const whOrders1 = await get('/orders', whToken);
-  assert.ok(!whOrders1.data.some(o => o.id === orderId), 'Warehouse must NOT see unapproved order in /orders');
-  const whQueue1 = await get('/warehouse/picking-queue', whToken);
-  assert.ok(!whQueue1.data.orders.some(o => o.id === orderId), 'Warehouse must NOT see unapproved order in picking queue');
+  // Direct fetch restrictions:
   const whDetail1 = await get(`/orders/${orderId}`, whToken);
   assert.equal(whDetail1.status, 403, 'Warehouse direct fetch must be 403 before approval');
-  console.log('  [PASS] Warehouse is strictly blocked from unapproved order');
-
-  // 12. Delivery MUST NOT see it before approval
-  const delOrders1 = await get('/orders', delToken);
-  assert.ok(!delOrders1.data.some(o => o.id === orderId), 'Delivery must NOT see unapproved order');
   const delDetail1 = await get(`/orders/${orderId}`, delToken);
   assert.equal(delDetail1.status, 403, 'Delivery direct fetch must be 403 before dispatch');
-  console.log('  [PASS] Delivery is strictly blocked from unapproved order');
+  const del2Detail1 = await get(`/orders/${orderId}`, del2Token);
+  assert.equal(del2Detail1.status, 403, 'Other delivery direct fetch must be 403');
+  console.log('  [PASS] Warehouse, Assigned Driver & Other Driver are strictly blocked from unapproved order');
 
   // Negative Check: Delivery cannot approve
   const delApproveRes = await post(`/orders/${orderId}/approve`, {}, delToken);
@@ -298,29 +336,31 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(salesApproveRes.status, 403, 'Sales cannot self-approve order');
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 13, 14, 15: APPROVE ORDER & VISIBILITY CHECK
+  // STEP 13, 14, 15: APPROVE ORDER & VISIBILITY CHECK (APPROVED)
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n▶ STEP 13, 14, 15: Admin/TL Approves Order...');
   const approveRes = await post(`/orders/${orderId}/approve`, {}, adminToken);
   assert.equal(approveRes.status, 200);
   console.log('  ✓ Order Approved by Admin/TL! Stock reserved.');
 
-  // 14. Warehouse sees it now
-  const whOrders2 = await get('/orders', whToken);
-  assert.ok(whOrders2.data.some(o => o.id === orderId), 'Warehouse must see APPROVED order in /orders');
-  const whQueue2 = await get('/warehouse/picking-queue', whToken);
-  assert.ok(whQueue2.data.orders.some(o => o.id === orderId), 'Warehouse must see APPROVED order in picking queue');
-  console.log('  [PASS] Warehouse now sees order in picking queue');
+  // Role matrix check after approval
+  await assertRoleMatrix('APPROVED', {
+    owner: true,
+    admin: true,
+    whQueue: true,
+    whOrders: true,
+    assignedDel: false,
+    otherDel: false
+  });
 
-  // 15. Delivery STILL does NOT see it
-  const delOrders2 = await get('/orders', delToken);
-  assert.ok(!delOrders2.data.some(o => o.id === orderId), 'Delivery must STILL NOT see approved order before dispatch');
   const delDetail2 = await get(`/orders/${orderId}`, delToken);
   assert.equal(delDetail2.status, 403, 'Delivery direct fetch must STILL be 403');
-  console.log('  [PASS] Delivery remains blocked from approved undispatched order');
+  const del2Detail2 = await get(`/orders/${orderId}`, del2Token);
+  assert.equal(del2Detail2.status, 403, 'Other delivery direct fetch must STILL be 403');
+  console.log('  [PASS] Delivery drivers remain strictly blocked from approved undispatched order');
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 16, 17, 18, 19: WAREHOUSE PICKS & PACKS
+  // STEP 16, 17, 18, 19: WAREHOUSE PICKS & PACKS (PACKED)
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n▶ STEP 16, 17, 18, 19: Warehouse Item Picking & Packing...');
   
@@ -344,13 +384,18 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(packRes.status, 200);
   console.log('  ✓ Warehouse packed order into 2 sealed cartons! Status: PACKED');
 
-  // 19. Delivery STILL does NOT see it before dispatch
-  const delOrders3 = await get('/orders', delToken);
-  assert.ok(!delOrders3.data.some(o => o.id === orderId), 'Delivery must STILL NOT see packed order before dispatch');
-  console.log('  [PASS] Delivery cannot see order until assigned and dispatched');
+  // Role matrix check after packing
+  await assertRoleMatrix('PACKED', {
+    owner: true,
+    admin: true,
+    whQueue: true,
+    whOrders: true,
+    assignedDel: false,
+    otherDel: false
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 20, 21: ADMIN/WAREHOUSE DISPATCHES TO SURESH (DELIVERY EXECUTIVE)
+  // STEP 20, 21: ADMIN/WAREHOUSE DISPATCHES TO SURESH (OUT_FOR_DELIVERY)
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n▶ STEP 20, 21: Dispatching Packed Order to Suresh (Delivery)...');
   const dispatchRes = await post(`/orders/${orderId}/dispatch`, {
@@ -359,12 +404,20 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(dispatchRes.status, 200);
   console.log(`  ✓ Order dispatched to Suresh Yadav (${deliveryId})! Status: OUT_FOR_DELIVERY`);
 
-  // 21. Assigned Delivery Executive sees it NOW!
-  const delOrders4 = await get('/orders', delToken);
-  const myDeliveryOrder = delOrders4.data.find(o => o.id === orderId);
-  assert.ok(myDeliveryOrder, 'Delivery Executive must see assigned order in route queue');
-  assert.equal(myDeliveryOrder.status, 'OUT_FOR_DELIVERY');
-  console.log('  [PASS] Assigned Delivery Executive sees order in live route queue!');
+  // Role matrix check after dispatch
+  await assertRoleMatrix('OUT_FOR_DELIVERY', {
+    owner: true,
+    admin: true,
+    whQueue: false, // Dispatched orders leave active picking queue
+    whOrders: true,  // Warehouse sees dispatched order in orders/dispatch history
+    assignedDel: true, // Assigned driver sees order now
+    otherDel: false   // Other driver Dinesh is strictly blocked
+  });
+
+  // Direct fetch restrictions:
+  const del2DetailDispatched = await get(`/orders/${orderId}`, del2Token);
+  assert.equal(del2DetailDispatched.status, 403, 'Other delivery direct fetch must be 403 on dispatched order');
+  console.log('  [PASS] Strict driver-level isolation verified: Dinesh cannot access Suresh order');
 
   // Negative Check: Other company user cannot see this order
   const otherCompanyOwner = await post('/auth/register-owner', {
@@ -379,7 +432,7 @@ async function runFreshCompanyRoleChainTest() {
   console.log('  [PASS] Multi-tenant isolation verified: Competitor sees 0 orders');
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 22, 23, 24: DELIVERY EXECUTION & CASH PAYMENT
+  // STEP 22, 23, 24: DELIVERY EXECUTION & CASH PAYMENT (DELIVERED)
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n▶ STEP 22, 23, 24: Delivery at Shop, OTP Verification & Cash Collection...');
   
@@ -407,6 +460,16 @@ async function runFreshCompanyRoleChainTest() {
   assert.equal(deliverRes.status, 200, `Delivery failed: ${JSON.stringify(deliverRes.data)}`);
   console.log(`  ✓ Goods delivered to Sharma General Store! Status: DELIVERED`);
   console.log(`  ✓ ₹${orderTotalPaise / 100} Cash collected by driver Suresh`);
+
+  // Role matrix check after delivery
+  await assertRoleMatrix('DELIVERED', {
+    owner: true,
+    admin: true,
+    whQueue: false,
+    whOrders: false, // Delivered orders leave active warehouse operational queues
+    assignedDel: true,
+    otherDel: false
+  });
 
   // Verify driver cash held
   const driverHandoversInfo = await get('/cash-handovers', delToken);
