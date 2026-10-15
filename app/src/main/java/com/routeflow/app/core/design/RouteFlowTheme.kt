@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.sp
 private val LightColors = lightColorScheme(
     primary = RFColors.Primary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFEFF6FF),
-    onPrimaryContainer = RFColors.Accent,
+    primaryContainer = RFColors.InfoSurface,
+    onPrimaryContainer = RFColors.Primary,
     secondary = RFColors.Secondary,
     onSecondary = Color.White,
     background = RFColors.Background,
@@ -24,72 +24,83 @@ private val LightColors = lightColorScheme(
     surface = RFColors.Surface,
     onSurface = RFColors.TextPrimary,
     outline = RFColors.Outline,
-    error = RFColors.Error,
+    error = RFColors.Danger,
     onError = Color.White
 )
 
 private val RouteFlowTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.5).sp
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
+        letterSpacing = (-0.3).sp,
+        color = RFColors.TextPrimary
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        color = RFColors.TextPrimary
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Black,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 22.sp,
         lineHeight = 28.sp,
-        color = Color(0xFF0F172A)
+        color = RFColors.TextPrimary
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        color = Color(0xFF0F172A)
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 17.sp,
+        lineHeight = 24.sp,
+        color = RFColors.TextPrimary
     ),
     titleSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        color = Color(0xFF0F172A)
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        color = RFColors.TextPrimary
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
-        color = Color(0xFF1E293B)
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        color = RFColors.TextPrimary
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
         lineHeight = 18.sp,
-        color = Color(0xFF475569)
+        color = RFColors.TextSecondary
     ),
     bodySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        color = Color(0xFF64748B)
+        color = RFColors.TextSecondary
     ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
         lineHeight = 20.sp
     ),
     labelMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
+        fontSize = 13.sp,
+        lineHeight = 18.sp
     ),
     labelSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 14.sp
     )
@@ -108,7 +119,6 @@ fun RouteFlowTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    // For this business app demo, we force Light Theme for the premium web look
     MaterialTheme(
         colorScheme = LightColors,
         typography = RouteFlowTypography,

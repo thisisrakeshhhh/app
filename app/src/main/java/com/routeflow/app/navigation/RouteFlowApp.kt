@@ -2,6 +2,7 @@ package com.routeflow.app.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,6 +43,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -50,6 +52,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.routeflow.app.core.design.RFAccountBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -282,271 +287,143 @@ fun RouteFlowApp(
         }
     }
 
+    var showAccountSheet by remember { mutableStateOf(false) }
+
+    if (showAccountSheet && employee != null) {
+        ModalBottomSheet(
+            onDismissRequest = { showAccountSheet = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = null
+        ) {
+            RFAccountBottomSheet(
+                employeeName = employee.name,
+                roleTitle = stringResource(employee.role.labelRes),
+                currentLanguage = currentLanguage,
+                onLanguageChange = onLanguageChange,
+                onLogout = {
+                    showAccountSheet = false
+                    isDemoMode = false
+                    onDemoLogout()
+                },
+                onDismiss = { showAccountSheet = false }
+            )
+        }
+    }
+
     Scaffold(
         topBar = {
             if (employee != null) {
-                Column {
-                    if (employee.role == EmployeeRole.SALESPERSON) {
-                        val isSubScreen = currentRoute?.startsWith("sales/visit") == true ||
-                                          currentRoute?.startsWith("sales/order") == true ||
-                                          currentRoute?.startsWith("sales/stock-check") == true ||
-                                          currentRoute == SALES_TODAY
-                        val isHindi = currentLanguage == "hi"
-                        val salesTitle = when {
-                            currentRoute == RoleDestination.SALES.route -> if (isHindi) "आज का रूट" else "Today's Route"
-                            currentRoute == SALES_TODAY -> if (isHindi) "आज का रूट" else "Today's Route"
-                            currentRoute == SALES_RETAILER_LIST -> if (isHindi) "आवंटित दुकानें" else "Assigned Shops"
-                            currentRoute == SALES_COLLECTIONS -> if (isHindi) "उगाही और रसीद" else "Collections"
-                            currentRoute == SALES_PROFILE -> if (isHindi) "प्रोफ़ाइल" else "Profile"
-                            currentRoute?.startsWith("sales/order") == true -> if (isHindi) "ऑर्डर बुकिंग" else "Order Booking"
-                            currentRoute?.startsWith("sales/visit") == true -> if (isHindi) "दुकान विज़िट" else "Shop Visit"
-                            currentRoute?.startsWith("sales/stock-check") == true -> if (isHindi) "स्टॉक जाँच" else "Stock Check"
-                            else -> if (isHindi) "रूटफ़्लो सेल्स" else "RouteFlow Sales"
-                        }
-                        TopAppBar(
-                            navigationIcon = {
-                                if (isSubScreen) {
-                                    IconButton(onClick = { navController.popBackStack() }) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = "Back",
-                                            tint = RFColors.TextPrimary
-                                        )
-                                    }
-                                }
-                            },
-                            title = {
-                                Text(
-                                    salesTitle,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
-                                )
-                            },
-                            actions = {
-                                LanguageSwitchPill(
-                                    currentLanguage = currentLanguage,
-                                    onLanguageChange = onLanguageChange
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFFEF2F2),
-                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                                    modifier = Modifier.padding(end = 6.dp)
-                                ) {
-                                    TextButton(
-                                        onClick = {
-                                            isDemoMode = false
-                                            onDemoLogout()
-                                        },
-                                        modifier = Modifier.testTag("logout").height(32.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-                                    ) {
-                                        Text(
-                                            stringResource(R.string.logout),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFDC2626),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.White,
-                                titleContentColor = Color(0xFF0F172A),
-                            ),
-                            modifier = Modifier.drawBehind {
-                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-                            }
-                        )
-                    } else if (employee.role == EmployeeRole.WAREHOUSE_MANAGER) {
-                        val isSubScreen = currentRoute != RoleDestination.WAREHOUSE.route
-                        val isHindi = currentLanguage == "hi"
-                        val warehouseTitle = when (currentRoute) {
-                            RoleDestination.WAREHOUSE.route -> if (isHindi) "गोदाम डिपो" else "Godown Depot"
-                            WAREHOUSE_STOCK -> if (isHindi) "गोदाम स्टॉक" else "Godown Stock"
-                            WAREHOUSE_PICKING -> if (isHindi) "पिकिंग कतार" else "Picking Queue"
-                            WAREHOUSE_DISPATCH -> if (isHindi) "डिस्पैच बैच" else "Dispatch Batches"
-                            WAREHOUSE_RETURNS -> if (isHindi) "वापसी और रिटर्न" else "Customer Returns"
-                            else -> if (isHindi) "गोदाम डिपो" else "Godown Depot"
-                        }
-                        TopAppBar(
-                            navigationIcon = {
-                                if (isSubScreen) {
-                                    IconButton(onClick = {
-                                        if (!navController.popBackStack()) {
-                                            navController.navigate(RoleDestination.WAREHOUSE.route) {
-                                                popUpTo(RoleDestination.WAREHOUSE.route) { inclusive = true }
-                                            }
-                                        }
-                                    }) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = "Back",
-                                            tint = RFColors.TextPrimary
-                                        )
-                                    }
-                                }
-                            },
-                            title = {
-                                Text(
-                                    warehouseTitle,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
-                                )
-                            },
-                            actions = {
-                                LanguageSwitchPill(
-                                    currentLanguage = currentLanguage,
-                                    onLanguageChange = onLanguageChange
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFFEF2F2),
-                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                                    modifier = Modifier.padding(end = 6.dp)
-                                ) {
-                                    TextButton(
-                                        onClick = {
-                                            isDemoMode = false
-                                            onDemoLogout()
-                                        },
-                                        modifier = Modifier.testTag("logout").height(32.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-                                    ) {
-                                        Text(
-                                            stringResource(R.string.logout),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFDC2626),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.White,
-                                titleContentColor = Color(0xFF0F172A),
-                            ),
-                            modifier = Modifier.drawBehind {
-                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-                            }
-                        )
-                    } else if (employee.role == EmployeeRole.DELIVERY_EXECUTIVE) {
-                        val isSubScreen = currentRoute?.startsWith("delivery/detail") == true
-                        val isHindi = currentLanguage == "hi"
-                        TopAppBar(
-                            navigationIcon = {
-                                if (isSubScreen) {
-                                    IconButton(onClick = { navController.popBackStack() }) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = "Back",
-                                            tint = RFColors.TextPrimary
-                                        )
-                                    }
-                                }
-                            },
-                            title = {
-                                Text(
-                                    if (isHindi) "वितरण फ्लीट" else "Delivery Fleet",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
-                                )
-                            },
-                            actions = {
-                                LanguageSwitchPill(
-                                    currentLanguage = currentLanguage,
-                                    onLanguageChange = onLanguageChange
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFFEF2F2),
-                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                                    modifier = Modifier.padding(end = 6.dp)
-                                ) {
-                                    TextButton(
-                                        onClick = {
-                                            isDemoMode = false
-                                            onDemoLogout()
-                                        },
-                                        modifier = Modifier.testTag("logout").height(32.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-                                    ) {
-                                        Text(
-                                            stringResource(R.string.logout),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFDC2626),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.White,
-                                titleContentColor = Color(0xFF0F172A),
-                            ),
-                            modifier = Modifier.drawBehind {
-                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-                            }
-                        )
-                    } else {
-                        TopAppBar(
-                            title = {
-                                Column {
-                                    Text(
-                                        "RouteFlow",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color(0xFF0F172A)
-                                    )
-                                    Text(
-                                        stringResource(employee.role.labelRes),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = RFColors.Accent,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            },
-                            actions = {
-                                LanguageSwitchPill(
-                                    currentLanguage = currentLanguage,
-                                    onLanguageChange = onLanguageChange
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFFEF2F2),
-                                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                                    modifier = Modifier.padding(end = 6.dp)
-                                ) {
-                                    TextButton(
-                                        onClick = {
-                                            isDemoMode = false
-                                            onDemoLogout()
-                                        },
-                                        modifier = Modifier.testTag("logout").height(32.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-                                    ) {
-                                        Text(
-                                            stringResource(R.string.logout),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFDC2626),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.White,
-                                titleContentColor = Color(0xFF0F172A),
-                            ),
-                            modifier = Modifier.drawBehind {
-                                drawLine(Color(0xFFF1F5F9), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
-                            }
-                        )
+                val isHindi = currentLanguage == "hi"
+                val isHomeScreen = currentRoute == RoleDestination.OWNER.route ||
+                                   currentRoute == RoleDestination.ADMIN.route ||
+                                   currentRoute == RoleDestination.SALES.route ||
+                                   currentRoute == SALES_TODAY ||
+                                   currentRoute == RoleDestination.WAREHOUSE.route ||
+                                   currentRoute == RoleDestination.DELIVERY.route
+                val isSubScreen = !bottomNavItems.any { it.route == currentRoute } && !isHomeScreen
+
+                val screenTitle = when (currentRoute) {
+                    RoleDestination.OWNER.route -> "RouteFlow"
+                    OWNER_APPROVALS -> if (isHindi) "ऑर्डर मंज़ूरी" else "Orders"
+                    OWNER_BUSINESS_HUB -> if (isHindi) "व्यापार हब" else "Business Hub"
+                    OWNER_TEAM -> if (isHindi) "टीम प्रबंधन" else "Team"
+                    OWNER_ACTIVITY -> if (isHindi) "अन्य संचालन" else "More"
+                    OWNER_HANDOVERS -> if (isHindi) "कैश हैंडओवर" else "Cash Handovers"
+                    OWNER_COLLECTIONS -> if (isHindi) "उगाही रिकॉर्ड" else "Collections"
+                    OWNER_RETURNS -> if (isHindi) "वापसी और रिटर्न" else "Customer Returns"
+                    OWNER_BEATS -> if (isHindi) "बीट प्रबंधन" else "Beats"
+                    OWNER_RETAILERS -> if (isHindi) "दुकानदार सूची" else "Retailers"
+                    OWNER_PRODUCTS -> if (isHindi) "उत्पाद सूची" else "Products"
+                    OWNER_EMPLOYEES -> if (isHindi) "कर्मचारी सूची" else "Employees"
+
+                    RoleDestination.ADMIN.route -> "RouteFlow"
+                    ADMIN_APPROVALS -> if (isHindi) "ऑर्डर मंज़ूरी" else "Orders"
+                    ADMIN_TEAM -> if (isHindi) "टीम प्रबंधन" else "Team"
+                    ADMIN_ACTIVITY -> if (isHindi) "अन्य संचालन" else "More"
+
+                    RoleDestination.SALES.route, SALES_TODAY -> "RouteFlow"
+                    SALES_RETAILER_LIST -> if (isHindi) "आवंटित दुकानें" else "Assigned Shops"
+                    SALES_COLLECTIONS -> if (isHindi) "उगाही और रसीद" else "Collections"
+                    SALES_PROFILE -> if (isHindi) "प्रोफ़ाइल" else "Profile"
+
+                    RoleDestination.WAREHOUSE.route -> "RouteFlow"
+                    WAREHOUSE_STOCK -> if (isHindi) "गोदाम स्टॉक" else "Godown Stock"
+                    WAREHOUSE_PICKING -> if (isHindi) "पिकिंग कतार" else "Picking Queue"
+                    WAREHOUSE_DISPATCH -> if (isHindi) "डिस्पैच बैच" else "Dispatch Batches"
+                    WAREHOUSE_RETURNS -> if (isHindi) "वापसी और रिटर्न" else "Customer Returns"
+
+                    RoleDestination.DELIVERY.route -> "RouteFlow"
+                    DELIVERY_HANDOVER -> if (isHindi) "कैश जमा" else "Cash Handover"
+                    DELIVERY_LIST -> if (isHindi) "वितरण इतिहास" else "Trip History"
+
+                    else -> when {
+                        currentRoute?.startsWith("sales/order") == true -> if (isHindi) "ऑर्डर बुकिंग" else "Order Booking"
+                        currentRoute?.startsWith("sales/visit") == true -> if (isHindi) "दुकान विज़िट" else "Shop Visit"
+                        currentRoute?.startsWith("sales/stock-check") == true -> if (isHindi) "स्टॉक जाँच" else "Stock Check"
+                        currentRoute?.startsWith("delivery/detail") == true -> if (isHindi) "डिलीवरी विवरण" else "Delivery Detail"
+                        else -> "RouteFlow"
                     }
                 }
+
+                TopAppBar(
+                    navigationIcon = {
+                        if (isSubScreen) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = RFColors.TextPrimary
+                                )
+                            }
+                        }
+                    },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = screenTitle,
+                                style = if (isHomeScreen) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = RFColors.TextPrimary
+                            )
+                            if (isHomeScreen) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 6.dp)
+                                        .size(6.dp)
+                                        .background(RFColors.Primary, CircleShape)
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        Surface(
+                            shape = CircleShape,
+                            color = RFColors.InfoSurface,
+                            border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .size(36.dp),
+                            onClick = { showAccountSheet = true }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = employee.name.take(1).uppercase(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.Primary
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        titleContentColor = RFColors.TextPrimary,
+                    ),
+                    modifier = Modifier.drawBehind {
+                        drawLine(RFColors.Border, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                    }
+                )
             }
         },
         bottomBar = {
@@ -554,9 +431,11 @@ fun RouteFlowApp(
                 NavigationBar(
                     containerColor = Color.White,
                     tonalElevation = 0.dp,
-                    modifier = Modifier.drawBehind {
-                        drawLine(Color(0xFFF1F5F9), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
-                    }
+                    modifier = Modifier
+                        .height(68.dp)
+                        .drawBehind {
+                            drawLine(RFColors.Border, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
+                        }
                 ) {
                     bottomNavItems.forEach { item ->
                         val isSelected = when (item.route) {
@@ -600,11 +479,11 @@ fun RouteFlowApp(
                                 )
                             },
                             colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color(0xFF2563EB),
-                                selectedTextColor = Color(0xFF2563EB),
-                                indicatorColor = Color(0xFFEFF6FF),
-                                unselectedIconColor = Color(0xFF94A3B8),
-                                unselectedTextColor = Color(0xFF64748B)
+                                selectedIconColor = RFColors.Primary,
+                                selectedTextColor = RFColors.Primary,
+                                indicatorColor = RFColors.InfoSurface,
+                                unselectedIconColor = RFColors.Secondary,
+                                unselectedTextColor = RFColors.Secondary
                             )
                         )
                     }

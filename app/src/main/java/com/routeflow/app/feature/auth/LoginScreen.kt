@@ -60,93 +60,100 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Language selector top bar
+            // Top bar: Language switch pill
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = 24.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(
+                Surface(
                     onClick = {
                         onLanguageChange(if (currentLanguage == "en") "hi" else "en")
                     },
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, RFColors.Accent.copy(alpha = 0.5f)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = RFColors.Primary
-                    )
+                    border = BorderStroke(1.dp, RFColors.Outline),
+                    color = Color.White
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = RFColors.Accent
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (currentLanguage == "en") "हिन्दी (Hindi)" else "English",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = RFColors.Primary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (currentLanguage == "en") "हिन्दी" else "English",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = RFColors.TextPrimary
+                        )
+                    }
                 }
             }
 
-            // Branding Icon
-            Card(
-                modifier = Modifier.size(68.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = RFColors.Primary),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            // RouteFlow Brand Mark
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = RFColors.Primary,
+                shadowElevation = 0.dp
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Business,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineLarge.copy(fontSize = 30.sp),
-                fontWeight = FontWeight.Black,
-                color = RFColors.Primary
+                text = "RouteFlow",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = RFColors.TextPrimary
             )
 
             Text(
-                text = stringResource(R.string.app_tagline),
+                text = if (currentLanguage == "hi") "वितरण एवं गोदाम प्रबंधन प्रणाली" else "Wholesale & Logistics Operating System",
                 style = MaterialTheme.typography.bodyMedium,
-                color = RFColors.Secondary,
-                fontWeight = FontWeight.Medium
+                color = RFColors.TextSecondary
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Main Credential Card
-            Card(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, RFColors.Border)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(22.dp)
+                        .padding(20.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.login_title),
+                        text = if (currentLanguage == "hi") "अपनी कंपनी में साइन इन करें" else "Sign in to your company",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = RFColors.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (currentLanguage == "hi") "अपने क्रेडेंशियल्स दर्ज करें" else "Enter your employee credentials to continue",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RFColors.TextSecondary
                     )
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -279,117 +286,99 @@ fun LoginScreen(
             if (BuildConfig.BUILD_TYPE != "release") {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Quick Staging Accounts Autofill (2 comfortable rows)
-                Text(
-                    text = "Staging Accounts (Click to Fill):",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = RFColors.Secondary,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Row 1: Management & Sales
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, RFColors.Border),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    listOf(
-                        "owner" to "Owner",
-                        "admin" to "Admin",
-                        "sales" to "Sales"
-                    ).forEach { (user, label) ->
-                        val isSelected = state.username == user
-                        OutlinedButton(
-                            onClick = {
-                                onUsernameChange(user)
-                                onPasswordChange("password123")
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (isSelected) RFColors.Primary else Color.White,
-                                contentColor = if (isSelected) Color.White else RFColors.Primary
-                            ),
-                            border = BorderStroke(
-                                1.dp,
-                                if (isSelected) RFColors.Primary else RFColors.Outline
-                            ),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            shape = RoundedCornerShape(8.dp)
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Staging Accounts (Click to Fill):",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RFColors.TextSecondary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Row 1: Management & Sales
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
                         ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            listOf(
+                                "owner" to "Owner",
+                                "admin" to "Admin",
+                                "sales" to "Sales"
+                            ).forEach { (user, label) ->
+                                val isSelected = state.username == user
+                                Surface(
+                                    onClick = {
+                                        onUsernameChange(user)
+                                        onPasswordChange("password123")
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) RFColors.InfoSurface else Color(0xFFF8FAFC),
+                                    border = BorderStroke(1.dp, if (isSelected) RFColors.Primary else RFColors.Outline)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) RFColors.Primary else RFColors.TextPrimary
+                                    )
+                                }
+                            }
                         }
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                // Row 2: Warehouse & Delivery
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-                ) {
-                    listOf(
-                        "warehouse" to "Warehouse Manager",
-                        "delivery" to "Delivery Executive"
-                    ).forEach { (user, label) ->
-                        val isSelected = state.username == user
-                        OutlinedButton(
-                            onClick = {
-                                onUsernameChange(user)
-                                onPasswordChange("password123")
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (isSelected) RFColors.Primary else Color.White,
-                                contentColor = if (isSelected) Color.White else RFColors.Primary
-                            ),
-                            border = BorderStroke(
-                                1.dp,
-                                if (isSelected) RFColors.Primary else RFColors.Outline
-                            ),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            shape = RoundedCornerShape(8.dp)
+                        // Row 2: Warehouse & Delivery
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
                         ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            listOf(
+                                "warehouse" to "Warehouse Manager",
+                                "delivery" to "Delivery Executive"
+                            ).forEach { (user, label) ->
+                                val isSelected = state.username == user
+                                Surface(
+                                    onClick = {
+                                        onUsernameChange(user)
+                                        onPasswordChange("password123")
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) RFColors.InfoSurface else Color(0xFFF8FAFC),
+                                    border = BorderStroke(1.dp, if (isSelected) RFColors.Primary else RFColors.Outline)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) RFColors.Primary else RFColors.TextPrimary
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Cloud Status Badge
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFFF1F5F9),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = null,
-                        tint = RFColors.Success,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Live Server Sync Enabled",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = RFColors.Secondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+            // Help & Contact Link
+            Text(
+                text = if (currentLanguage == "hi") "मदद चाहिए? एडमिन से संपर्क करें" else "Need help signing in? Contact distributor admin",
+                style = MaterialTheme.typography.bodySmall,
+                color = RFColors.TextSecondary
+            )
 
             if (onSwitchToDemo != null) {
                 Spacer(modifier = Modifier.height(10.dp))

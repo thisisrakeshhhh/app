@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.core.network.dto.PickingOrderDto
 import com.routeflow.app.domain.model.Employee
@@ -42,14 +40,14 @@ fun WarehouseHomeScreen(
 ) {
     if (state.isLoading) {
         Box(
-            modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC)),
+            modifier = Modifier.fillMaxSize().background(RFColors.Background),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(color = RFColors.Primary)
         }
     } else {
         val isHindi = currentLanguage == "hi"
-        var selectedQueueSection by remember { mutableStateOf("ALL") } // ALL, READY, PICKING, PACKED
+        var selectedQueueSection by remember { mutableStateOf("ALL") }
 
         val readyOrders = remember(pickingOrders) {
             pickingOrders.filter { it.status == "APPROVED" }
@@ -71,23 +69,23 @@ fun WarehouseHomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8FAFC))
+                .background(RFColors.Background)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             // 1. Warehouse Desk Header Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, RFColors.Border),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -98,39 +96,39 @@ fun WarehouseHomeScreen(
                                 Text(
                                     text = if (isHindi) "गोदाम कतार" else "Warehouse Work Queue",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
                                 )
                                 Text(
                                     text = employee.name.ifBlank { if (isHindi) "गोदाम स्टाफ" else "Godown Staff" },
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF64748B)
+                                    fontWeight = FontWeight.Medium,
+                                    color = RFColors.TextSecondary
                                 )
                             }
 
                             // On Duty Pill
                             Surface(
-                                color = Color(0xFFF0FDF4),
-                                shape = RoundedCornerShape(6.dp),
-                                border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                                color = RFColors.SuccessLight,
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, RFColors.Success.copy(alpha = 0.3f))
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .size(7.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF16A34A))
+                                            .background(RFColors.Success)
                                     )
                                     Text(
                                         text = if (isHindi) "ड्यूटी सक्रिय" else "On Duty",
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF15803D)
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = RFColors.Success
                                     )
                                 }
                             }
@@ -139,38 +137,38 @@ fun WarehouseHomeScreen(
                         // Quick Scan & Stock Action Strip
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             OutlinedButton(
                                 onClick = onScanBarcode,
-                                modifier = Modifier.weight(1f).height(44.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, RFColors.Primary.copy(alpha = 0.3f)),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFFEFF6FF),
-                                    contentColor = Color(0xFF1D4ED8)
+                                    containerColor = RFColors.InfoLight,
+                                    contentColor = RFColors.Primary
                                 ),
                                 contentPadding = PaddingValues(horizontal = 10.dp)
                             ) {
                                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text(if (isHindi) "बारकोड स्कैन" else "Scan SKU", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text(if (isHindi) "बारकोड स्कैन" else "Scan SKU", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             }
 
                             OutlinedButton(
                                 onClick = { onNavigateTab("warehouse/stock") },
-                                modifier = Modifier.weight(1f).height(44.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, RFColors.Border),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color(0xFF334155)
+                                    containerColor = RFColors.Surface,
+                                    contentColor = RFColors.TextPrimary
                                 ),
                                 contentPadding = PaddingValues(horizontal = 10.dp)
                             ) {
-                                Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(16.dp), tint = RFColors.TextSecondary)
                                 Spacer(Modifier.width(6.dp))
-                                Text(if (isHindi) "स्टॉक जाँच" else "Check Stock", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text(if (isHindi) "स्टॉक जाँच" else "Check Stock", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             }
                         }
                     }
@@ -185,10 +183,10 @@ fun WarehouseHomeScreen(
                 ) {
                     QueueSectionTab(
                         modifier = Modifier.weight(1f),
-                        label = if (isHindi) "पिकिंग तैयार" else "Ready to Pick",
+                        label = if (isHindi) "पिकिंग तैयार" else "To Pick",
                         count = readyOrders.size,
                         isSelected = selectedQueueSection == "READY",
-                        activeColor = Color(0xFFEA580C),
+                        activeColor = RFColors.Warning,
                         onClick = {
                             selectedQueueSection = if (selectedQueueSection == "READY") "ALL" else "READY"
                         }
@@ -198,7 +196,7 @@ fun WarehouseHomeScreen(
                         label = if (isHindi) "पिकिंग जारी" else "Picking",
                         count = inProgressOrders.size,
                         isSelected = selectedQueueSection == "PICKING",
-                        activeColor = Color(0xFF2563EB),
+                        activeColor = RFColors.Primary,
                         onClick = {
                             selectedQueueSection = if (selectedQueueSection == "PICKING") "ALL" else "PICKING"
                         }
@@ -208,7 +206,7 @@ fun WarehouseHomeScreen(
                         label = if (isHindi) "पैक पूर्ण" else "Packed",
                         count = packedOrders.size,
                         isSelected = selectedQueueSection == "PACKED",
-                        activeColor = Color(0xFF16A34A),
+                        activeColor = RFColors.Success,
                         onClick = {
                             selectedQueueSection = if (selectedQueueSection == "PACKED") "ALL" else "PACKED"
                         }
@@ -220,14 +218,14 @@ fun WarehouseHomeScreen(
             item {
                 Text(
                     text = when (selectedQueueSection) {
-                        "READY" -> if (isHindi) "पिकिंग हेतु तैयार ऑर्डर (${readyOrders.size})" else "Ready to Pick (${readyOrders.size})"
-                        "PICKING" -> if (isHindi) "पिकिंग प्रगति पर (${inProgressOrders.size})" else "In Picking Progress (${inProgressOrders.size})"
-                        "PACKED" -> if (isHindi) "पैक किए गए ऑर्डर (${packedOrders.size})" else "Packed Orders (${packedOrders.size})"
-                        else -> if (isHindi) "सक्रिय गोदाम कार्य (${displayedOrders.size})" else "Active Warehouse Orders (${displayedOrders.size})"
+                        "READY" -> if (isHindi) "पिकिंग हेतु तैयार ऑर्डर (${readyOrders.size})" else "To Pick (${readyOrders.size})"
+                        "PICKING" -> if (isHindi) "पिकिंग प्रगति पर (${inProgressOrders.size})" else "In Progress (${inProgressOrders.size})"
+                        "PACKED" -> if (isHindi) "पैक किए गए ऑर्डर (${packedOrders.size})" else "Packed (${packedOrders.size})"
+                        else -> if (isHindi) "सक्रिय गोदाम कार्य (${displayedOrders.size})" else "Active Orders (${displayedOrders.size})"
                     },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = RFColors.TextPrimary
                 )
             }
 
@@ -235,9 +233,10 @@ fun WarehouseHomeScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        border = BorderStroke(1.dp, RFColors.Border),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -249,20 +248,20 @@ fun WarehouseHomeScreen(
                             Icon(
                                 Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFF16A34A),
-                                modifier = Modifier.size(40.dp)
+                                tint = RFColors.Success,
+                                modifier = Modifier.size(36.dp)
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 text = if (isHindi) "कतार खाली है" else "No orders in this queue",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = RFColors.TextPrimary
                             )
                             Text(
                                 text = if (isHindi) "नए स्वीकृत ऑर्डर यहाँ दिखाई देंगे।" else "Approved orders from sales will appear here.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
+                                color = RFColors.TextSecondary
                             )
                         }
                     }
@@ -271,10 +270,10 @@ fun WarehouseHomeScreen(
                 items(displayedOrders, key = { it.id }) { order ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        border = BorderStroke(1.dp, RFColors.Border),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -292,47 +291,47 @@ fun WarehouseHomeScreen(
                                         text = order.retailerName,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A)
+                                        color = RFColors.TextPrimary
                                     )
                                     Text(
                                         text = "Order #${order.id.takeLast(6)} • ${order.items.size} items",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF64748B)
+                                        color = RFColors.TextSecondary
                                     )
                                 }
 
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
                                     color = when (order.status) {
-                                        "APPROVED" -> Color(0xFFFFF7ED)
-                                        "PICKING" -> Color(0xFFEFF6FF)
-                                        "PACKED" -> Color(0xFFF0FDF4)
-                                        else -> Color(0xFFF8FAFC)
+                                        "APPROVED" -> RFColors.WarningLight
+                                        "PICKING" -> RFColors.InfoLight
+                                        "PACKED" -> RFColors.SuccessLight
+                                        else -> RFColors.NeutralLight
                                     },
                                     border = BorderStroke(
                                         1.dp,
                                         when (order.status) {
-                                            "APPROVED" -> Color(0xFFFED7AA)
-                                            "PICKING" -> Color(0xFFBFDBFE)
-                                            "PACKED" -> Color(0xFFBBF7D0)
-                                            else -> Color(0xFFE2E8F0)
+                                            "APPROVED" -> RFColors.Warning.copy(alpha = 0.3f)
+                                            "PICKING" -> RFColors.Primary.copy(alpha = 0.3f)
+                                            "PACKED" -> RFColors.Success.copy(alpha = 0.3f)
+                                            else -> RFColors.Border
                                         }
                                     )
                                 ) {
                                     Text(
                                         text = when (order.status) {
-                                            "APPROVED" -> if (isHindi) "पिकिंग बाकी" else "Ready to Pick"
+                                            "APPROVED" -> if (isHindi) "पिकिंग बाकी" else "To Pick"
                                             "PICKING" -> if (isHindi) "पिकिंग जारी" else "Picking"
                                             "PACKED" -> if (isHindi) "पैक पूर्ण" else "Packed"
                                             else -> order.status
                                         },
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = when (order.status) {
-                                            "APPROVED" -> Color(0xFFC2410C)
-                                            "PICKING" -> Color(0xFF1D4ED8)
-                                            "PACKED" -> Color(0xFF15803D)
-                                            else -> Color(0xFF64748B)
+                                            "APPROVED" -> RFColors.Warning
+                                            "PICKING" -> RFColors.Primary
+                                            "PACKED" -> RFColors.Success
+                                            else -> RFColors.TextSecondary
                                         },
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                         fontSize = 11.sp
@@ -340,51 +339,51 @@ fun WarehouseHomeScreen(
                                 }
                             }
 
-                            // Dynamic Primary Action Button (Minimum 48dp touch target)
+                            // Dynamic Primary Action Button
                             when (order.status) {
                                 "APPROVED" -> {
                                     Button(
                                         onClick = { onNavigateTab("warehouse/picking") },
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFFEA580C),
+                                            containerColor = RFColors.Primary,
                                             contentColor = Color.White
                                         )
                                     ) {
                                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text(if (isHindi) "पिकिंग शुरू करें" else "Start Picking", fontWeight = FontWeight.Bold)
+                                        Text(if (isHindi) "पिकिंग शुरू करें" else "Start Picking", fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                                 "PICKING" -> {
                                     Button(
                                         onClick = { onNavigateTab("warehouse/picking") },
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF2563EB),
+                                            containerColor = RFColors.Primary,
                                             contentColor = Color.White
                                         )
                                     ) {
                                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text(if (isHindi) "पिकिंग जारी रखें / पैक करें" else "Continue Picking / Pack", fontWeight = FontWeight.Bold)
+                                        Text(if (isHindi) "पिकिंग जारी रखें / पैक करें" else "Continue Picking / Pack", fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                                 "PACKED" -> {
                                     Button(
                                         onClick = { onNavigateTab("warehouse/dispatch") },
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF16A34A),
+                                            containerColor = RFColors.Success,
                                             contentColor = Color.White
                                         )
                                     ) {
                                         Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text(if (isHindi) "डिस्पैच तैयार — ड्राइवर आवंटन" else "Ready for Dispatch", fontWeight = FontWeight.Bold)
+                                        Text(if (isHindi) "डिस्पैच तैयार — ड्राइवर आवंटन" else "Ready for Dispatch", fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -409,15 +408,15 @@ private fun QueueSectionTab(
         modifier = modifier
             .height(58.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color.White else Color(0xFFF8FAFC)
+            containerColor = if (isSelected) RFColors.Surface else RFColors.NeutralLight
         ),
         border = BorderStroke(
             1.5.dp,
-            if (isSelected) activeColor else Color(0xFFE2E8F0)
+            if (isSelected) activeColor else RFColors.Border
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 6.dp),
@@ -427,14 +426,14 @@ private fun QueueSectionTab(
             Text(
                 text = "$count",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-                color = if (count > 0) activeColor else Color(0xFF64748B)
+                fontWeight = FontWeight.Bold,
+                color = if (count > 0) activeColor else RFColors.TextSecondary
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) activeColor else Color(0xFF64748B),
+                color = if (isSelected) activeColor else RFColors.TextSecondary,
                 fontSize = 11.sp,
                 maxLines = 1
             )

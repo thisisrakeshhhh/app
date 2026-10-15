@@ -53,50 +53,50 @@ import androidx.compose.ui.unit.sp
  * - Floating docked summary/action bottom bar
  */
 object RFDesignTokens {
-    val Background = Color(0xFFF8FAFC)
-    val Surface = Color.White
+    val Background = RFColors.Background
+    val Surface = RFColors.Surface
     val BorderSubtle = Color(0xFFF1F5F9)
-    val BorderCard = Color(0xFFE2E8F0)
+    val BorderCard = RFColors.Border
 
-    val BrandBlue = Color(0xFF2563EB)
-    val BrandBlueLight = Color(0xFFEFF6FF)
-    val BrandBlueDark = Color(0xFF1D4ED8)
+    val BrandBlue = RFColors.Primary
+    val BrandBlueLight = RFColors.InfoSurface
+    val BrandBlueDark = RFColors.PrimaryPressed
 
-    val TextHeading = Color(0xFF0F172A)
-    val TextBody = Color(0xFF334155)
-    val TextMuted = Color(0xFF64748B)
+    val TextHeading = RFColors.TextPrimary
+    val TextBody = RFColors.TextPrimary
+    val TextMuted = RFColors.TextSecondary
 
     // Status tints
-    val GreenBg = Color(0xFFECFDF5)
+    val GreenBg = RFColors.SuccessSurface
     val GreenBorder = Color(0xFFA7F3D0)
-    val GreenText = Color(0xFF059669)
+    val GreenText = RFColors.Success
 
-    val AmberBg = Color(0xFFFFFBEB)
+    val AmberBg = RFColors.WarningSurface
     val AmberBorder = Color(0xFFFDE68A)
-    val AmberText = Color(0xFFD97706)
+    val AmberText = RFColors.Warning
 
-    val RedBg = Color(0xFFFEF2F2)
+    val RedBg = RFColors.DangerSurface
     val RedBorder = Color(0xFFFECACA)
-    val RedText = Color(0xFFDC2626)
+    val RedText = RFColors.Danger
 
-    val BlueBg = Color(0xFFEFF6FF)
+    val BlueBg = RFColors.InfoSurface
     val BlueBorder = Color(0xFFBFDBFE)
-    val BlueText = Color(0xFF2563EB)
+    val BlueText = RFColors.Primary
 
     val PurpleBg = Color(0xFFFAF5FF)
     val PurpleBorder = Color(0xFFE9D5FF)
-    val PurpleText = Color(0xFF9333EA)
+    val PurpleText = Color(0xFF7C3AED)
 }
 
 /**
- * RouteFlow elevated white card with 14dp corners and hairline border.
+ * RouteFlow elevated white card with 16dp corners, subtle border and zero heavy drop shadow.
  */
 @Composable
 fun RFCard(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 14.dp,
-    elevation: Dp = 2.dp,
-    borderColor: Color = RFDesignTokens.BorderCard,
+    cornerRadius: Dp = 16.dp,
+    elevation: Dp = 0.dp,
+    borderColor: Color = RFColors.Border,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -120,6 +120,182 @@ fun RFCard(
             elevation = CardDefaults.cardElevation(defaultElevation = elevation)
         ) {
             content()
+        }
+    }
+}
+
+/**
+ * Account/Profile Bottom Sheet triggered by the top bar avatar.
+ * Displays employee details, role, language switcher, sync status, and logout.
+ */
+@Composable
+fun RFAccountBottomSheet(
+    employeeName: String,
+    roleTitle: String,
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
+    onLogout: () -> Unit,
+    onDismiss: () -> Unit,
+    syncStatusText: String = "Online • Synced"
+) {
+    Surface(
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = Color.White,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Drag handle
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .background(Color(0xFFCBD5E1), CircleShape)
+                    .align(Alignment.CenterHorizontally)
+            )
+
+            // User Info Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = RFColors.InfoSurface,
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = employeeName.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = RFColors.Primary
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = employeeName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.TextPrimary
+                    )
+                    Text(
+                        text = roleTitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RFColors.TextSecondary
+                    )
+                }
+            }
+
+            androidx.compose.material3.HorizontalDivider(color = RFColors.Border)
+
+            // Language Switch Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "App Language",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = RFColors.TextPrimary
+                    )
+                    Text(
+                        text = if (currentLanguage == "hi") "हिन्दी सक्रिय है" else "English active",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RFColors.TextSecondary
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .background(Color(0xFFF1F5F9), RoundedCornerShape(10.dp))
+                        .padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Surface(
+                        onClick = { onLanguageChange("en") },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (currentLanguage == "en") Color.White else Color.Transparent,
+                        border = if (currentLanguage == "en") BorderStroke(1.dp, RFColors.Border) else null
+                    ) {
+                        Text(
+                            "English",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (currentLanguage == "en") FontWeight.Bold else FontWeight.Medium,
+                            color = if (currentLanguage == "en") RFColors.TextPrimary else RFColors.TextSecondary
+                        )
+                    }
+                    Surface(
+                        onClick = { onLanguageChange("hi") },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (currentLanguage == "hi") Color.White else Color.Transparent,
+                        border = if (currentLanguage == "hi") BorderStroke(1.dp, RFColors.Border) else null
+                    ) {
+                        Text(
+                            "हिन्दी",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (currentLanguage == "hi") FontWeight.Bold else FontWeight.Medium,
+                            color = if (currentLanguage == "hi") RFColors.TextPrimary else RFColors.TextSecondary
+                        )
+                    }
+                }
+            }
+
+            androidx.compose.material3.HorizontalDivider(color = RFColors.Border)
+
+            // Sync Status Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(RFColors.Success, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = syncStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = RFColors.TextSecondary
+                )
+            }
+
+            // Logout Button
+            Button(
+                onClick = {
+                    onDismiss()
+                    onLogout()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RFColors.DangerSurface,
+                    contentColor = RFColors.Danger
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+            ) {
+                Text(
+                    text = "Sign Out",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = RFColors.Danger
+                )
+            }
         }
     }
 }

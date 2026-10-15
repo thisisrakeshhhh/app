@@ -21,8 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,10 +45,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
 import com.routeflow.app.core.design.OrderSyncBadge
-import com.routeflow.app.core.design.RouteFlowStatus
+import com.routeflow.app.core.design.RFColors
 
 @Composable
 fun OrderApprovalScreen(
@@ -66,6 +65,7 @@ fun OrderApprovalScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(RFColors.Background)
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -75,14 +75,14 @@ fun OrderApprovalScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFFECFDF5),
+                    color = RFColors.SuccessLight,
                     modifier = Modifier.size(64.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = RFColors.Success,
                             modifier = Modifier.size(36.dp)
                         )
                     }
@@ -91,20 +91,22 @@ fun OrderApprovalScreen(
                     "All Orders Clear",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = RFColors.TextPrimary
                 )
                 Text(
                     "No pending order approval requests in queue.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF64748B)
+                    color = RFColors.TextSecondary
                 )
             }
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .background(RFColors.Background),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
                 Row(
@@ -117,12 +119,12 @@ fun OrderApprovalScreen(
                             text = "Order Approvals",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = RFColors.TextPrimary
                         )
                         Text(
-                            text = "${state.orders.size} orders waiting for owner credit & stock review",
+                            text = "${state.orders.size} orders waiting for review",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = RFColors.TextSecondary
                         )
                     }
                 }
@@ -161,10 +163,10 @@ private fun OrderApprovalCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, RFColors.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -177,23 +179,23 @@ private fun OrderApprovalCard(
                         Text(
                             detail.order.id,
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF2563EB),
-                            fontWeight = FontWeight.Bold
+                            color = RFColors.Primary,
+                            fontWeight = FontWeight.SemiBold
                         )
                         OrderSyncBadge(state = detail.syncState, errorMessage = detail.syncError)
                     }
                     Text(
                         detail.retailerName,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF0F172A)
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.TextPrimary
                     )
                 }
                 Text(
                     CurrencyFormatter.formatPaise(detail.order.totalAmountPaise),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF2563EB)
+                    fontWeight = FontWeight.Bold,
+                    color = RFColors.Primary
                 )
             }
 
@@ -203,9 +205,9 @@ private fun OrderApprovalCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Surface(
-                    color = if (isCreditOver) Color(0xFFFEF2F2) else Color(0xFFECFDF5),
+                    color = if (isCreditOver) RFColors.DangerLight else RFColors.SuccessLight,
                     shape = CircleShape,
-                    border = BorderStroke(1.dp, if (isCreditOver) Color(0xFFFECACA) else Color(0xFFA7F3D0))
+                    border = BorderStroke(1.dp, if (isCreditOver) RFColors.Danger.copy(alpha = 0.3f) else RFColors.Success.copy(alpha = 0.3f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
@@ -215,34 +217,34 @@ private fun OrderApprovalCard(
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(if (isCreditOver) Color(0xFFDC2626) else Color(0xFF10B981), CircleShape)
+                                .background(if (isCreditOver) RFColors.Danger else RFColors.Success, CircleShape)
                         )
                         Text(
                             text = if (isCreditOver) "Credit Exceeded (Udhaar: ${CurrencyFormatter.formatPaise(detail.outstandingBalancePaise)})"
                             else "Credit OK (Limit: ${CurrencyFormatter.formatPaise(detail.creditLimitPaise)})",
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isCreditOver) Color(0xFFB91C1C) else Color(0xFF047857)
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isCreditOver) RFColors.Danger else RFColors.Success
                         )
                     }
                 }
 
                 Surface(
-                    color = if (detail.hasSufficientStock) Color(0xFFEFF6FF) else Color(0xFFFFFBEB),
+                    color = if (detail.hasSufficientStock) RFColors.InfoLight else RFColors.WarningLight,
                     shape = CircleShape,
-                    border = BorderStroke(1.dp, if (detail.hasSufficientStock) Color(0xFFBFDBFE) else Color(0xFFFDE68A))
+                    border = BorderStroke(1.dp, if (detail.hasSufficientStock) RFColors.Primary.copy(alpha = 0.3f) else RFColors.Warning.copy(alpha = 0.3f))
                 ) {
                     Text(
-                        text = if (detail.hasSufficientStock) "Stock Available" else "Low Godown Stock",
+                        text = if (detail.hasSufficientStock) "Stock Available" else "Low Stock",
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (detail.hasSufficientStock) Color(0xFF1D4ED8) else Color(0xFFB45309)
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (detail.hasSufficientStock) RFColors.Primary else RFColors.Warning
                     )
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFF1F5F9))
+            HorizontalDivider(color = RFColors.Border)
 
             // Items list
             detail.items.forEach { itemDetail ->
@@ -254,20 +256,20 @@ private fun OrderApprovalCard(
                     Text(
                         "${itemDetail.product?.name ?: "Unknown"} × ${itemDetail.item.quantity}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF334155)
+                        color = RFColors.TextPrimary
                     )
                     if (itemDetail.item.freeQuantity > 0) {
                         Text(
                             "+ ${itemDetail.item.freeQuantity} free",
                             style = MaterialTheme.typography.bodySmall,
-                            color = RouteFlowStatus.Completed,
-                            fontWeight = FontWeight.Bold
+                            color = RFColors.Success,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFF1F5F9))
+            HorizontalDivider(color = RFColors.Border)
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
@@ -277,15 +279,15 @@ private fun OrderApprovalCard(
                         .height(48.dp)
                         .testTag("reject_order_${detail.order.id}"),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                    border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.3f)),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFFDC2626)
+                        containerColor = RFColors.Surface,
+                        contentColor = RFColors.Danger
                     )
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Reject", fontWeight = FontWeight.Bold)
+                    Text("Reject", fontWeight = FontWeight.SemiBold)
                 }
                 Button(
                     onClick = onApprove,
@@ -295,14 +297,14 @@ private fun OrderApprovalCard(
                         .testTag("approve_order_${detail.order.id}"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
+                        containerColor = RFColors.Primary,
                         contentColor = Color.White
                     ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                     Spacer(Modifier.width(6.dp))
-                    Text("Approve", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Approve", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -318,24 +320,28 @@ private fun OrderRejectDialog(
 ) {
     val reasons = listOf(
         "Credit limit exceeded",
-        "Overdue pending payment",
-        "Stock shortage in godown",
-        "Shop unreachable / closed",
-        "Price or quantity discrepancy"
+        "Out of stock",
+        "Retailer requested cancellation",
+        "Payment dispute",
+        "Other"
     )
     var selectedReason by remember { mutableStateOf(reasons[0]) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Reject Order: $orderId", fontWeight = FontWeight.Bold)
+            Text(
+                "Reject Order ${orderId.takeLast(6)}?",
+                fontWeight = FontWeight.Bold,
+                color = RFColors.TextPrimary
+            )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Select rejection reason for $retailerName:",
+                    "Select rejection reason for $retailerName:",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = RFColors.TextSecondary
                 )
                 reasons.forEach { reason ->
                     Row(
@@ -346,7 +352,8 @@ private fun OrderRejectDialog(
                             selected = selectedReason == reason,
                             onClick = { selectedReason = reason }
                         )
-                        Text(reason, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(8.dp))
+                        Text(reason, style = MaterialTheme.typography.bodyMedium, color = RFColors.TextPrimary)
                     }
                 }
             }
@@ -355,15 +362,18 @@ private fun OrderRejectDialog(
             Button(
                 onClick = { onConfirmReject(selectedReason) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626),
+                    containerColor = RFColors.Danger,
                     contentColor = Color.White
-                )
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Confirm Rejection", color = Color.White)
+                Text("Confirm Reject", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = RFColors.TextSecondary)
+            }
         }
     )
 }

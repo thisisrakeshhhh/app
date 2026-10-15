@@ -9,9 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PlayArrow
@@ -25,14 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
-import com.routeflow.app.domain.model.Retailer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,25 +58,24 @@ fun SalesTodayScreen(
         state.retailers.find { it.id == active.retailerId }
     }
 
-    // Determine the next shop: active visit shop first, or the first unvisited shop
     val nextShop = activeVisitRetailer ?: state.retailers.firstOrNull { !state.completedVisitRetailerIds.contains(it.id) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(RFColors.Background)) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             // 1. Employee Greeting, Beat & Duty Toggle Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                    border = BorderStroke(1.dp, RFColors.Border),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -98,45 +92,45 @@ fun SalesTodayScreen(
                                 Text(
                                     text = if (state.employeeName.isNotBlank()) "Hello, ${state.employeeName}" else "Hello, Sales Executive",
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
                                 )
                                 Text(
                                     text = "Assigned Beat: ${state.assignedBeat}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF64748B),
-                                    fontWeight = FontWeight.SemiBold
+                                    color = RFColors.TextSecondary,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
 
                             // Duty Status Pill
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isOnShift) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
-                                border = BorderStroke(1.dp, if (isOnShift) Color(0xFF86EFAC) else Color(0xFFCBD5E1))
+                                color = if (isOnShift) RFColors.SuccessLight else RFColors.NeutralLight,
+                                border = BorderStroke(1.dp, if (isOnShift) RFColors.Success.copy(alpha = 0.3f) else RFColors.Border)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .size(7.dp)
                                             .clip(CircleShape)
-                                            .background(if (isOnShift) Color(0xFF16A34A) else Color(0xFF64748B))
+                                            .background(if (isOnShift) RFColors.Success else RFColors.TextSecondary)
                                     )
                                     Text(
                                         text = if (isOnShift) "On Duty" else "Off Duty",
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isOnShift) Color(0xFF15803D) else Color(0xFF475569)
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isOnShift) RFColors.Success else RFColors.TextSecondary
                                     )
                                 }
                             }
                         }
 
-                        // One prominent Start Duty / End Duty action button (minimum 48dp touch target)
+                        // Shift Start/End Action Button
                         if (isOnShift) {
                             OutlinedButton(
                                 onClick = onEndShift,
@@ -144,16 +138,16 @@ fun SalesTodayScreen(
                                     .fillMaxWidth()
                                     .height(48.dp),
                                 enabled = !state.isLoading,
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.3f)),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFFFEF2F2),
-                                    contentColor = Color(0xFFDC2626)
+                                    containerColor = RFColors.DangerLight,
+                                    contentColor = RFColors.Danger
                                 )
                             ) {
-                                Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFFDC2626))
+                                Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp), tint = RFColors.Danger)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("End Duty / Shift", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("End Duty / Shift", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             }
                         } else {
                             Button(
@@ -162,15 +156,15 @@ fun SalesTodayScreen(
                                     .fillMaxWidth()
                                     .height(48.dp),
                                 enabled = !state.isLoading,
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF2563EB),
+                                    containerColor = RFColors.Primary,
                                     contentColor = Color.White
                                 )
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Start Duty / Shift", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Start Duty / Shift", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             }
                         }
                     }
@@ -181,15 +175,15 @@ fun SalesTodayScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                    border = BorderStroke(1.dp, RFColors.Border),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                            .padding(vertical = 14.dp, horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -201,15 +195,15 @@ fun SalesTodayScreen(
                             Text(
                                 text = "Visited",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.SemiBold
+                                color = RFColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "${state.completedVisitRetailerIds.size} / ${state.retailers.size}",
+                                text = "${state.completedVisitRetailerIds.size}/${state.retailers.size}",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF0F172A)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
                             )
                         }
 
@@ -217,7 +211,7 @@ fun SalesTodayScreen(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(32.dp)
-                                .background(Color(0xFFE2E8F0))
+                                .background(RFColors.Border)
                         )
 
                         // Metric 2: Today's order amount
@@ -226,17 +220,18 @@ fun SalesTodayScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Today's Orders",
+                                text = "Orders",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.SemiBold
+                                color = RFColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = CurrencyFormatter.formatPaise(state.todayOrdersAmountPaise),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF2563EB)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.Primary,
+                                maxLines = 1
                             )
                         }
 
@@ -244,7 +239,7 @@ fun SalesTodayScreen(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(32.dp)
-                                .background(Color(0xFFE2E8F0))
+                                .background(RFColors.Border)
                         )
 
                         // Metric 3: Today's collection
@@ -253,17 +248,18 @@ fun SalesTodayScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Today's Collection",
+                                text = "Collected",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.SemiBold
+                                color = RFColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = CurrencyFormatter.formatPaise(state.todayCollectionsAmountPaise),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF16A34A)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.Success,
+                                maxLines = 1
                             )
                         }
                     }
@@ -274,15 +270,15 @@ fun SalesTodayScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (activeVisitRetailer != null) Color(0xFFEFF6FF) else Color.White
+                        containerColor = if (activeVisitRetailer != null) RFColors.InfoLight else RFColors.Surface
                     ),
                     border = BorderStroke(
                         1.5.dp,
-                        if (activeVisitRetailer != null) Color(0xFF3B82F6) else Color(0xFF2563EB)
+                        if (activeVisitRetailer != null) RFColors.Primary else RFColors.Border
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -297,15 +293,15 @@ fun SalesTodayScreen(
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (activeVisitRetailer != null) Color(0xFFDBEAFE) else Color(0xFFEFF6FF)
+                                color = if (activeVisitRetailer != null) RFColors.Primary.copy(alpha = 0.15f) else RFColors.InfoLight
                             ) {
                                 Text(
-                                    text = if (activeVisitRetailer != null) "ACTIVE VISIT IN PROGRESS" else "NEXT SHOP TO VISIT",
+                                    text = if (activeVisitRetailer != null) "ACTIVE VISIT IN PROGRESS" else "NEXT VISIT",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF1D4ED8),
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.Primary,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    fontSize = 10.sp
+                                    fontSize = 11.sp
                                 )
                             }
 
@@ -313,8 +309,8 @@ fun SalesTodayScreen(
                                 Text(
                                     text = "Due: ${CurrencyFormatter.formatPaise(nextShop.outstandingAmountPaise)}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFDC2626)
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = RFColors.Danger
                                 )
                             }
                         }
@@ -323,8 +319,8 @@ fun SalesTodayScreen(
                             Text(
                                 text = nextShop.name,
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF0F172A)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
                             )
 
                             if (nextShop.address.isNotBlank()) {
@@ -335,13 +331,13 @@ fun SalesTodayScreen(
                                     Icon(
                                         Icons.Default.LocationOn,
                                         contentDescription = null,
-                                        tint = Color(0xFF64748B),
-                                        modifier = Modifier.size(14.dp)
+                                        tint = RFColors.TextSecondary,
+                                        modifier = Modifier.size(15.dp)
                                     )
                                     Text(
                                         text = nextShop.address,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF64748B),
+                                        color = RFColors.TextSecondary,
                                         maxLines = 1
                                     )
                                 }
@@ -358,15 +354,15 @@ fun SalesTodayScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp),
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF2563EB),
+                                    containerColor = RFColors.Primary,
                                     contentColor = Color.White
                                 )
                             ) {
                                 Text(
                                     text = if (activeVisitRetailer != null) "Continue Active Visit" else "Open Shop",
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
                                 )
                                 Spacer(Modifier.width(6.dp))
@@ -377,12 +373,12 @@ fun SalesTodayScreen(
                                 text = if (state.retailers.isNotEmpty()) "All shops visited for today!" else "No shops assigned yet",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = RFColors.TextPrimary
                             )
                             Text(
                                 text = if (state.retailers.isNotEmpty()) "Great job! All beat visits are complete." else "Contact Admin to assign your beat route.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
+                                color = RFColors.TextSecondary
                             )
                         }
                     }
@@ -402,16 +398,16 @@ fun SalesTodayScreen(
                         text = "Assigned Shops (${state.retailers.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = RFColors.TextPrimary
                     )
                     if (onSyncAgain != null) {
                         TextButton(
                             onClick = onSyncAgain,
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = RFColors.Primary)
                             Spacer(Modifier.width(4.dp))
-                            Text("Sync", style = MaterialTheme.typography.labelSmall)
+                            Text("Sync", style = MaterialTheme.typography.labelSmall, color = RFColors.Primary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -420,16 +416,16 @@ fun SalesTodayScreen(
             if (state.retailers.isEmpty() && state.isLoading) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF2563EB))
+                        CircularProgressIndicator(color = RFColors.Primary)
                     }
                 }
             } else if (state.retailers.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        border = BorderStroke(1.dp, RFColors.Border)
                     ) {
                         Column(
                             modifier = Modifier
@@ -441,7 +437,7 @@ fun SalesTodayScreen(
                             Icon(
                                 imageVector = Icons.Default.Store,
                                 contentDescription = null,
-                                tint = Color(0xFF94A3B8),
+                                tint = RFColors.TextSecondary,
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(Modifier.height(8.dp))
@@ -449,12 +445,12 @@ fun SalesTodayScreen(
                                 text = "No shops in this beat",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = RFColors.TextPrimary
                             )
                             Text(
                                 text = "Ask your Owner or Admin to assign shops.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
+                                color = RFColors.TextSecondary
                             )
                         }
                     }
@@ -474,17 +470,17 @@ fun SalesTodayScreen(
                                     onRetailerClick(retailer.id)
                                 }
                             },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
                         border = BorderStroke(
                             1.dp,
                             when {
-                                isCurrentActive -> Color(0xFF93C5FD)
-                                isCompleted -> Color(0xFF86EFAC)
-                                else -> Color(0xFFE2E8F0)
+                                isCurrentActive -> RFColors.Primary
+                                isCompleted -> RFColors.Success.copy(alpha = 0.4f)
+                                else -> RFColors.Border
                             }
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -504,17 +500,17 @@ fun SalesTodayScreen(
                                         .clip(CircleShape)
                                         .background(
                                             when {
-                                                isCurrentActive -> Color(0xFFDBEAFE)
-                                                isCompleted -> Color(0xFFDCFCE7)
-                                                else -> Color(0xFFF1F5F9)
+                                                isCurrentActive -> RFColors.InfoLight
+                                                isCompleted -> RFColors.SuccessLight
+                                                else -> RFColors.NeutralLight
                                             }
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     when {
-                                        isCurrentActive -> Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(18.dp))
-                                        isCompleted -> Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(18.dp))
-                                        else -> Icon(Icons.Default.Store, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(18.dp))
+                                        isCurrentActive -> Icon(Icons.Default.Schedule, contentDescription = null, tint = RFColors.Primary, modifier = Modifier.size(18.dp))
+                                        isCompleted -> Icon(Icons.Default.Check, contentDescription = null, tint = RFColors.Success, modifier = Modifier.size(18.dp))
+                                        else -> Icon(Icons.Default.Store, contentDescription = null, tint = RFColors.TextSecondary, modifier = Modifier.size(18.dp))
                                     }
                                 }
 
@@ -522,14 +518,14 @@ fun SalesTodayScreen(
                                     Text(
                                         text = retailer.name,
                                         style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A)
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = RFColors.TextPrimary
                                     )
                                     if (retailer.address.isNotBlank()) {
                                         Text(
                                             text = retailer.address,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF64748B),
+                                            color = RFColors.TextSecondary,
                                             maxLines = 1
                                         )
                                     }
@@ -542,15 +538,15 @@ fun SalesTodayScreen(
                                         text = CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise),
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFDC2626)
+                                        color = RFColors.Danger
                                     )
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
                                     color = when {
-                                        isCurrentActive -> Color(0xFFDBEAFE)
-                                        isCompleted -> Color(0xFFDCFCE7)
-                                        else -> Color(0xFFF8FAFC)
+                                        isCurrentActive -> RFColors.InfoLight
+                                        isCompleted -> RFColors.SuccessLight
+                                        else -> RFColors.NeutralLight
                                     }
                                 ) {
                                     Text(
@@ -560,11 +556,11 @@ fun SalesTodayScreen(
                                             else -> "Pending"
                                         },
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = when {
-                                            isCurrentActive -> Color(0xFF1E40AF)
-                                            isCompleted -> Color(0xFF15803D)
-                                            else -> Color(0xFF64748B)
+                                            isCurrentActive -> RFColors.Primary
+                                            isCompleted -> RFColors.Success
+                                            else -> RFColors.TextSecondary
                                         },
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                         fontSize = 11.sp
@@ -586,9 +582,9 @@ fun SalesTodayScreen(
     blockedVisitRetailerName?.let { activeName ->
         AlertDialog(
             onDismissRequest = { blockedVisitRetailerName = null },
-            title = { Text("Active Visit in Progress", fontWeight = FontWeight.Bold) },
+            title = { Text("Active Visit in Progress", fontWeight = FontWeight.Bold, color = RFColors.TextPrimary) },
             text = {
-                Text("You already have an active visit at '$activeName'. Please check out from that visit before starting a new one.")
+                Text("You already have an active visit at '$activeName'. Please check out from that visit before starting a new one.", color = RFColors.TextSecondary)
             },
             confirmButton = {
                 Button(
@@ -600,16 +596,17 @@ fun SalesTodayScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
+                        containerColor = RFColors.Primary,
                         contentColor = Color.White
-                    )
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Go to Active Visit", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Go to Active Visit", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { blockedVisitRetailerName = null }) {
-                    Text("Cancel")
+                    Text("Cancel", color = RFColors.TextSecondary)
                 }
             }
         )

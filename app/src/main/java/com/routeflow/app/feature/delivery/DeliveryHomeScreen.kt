@@ -11,14 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
+import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.domain.model.Employee
 
 @Composable
@@ -53,19 +48,19 @@ fun DeliveryHomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8FAFC))
+                .background(RFColors.Background)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             // 1. Driver Header Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, RFColors.Border),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -78,39 +73,39 @@ fun DeliveryHomeScreen(
                             Text(
                                 text = if (employee.name.isNotBlank()) employee.name else if (isHindi) "डिलीवरी एक्जीक्यूटिव" else "Delivery Executive",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF0F172A)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
                             )
                             Text(
                                 text = if (isHindi) "सक्रिय वितरण रूट" else "Active Delivery Route",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.SemiBold
+                                color = RFColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
                             )
                         }
 
                         // Status Pill
                         Surface(
-                            color = Color(0xFFF0FDF4),
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                            color = RFColors.SuccessLight,
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, RFColors.Success.copy(alpha = 0.3f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .size(7.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF16A34A))
-                                    )
+                                        .background(RFColors.Success)
+                                )
                                 Text(
                                     text = if (isHindi) "ड्यूटी पर" else "On Duty",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF15803D)
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = RFColors.Success
                                 )
                             }
                         }
@@ -126,10 +121,10 @@ fun DeliveryHomeScreen(
                 ) {
                     Card(
                         modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, RFColors.Border),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
@@ -138,40 +133,41 @@ fun DeliveryHomeScreen(
                             Text(
                                 text = if (isHindi) "शेष स्टॉप्स" else "Remaining Stops",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.SemiBold
+                                color = RFColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = "${state.assignedCount}",
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF2563EB)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.Primary
                             )
                         }
                     }
 
                     Card(
                         modifier = Modifier.weight(1.3f),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, RFColors.Border),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = if (isHindi) "पास में नकद" else "Cash Held in Hand",
+                                text = if (isHindi) "पास में नकद" else "Cash in Hand",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.SemiBold
+                                color = RFColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = CurrencyFormatter.formatPaise(state.paymentsCollectedPaise),
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF16A34A)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.Success,
+                                maxLines = 1
                             )
                         }
                     }
@@ -182,10 +178,10 @@ fun DeliveryHomeScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.5.dp, Color(0xFF2563EB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                    border = BorderStroke(1.5.dp, RFColors.Primary),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -195,15 +191,15 @@ fun DeliveryHomeScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFEFF6FF)
+                            color = RFColors.InfoLight
                         ) {
                             Text(
                                 text = if (isHindi) "अगला डिलीवरी स्टॉप" else "NEXT DELIVERY STOP",
                                 style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF1D4ED8),
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.Primary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                fontSize = 10.sp
+                                fontSize = 11.sp
                             )
                         }
 
@@ -211,15 +207,15 @@ fun DeliveryHomeScreen(
                             Text(
                                 text = nextStop.retailerName,
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF0F172A)
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.TextPrimary
                             )
 
                             if (nextStop.retailerAddress.isNotBlank()) {
                                 Text(
                                     text = nextStop.retailerAddress,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF64748B),
+                                    color = RFColors.TextSecondary,
                                     maxLines = 2
                                 )
                             }
@@ -232,19 +228,19 @@ fun DeliveryHomeScreen(
                                 Text(
                                     text = if (isHindi) "कुल देय राशि" else "Amount Due",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF64748B)
+                                    color = RFColors.TextSecondary
                                 )
                                 Text(
                                     text = CurrencyFormatter.formatPaise(nextStop.order.totalAmountPaise),
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
                                 )
                             }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 OutlinedButton(
                                     onClick = {
@@ -260,31 +256,31 @@ fun DeliveryHomeScreen(
                                         } catch (_: Exception) {}
                                     },
                                     modifier = Modifier.weight(1f).height(48.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, RFColors.Primary.copy(alpha = 0.3f)),
                                     colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = Color(0xFFEFF6FF),
-                                        contentColor = Color(0xFF1D4ED8)
+                                        containerColor = RFColors.InfoLight,
+                                        contentColor = RFColors.Primary
                                     ),
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
                                     Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text(if (isHindi) "नेविगेट" else "Navigate", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(if (isHindi) "नेविगेट" else "Navigate", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 }
 
                                 Button(
                                     onClick = { onDeliveryClick(nextStop.order.id) },
                                     modifier = Modifier.weight(1.3f).height(48.dp),
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF2563EB),
+                                        containerColor = RFColors.Primary,
                                         contentColor = Color.White
                                     )
                                 ) {
                                     Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text(if (isHindi) "डिलीवर करें (OTP)" else "Deliver (OTP)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(if (isHindi) "डिलीवर करें (OTP)" else "Deliver (OTP)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 }
                             }
                         } else {
@@ -296,7 +292,7 @@ fun DeliveryHomeScreen(
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = RFColors.TextPrimary
                             )
                             Text(
                                 text = if (state.completedCount > 0) {
@@ -305,7 +301,7 @@ fun DeliveryHomeScreen(
                                     if (isHindi) "वेयरहाउस द्वारा माल डिस्पैच होने पर स्टॉप्स यहाँ दिखेंगे।" else "Orders dispatched by warehouse will appear here."
                                 },
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF64748B)
+                                color = RFColors.TextSecondary
                             )
                         }
                     }
@@ -319,7 +315,7 @@ fun DeliveryHomeScreen(
                         text = if (isHindi) "शेष मार्ग स्टॉप्स (${deliveryList.size - 1})" else "Upcoming Stops (${deliveryList.size - 1})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = RFColors.TextPrimary
                     )
                 }
 
@@ -328,10 +324,10 @@ fun DeliveryHomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onDeliveryClick(stop.order.id) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        border = BorderStroke(1.dp, RFColors.Border),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -347,14 +343,14 @@ fun DeliveryHomeScreen(
                             ) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = Color(0xFFEFF6FF),
+                                    color = RFColors.InfoLight,
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(
                                             text = "${stop.stopSequence}",
-                                            fontWeight = FontWeight.Black,
-                                            color = Color(0xFF2563EB),
+                                            fontWeight = FontWeight.Bold,
+                                            color = RFColors.Primary,
                                             fontSize = 14.sp
                                         )
                                     }
@@ -364,14 +360,14 @@ fun DeliveryHomeScreen(
                                     Text(
                                         text = stop.retailerName,
                                         style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A)
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = RFColors.TextPrimary
                                     )
                                     if (stop.retailerAddress.isNotBlank()) {
                                         Text(
                                             text = stop.retailerAddress,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF64748B),
+                                            color = RFColors.TextSecondary,
                                             maxLines = 1
                                         )
                                     }
@@ -382,14 +378,14 @@ fun DeliveryHomeScreen(
                                 Text(
                                     text = CurrencyFormatter.formatPaise(stop.order.totalAmountPaise),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
+                                    fontWeight = FontWeight.Bold,
+                                    color = RFColors.TextPrimary
                                 )
                                 Text(
                                     text = if (isHindi) "डिलीवर करें >" else "Deliver >",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2563EB)
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = RFColors.Primary
                                 )
                             }
                         }
