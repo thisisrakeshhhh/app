@@ -40,7 +40,8 @@ import {
   MoreHorizontal,
   Key,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 
 interface OverviewMetrics {
@@ -123,8 +124,8 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<OverviewMetrics>({
     pendingApprovals: 0,
     lowStockItems: 0,
-    deliveredSalesToday: 13500,
-    retailerOutstanding: 5930000,
+    deliveredSalesToday: 0,
+    retailerOutstanding: 0,
     pickingPacking: 0,
     outForDelivery: 0,
     exceptions: 0,
@@ -187,8 +188,8 @@ export default function DashboardPage() {
   const [otpStatusNote, setOtpStatusNote] = useState<string | null>(null);
 
   const [showNewHandoverModal, setShowNewHandoverModal] = useState(false);
-  const [handoverAmountRupees, setHandoverAmountRupees] = useState('3450');
-  const [handoverNotes, setHandoverNotes] = useState('Evening cash depot deposit');
+  const [handoverAmountRupees, setHandoverAmountRupees] = useState('');
+  const [handoverNotes, setHandoverNotes] = useState('');
   const [submittingHandover, setSubmittingHandover] = useState(false);
 
   const [showMoreMobileMenu, setShowMoreMobileMenu] = useState(false);
@@ -210,11 +211,18 @@ export default function DashboardPage() {
     } else {
       setActiveTab('overview');
     }
-    loadAllData();
+    loadAllData(false);
+
+    // Real-time Auto-Refresh: Sync operational state across roles every 10 seconds
+    const interval = setInterval(() => {
+      loadAllData(true);
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [router]);
 
-  const loadAllData = async () => {
-    setLoading(true);
+  const loadAllData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       // 1. Fetch Orders
       const ordersRes = await apiFetch<any>('/orders').catch(() => ({ orders: [] }));
@@ -260,7 +268,7 @@ export default function DashboardPage() {
       setPurchaseList(purRes?.purchaseList || []);
       setCashBookData(cashRes);
 
-      // Compute overview stats
+      // Compute overview stats with genuine defaults (0 for empty company)
       const pendingOrders = orderList.filter((o: any) => o.status === 'PENDING_APPROVAL' || o.status === 'PENDING').length;
       const picking = orderList.filter((o: any) => o.status === 'APPROVED' || o.status === 'PICKING' || o.status === 'PACKED').length;
       const outForDelivery = orderList.filter((o: any) => o.status === 'OUT_FOR_DELIVERY').length;
@@ -271,8 +279,8 @@ export default function DashboardPage() {
       setMetrics({
         pendingApprovals: pendingOrders,
         lowStockItems: pulseRes?.inventory?.lowStockCount || 0,
-        deliveredSalesToday: pulseRes?.todaySales?.deliveredPaise || deliveredToday || 13500,
-        retailerOutstanding: pulseRes?.todayCollections?.netCashInHandPaise || 5930000,
+        deliveredSalesToday: pulseRes?.todaySales?.deliveredPaise ?? deliveredToday ?? 0,
+        retailerOutstanding: pulseRes?.todayCollections?.netCashInHandPaise ?? 0,
         pickingPacking: picking,
         outForDelivery: outForDelivery,
         exceptions: excRes?.exceptions?.length || 0,
@@ -280,7 +288,7 @@ export default function DashboardPage() {
     } catch (err: any) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -753,7 +761,7 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={loadAllData}
+              onClick={() => loadAllData(false)}
               disabled={loading}
               className="p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center border border-transparent hover:border-slate-200"
               title="Refresh Data"
@@ -903,6 +911,136 @@ export default function DashboardPage() {
         {activeTab === 'overview' && (
           <div className="space-y-4 sm:space-y-6">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Business Overview</h1>
+
+            {/* Fresh Company Onboarding Checklist */}
+            {(products.length === 0 || retailers.length === 0 || orders.length === 0) && (
+              <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white border border-blue-200/90 rounded-2xl p-4 sm:p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <span className="p-1.5 bg-blue-600 text-white rounded-lg"><Sparkles className="w-4 h-4" /></span>
+                      Getting Started: Company Launch Checklist
+                    </h2>
+                    <p className="text-xs text-slate-600 mt-0.5">Complete these 5 operational steps to run your wholesale distribution cycle in real time.</p>
+                  </div>
+                  <span className="px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full font-bold text-xs self-start sm:self-center">
+                    {[products.length > 0, retailers.length > 0, deliveryExecutives.length > 0, orders.length > 0, orders.some(o => o.status === 'DELIVERED')].filter(Boolean).length}/5 Completed
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* Step 1: Add Products */}
+                  <div className={`p-3.5 rounded-xl border transition ${products.length > 0 ? 'bg-emerald-50/60 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Step 1</span>
+                      {products.length > 0 ? (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> {products.length} Added
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">Pending</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">Godown Catalog</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Add products with opening stock & prices</p>
+                    <button
+                      onClick={() => { setActiveTab('products'); setShowAddProductModal(true); }}
+                      className="mt-3 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-blue-600 hover:text-blue-700 font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                    >
+                      + Add Product
+                    </button>
+                  </div>
+
+                  {/* Step 2: Add Retailers */}
+                  <div className={`p-3.5 rounded-xl border transition ${retailers.length > 0 ? 'bg-emerald-50/60 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Step 2</span>
+                      {retailers.length > 0 ? (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> {retailers.length} Added
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">Pending</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">Retail Shops</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Onboard Kirana stores with credit limits</p>
+                    <button
+                      onClick={() => { setActiveTab('retailers'); setShowAddRetailerModal(true); }}
+                      className="mt-3 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-blue-600 hover:text-blue-700 font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                    >
+                      + Add Retailer
+                    </button>
+                  </div>
+
+                  {/* Step 3: Staff & Fleet */}
+                  <div className={`p-3.5 rounded-xl border transition ${deliveryExecutives.length > 0 ? 'bg-emerald-50/60 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Step 3</span>
+                      {deliveryExecutives.length > 0 ? (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> {deliveryExecutives.length} Active
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">Pending</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">Field & Van Team</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Assign delivery drivers & sales staff</p>
+                    <button
+                      onClick={() => setActiveTab('control_room')}
+                      className="mt-3 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-blue-600 hover:text-blue-700 font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                    >
+                      View Control Room
+                    </button>
+                  </div>
+
+                  {/* Step 4: Book Order */}
+                  <div className={`p-3.5 rounded-xl border transition ${orders.length > 0 ? 'bg-emerald-50/60 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Step 4</span>
+                      {orders.length > 0 ? (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> {orders.length} Booked
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">Pending</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">Sales Order</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Book order via sales app or web fallback</p>
+                    <button
+                      onClick={() => setActiveTab('retailers')}
+                      className="mt-3 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-blue-600 hover:text-blue-700 font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                    >
+                      Book Order
+                    </button>
+                  </div>
+
+                  {/* Step 5: Deliver & Settle */}
+                  <div className={`p-3.5 rounded-xl border transition ${orders.some(o => o.status === 'DELIVERED') ? 'bg-emerald-50/60 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Step 5</span>
+                      {orders.some(o => o.status === 'DELIVERED') ? (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> Settled
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">Pending</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">Fulfill & Settle</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Pick, pack, OTP deliver & settle cash</p>
+                    <button
+                      onClick={() => setActiveTab('orders')}
+                      className="mt-3 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-blue-600 hover:text-blue-700 font-semibold text-xs rounded-lg transition shadow-2xs cursor-pointer"
+                    >
+                      Track Orders
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* KPI Cards - 2 Columns on Phone, 4 on Desktop */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

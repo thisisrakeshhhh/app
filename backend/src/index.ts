@@ -671,9 +671,9 @@ app.get('/orders', authMiddleware, async (c) => {
     query += ' AND employee_id = ?';
     params.push(user.sub);
   } else if (user.role === 'DELIVERY_EXECUTIVE') {
-    // Delivery users must list ONLY their assigned orders
-    query += ' AND delivery_employee_id = ?';
-    params.push(user.sub);
+    // Delivery users must list ONLY their assigned orders that are in delivery transit or completed
+    query += ' AND delivery_employee_id = ? AND status IN (?, ?, ?, ?)';
+    params.push(user.sub, 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_DELIVERED', 'DELIVERY_FAILED');
   } else if (user.role === 'WAREHOUSE_MANAGER') {
     query += ' AND status IN (?, ?, ?, ?)';
     params.push('APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY');
@@ -707,8 +707,11 @@ app.post('/orders/items-bulk', authMiddleware, async (c) => {
     ownershipQuery += ' AND employee_id = ?';
     ownershipParams.push(user.sub);
   } else if (user.role === 'DELIVERY_EXECUTIVE') {
-    ownershipQuery += ' AND delivery_employee_id = ?';
-    ownershipParams.push(user.sub);
+    ownershipQuery += ' AND delivery_employee_id = ? AND status IN (?, ?, ?, ?)';
+    ownershipParams.push(user.sub, 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_DELIVERED', 'DELIVERY_FAILED');
+  } else if (user.role === 'WAREHOUSE_MANAGER') {
+    ownershipQuery += ' AND status IN (?, ?, ?, ?)';
+    ownershipParams.push('APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY');
   }
 
   const { results: ownedOrders } = await c.env.DB.prepare(ownershipQuery).bind(...ownershipParams).all();
@@ -761,9 +764,19 @@ app.get('/orders/:id', authMiddleware, async (c) => {
     return c.json({ error: 'Permission denied' }, 403);
   }
 
-  // Delivery executive role check: can only view orders assigned to them
-  if (user.role === 'DELIVERY_EXECUTIVE' && order.deliveryEmployeeId !== user.sub) {
-    return c.json({ error: 'Permission denied: order not assigned to you' }, 403);
+  // Warehouse manager role check: cannot view unapproved submitted orders
+  if (user.role === 'WAREHOUSE_MANAGER' && !['APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY'].includes(order.status)) {
+    return c.json({ error: 'Permission denied: order not ready for warehouse fulfillment' }, 403);
+  }
+
+  // Delivery executive role check: can only view orders assigned to them and in delivery status
+  if (user.role === 'DELIVERY_EXECUTIVE') {
+    if (order.deliveryEmployeeId !== user.sub) {
+      return c.json({ error: 'Permission denied: order not assigned to you' }, 403);
+    }
+    if (!['OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_DELIVERED', 'DELIVERY_FAILED'].includes(order.status)) {
+      return c.json({ error: 'Permission denied: order not yet dispatched for delivery' }, 403);
+    }
   }
 
   const { results: rawItems } = await c.env.DB.prepare(
@@ -2152,7 +2165,7 @@ app.post('/employees', authMiddleware, async (c) => {
     return c.json({ error: 'username, password, fullName, and role are required' }, 400);
   }
 
-  const VALID_ROLES = ['OWNER', 'SALESPERSON', 'WAREHOUSE_MANAGER', 'DELIVERY_EXECUTIVE'];
+  const VALID_ROLES = ['OWNER', 'ADMIN', 'SALESPERSON', 'WAREHOUSE_MANAGER', 'DELIVERY_EXECUTIVE'];
   if (!VALID_ROLES.includes(role)) {
     return c.json({ error: `Invalid role. Allowed: ${VALID_ROLES.join(', ')}` }, 400);
   }
@@ -2313,8 +2326,8 @@ app.post('/beats', authMiddleware, async (c) => {
 
 app.post('/beats/:id/assign', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
   }
 
   const beatId = c.req.param('id');

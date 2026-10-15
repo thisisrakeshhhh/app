@@ -160,7 +160,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   const u=c.get('user'); if (!['SALESPERSON','DELIVERY_EXECUTIVE'].includes(u.role)) return bad(c,'Field employee required',403);
   const b=await c.req.json<Row>();
   b.amountPaise = b.amountPaise ?? b.amount_paise;
-  b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `hnd_req_${crypto.randomUUID()}`;
   const prior=await replay(c,'HANDOVER',b); if(prior)return prior;
   if(!money(b.amountPaise))return bad(c,'Invalid cash amount');
   const held=await cash(c.env.DB,u.company_id,u.sub); if(b.amountPaise>held.cashHeldPaise)return bad(c,'Amount exceeds cash held');
@@ -186,7 +186,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   if (!['SALESPERSON', 'DELIVERY_EXECUTIVE'].includes(u.role)) return bad(c, 'Field employee required', 403);
   const b = await c.req.json<Row>();
   b.amountPaise = b.amountPaise ?? b.amount_paise;
-  b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
+  b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `hnd_req_${crypto.randomUUID()}`;
   const prior = await replay(c, 'HANDOVER', b); if (prior) return prior;
   if (!money(b.amountPaise)) return bad(c, 'Invalid cash amount');
   const held = await cash(c.env.DB, u.company_id, u.sub);
