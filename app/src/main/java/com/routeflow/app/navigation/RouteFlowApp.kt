@@ -126,6 +126,8 @@ import com.routeflow.app.feature.sales.ShopVisitScreen
 import com.routeflow.app.feature.sales.ShopVisitViewModel
 import com.routeflow.app.feature.sales.StockCheckScreen
 import com.routeflow.app.feature.sales.StockCheckViewModel
+import com.routeflow.app.feature.vansales.VanSalesScreen
+import com.routeflow.app.feature.vansales.VanSalesViewModel
 import com.routeflow.app.feature.warehouse.BarcodeScannerModal
 import com.routeflow.app.feature.warehouse.DispatchBatchScreen
 import com.routeflow.app.feature.warehouse.PickingScreen
@@ -162,6 +164,7 @@ private const val SALES_RETAILER_LIST = "sales/retailers"
 private const val SALES_SHOP_VISIT = "sales/visit/{retailerId}"
 private const val SALES_STOCK_CHECK = "sales/stock-check/{retailerId}"
 private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
+private const val SALES_VAN_SALE = "sales/van-sale/{retailerId}"
 private const val SALES_COLLECTIONS = "sales/collections"
 private const val SALES_PROFILE = "sales/profile"
 
@@ -358,6 +361,7 @@ fun RouteFlowApp(
                     DELIVERY_LIST -> if (isHindi) "वितरण इतिहास" else "Trip History"
 
                     else -> when {
+                        currentRoute?.startsWith("sales/van-sale") == true -> if (isHindi) "वैन स्पॉट सेल" else "Van Spot Sale"
                         currentRoute?.startsWith("sales/order") == true -> if (isHindi) "ऑर्डर बुकिंग" else "Order Booking"
                         currentRoute?.startsWith("sales/visit") == true -> if (isHindi) "दुकान विज़िट" else "Shop Visit"
                         currentRoute?.startsWith("sales/stock-check") == true -> if (isHindi) "स्टॉक जाँच" else "Stock Check"
@@ -742,7 +746,11 @@ fun RouteFlowApp(
                                 navController.navigate(SALES_TODAY)
                             }
                         },
-                        onSyncNow = salesViewModel::syncNow
+                        onSyncNow = salesViewModel::syncNow,
+                        onStartVanSale = { navController.navigate(SALES_VAN_SALE.replace("{retailerId}", "all")) },
+                        onStartVanSaleForRetailer = { retailerId ->
+                            navController.navigate(SALES_VAN_SALE.replace("{retailerId}", retailerId))
+                        }
                     )
                 }
             }
@@ -845,7 +853,11 @@ fun RouteFlowApp(
                         val targetId = visitState.retailer?.id ?: retailerId
                         if (targetId.isNotBlank()) navController.navigate("sales/stock-check/$targetId")
                     },
-                    onCollectPayment = viewModel::recordCollection
+                    onCollectPayment = viewModel::recordCollection,
+                    onVanSale = {
+                        val targetId = visitState.retailer?.id ?: retailerId
+                        if (targetId.isNotBlank()) navController.navigate(SALES_VAN_SALE.replace("{retailerId}", targetId))
+                    }
                 )
             }
 
@@ -890,6 +902,31 @@ fun RouteFlowApp(
                         onRetailerSelect = viewModel::selectRetailer
                     )
                 }
+            }
+
+            composable(
+                route = SALES_VAN_SALE,
+                arguments = listOf(navArgument("retailerId") { type = NavType.StringType })
+            ) {
+                val viewModel: VanSalesViewModel = hiltViewModel()
+                val vanState by viewModel.state.collectAsStateWithLifecycle()
+
+                VanSalesScreen(
+                    state = vanState,
+                    onBack = { navController.popBackStack() },
+                    onSearchChange = viewModel::updateSearch,
+                    onCategorySelect = viewModel::selectCategory,
+                    onRetailerSelect = viewModel::selectRetailer,
+                    onQuantityChange = viewModel::updateQuantity,
+                    onPaymentMethodChange = viewModel::setPaymentMethod,
+                    onProvisionalToggle = viewModel::setProvisional,
+                    onNotesChange = viewModel::setNotes,
+                    onCreditOverrideReasonChange = viewModel::setCreditOverrideReason,
+                    onRefreshTrip = viewModel::loadTripContext,
+                    onSubmit = viewModel::submitVanSale,
+                    onDismissResult = viewModel::clearSubmissionState,
+                    onNewSale = viewModel::resetCart
+                )
             }
 
             // ==========================================

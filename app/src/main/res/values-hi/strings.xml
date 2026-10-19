@@ -332,4 +332,25 @@
     <string name="data_synced_server">डेटा सर्वर से सिंक हो चुका है</string>
     <string name="all_records_up_to_date">सभी स्थानीय रिकॉर्ड अपडेट हैं</string>
     <string name="admin_pwd_notice">पासवर्ड प्रबंधन केवल मालिक / एडमिन द्वारा</string>
+
+    <!-- Van Sales Foundation Strings -->
+    <string name="van_sales_title">वैन स्पॉट सेल</string>
+    <string name="van_sales_subtitle">गाड़ी से तुरंत बिलिंग एवं स्टॉक कटौती</string>
+    <string name="van_sales_trip_required">सक्रिय वाहन ट्रिप आवश्यक</string>
+    <string name="van_sales_trip_required_desc">वैन स्पॉट सेल वाहन में आवंटित माल से कटती है। इसके लिए एक सक्रिय डिलीवरी ट्रिप होना अनिवार्य है।</string>
+    <string name="van_sales_provisional_disclaimer">अनंतिम अनुमान — सर्वर प्राधिकृत। अंतिम मूल्य, कर, छूट और स्टॉक कटौती की गणना सर्वर द्वारा की जाती है।</string>
+    <string name="van_sales_credit_limit_exceeded">दुकानदार की उधारी सीमा समाप्त। नकद/यूपीआई या अधिकृत स्वीकृति आवश्यक।</string>
+
+    <!-- Map-First Logistics UI Strings -->
+    <string name="map_view">नक्शा</string>
+    <string name="list_view">सूची</string>
+    <string name="van_spot_sale_action">वैन स्पॉट सेल</string>
+    <string name="check_in_visit">दुकान विज़िट</string>
+    <string name="deliver_order_action">ऑर्डर डिलीवर करें</string>
+    <string name="unmapped_shops">%1$d दुकानें बिना जीपीएस</string>
+    <string name="spatial_canvas_title">रूटफ्लो लॉजिस्टिक्स स्पेशियल दृश्य</string>
+    <string name="spatial_canvas_desc">वास्तविक जीपीएस निर्देशांक • ऑफ़लाइन ग्रिड</string>
+    <string name="territorial_map">क्षेत्रीय नक्शा</string>
+    <string name="kpi_dashboard">केपीआई डैशबोर्ड</string>
 </resources>
+

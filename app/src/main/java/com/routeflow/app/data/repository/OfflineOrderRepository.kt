@@ -229,6 +229,51 @@ class OfflineOrderRepository @Inject constructor(
 
     override suspend fun completeTrip(tripId: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Completing a trip requires an active server connection."))
+
+    // --- Van Sales (Source corrected — not runtime-verified) ---
+    override suspend fun submitVanSaleOrder(
+        order: OrderEntity,
+        items: List<OrderItemEntity>,
+        tripId: String,
+        paymentMethod: String,
+        notes: String?,
+        isProvisional: Boolean,
+        creditOverridePaise: Long?,
+        creditOverrideReason: String?
+    ): Result<com.routeflow.app.core.network.dto.VanSaleSubmitResponse> = try {
+        database.orderDao().createOrderWithItems(order, items)
+        Result.success(
+            com.routeflow.app.core.network.dto.VanSaleSubmitResponse(
+                success = true,
+                orderId = order.id,
+                status = if (isProvisional) "SUBMITTED" else "DELIVERED",
+                totalAmountPaise = order.totalAmountPaise,
+                isProvisional = isProvisional,
+                message = "Order recorded locally in demo/offline mode"
+            )
+        )
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun confirmVanSaleOrder(
+        orderId: String
+    ): Result<com.routeflow.app.core.network.dto.VanSaleSubmitResponse> = try {
+        database.orderDao().updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
+        Result.success(
+            com.routeflow.app.core.network.dto.VanSaleSubmitResponse(
+                success = true,
+                orderId = orderId,
+                status = "DELIVERED",
+                totalAmountPaise = 0L,
+                isProvisional = false,
+                message = "Provisional van sale confirmed locally in demo/offline mode"
+            )
+        )
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }
+
 
 

@@ -332,5 +332,26 @@
     <string name="data_synced_server">Data synced with server</string>
     <string name="all_records_up_to_date">All local records up to date</string>
     <string name="admin_pwd_notice">Password managed by Owner / Admin</string>
+
+    <!-- Van Sales Foundation Strings -->
+    <string name="van_sales_title">Van Spot Sales</string>
+    <string name="van_sales_subtitle">Spot billing &amp; stock deduction</string>
+    <string name="van_sales_trip_required">Active Vehicle Trip Required</string>
+    <string name="van_sales_trip_required_desc">Van spot sales deduct physical inventory from vehicle allocations. An active delivery trip in PLANNED or IN_TRANSIT status is required.</string>
+    <string name="van_sales_provisional_disclaimer">Provisional Estimate — Server Authoritative. Final line item pricing, taxes, schemes &amp; inventory deductions are calculated authoritatively by the server.</string>
+    <string name="van_sales_credit_limit_exceeded">Credit limit exceeded for retailer. Spot cash/UPI or authorized override required.</string>
+
+    <!-- Map-First Logistics UI Strings -->
+    <string name="map_view">Map</string>
+    <string name="list_view">List</string>
+    <string name="van_spot_sale_action">Van Spot Sale</string>
+    <string name="check_in_visit">Check In / Visit</string>
+    <string name="deliver_order_action">Deliver Order</string>
+    <string name="unmapped_shops">%1$d shops missing GPS</string>
+    <string name="spatial_canvas_title">RouteFlow Logistics Spatial View</string>
+    <string name="spatial_canvas_desc">Real GPS coordinates plotted • Vector offline grid</string>
+    <string name="territorial_map">Territory Map</string>
+    <string name="kpi_dashboard">KPI Dashboard</string>
 </resources>
+
 

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Phone
@@ -53,8 +54,10 @@ fun ShopVisitScreen(
     onCheckOut: (notes: String?, noOrderReason: String?) -> Unit,
     onCreateOrder: () -> Unit,
     onStockCheck: () -> Unit,
-    onCollectPayment: ((amountPaise: Long, method: String, reference: String) -> Unit)? = null
+    onCollectPayment: ((amountPaise: Long, method: String, reference: String) -> Unit)? = null,
+    onVanSale: (() -> Unit)? = null
 ) {
+
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -473,6 +476,18 @@ fun ShopVisitScreen(
                             accentColor = Color(0xFF64748B),
                             backgroundColor = Color(0xFFF8FAFC),
                             onClick = { showNoOrderDialog = true }
+                        )
+                    }
+
+                    if (onVanSale != null) {
+                        VisitActionTile(
+                            modifier = Modifier.fillMaxWidth(),
+                            title = "Van Spot Sale",
+                            subtitle = "Immediate spot billing & deduction from vehicle stock",
+                            icon = Icons.Default.LocalShipping,
+                            accentColor = Color(0xFF7C3AED),
+                            backgroundColor = Color(0xFFFAF5FF),
+                            onClick = onVanSale
                         )
                     }
 

@@ -1,4 +1,5 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
+import { normalizeRole } from './security';
 
 export type Actor = { sub: string; company_id: string; role: string; sid: string; name: string };
 type TripEnv = { Bindings: { DB: D1Database }; Variables: { user: Actor } };
@@ -7,8 +8,8 @@ type Ctx = Context<TripEnv>;
 const bad = (c: Ctx, error: string, status: 400 | 403 | 404 | 409 = 400) =>
   c.json({ error }, status);
 
-const managementRoles = ['OWNER', 'ADMIN', 'WAREHOUSE_MANAGER'];
-const allTripRoles = ['OWNER', 'ADMIN', 'WAREHOUSE_MANAGER', 'DELIVERY_EXECUTIVE'];
+const managementRoles = ['OWNER', 'ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE'];
+const allTripRoles = ['OWNER', 'ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE', 'DELIVERY_EXECUTIVE', 'DELIVERY'];
 
 const audit = (c: Ctx, action: string, id: string, details: unknown) =>
   c.env.DB.prepare(
@@ -58,10 +59,10 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
       return bad(c, 'Maximum 50 orders per trip');
     }
 
-    // 1. Verify driver belongs to this company and is an active DELIVERY_EXECUTIVE
+    // 1. Verify driver belongs to this company and is an active delivery executive
     const driver = await c.env.DB.prepare(
-      'SELECT id, full_name FROM users WHERE id = ? AND company_id = ? AND role = ? AND is_active = 1'
-    ).bind(driverId, user.company_id, 'DELIVERY_EXECUTIVE').first<{ id: string; full_name: string }>();
+      "SELECT id, full_name FROM users WHERE id = ? AND company_id = ? AND role IN ('DELIVERY_EXECUTIVE', 'DELIVERY') AND is_active = 1"
+    ).bind(driverId, user.company_id).first<{ id: string; full_name: string }>();
 
     if (!driver) {
       return bad(c, 'Active delivery executive not found in company', 404);
@@ -149,10 +150,10 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
   // ──────────────────────────────────────────────────────────────
   router.get('/active', async (c) => {
     const user = c.get('user');
-    if (!allTripRoles.includes(user.role)) return bad(c, 'Permission denied', 403);
+    if (!allTripRoles.includes(user.role) && !allTripRoles.includes(normalizeRole(user.role))) return bad(c, 'Permission denied', 403);
 
     let driverId: string;
-    if (user.role === 'DELIVERY_EXECUTIVE') {
+    if (user.role === 'DELIVERY_EXECUTIVE' || normalizeRole(user.role) === 'DELIVERY') {
       driverId = user.sub;
     } else {
       const queryDriverId = c.req.query('driverId');
@@ -241,10 +242,10 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
   // Alias /trips/active/current for client app
   router.get('/active/current', async (c) => {
     const user = c.get('user');
-    if (!allTripRoles.includes(user.role)) return bad(c, 'Permission denied', 403);
+    if (!allTripRoles.includes(user.role) && !allTripRoles.includes(normalizeRole(user.role))) return bad(c, 'Permission denied', 403);
 
     let driverId: string;
-    if (user.role === 'DELIVERY_EXECUTIVE') {
+    if (user.role === 'DELIVERY_EXECUTIVE' || normalizeRole(user.role) === 'DELIVERY') {
       driverId = user.sub;
     } else {
       const queryDriverId = c.req.query('driverId');
@@ -312,7 +313,7 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
   // ──────────────────────────────────────────────────────────────
   router.get('/', async (c) => {
     const user = c.get('user');
-    if (!allTripRoles.includes(user.role)) return bad(c, 'Permission denied', 403);
+    if (!allTripRoles.includes(user.role) && !allTripRoles.includes(normalizeRole(user.role))) return bad(c, 'Permission denied', 403);
 
     let query = `
       SELECT t.id, t.trip_number as tripNumber, t.driver_user_id as driverUserId,
@@ -331,7 +332,7 @@ export function tripRouter(authMiddleware: MiddlewareHandler<TripEnv>) {
     `;
     const params: any[] = [user.company_id];
 
-    if (user.role === 'DELIVERY_EXECUTIVE') {
+    if (user.role === 'DELIVERY_EXECUTIVE' || normalizeRole(user.role) === 'DELIVERY') {
       query += ' AND t.driver_user_id = ?';
       params.push(user.sub);
     } else {

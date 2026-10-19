@@ -16,6 +16,19 @@ android {
         version = release(36) { minorApiLevel = 1 }
     }
 
+    val keystorePropertiesFile = rootProject.file("keystore.properties").takeIf { it.exists() }
+        ?: project.file("keystore.properties").takeIf { it.exists() }
+    val keystoreProperties = Properties().apply {
+        if (keystorePropertiesFile != null) {
+            load(FileInputStream(keystorePropertiesFile))
+        }
+    }
+
+    val mapsApiKey = (project.findProperty("MAPS_API_KEY") as? String)
+        ?: System.getenv("MAPS_API_KEY")
+        ?: keystoreProperties.getProperty("mapsApiKey")
+        ?: ""
+
     defaultConfig {
         applicationId = "com.routeflow.app"
         minSdk = 26
@@ -23,20 +36,10 @@ android {
         versionCode = 4
         versionName = "1.0.2"
 
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    ksp {
-        arg("room.generateKotlin", "true")
-        arg("room.schemaLocation", "$projectDir/schemas")
-    }
-
-    val keystorePropertiesFile = rootProject.file("keystore.properties").takeIf { it.exists() }
-        ?: project.file("keystore.properties").takeIf { it.exists() }
-    val keystoreProperties = Properties().apply {
-        if (keystorePropertiesFile != null) {
-            load(FileInputStream(keystorePropertiesFile))
-        }
     }
 
     val storeFilePath = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
@@ -156,6 +159,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.compose.icons.extended)
+    implementation(libs.google.maps.compose)
+    implementation(libs.google.play.services.maps)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)

@@ -1,6 +1,7 @@
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
-import { rateLimit, requestIp } from './security';
+import { rateLimit, requestIp, canPerform, normalizeRole, verifyTenantMembership } from './security';
+import { calculateGstBreakdown, evaluateCreditPolicy, buildRetailerLedgerStatements } from './fmcg-engine';
 import { dailyCycle } from './daily-cycle';
 import { fieldCycle } from './field-cycle';
 import { requestOtp } from './delivery-proof';
@@ -76,12 +77,9 @@ async function verifyPassword(plain: string, hash: string): Promise<boolean> {
 // Authentication Middleware with Live DB Permissions and Session Validation
 const authMiddleware = async (c: any, next: any) => {
   const authHeader = c.req.header('Authorization');
-  let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
   if (!token) {
-    token = c.req.query('token') || null;
-  }
-  if (!token) {
-    return c.json({ error: 'Unauthorized' }, 401);
+    return c.json({ error: 'Unauthorized: Bearer token required in Authorization header' }, 401);
   }
   let verified: any = null;
   try {
@@ -126,21 +124,27 @@ const authMiddleware = async (c: any, next: any) => {
     return c.json({ error: 'User account disabled' }, 403);
   }
 
-  // Cross-tenant verification: payload company must match active user's company
-  if (payload.company_id !== user.company_id) {
-    return c.json({ error: 'Unauthorized tenant access' }, 403);
+  // Cross-tenant verification: verify membership in payload or active company/organization
+  const targetCompanyId = payload.company_id || user.company_id;
+  const membershipCheck = await verifyTenantMembership(c.env.DB, user.id, targetCompanyId);
+  if (!membershipCheck.isMember) {
+    return c.json({ error: 'Unauthorized tenant access: user is not an active member of requested organization' }, 403);
   }
+
+  const effectiveCompanyId = targetCompanyId;
+  const effectiveRole = membershipCheck.role || user.role;
+
   const origin = c.req.header('X-RouteFlow-Account');
-  if (origin && origin !== `${user.id}:${user.company_id}`) {
+  if (origin && origin !== `${user.id}:${user.company_id}` && origin !== `${user.id}:${effectiveCompanyId}`) {
     return c.json({ error: 'Offline event belongs to a different account' }, 403);
   }
 
-  // Set user payload using current live DB role and information
+  // Set user payload using current verified tenant context and role
   c.set('user', {
     sub: user.id,
     sid: payload.sid,
-    company_id: user.company_id,
-    role: user.role, // Live role from DB
+    company_id: effectiveCompanyId,
+    role: effectiveRole,
     name: user.full_name
   });
 
@@ -201,6 +205,23 @@ app.post('/auth/login', async (c) => {
     exp: nowSec + accessExpirySeconds,
   }, c.env.JWT_SECRET);
 
+  let organizations: any[] = [];
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT om.organization_id AS id, o.name, om.role
+       FROM organization_memberships om
+       JOIN organizations o ON o.id = om.organization_id
+       WHERE om.user_id = ? AND om.is_active = 1`
+    ).bind(user.id).all();
+    organizations = results || [];
+  } catch {
+    // If migration 0019 has not been executed yet
+  }
+
+  if (!organizations.length) {
+    organizations = [{ id: user.company_id, name: 'Default Company', role: user.role }];
+  }
+
   return c.json({
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -209,6 +230,54 @@ app.post('/auth/login', async (c) => {
       name: user.full_name,
       role: user.role,
       company_id: user.company_id
+    },
+    organizations
+  });
+});
+
+app.post('/auth/switch-organization', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json();
+  const targetOrgId = body.organization_id || body.organizationId;
+  if (!targetOrgId || typeof targetOrgId !== 'string') {
+    return c.json({ error: 'Missing organization_id' }, 400);
+  }
+
+  const check = await verifyTenantMembership(c.env.DB, user.sub, targetOrgId);
+  if (!check.isMember) {
+    return c.json({ error: 'Unauthorized: User is not an active member of target organization' }, 403);
+  }
+
+  const effectiveRole = check.role || user.role;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const accessExpirySeconds = parseInt(c.env.JWT_ACCESS_EXPIRY || '900', 10);
+
+  // Issue new access token scoped to switched organization
+  const newAccessToken = await sign({
+    sub: user.sub,
+    sid: user.sid,
+    company_id: targetOrgId,
+    role: effectiveRole,
+    name: user.name,
+    exp: nowSec + accessExpirySeconds,
+  }, c.env.JWT_SECRET);
+
+  // Update session record
+  try {
+    await c.env.DB.prepare('UPDATE sessions SET company_id = ?, last_active_at = ? WHERE id = ?')
+      .bind(targetOrgId, nowSec, user.sid).run();
+  } catch {
+    // Sessions table update fallback
+  }
+
+  return c.json({
+    access_token: newAccessToken,
+    user: {
+      id: user.sub,
+      name: user.name,
+      role: effectiveRole,
+      company_id: targetOrgId,
+      organization_id: targetOrgId
     }
   });
 });
@@ -474,8 +543,8 @@ app.get('/delivery-executives', authMiddleware, async (c) => {
 
 app.post('/orders', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'SALESPERSON' && user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: only salesperson or owner can submit orders' }, 403);
+  if (!canPerform(user.role, 'order:create')) {
+    return c.json({ error: 'Permission denied: current role cannot submit orders' }, 403);
   }
 
   const rawBodyText = await c.req.text();
@@ -515,7 +584,7 @@ app.post('/orders', authMiddleware, async (c) => {
   }
 
   // Salesperson beat assignment enforcement
-  if (user.role === 'SALESPERSON') {
+  if (normalizeRole(user.role) === 'SALES') {
     const beatAssignment = await c.env.DB.prepare(
       'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
     )
@@ -552,9 +621,26 @@ app.post('/orders', authMiddleware, async (c) => {
 
   const override = body.creditOverridePaise ?? 0;
   const overrideReason = body.creditOverrideReason?.trim() || null;
-  if (!Number.isSafeInteger(override) || override < 0 || override > 1000000000 || (override > 0 && (user.role !== 'OWNER' || !overrideReason))) {
-    return c.json({ error: 'Credit override requires owner, bounded amount and reason' }, 403);
+  if (!Number.isSafeInteger(override) || override < 0 || override > 1000000000 || (override > 0 && (!canPerform(user.role, 'retailer:credit_override') || !overrideReason))) {
+    return c.json({ error: 'Credit override requires authorized role, bounded amount and reason' }, 403);
   }
+
+  // Evaluate organization credit policy
+  const creditEval = await evaluateCreditPolicy({
+    db: c.env.DB,
+    companyId: user.company_id,
+    retailerId: order.retailerId,
+    newOrderAmountPaise: order.totalAmountPaise,
+    overridePaise: override,
+    overrideReason,
+    userId: user.sub,
+    userRole: user.role
+  });
+
+  if (!creditEval.allowed) {
+    return c.json({ error: creditEval.error || 'Order blocked under organization credit policy' }, 400);
+  }
+
   // Fetch active company promotions to calculate free items on server
   const { results: promoRules } = await c.env.DB.prepare(
     'SELECT product_id, min_quantity, free_quantity FROM promotions WHERE company_id = ? AND is_active = 1'
@@ -795,7 +881,7 @@ app.get('/orders/:id', authMiddleware, async (c) => {
 
 app.post('/orders/:id/approve', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+  if (!canPerform(user.role, 'order:approve')) {
     return c.json({ error: 'Permission denied: owner or admin role required to approve orders' }, 403);
   }
 
@@ -806,12 +892,32 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
+  if (order.is_van_sale === 1) {
+    return c.json({ error: 'Cannot approve van sales order via standard warehouse approval queue. Van sales orders must be settled from vehicle allocated stock.' }, 400);
+  }
+
   if (order.status === 'APPROVED') {
     return c.json({ success: true, idempotent: true });
   }
 
   if (order.status !== 'SUBMITTED') {
     return c.json({ error: `Cannot approve order with status ${order.status}` }, 400);
+  }
+
+  // Credit policy validation prior to order approval and inventory reservation
+  const creditEval = await evaluateCreditPolicy({
+    db: c.env.DB,
+    companyId: user.company_id,
+    retailerId: order.retailer_id,
+    newOrderAmountPaise: order.total_amount_paise,
+    overridePaise: order.credit_override_paise || 0,
+    overrideReason: order.credit_override_reason || undefined,
+    userId: user.sub,
+    userRole: user.role
+  });
+
+  if (!creditEval.allowed) {
+    return c.json({ error: creditEval.error || 'Cannot approve order: retailer breaches credit policy' }, 400);
   }
 
   const { results: items } = await c.env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?')
@@ -880,8 +986,8 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
 
 app.post('/orders/:id/reject', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: only owner can reject orders' }, 403);
+  if (!canPerform(user.role, 'order:reject')) {
+    return c.json({ error: 'Permission denied: owner or admin role required to reject orders' }, 403);
   }
 
   const orderId = c.req.param('id');
@@ -1421,6 +1527,37 @@ app.post('/orders/:id/deliver', authMiddleware, async (c) => {
     )
   );
 
+  // 6. Durable Retailer Double-Entry Khata entry (if table present)
+  try {
+    const hasRetailerLedgers = await c.env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retailer_ledgers'").first();
+    if (hasRetailerLedgers) {
+      statements.push(
+        c.env.DB.prepare(
+          `INSERT INTO retailer_ledgers (
+            id, company_id, retailer_id, entry_type, reference_id,
+            amount_paise, running_balance_paise, notes, created_by, created_at
+          )
+          SELECT ?, ?, ?, ?, ?, ?, outstanding_amount_paise, ?, ?, ?
+          FROM retailers WHERE id = ? AND company_id = ?`
+        ).bind(
+          `rl_${crypto.randomUUID()}`,
+          user.company_id,
+          order.retailer_id,
+          paymentMethod === 'CREDIT' ? 'INVOICE_DEBIT' : 'PAYMENT_CREDIT',
+          orderId,
+          deliveredAmountPaise,
+          `Delivery confirmed: ${finalStatus} (${paymentMethod})`,
+          user.sub,
+          now,
+          order.retailer_id,
+          user.company_id
+        )
+      );
+    }
+  } catch {
+    // Table existence fallback
+  }
+
   try {
     await c.env.DB.batch(statements);
     return c.json({ success: true, status: finalStatus, invoiceId, deliveredAmountPaise });
@@ -1594,8 +1731,8 @@ app.post('/orders/:id/retry-delivery', authMiddleware, async (c) => {
   if (!retailer) return c.json({ error: 'Retailer not found' }, 404);
 
   const activeReservations = await c.env.DB.prepare(
-    'SELECT COALESCE(SUM(amount_paise), 0) AS total_res FROM credit_reservations WHERE retailer_id = ? AND company_id = ?'
-  ).bind(order.retailer_id, user.company_id).first() as any;
+    'SELECT COALESCE(SUM(amount_paise), 0) AS total_res FROM credit_reservations WHERE retailer_id = ? AND company_id = ? AND order_id != ?'
+  ).bind(order.retailer_id, user.company_id, orderId).first() as any;
 
   const currentExposure = retailer.outstanding_amount_paise + (activeReservations?.total_res || 0);
   const maxAllowedCredit = retailer.credit_limit_paise + (order.credit_override_paise || 0);
@@ -2481,6 +2618,863 @@ app.get('/owner/visits/daily', authMiddleware, async (c) => {
   });
 
   return c.json(formatted);
+});
+
+// ============================================================================
+// FMCG ENTERPRISE: VAN SALES, KHATA LEDGERS & CREDIT POLICIES
+// ============================================================================
+
+app.post('/van-sales/orders', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (!canPerform(user.role, 'van_sales:create')) {
+    return c.json({ error: 'Permission denied: current role cannot execute van sales' }, 403);
+  }
+
+  const rawBodyText = await c.req.text();
+  let body: any;
+  try {
+    body = JSON.parse(rawBodyText);
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  const { order, items, paymentMethod = 'CASH', notes, isProvisional = false } = body;
+  if (!order || !order.retailerId || !Array.isArray(items) || !items.length) {
+    return c.json({ error: 'Invalid van sale request: retailerId and items required' }, 400);
+  }
+
+  const idempotencyKey = (
+    c.req.header('Idempotency-Key') ||
+    body.idempotencyKey ||
+    body.idempotency_key ||
+    order.idempotencyKey ||
+    order.idempotency_key ||
+    (typeof order.id === 'string' && order.id ? `idemp_${order.id}` : null)
+  )?.trim();
+
+  if (!idempotencyKey || typeof idempotencyKey !== 'string' || idempotencyKey.length < 6) {
+    return c.json({ error: 'Valid idempotencyKey (minimum 6 characters) is required for van sales orders' }, 400);
+  }
+
+  const requestHash = await sha256Hex(rawBodyText);
+  const existingRecord = await c.env.DB.prepare(
+    'SELECT company_id, actor_id, operation, request_hash, response_body, response_status FROM idempotency_records WHERE key = ?'
+  )
+    .bind(idempotencyKey)
+    .first<{ company_id: string; actor_id: string; operation: string; request_hash: string; response_body: string; response_status: number } | null>();
+
+  if (existingRecord) {
+    if (
+      existingRecord.company_id !== user.company_id ||
+      existingRecord.actor_id !== user.sub ||
+      existingRecord.operation !== 'VAN_SALE_ORDER' ||
+      existingRecord.request_hash !== requestHash
+    ) {
+      return c.json({ error: 'Idempotency conflict: key reused with differing actor, operation, or payload' }, 409);
+    }
+    return c.json(JSON.parse(existingRecord.response_body), existingRecord.response_status as any);
+  }
+
+  const tripId = order.tripId || body.tripId;
+  if (!tripId) {
+    return c.json({ error: 'Trip ID required for van sale stock allocation' }, 400);
+  }
+
+  // 1. Verify trip belongs to active organization
+  const trip = await c.env.DB.prepare(
+    'SELECT * FROM delivery_trips WHERE id = ? AND company_id = ?'
+  ).bind(tripId, user.company_id).first<{ id: string; status: string; driver_user_id: string; salesperson_user_id?: string }>();
+
+  if (!trip) {
+    return c.json({ error: 'Delivery trip not found in this company' }, 404);
+  }
+
+  if (trip.status === 'COMPLETED' || trip.status === 'CANCELLED') {
+    return c.json({ error: `Cannot execute van sales on ${trip.status.toLowerCase()} trip` }, 400);
+  }
+
+  // 2. Verify retailer belongs to company
+  const retailer = await c.env.DB.prepare(
+    'SELECT id, name, credit_limit_paise, outstanding_amount_paise, beat_id FROM retailers WHERE id = ? AND company_id = ?'
+  ).bind(order.retailerId, user.company_id).first<{ id: string; name: string; credit_limit_paise: number; outstanding_amount_paise: number; beat_id: string }>();
+
+  if (!retailer) {
+    return c.json({ error: 'Retailer not found in this company' }, 404);
+  }
+
+  // Caller custody check: caller must be driver, trip salesperson, beat assigned, or owner/admin
+  const normRole = normalizeRole(user.role);
+  const isPrivileged = ['OWNER', 'ADMIN'].includes(normRole);
+  const isDriver = trip.driver_user_id === user.sub;
+  const isTripSales = trip.salesperson_user_id === user.sub;
+  let isBeatAssigned = false;
+  if (!isPrivileged && !isDriver && !isTripSales && retailer.beat_id) {
+    const beatCheck = await c.env.DB.prepare(
+      'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
+    ).bind(user.sub, retailer.beat_id, user.company_id).first();
+    isBeatAssigned = Boolean(beatCheck);
+  }
+
+  if (!isPrivileged && !isDriver && !isTripSales && !isBeatAssigned) {
+    return c.json({ error: 'Permission denied: caller is not authorized for this vehicle trip or beat' }, 403);
+  }
+
+  // 3. Re-validate prices, tax, discounts, and vehicle stock on the server
+  const orderId = order.id || `van_ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = Date.now();
+  let computedTotalPaise = 0;
+  const processedItems: any[] = [];
+  const stockStatements: any[] = [];
+  const seenProducts = new Set<string>();
+
+  if (!isProvisional) {
+    const hasDeductionsTable = await c.env.DB.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='van_stock_deductions'"
+    ).first().catch(() => null);
+    const hasDeductionsGuard = await c.env.DB.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='trg_van_stock_deduction_guard'"
+    ).first().catch(() => null);
+    const tableInfo = await c.env.DB.prepare(
+      "PRAGMA table_info(van_stock_deductions)"
+    ).all<{ name: string }>().catch(() => ({ results: [] }));
+    const hasProductId = (tableInfo?.results || []).some(col => col.name === 'product_id');
+
+    if (!hasDeductionsTable || !hasDeductionsGuard || !hasProductId) {
+      return c.json({
+        error: 'Operational failure: required zero-row deduction guard schema (migrations 0021 & 0022) is missing from database. Van sales rejected to prevent silent stock corruption.',
+        code: 'SCHEMA_MIGRATION_REQUIRED'
+      }, 503);
+    }
+  }
+
+  for (const item of items) {
+    if (!item || !item.productId || typeof item.productId !== 'string') {
+      return c.json({ error: 'Invalid product item format' }, 400);
+    }
+    if (seenProducts.has(item.productId)) {
+      return c.json({ error: `Duplicate product ${item.productId} in request items` }, 400);
+    }
+    seenProducts.add(item.productId);
+
+    const qty = Number(item.quantity);
+    if (!Number.isSafeInteger(qty) || qty <= 0 || qty > 100000) {
+      return c.json({ error: `Invalid item quantity for product ${item.productId}` }, 400);
+    }
+
+    const product = await c.env.DB.prepare(
+      'SELECT id, name, price_paise, is_active FROM products WHERE id = ? AND company_id = ?'
+    ).bind(item.productId, user.company_id).first<any>();
+
+    if (!product || product.is_active === 0) {
+      return c.json({ error: `Product ${item.productId} not found or inactive` }, 400);
+    }
+
+    // Server-enforced pricing: do not trust unvalidated client prices
+    const pricePaise = product.price_paise;
+    const gst = calculateGstBreakdown({ pricePaise, quantity: qty, gstRate: 18.0 });
+
+    // Validate van stock allocations exist and satisfy quantity across FEFO batches
+    const { results: allocations } = await c.env.DB.prepare(
+      `SELECT vsa.id, vsa.allocated_qty, vsa.delivered_qty, vsa.batch_id, pb.expiry_date
+       FROM van_stock_allocations vsa
+       LEFT JOIN product_batches pb ON vsa.batch_id = pb.id
+       WHERE vsa.trip_id = ? AND vsa.product_id = ? AND vsa.company_id = ? AND vsa.status IN ('ALLOCATED', 'IN_TRANSIT')
+       ORDER BY CASE WHEN pb.expiry_date IS NOT NULL THEN pb.expiry_date ELSE 9999999999999 END ASC, vsa.created_at ASC`
+    ).bind(tripId, item.productId, user.company_id).all<{ id: string; allocated_qty: number; delivered_qty: number; batch_id: string | null; expiry_date: number | null }>();
+
+    if (!allocations || allocations.length === 0) {
+      return c.json({
+        error: `Product ${product.name} has no stock allocated to vehicle trip ${tripId}`
+      }, 400);
+    }
+
+    const availableInVan = allocations.reduce((sum, a) => sum + Math.max(0, a.allocated_qty - a.delivered_qty), 0);
+    if (availableInVan < qty) {
+      return c.json({
+        error: `Insufficient van stock for ${product.name}. Available: ${availableInVan}, Requested: ${qty}`
+      }, 400);
+    }
+
+    // Only deduct stock if finalizing (not provisional)
+    if (!isProvisional) {
+      let remainingToDeduct = qty;
+      for (const alloc of allocations) {
+        if (remainingToDeduct <= 0) break;
+        const availableInRow = alloc.allocated_qty - alloc.delivered_qty;
+        if (availableInRow <= 0) continue;
+        const deductFromRow = Math.min(remainingToDeduct, availableInRow);
+        stockStatements.push(
+          c.env.DB.prepare(
+            `INSERT INTO van_stock_deductions (
+              id, company_id, trip_id, allocation_id, order_id, product_id, quantity, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `vsd_${crypto.randomUUID()}`, user.company_id, tripId, alloc.id, orderId, item.productId, deductFromRow, now
+          )
+        );
+        remainingToDeduct -= deductFromRow;
+      }
+      if (remainingToDeduct > 0) {
+        return c.json({
+          error: `Allocation error: could not satisfy required quantity ${qty} for ${product.name}`
+        }, 400);
+      }
+    }
+
+    computedTotalPaise += (pricePaise * qty);
+    processedItems.push({
+      id: item.id || crypto.randomUUID(),
+      productId: item.productId,
+      quantity: qty,
+      pricePaiseAtTime: pricePaise,
+      gst
+    });
+  }
+
+  // 4. Server-side credit policy evaluation
+  let creditOverridePaise = 0;
+  if (paymentMethod === 'CREDIT') {
+    const override = body.creditOverridePaise ?? 0;
+    const overrideReason = body.creditOverrideReason?.trim() || null;
+    if (!Number.isSafeInteger(override) || override < 0 || override > 1000000000 || (override > 0 && (!canPerform(user.role, 'retailer:credit_override') || !overrideReason))) {
+      return c.json({ error: 'Credit override requires authorized role, bounded amount and reason' }, 403);
+    }
+    creditOverridePaise = override;
+
+    const creditEval = await evaluateCreditPolicy({
+      db: c.env.DB,
+      companyId: user.company_id,
+      retailerId: order.retailerId,
+      newOrderAmountPaise: computedTotalPaise,
+      overridePaise: override,
+      overrideReason: overrideReason || undefined,
+      userId: user.sub,
+      userRole: user.role
+    });
+
+    if (!creditEval.allowed) {
+      return c.json({ error: creditEval.error || 'Van sale blocked by credit policy' }, 400);
+    }
+  }
+
+  const status = isProvisional ? 'SUBMITTED' : 'DELIVERED';
+  const invoiceId = `inv_${crypto.randomUUID()}`;
+
+  const statements: any[] = [
+    c.env.DB.prepare(
+      `INSERT INTO orders (
+        id, company_id, retailer_id, employee_id, status, total_amount_paise,
+        delivered_amount_paise, payment_method, trip_id, van_trip_id, is_van_sale, is_provisional,
+        credit_override_paise, credit_override_reason, credit_override_by, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      orderId, user.company_id, order.retailerId, user.sub, status, computedTotalPaise,
+      status === 'DELIVERED' ? computedTotalPaise : 0, paymentMethod, tripId, tripId, 1, isProvisional ? 1 : 0,
+      creditOverridePaise, overrideReason, creditOverridePaise > 0 ? user.sub : null,
+      notes || (isProvisional ? 'Provisional Van Order' : 'Direct Van Sale Spot-Bill'), now, now
+    ),
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(), user.company_id, user.sub, isProvisional ? 'VAN_PROVISIONAL_ORDER_CREATED' : 'VAN_SALE_EXECUTED', orderId,
+      `Trip: ${tripId}, Retailer: ${retailer.name}, Amount: ${computedTotalPaise} paise, Status: ${status}, Payment: ${paymentMethod}, Provisional: ${isProvisional}`, now
+    )
+  ];
+
+  if (creditOverridePaise > 0) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO credit_overrides (id, company_id, retailer_id, order_id, override_amount_paise, exposure_at_time_paise, credit_limit_paise, authorized_by, reason, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        `co_${crypto.randomUUID()}`, user.company_id, order.retailerId, orderId, creditOverridePaise,
+        retailer.outstanding_amount_paise, retailer.credit_limit_paise, user.sub, overrideReason || 'Authorized credit override', now
+      )
+    );
+  }
+
+  for (const item of processedItems) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO order_items (
+          id, order_id, product_id, quantity, free_quantity, price_paise_at_time, is_picked, delivered_quantity
+        ) VALUES (?, ?, ?, ?, 0, ?, 1, ?)`
+      ).bind(item.id, orderId, item.productId, item.quantity, item.pricePaiseAtTime, status === 'DELIVERED' ? item.quantity : 0)
+    );
+  }
+
+  // Stock updates on allocated van (only if finalized)
+  if (!isProvisional) {
+    statements.push(...stockStatements);
+
+    if (paymentMethod === 'CREDIT') {
+      statements.push(
+        c.env.DB.prepare(
+          'UPDATE retailers SET outstanding_amount_paise = outstanding_amount_paise + ? WHERE id = ? AND company_id = ?'
+        ).bind(computedTotalPaise, order.retailerId, user.company_id)
+      );
+    }
+
+    statements.push(
+      c.env.DB.prepare(
+        'INSERT INTO invoices (id, order_id, company_id, retailer_id, total_amount_paise, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(invoiceId, orderId, user.company_id, order.retailerId, computedTotalPaise, paymentMethod === 'CREDIT' ? 'ISSUED' : 'PAID', now)
+    );
+
+    try {
+      const hasRetailerLedgers = await c.env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retailer_ledgers'").first();
+      if (hasRetailerLedgers) {
+        statements.push(
+          c.env.DB.prepare(
+            `INSERT INTO retailer_ledgers (
+              id, company_id, retailer_id, entry_type, reference_id, amount_paise, running_balance_paise, notes, created_by, created_at
+            )
+            SELECT ?, ?, ?, ?, ?, ?, outstanding_amount_paise, ?, ?, ?
+            FROM retailers WHERE id = ? AND company_id = ?`
+          ).bind(
+            `rl_${crypto.randomUUID()}`, user.company_id, order.retailerId,
+            paymentMethod === 'CREDIT' ? 'INVOICE_DEBIT' : 'PAYMENT_CREDIT', orderId,
+            computedTotalPaise, `Van Sale Spot-Bill (${paymentMethod})`, user.sub, now,
+            order.retailerId, user.company_id
+          )
+        );
+      }
+    } catch {
+      // Table existence fallback
+    }
+  }
+
+  // Idempotency record storage
+  const responsePayload = {
+    success: true,
+    orderId,
+    status,
+    totalAmountPaise: computedTotalPaise,
+    isProvisional
+  };
+
+  statements.push(
+    c.env.DB.prepare(
+      'INSERT INTO idempotency_records (key, company_id, actor_id, operation, request_hash, response_body, response_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(idempotencyKey, user.company_id, user.sub, 'VAN_SALE_ORDER', requestHash, JSON.stringify(responsePayload), 200, now)
+  );
+
+  try {
+    await c.env.DB.batch(statements);
+    return c.json(responsePayload);
+  } catch (e: any) {
+    console.error(JSON.stringify({ event: 'van_sale_execution_failed', error: e?.message || String(e) }));
+    const existing = await c.env.DB.prepare('SELECT * FROM idempotency_records WHERE key = ?')
+      .bind(idempotencyKey).first<any>();
+    if (existing) {
+      if (existing.company_id !== user.company_id || existing.actor_id !== user.sub || existing.operation !== 'VAN_SALE_ORDER' || existing.request_hash !== requestHash) {
+        return c.json({ error: 'Idempotency conflict: key reused with differing actor, operation, or payload' }, 409);
+      }
+      return c.json(JSON.parse(existing.response_body), existing.response_status);
+    }
+    const errMsg = e?.message || String(e);
+    if (errMsg.includes('Retailer not found')) {
+      return c.json({
+        error: 'Retailer not found or does not belong to active organization.',
+        code: 'RETAILER_NOT_FOUND'
+      }, 404);
+    }
+    if (errMsg.includes('Credit exposure exceeds limit')) {
+      return c.json({
+        error: 'Van sale rejected by database credit guard: retailer credit exposure limit exceeded.',
+        code: 'CREDIT_LIMIT_BREACH'
+      }, 409);
+    }
+    if (errMsg.includes('Van stock delivered quantity cannot exceed') || errMsg.includes('Cannot deliver from inactive or reconciled') || errMsg.includes('VAN_STOCK_EXHAUSTED') || errMsg.includes('VAN_ALLOCATION_NOT_FOUND') || errMsg.includes('VAN_ALLOCATION_INACTIVE') || errMsg.includes('Insufficient van stock on allocation row') || errMsg.includes('Van stock allocation not found') || errMsg.includes('Van stock allocation is not active')) {
+      return c.json({
+        error: 'Van sale rejected by vehicle stock allocation guard: insufficient or inactive allocated stock.',
+        code: 'VAN_STOCK_BREACH'
+      }, 409);
+    }
+    if (errMsg.includes('UNIQUE constraint failed')) {
+      return c.json({
+        error: 'Van sale rejected: duplicate transaction detected or allocation already consumed.',
+        code: 'DUPLICATE_DEDUCTION_CONFLICT'
+      }, 409);
+    }
+    if (errMsg.includes('Total deduction quantity exceeds order item quantity')) {
+      return c.json({
+        error: 'Van sale rejected: stock deduction quantity exceeds order item quantity.',
+        code: 'ORDER_ITEM_QUANTITY_BREACH'
+      }, 409);
+    }
+    return c.json({ error: 'Van sale execution failed: verify vehicle stock allocation and credit limits.', code: 'VAN_SALE_FAILED' }, 409);
+  }
+});
+
+app.post('/van-sales/orders/:id/confirm', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const normRole = normalizeRole(user.role);
+  if (!canPerform(user.role, 'van_sales:confirm') && !canPerform(user.role, 'van_sales:create') && !['OWNER', 'ADMIN'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: role not authorized to confirm van sales' }, 403);
+  }
+
+  // 1. Verify active tenant membership
+  const tenantCheck = await verifyTenantMembership(c.env.DB, user.sub, user.company_id);
+  if (!tenantCheck.isMember) {
+    return c.json({ error: 'Access denied: inactive or invalid organization membership' }, 403);
+  }
+
+  const orderId = c.req.param('id');
+  const rawBodyText = await c.req.text().catch(() => '{}');
+  let body: any = {};
+  try {
+    body = JSON.parse(rawBodyText || '{}');
+  } catch {
+    body = {};
+  }
+
+  // 2. Fetch order and check tenant & van sale status
+  const order = await c.env.DB.prepare(
+    'SELECT * FROM orders WHERE id = ? AND company_id = ?'
+  ).bind(orderId, user.company_id).first<any>();
+
+  if (!order) {
+    return c.json({ error: 'Order not found in this organization' }, 404);
+  }
+
+  if (order.is_van_sale !== 1) {
+    return c.json({ error: 'Cannot confirm order: not a van sales order' }, 400);
+  }
+
+  // Idempotency: if already delivered/confirmed, return success immediately
+  if (order.status === 'DELIVERED') {
+    return c.json({
+      success: true,
+      idempotent: true,
+      orderId,
+      status: 'DELIVERED',
+      totalAmountPaise: order.total_amount_paise,
+      isProvisional: false,
+      message: 'Van sale order is already confirmed and delivered'
+    });
+  }
+
+  if (order.status !== 'SUBMITTED') {
+    return c.json({
+      error: `Cannot confirm van sales order with status '${order.status}'. Order must be in SUBMITTED status.`
+    }, 400);
+  }
+
+  // 3. Mandatory / verified idempotency key
+  const idempotencyKey = (
+    c.req.header('Idempotency-Key') ||
+    body.idempotencyKey ||
+    body.idempotency_key ||
+    `confirm_${orderId}`
+  )?.trim();
+
+  const requestHash = await sha256Hex(rawBodyText || orderId);
+  const existingRecord = await c.env.DB.prepare(
+    'SELECT company_id, actor_id, operation, request_hash, response_body, response_status FROM idempotency_records WHERE key = ?'
+  ).bind(idempotencyKey).first<any>();
+
+  if (existingRecord) {
+    if (
+      existingRecord.company_id !== user.company_id ||
+      existingRecord.actor_id !== user.sub ||
+      existingRecord.operation !== 'VAN_SALE_CONFIRM' ||
+      existingRecord.request_hash !== requestHash
+    ) {
+      return c.json({ error: 'Idempotency conflict: key reused with differing actor, operation, or payload' }, 409);
+    }
+    return c.json(JSON.parse(existingRecord.response_body), existingRecord.response_status);
+  }
+
+  // 4. Validate trip & caller custody
+  const tripId = order.trip_id || order.van_trip_id;
+  if (!tripId) {
+    return c.json({ error: 'Provisional van sale lacks vehicle trip reference' }, 400);
+  }
+
+  const trip = await c.env.DB.prepare(
+    'SELECT id, status, driver_user_id, salesperson_user_id FROM delivery_trips WHERE id = ? AND company_id = ?'
+  ).bind(tripId, user.company_id).first<any>();
+
+  if (!trip) {
+    return c.json({ error: 'Associated vehicle delivery trip not found in this company' }, 404);
+  }
+
+  if (trip.status === 'COMPLETED' || trip.status === 'CANCELLED') {
+    return c.json({ error: `Cannot confirm van sales on ${trip.status.toLowerCase()} trip` }, 400);
+  }
+
+  const isPrivileged = ['OWNER', 'ADMIN'].includes(normRole);
+  const isDriver = trip.driver_user_id === user.sub;
+  const isTripSales = trip.salesperson_user_id === user.sub;
+  let isBeatAssigned = false;
+  if (!isPrivileged && !isDriver && !isTripSales) {
+    const retailer = await c.env.DB.prepare(
+      'SELECT beat_id FROM retailers WHERE id = ? AND company_id = ?'
+    ).bind(order.retailer_id, user.company_id).first<{ beat_id: string }>();
+    if (retailer?.beat_id) {
+      const beatCheck = await c.env.DB.prepare(
+        'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
+      ).bind(user.sub, retailer.beat_id, user.company_id).first();
+      isBeatAssigned = Boolean(beatCheck);
+    }
+  }
+
+  if (!isPrivileged && !isDriver && !isTripSales && !isBeatAssigned) {
+    return c.json({ error: 'Permission denied: caller is not authorized for this vehicle trip or beat' }, 403);
+  }
+
+  // 5. Fetch items, revalidate catalog & check vehicle stock
+  const { results: items } = await c.env.DB.prepare(
+    'SELECT * FROM order_items WHERE order_id = ?'
+  ).bind(orderId).all<any>();
+
+  if (!items || items.length === 0) {
+    return c.json({ error: 'No order items found for this van sale' }, 400);
+  }
+
+  const stockStatements: any[] = [];
+  const now = Date.now();
+  const hasDeductionsTable = await c.env.DB.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='van_stock_deductions'"
+  ).first().catch(() => null);
+  const hasDeductionsGuard = await c.env.DB.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='trg_van_stock_deduction_guard'"
+  ).first().catch(() => null);
+  const tableInfo = await c.env.DB.prepare(
+    "PRAGMA table_info(van_stock_deductions)"
+  ).all<{ name: string }>().catch(() => ({ results: [] }));
+  const hasProductId = (tableInfo?.results || []).some(col => col.name === 'product_id');
+
+  if (!hasDeductionsTable || !hasDeductionsGuard || !hasProductId) {
+    return c.json({
+      error: 'Operational failure: required zero-row deduction guard schema (migrations 0021 & 0022) is missing from database. Van sales confirmation rejected to prevent silent stock corruption.',
+      code: 'SCHEMA_MIGRATION_REQUIRED'
+    }, 503);
+  }
+
+  for (const item of items) {
+    const qty = Number(item.quantity);
+    if (!Number.isSafeInteger(qty) || qty <= 0) {
+      return c.json({ error: `Invalid item quantity for product ${item.product_id}` }, 400);
+    }
+
+    const product = await c.env.DB.prepare(
+      'SELECT id, name, is_active FROM products WHERE id = ? AND company_id = ?'
+    ).bind(item.product_id, user.company_id).first<any>();
+
+    if (!product || product.is_active === 0) {
+      return c.json({ error: `Product ${item.product_id} is inactive or not found` }, 400);
+    }
+
+    // Query active allocations ordered by FEFO expiry date
+    const { results: allocations } = await c.env.DB.prepare(
+      `SELECT vsa.id, vsa.allocated_qty, vsa.delivered_qty, vsa.batch_id, pb.expiry_date
+       FROM van_stock_allocations vsa
+       LEFT JOIN product_batches pb ON vsa.batch_id = pb.id
+       WHERE vsa.trip_id = ? AND vsa.product_id = ? AND vsa.company_id = ? AND vsa.status IN ('ALLOCATED', 'IN_TRANSIT')
+       ORDER BY CASE WHEN pb.expiry_date IS NOT NULL THEN pb.expiry_date ELSE 9999999999999 END ASC, vsa.created_at ASC`
+    ).bind(tripId, item.product_id, user.company_id).all<{ id: string; allocated_qty: number; delivered_qty: number; batch_id: string | null; expiry_date: number | null }>();
+
+    const availableInVan = (allocations || []).reduce((sum, a) => sum + Math.max(0, a.allocated_qty - a.delivered_qty), 0);
+    if (availableInVan < qty) {
+      // Record auditable trip stock discrepancy (Task 4)
+      await c.env.DB.prepare(
+        'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        crypto.randomUUID(),
+        user.company_id,
+        user.sub,
+        'VAN_STOCK_DISCREPANCY',
+        orderId,
+        `Stock validation failure on trip ${tripId}: Product ${product.name} (${item.product_id}) requires ${qty}, but van available is only ${availableInVan}. Sale preserved in SUBMITTED state.`,
+        now
+      ).run().catch(() => {});
+
+      return c.json({
+        error: `Van stock discrepancy for product ${product.name}: required ${qty}, available ${availableInVan}. Sale preserved offline in SUBMITTED state for supervisor reconciliation.`,
+        code: 'VAN_STOCK_DEFICIT',
+        orderId,
+        productId: item.product_id,
+        requiredQuantity: qty,
+        availableQuantity: availableInVan,
+        tripId
+      }, 409);
+    }
+
+    let remainingToDeduct = qty;
+    for (const alloc of allocations) {
+      if (remainingToDeduct <= 0) break;
+      const availableInRow = alloc.allocated_qty - alloc.delivered_qty;
+      if (availableInRow <= 0) continue;
+      const deductFromRow = Math.min(remainingToDeduct, availableInRow);
+      stockStatements.push(
+        c.env.DB.prepare(
+          `INSERT INTO van_stock_deductions (
+            id, company_id, trip_id, allocation_id, order_id, product_id, quantity, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          `vsd_${crypto.randomUUID()}`, user.company_id, tripId, alloc.id, orderId, item.product_id, deductFromRow, now
+        )
+      );
+      remainingToDeduct -= deductFromRow;
+    }
+  }
+
+  // 6. Credit policy revalidation (for credit sales)
+  if (order.payment_method === 'CREDIT') {
+    // When order was created in SUBMITTED, trigger reserve_order_credit reserved order.total_amount_paise.
+    // To prevent double-counting during confirmation, evaluate credit with newOrderAmountPaise = 0
+    const creditEval = await evaluateCreditPolicy({
+      db: c.env.DB,
+      companyId: user.company_id,
+      retailerId: order.retailer_id,
+      newOrderAmountPaise: 0,
+      overridePaise: order.credit_override_paise || 0,
+      overrideReason: order.credit_override_reason || undefined,
+      userId: user.sub,
+      userRole: user.role
+    });
+
+    if (!creditEval.allowed) {
+      return c.json({
+        error: creditEval.error || 'Van sale confirmation blocked by credit policy',
+        code: 'CREDIT_POLICY_BREACH',
+        orderId
+      }, 400);
+    }
+  }
+
+  // 7. Compose atomic batch
+  const invoiceId = `inv_${crypto.randomUUID()}`;
+  const statements: any[] = [
+    // 1. Transition order: SUBMITTED -> DELIVERED (trigger trg_order_status_transition_guard protects valid transition)
+    c.env.DB.prepare(
+      `UPDATE orders
+       SET status = 'DELIVERED', delivered_amount_paise = total_amount_paise, is_provisional = 0, updated_at = ?
+       WHERE id = ? AND company_id = ?`
+    ).bind(now, orderId, user.company_id),
+
+    // 2. Consume vehicle stock allocations
+    ...stockStatements,
+
+    // 3. Mark delivered quantities on order items
+    c.env.DB.prepare(
+      'UPDATE order_items SET delivered_quantity = quantity WHERE order_id = ?'
+    ).bind(orderId),
+
+    // 4. Issue invoice
+    c.env.DB.prepare(
+      `INSERT INTO invoices (id, order_id, company_id, retailer_id, total_amount_paise, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(invoiceId, orderId, user.company_id, order.retailer_id, order.total_amount_paise, order.payment_method === 'CREDIT' ? 'ISSUED' : 'PAID', now),
+
+    // 5. Audit log
+    c.env.DB.prepare(
+      'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      crypto.randomUUID(),
+      user.company_id,
+      user.sub,
+      'VAN_SALE_CONFIRMED',
+      orderId,
+      `Provisional van sale confirmed. Trip: ${tripId}, Retailer: ${order.retailer_id}, Amount: ${order.total_amount_paise} paise, Invoice: ${invoiceId}`,
+      now
+    )
+  ];
+
+  // 6. Financial ledger postings for credit sales
+  if (order.payment_method === 'CREDIT') {
+    statements.push(
+      c.env.DB.prepare(
+        'UPDATE retailers SET outstanding_amount_paise = outstanding_amount_paise + ? WHERE id = ? AND company_id = ?'
+      ).bind(order.total_amount_paise, order.retailer_id, user.company_id)
+    );
+
+    try {
+      const hasRetailerLedgers = await c.env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retailer_ledgers'").first();
+      if (hasRetailerLedgers) {
+        statements.push(
+          c.env.DB.prepare(
+            `INSERT INTO retailer_ledgers (
+              id, company_id, retailer_id, entry_type, reference_id, amount_paise, running_balance_paise, notes, created_by, created_at
+            )
+            SELECT ?, ?, ?, 'INVOICE_DEBIT', ?, ?, outstanding_amount_paise, ?, ?, ?
+            FROM retailers WHERE id = ? AND company_id = ?`
+          ).bind(
+            `rl_${crypto.randomUUID()}`, user.company_id, order.retailer_id,
+            orderId, order.total_amount_paise, `Confirmed Van Sale (${order.payment_method})`,
+            user.sub, now, order.retailer_id, user.company_id
+          )
+        );
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  // 7. Store idempotency record
+  const responsePayload = {
+    success: true,
+    orderId,
+    status: 'DELIVERED',
+    totalAmountPaise: order.total_amount_paise,
+    invoiceId,
+    isProvisional: false,
+    message: 'Provisional van sale successfully confirmed and settled'
+  };
+
+  statements.push(
+    c.env.DB.prepare(
+      'INSERT INTO idempotency_records (key, company_id, actor_id, operation, request_hash, response_body, response_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(idempotencyKey, user.company_id, user.sub, 'VAN_SALE_CONFIRM', requestHash, JSON.stringify(responsePayload), 200, now)
+  );
+
+  // 8. Execute batch atomically
+  try {
+    await c.env.DB.batch(statements);
+    return c.json(responsePayload);
+  } catch (e: any) {
+    const errMsg = e?.message || String(e);
+    console.error(JSON.stringify({ event: 'van_sale_confirm_failed', orderId, error: errMsg }));
+
+    const currentOrder = await c.env.DB.prepare('SELECT status FROM orders WHERE id = ? AND company_id = ?')
+      .bind(orderId, user.company_id).first<any>();
+    if (currentOrder && currentOrder.status === 'DELIVERED') {
+      const existing = await c.env.DB.prepare(
+        'SELECT response_body, response_status FROM idempotency_records WHERE key = ?'
+      ).bind(idempotencyKey).first<any>();
+      if (existing) {
+        return c.json(JSON.parse(existing.response_body), existing.response_status);
+      }
+      return c.json({
+        success: true,
+        idempotent: true,
+        orderId,
+        status: 'DELIVERED',
+        totalAmountPaise: order.total_amount_paise
+      });
+    }
+
+    if (errMsg.includes('not in OUT_FOR_DELIVERY state') || errMsg.includes('not in valid precursor state')) {
+      return c.json({
+        error: 'Order status transition rejected by database guard: provisional van-sales confirmation requires forward migration 0020 to be applied.',
+        code: 'TRIGGER_GUARD_ABORT',
+        orderId
+      }, 409);
+    }
+
+    if (errMsg.includes('delivered quantity cannot exceed') || errMsg.includes('CHECK constraint failed') || errMsg.includes('VAN_STOCK_EXHAUSTED') || errMsg.includes('VAN_ALLOCATION_NOT_FOUND') || errMsg.includes('VAN_ALLOCATION_INACTIVE') || errMsg.includes('Insufficient van stock on allocation row') || errMsg.includes('Van stock allocation not found') || errMsg.includes('Van stock allocation is not active')) {
+      return c.json({
+        error: 'Van stock allocation check failed: stock was concurrently consumed or exceeded vehicle allocation.',
+        code: 'STOCK_ALLOCATION_ABORT',
+        orderId
+      }, 409);
+    }
+
+    if (errMsg.includes('UNIQUE constraint failed')) {
+      return c.json({
+        error: 'Confirmation rejected: duplicate deduction or invoice conflict detected.',
+        code: 'DUPLICATE_CONFIRM_CONFLICT',
+        orderId
+      }, 409);
+    }
+
+    if (errMsg.includes('Total deduction quantity exceeds order item quantity')) {
+      return c.json({
+        error: 'Confirmation rejected: stock deduction quantity exceeds order item quantity.',
+        code: 'ORDER_ITEM_QUANTITY_BREACH',
+        orderId
+      }, 409);
+    }
+
+    return c.json({
+      error: 'Provisional van sale confirmation failed. Please retry or contact supervisor.',
+      code: 'CONFIRMATION_FAILED',
+      orderId
+    }, 409);
+  }
+});
+
+app.get('/retailers/:id/ledger', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const retailerId = c.req.param('id');
+  if (!canPerform(user.role, 'retailer:read') && !(user.role === 'RETAILER' && user.sub === retailerId)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const retailer = await c.env.DB.prepare(
+    'SELECT id, name, credit_limit_paise AS creditLimitPaise, outstanding_amount_paise AS outstandingAmountPaise FROM retailers WHERE id = ? AND company_id = ?'
+  ).bind(retailerId, user.company_id).first();
+
+  if (!retailer) return c.json({ error: 'Retailer not found' }, 404);
+
+  let ledgerEntries: any[] = [];
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, entry_type AS entryType, reference_id AS referenceId, amount_paise AS amountPaise,
+              running_balance_paise AS runningBalancePaise, notes, created_at AS createdAt
+       FROM retailer_ledgers
+       WHERE retailer_id = ? AND company_id = ?
+       ORDER BY created_at DESC LIMIT 100`
+    ).bind(retailerId, user.company_id).all();
+    ledgerEntries = results || [];
+  } catch {
+    // Fallback to payment_ledger
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, entry_type AS entryType, order_id AS referenceId, amount_paise AS amountPaise,
+              balance_after_paise AS runningBalancePaise, payment_method AS notes, created_at AS createdAt
+       FROM payment_ledger
+       WHERE retailer_id = ? AND company_id = ?
+       ORDER BY created_at DESC LIMIT 100`
+    ).bind(retailerId, user.company_id).all();
+    ledgerEntries = results || [];
+  }
+
+  return c.json({
+    retailer,
+    ledger: ledgerEntries
+  });
+});
+
+app.get('/credit-policy', authMiddleware, async (c) => {
+  const user = c.get('user');
+  try {
+    const policy = await c.env.DB.prepare(
+      'SELECT id, company_id, policy_mode, max_overdue_days, max_overdue_invoices, allow_sales_override, require_override_reason FROM credit_policies WHERE company_id = ?'
+    ).bind(user.company_id).first();
+    return c.json({ policy: policy || { policy_mode: 'HARD_STOP', max_overdue_days: 30, max_overdue_invoices: 2 } });
+  } catch {
+    return c.json({ policy: { policy_mode: 'HARD_STOP', max_overdue_days: 30, max_overdue_invoices: 2 } });
+  }
+});
+
+app.put('/credit-policy', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (!canPerform(user.role, 'retailer:credit_override') && user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required to update credit policy' }, 403);
+  }
+
+  const body = await c.req.json();
+  const policyMode = body.policyMode || body.policy_mode || 'HARD_STOP';
+  const maxOverdueDays = Number(body.maxOverdueDays ?? body.max_overdue_days ?? 30);
+  const maxOverdueInvoices = Number(body.maxOverdueInvoices ?? body.max_overdue_invoices ?? 2);
+
+  if (!['HARD_STOP', 'WARNING_ONLY', 'APPROVAL_REQUIRED'].includes(policyMode)) {
+    return c.json({ error: 'Invalid policy_mode. Must be HARD_STOP, WARNING_ONLY, or APPROVAL_REQUIRED' }, 400);
+  }
+
+  const now = Date.now();
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO credit_policies (id, company_id, policy_mode, max_overdue_days, max_overdue_invoices, allow_sales_override, require_override_reason, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?)
+       ON CONFLICT(company_id) DO UPDATE SET policy_mode = excluded.policy_mode, max_overdue_days = excluded.max_overdue_days, max_overdue_invoices = excluded.max_overdue_invoices, updated_at = excluded.updated_at`
+    ).bind(`cp_${user.company_id}`, user.company_id, policyMode, maxOverdueDays, maxOverdueInvoices, now, now).run();
+    return c.json({ success: true, policy: { policy_mode: policyMode, max_overdue_days: maxOverdueDays, max_overdue_invoices: maxOverdueInvoices } });
+  } catch (e: any) {
+    return c.json({ error: e.message || 'Failed to update credit policy' }, 500);
+  }
 });
 
 // ============================================================================

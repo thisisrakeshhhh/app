@@ -1,19 +1,21 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
+import { normalizeRole } from './security';
 
 export type Actor = { sub: string; company_id: string; role: string; sid: string; name: string };
 export type CycleEnv = { Bindings: { DB: D1Database }; Variables: { user: Actor } };
 type Ctx = Context<CycleEnv>;
 type Row = Record<string, any>;
-const fieldRoles = ['OWNER', 'SALESPERSON', 'DELIVERY_EXECUTIVE'];
+const fieldRoles = ['OWNER', 'SALESPERSON', 'SALES', 'DELIVERY_EXECUTIVE', 'DELIVERY'];
 export const money = (n: unknown, zero = false): n is number => Number.isSafeInteger(n) && (n as number) >= (zero ? 0 : 1) && (n as number) <= 1_000_000_000;
 const quantity = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0 && (n as number) <= 100000;
 const bad = (c: Ctx, error: string, status: 400 | 403 | 404 | 409 = 400) => c.json({ error }, status);
 export async function retailerAllowed(db: D1Database, u: Actor, id: string): Promise<boolean> {
- if (!fieldRoles.includes(u.role)) return false;
+ if (!fieldRoles.includes(u.role) && !fieldRoles.includes(normalizeRole(u.role))) return false;
  const r = await db.prepare('SELECT beat_id FROM retailers WHERE id = ? AND company_id = ?').bind(id, u.company_id).first<{ beat_id: string }>();
  if (!r) return false;
- if (u.role === 'OWNER') return true;
- if (u.role === 'SALESPERSON') return !!await db.prepare('SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND company_id = ? AND beat_id = ?').bind(u.sub, u.company_id, r.beat_id).first();
+ const normRole = normalizeRole(u.role);
+ if (normRole === 'OWNER') return true;
+ if (normRole === 'SALES') return !!await db.prepare('SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND company_id = ? AND beat_id = ?').bind(u.sub, u.company_id, r.beat_id).first();
  return !!await db.prepare("SELECT 1 FROM orders WHERE retailer_id = ? AND company_id = ? AND delivery_employee_id = ? AND status IN ('OUT_FOR_DELIVERY','DELIVERED','PARTIALLY_DELIVERED')").bind(id, u.company_id, u.sub).first();
 }
 export const audit = (c: Ctx, action: string, id: string, details: unknown) => c.env.DB.prepare(
@@ -114,13 +116,14 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,'COLLECT',b,statements,{success:true,collectionId:id,receiptId,status:b.paymentMethod === 'CASH' ? 'SETTLED' : 'ENTERED',unappliedPaise:b.paymentMethod === 'CASH' ? b.amountPaise-alloc.items.reduce((s,a)=>s+a.amountPaise,0) : b.amountPaise,balanceAfterPaise:current!.outstanding_amount_paise-(b.paymentMethod === 'CASH' ? b.amountPaise : 0)});
  });
  app.get('/collections', async c => {
-  const u = c.get('user'); if (!fieldRoles.includes(u.role)) return bad(c,'Collection access denied',403);
+  const u = c.get('user'); if (!fieldRoles.includes(normalizeRole(u.role)) && !fieldRoles.includes(u.role)) return bad(c,'Collection access denied',403);
   const retailerId = c.req.query('retailerId'); if (retailerId && !await retailerAllowed(c.env.DB,u,retailerId)) return bad(c,'Retailer access denied',403);
-  const rows = await c.env.DB.prepare(`SELECT c.*,r.name AS retailer_name,u.full_name AS collected_by_name FROM collections c JOIN retailers r ON r.id=c.retailer_id JOIN users u ON u.id=c.collected_by WHERE c.company_id=? ${u.role === 'OWNER' ? '' : 'AND c.collected_by=?'} ${retailerId ? 'AND c.retailer_id=?' : ''} ORDER BY c.created_at DESC LIMIT 200`).bind(u.company_id,...(u.role === 'OWNER' ? [] : [u.sub]),...(retailerId ? [retailerId] : [])).all();
+  const isOwner = normalizeRole(u.role) === 'OWNER';
+  const rows = await c.env.DB.prepare(`SELECT c.*,r.name AS retailer_name,u.full_name AS collected_by_name FROM collections c JOIN retailers r ON r.id=c.retailer_id JOIN users u ON u.id=c.collected_by WHERE c.company_id=? ${isOwner ? '' : 'AND c.collected_by=?'} ${retailerId ? 'AND c.retailer_id=?' : ''} ORDER BY c.created_at DESC LIMIT 200`).bind(u.company_id,...(isOwner ? [] : [u.sub]),...(retailerId ? [retailerId] : [])).all();
   return c.json({collections:rows.results});
  });
  app.post('/collections/:id/review', async c => {
-  const u = c.get('user'); if (u.role !== 'OWNER') return bad(c,'Owner required',403);
+  const u = c.get('user'); if (normalizeRole(u.role) !== 'OWNER') return bad(c,'Owner required',403);
   const row = await collection(c,c.req.param('id')); if (!row) return bad(c,'Collection not found',404);
   const b = await c.req.json<Row>(); const prior = await replay(c,`REVIEW_${row.id}`,b); if (prior) return prior;
   if (!['VERIFY','CLEAR','REJECT','REVERSE'].includes(b.action) || !b.reason?.trim()) return bad(c,'Action and reason required');
@@ -137,7 +140,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
    statements.push(c.env.DB.prepare("UPDATE collections SET status='REVERSED',reviewed_by=?,review_reason=?,updated_at=? WHERE id=?").bind(u.sub,b.reason,Date.now(),row.id));
    statements.push(c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise=outstanding_amount_paise+? WHERE id=? AND company_id=?').bind(row.amount_paise,row.retailer_id,u.company_id));
    statements.push(c.env.DB.prepare(`UPDATE invoices SET paid_paise=paid_paise-(SELECT amount_paise FROM collection_allocations WHERE collection_id=? AND invoice_id=invoices.id),status='ISSUED' WHERE id IN (SELECT invoice_id FROM collection_allocations WHERE collection_id=?)`).bind(row.id,row.id));
-   statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,collection_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,?,outstanding_amount_paise,?,?,?,? FROM retailers WHERE id=?`).bind(crypto.randomUUID(),row.id,u.company_id,row.retailer_id,`${row.payment_method}_REVERSAL`,row.amount_paise,row.payment_method,row.collected_by,Date.now(),`reverse_${row.id}`,row.retailer_id));
+   statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,collection_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,?,outstanding_amount_paise,?,?,?,? FROM retailers WHERE id=? AND company_id=?`).bind(crypto.randomUUID(),row.id,u.company_id,row.retailer_id,`${row.payment_method}_REVERSAL`,row.amount_paise,row.payment_method,row.collected_by,Date.now(),`reverse_${row.id}`,row.retailer_id,u.company_id));
   } else {
    if (row.status !== 'ENTERED') return bad(c,'Payment is no longer pending verification',409);
    if (b.action === 'REJECT') {
@@ -152,12 +155,12 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,`REVIEW_${row.id}`,b,statements,{success:true,status});
  });
  app.get('/handovers/summary', async c => {
-  const u=c.get('user'); if (!fieldRoles.includes(u.role)) return bad(c,'Cash custody access denied',403);
+  const u=c.get('user'); if (!fieldRoles.includes(normalizeRole(u.role)) && !fieldRoles.includes(u.role)) return bad(c,'Cash custody access denied',403);
   const rows=await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE company_id=? AND user_id=? ORDER BY submitted_at DESC LIMIT 100').bind(u.company_id,u.sub).all<Row>();
   return c.json({...await cash(c.env.DB,u.company_id,u.sub),pendingHandover:rows.results.find(h=>h.status==='PENDING')||null,recentHandovers:rows.results});
  });
  app.post('/handovers/request', async c => {
-  const u=c.get('user'); if (!['SALESPERSON','DELIVERY_EXECUTIVE'].includes(u.role)) return bad(c,'Field employee required',403);
+  const u=c.get('user'); const normRole = normalizeRole(u.role); if (!['SALES','DELIVERY'].includes(normRole)) return bad(c,'Field employee required',403);
   const b=await c.req.json<Row>();
   b.amountPaise = b.amountPaise ?? b.amount_paise;
   b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `hnd_req_${crypto.randomUUID()}`;
@@ -170,12 +173,12 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,'HANDOVER',b,[c.env.DB.prepare("INSERT INTO cash_handovers(id,company_id,user_id,amount_paise,status,submitted_at,notes,expected_amount_paise) VALUES(?,?,?,?,'PENDING',?,?,?)").bind(id,u.company_id,u.sub,b.amountPaise,Date.now(),b.notes||null,held.cashHeldPaise),audit(c,'HANDOVER_REQUESTED',id,b)],{success:true,handoverId:id,status:'PENDING',amountPaise:b.amountPaise});
  });
  app.get('/owner/handovers', async c => {
-  if(c.get('user').role!=='OWNER')return bad(c,'Owner required',403);
-  return c.json({handovers:(await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(c.get('user').company_id).all()).results});
+  if (normalizeRole(c.get('user').role) !== 'OWNER') return bad(c, 'Owner required', 403);
+  return c.json({ handovers: (await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(c.get('user').company_id).all()).results });
  });
  app.get('/cash-handovers', async c => {
   const u = c.get('user');
-  if (['OWNER', 'ADMIN'].includes(u.role)) {
+  if (['OWNER', 'ADMIN'].includes(normalizeRole(u.role))) {
    return c.json({ handovers: (await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(u.company_id).all()).results });
   }
   const rows = await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE company_id=? AND user_id=? ORDER BY submitted_at DESC LIMIT 100').bind(u.company_id, u.sub).all<Row>();
@@ -183,7 +186,8 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
  });
  app.post('/cash-handovers', async c => {
   const u = c.get('user');
-  if (!['SALESPERSON', 'DELIVERY_EXECUTIVE'].includes(u.role)) return bad(c, 'Field employee required', 403);
+  const normRole = normalizeRole(u.role);
+  if (!['SALES', 'DELIVERY'].includes(normRole)) return bad(c, 'Field employee required', 403);
   const b = await c.req.json<Row>();
   b.amountPaise = b.amountPaise ?? b.amount_paise;
   b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `hnd_req_${crypto.randomUUID()}`;
@@ -201,7 +205,8 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
  });
  app.post('/cash-handovers/:id/acknowledge', async c => {
   const u = c.get('user');
-  if (u.role !== 'OWNER' && u.role !== 'ADMIN') return bad(c, 'Owner or Admin required', 403);
+  const normRole = normalizeRole(u.role);
+  if (normRole !== 'OWNER' && normRole !== 'ADMIN') return bad(c, 'Owner or Admin required', 403);
   const row = await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE id=? AND company_id=?').bind(c.req.param('id'), u.company_id).first<Row>();
   if (!row) return bad(c, 'Handover not found', 404);
   const b = await c.req.json<Row>();
@@ -222,7 +227,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   ], { success: true, status, receivedAmountPaise: received, discrepancyPaise: discrepancy });
  });
  app.post('/owner/handovers/:id/acknowledge', async c => {
-  const u=c.get('user'); if(u.role!=='OWNER')return bad(c,'Owner required',403);
+  const u=c.get('user'); if(normalizeRole(u.role)!=='OWNER')return bad(c,'Owner required',403);
   const row=await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE id=? AND company_id=?').bind(c.req.param('id'),u.company_id).first<Row>(); if(!row)return bad(c,'Handover not found',404);
   const b=await c.req.json<Row>();
   b.idempotencyKey = b.idempotencyKey || b.idempotency_key || `ack_${row.id}`;
@@ -237,14 +242,14 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,`ACK_${row.id}`,b,[c.env.DB.prepare('UPDATE cash_handovers SET status=?,acknowledged_at=?,acknowledged_by=?,received_amount_paise=?,discrepancy_paise=?,resolution_notes=? WHERE id=?').bind(status,Date.now(),u.sub,received,discrepancy,b.notes||null,row.id),audit(c,`HANDOVER_${status}`,row.id,b)],{success:true,status,receivedAmountPaise:received,discrepancyPaise:discrepancy});
  });
  app.get('/owner/closing',async c=>{
-  const u=c.get('user');if(u.role!=='OWNER')return bad(c,'Owner required',403);
-  const employees=await c.env.DB.prepare("SELECT id,full_name FROM users WHERE company_id=? AND role IN ('SALESPERSON','DELIVERY_EXECUTIVE')").bind(u.company_id).all<{id:string;full_name:string}>();
+  const u=c.get('user');if(normalizeRole(u.role)!=='OWNER')return bad(c,'Owner required',403);
+  const employees=await c.env.DB.prepare("SELECT id,full_name FROM users WHERE company_id=? AND role IN ('SALESPERSON','DELIVERY_EXECUTIVE','SALES','DELIVERY')").bind(u.company_id).all<{id:string;full_name:string}>();
   const balances=[];for(const e of employees.results)balances.push({...e,...await cash(c.env.DB,u.company_id,e.id)});
   const closings=await c.env.DB.prepare('SELECT * FROM daily_closings WHERE company_id=? ORDER BY business_date DESC LIMIT 30').bind(u.company_id).all();
   return c.json({balances,closings:closings.results});
  });
  app.post('/owner/closing',async c=>{
-  const u=c.get('user');if(u.role!=='OWNER')return bad(c,'Owner required',403);
+  const u=c.get('user');if(normalizeRole(u.role)!=='OWNER')return bad(c,'Owner required',403);
   const b=await c.req.json<Row>();const prior=await replay(c,'CLOSE_DAY',b);if(prior)return prior;
   const today=new Date(Date.now()+19800000).toISOString().slice(0,10);
   if(b.businessDate!==today||!b.notes?.trim())return bad(c,'Closing requires today’s business date and reconciliation notes');
@@ -259,7 +264,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   b.orderId = b.orderId || b.order_id;
   b.idempotencyKey = b.idempotencyKey || b.idempotency_key;
   const order=await c.env.DB.prepare('SELECT * FROM orders WHERE id=? AND company_id=?').bind(b.orderId,u.company_id).first<Row>();
-  if(!order||!await retailerAllowed(c.env.DB,u,order.retailer_id)||(u.role==='DELIVERY_EXECUTIVE'&&order.delivery_employee_id!==u.sub))return bad(c,'Return access denied',403);
+  if(!order||!await retailerAllowed(c.env.DB,u,order.retailer_id)||(normalizeRole(u.role)==='DELIVERY'&&order.delivery_employee_id!==u.sub))return bad(c,'Return access denied',403);
   const prior=await replay(c,'RETURN_CREATE',b);if(prior)return prior;
   if(!['DELIVERED','PARTIALLY_DELIVERED'].includes(order.status)||!Array.isArray(b.items)||!b.items.length||b.items.length>100)return bad(c,'Delivered order and return items required');
   const id=`ret_${crypto.randomUUID()}`;const seen=new Set();
@@ -279,14 +284,14 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   statements.push(audit(c,'RETURN_REQUESTED',id,b));return commit(c,'RETURN_CREATE',b,statements,{success:true,returnId:id,status:'REQUESTED'});
  });
  app.get('/returns/pending',async c=>{
-  const u=c.get('user');if(!['OWNER','WAREHOUSE_MANAGER'].includes(u.role))return bad(c,'Owner or warehouse required',403);
+  const u=c.get('user');if(!['OWNER','WAREHOUSE'].includes(normalizeRole(u.role)))return bad(c,'Owner or warehouse required',403);
   const rows=await c.env.DB.prepare("SELECT r.*,t.name AS retailer_name FROM return_requests r JOIN retailers t ON t.id=r.retailer_id WHERE r.company_id=? AND r.status NOT IN ('REJECTED','CREDITED','APPROVED') ORDER BY r.created_at").bind(u.company_id).all<Row>();
   for(const r of rows.results)r.items=(await c.env.DB.prepare('SELECT ri.*,p.name AS product_name FROM return_items ri JOIN products p ON p.id=ri.product_id WHERE return_id=?').bind(r.id).all()).results;
   return c.json({returns:rows.results});
  });
  for(const step of ['authorize','receive','inspect','credit'] as const)app.post(`/returns/:id/${step}`,async c=>{
   const u=c.get('user');const ownerStep=step==='authorize'||step==='credit';
-  if(ownerStep?u.role!=='OWNER':!['OWNER','WAREHOUSE_MANAGER'].includes(u.role))return bad(c,'Return action not permitted',403);
+  if(ownerStep?normalizeRole(u.role)!=='OWNER':!['OWNER','WAREHOUSE'].includes(normalizeRole(u.role)))return bad(c,'Return action not permitted',403);
   const r=await c.env.DB.prepare('SELECT * FROM return_requests WHERE id=? AND company_id=?').bind(c.req.param('id'),u.company_id).first<Row>();if(!r)return bad(c,'Return not found',404);
   const b=await c.req.json<Row>();b.idempotencyKey = b.idempotencyKey || b.idempotency_key;const op=`RETURN_${step}_${r.id}`;const prior=await replay(c,op,b);if(prior)return prior;
   if(step==='inspect' && (r.status==='APPROVED' || r.status==='REJECTED' || r.status==='CREDITED')) {
@@ -325,7 +330,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
      statements.push(c.env.DB.prepare('UPDATE invoices SET credited_paise=credited_paise+? WHERE id=?').bind(totalCreditNotePaise,invoice.id));
     }
     statements.push(c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise=outstanding_amount_paise-? WHERE id=? AND company_id=?').bind(totalCreditNotePaise,r.retailer_id,u.company_id));
-    statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,order_id,invoice_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,'RETURN_CREDIT_NOTE',?,outstanding_amount_paise,'CREDIT_NOTE',?,?,? FROM retailers WHERE id=?`).bind(crypto.randomUUID(),r.order_id,invoice?.id||null,u.company_id,r.retailer_id,totalCreditNotePaise,u.sub,Date.now(),`return_credit_${r.id}`,r.retailer_id));
+    statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,order_id,invoice_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,'RETURN_CREDIT_NOTE',?,outstanding_amount_paise,'CREDIT_NOTE',?,?,? FROM retailers WHERE id=? AND company_id=?`).bind(crypto.randomUUID(),r.order_id,invoice?.id||null,u.company_id,r.retailer_id,totalCreditNotePaise,u.sub,Date.now(),`return_credit_${r.id}`,r.retailer_id,u.company_id));
    }
   }else{
    if(!b.notes?.trim())return bad(c,'Credit approval reason required');status='CREDITED';totalCreditNotePaise=r.credit_paise;
@@ -334,7 +339,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
    statements.push(c.env.DB.prepare('INSERT INTO return_credit_notes VALUES(?,?,?,?,?,?)').bind(r.id,u.company_id,invoice.id,totalCreditNotePaise,u.sub,Date.now()));
    statements.push(c.env.DB.prepare('UPDATE invoices SET credited_paise=credited_paise+? WHERE id=?').bind(totalCreditNotePaise,invoice.id));
    statements.push(c.env.DB.prepare('UPDATE retailers SET outstanding_amount_paise=outstanding_amount_paise-? WHERE id=? AND company_id=?').bind(totalCreditNotePaise,r.retailer_id,u.company_id));
-   statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,order_id,invoice_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,'RETURN_CREDIT_NOTE',?,outstanding_amount_paise,'CREDIT_NOTE',?,?,? FROM retailers WHERE id=?`).bind(crypto.randomUUID(),r.order_id,invoice.id,u.company_id,r.retailer_id,totalCreditNotePaise,u.sub,Date.now(),`return_credit_${r.id}`,r.retailer_id));
+   statements.push(c.env.DB.prepare(`INSERT INTO payment_ledger(id,order_id,invoice_id,company_id,retailer_id,entry_type,amount_paise,balance_after_paise,payment_method,collected_by,created_at,idempotency_key) SELECT ?,?,?,?,?,'RETURN_CREDIT_NOTE',?,outstanding_amount_paise,'CREDIT_NOTE',?,?,? FROM retailers WHERE id=? AND company_id=?`).bind(crypto.randomUUID(),r.order_id,invoice.id,u.company_id,r.retailer_id,totalCreditNotePaise,u.sub,Date.now(),`return_credit_${r.id}`,r.retailer_id,u.company_id));
   }
   statements.push(audit(c,`RETURN_${step.toUpperCase()}`,r.id,b));return commit(c,op,b,statements,{success:true,status,totalCreditNotePaise});
  });

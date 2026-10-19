@@ -2,6 +2,7 @@ package com.routeflow.app.feature.owner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.routeflow.app.domain.model.Retailer
 import com.routeflow.app.domain.repository.CollectionRepository
 import com.routeflow.app.domain.repository.HandoverRepository
 import com.routeflow.app.domain.repository.OrderRepository
@@ -36,6 +37,7 @@ data class OwnerHomeState(
     val staffOnDutyCount: Int = 0,
     val fulfillmentQueueCount: Int = 0,
     val outForDeliveryCount: Int = 0,
+    val retailers: List<Retailer> = emptyList(),
     val isLoading: Boolean = false
 )
 
@@ -119,6 +121,7 @@ class OwnerViewModel @Inject constructor(
             staffOnDutyCount = ops.staffOnDutyCount,
             fulfillmentQueueCount = fulfillmentQueue,
             outForDeliveryCount = outForDelivery,
+            retailers = retailers,
             isLoading = false
         )
     }.stateIn(

@@ -87,6 +87,24 @@ class OrderSyncWorker @AssistedInject constructor(
                         response.success
                     }
                     "HANDOVER_REQUEST" -> api.submitHandoverRequest(json.decodeFromString(event.payload), account).success
+                    "VAN_SALE_ORDER" -> {
+                        val request = json.decodeFromString<com.routeflow.app.core.network.dto.VanSaleSubmitRequest>(event.payload)
+                        val response = api.submitVanSale(request, event.idempotencyKey)
+                        localCommit = {
+                            val orderId = response.orderId ?: event.idempotencyKey.removePrefix("order_")
+                            val newStatus = if (response.status?.equals("DELIVERED", ignoreCase = true) == true) "DELIVERED" else "SUBMITTED"
+                            database.orderDao().updateOrderStatus(orderId, newStatus, System.currentTimeMillis())
+                        }
+                        response.success
+                    }
+                    "VAN_SALE_CONFIRM" -> {
+                        val orderId = event.payload.trim().removeSurrounding("\"")
+                        val response = api.confirmVanSale(orderId, event.idempotencyKey)
+                        localCommit = {
+                            database.orderDao().updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
+                        }
+                        response.success
+                    }
                     else -> throw IllegalArgumentException("Unsupported saved event; contact owner")
                 }
                 if (!success) throw java.io.IOException("Server did not acknowledge saved event")

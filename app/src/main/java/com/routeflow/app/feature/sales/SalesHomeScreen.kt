@@ -14,20 +14,18 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,8 +38,19 @@ import androidx.compose.ui.unit.sp
 import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.RFColors
+import com.routeflow.app.core.design.map.LogisticsMarker
+import com.routeflow.app.core.design.map.LogisticsMarkerStatus
+import com.routeflow.app.core.design.map.LogisticsMarkerType
+import com.routeflow.app.core.design.map.MapContextualSheet
+import com.routeflow.app.core.design.map.RouteFlowMap
 import com.routeflow.app.domain.model.Employee
 
+/**
+ * Map-First Salesperson Home & Beat Dashboard.
+ * 75% interactive logistics map with real GPS plotted markers.
+ * Selecting a marker reveals contextual shop details, udhaar balance,
+ * and high-speed actions ("Van Spot Sale" and "Check In / Visit").
+ */
 @Composable
 fun SalesHomeScreen(
     employee: Employee,
@@ -50,22 +59,55 @@ fun SalesHomeScreen(
     onStartShift: () -> Unit = {},
     onEndShift: () -> Unit = {},
     onContinueRoute: (nextRetailerId: String?) -> Unit = { onStartVisits() },
-    onSyncNow: () -> Unit = {}
+    onSyncNow: () -> Unit = {},
+    onStartVanSale: () -> Unit = {},
+    onStartVanSaleForRetailer: (retailerId: String) -> Unit = { onStartVanSale() }
 ) {
-    val scrollState = rememberScrollState()
     val firstName = employee.name.split(" ").firstOrNull() ?: employee.name
     var showEndShiftConfirm by remember { mutableStateOf(false) }
+    var isMapView by remember { mutableStateOf(true) }
+    var selectedRetailerId by remember { mutableStateOf<String?>(null) }
+
+    // Convert retailers to unified logistics markers
+    val markers = remember(state.allRetailers, state.visitedRetailerIds) {
+        state.allRetailers.map { retailer ->
+            val isVisited = state.visitedRetailerIds.contains(retailer.id)
+            val status = when {
+                isVisited -> LogisticsMarkerStatus.VISITED
+                retailer.outstandingAmountPaise > 0 -> LogisticsMarkerStatus.ALERT
+                else -> LogisticsMarkerStatus.UNVISITED
+            }
+            LogisticsMarker(
+                id = retailer.id,
+                title = retailer.name,
+                subtitle = retailer.beatId.takeIf { it.isNotBlank() } ?: "Assigned Beat",
+                latitude = retailer.latitude,
+                longitude = retailer.longitude,
+                type = LogisticsMarkerType.RETAILER,
+                status = status,
+                balancePaise = retailer.outstandingAmountPaise,
+                creditLimitPaise = retailer.creditLimitPaise,
+                address = retailer.address,
+                contactPhone = retailer.contactNumber,
+                retailerId = retailer.id
+            )
+        }
+    }
+
+    val selectedMarker = remember(selectedRetailerId, markers) {
+        markers.find { it.id == selectedRetailerId }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(RFColors.Background)
     ) {
-        // 1. Simple Top Greeting & Duty Status Bar
+        // 1. Compact Top Bar (Greeting, Beat, Duty Status, Sync)
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
@@ -74,7 +116,7 @@ fun SalesHomeScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -84,7 +126,7 @@ fun SalesHomeScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFEFF6FF)),
                         contentAlignment = Alignment.Center
@@ -92,28 +134,31 @@ fun SalesHomeScreen(
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = null,
-                            tint = Color(0xFF2563EB),
-                            modifier = Modifier.size(28.dp)
+                            tint = RFColors.Primary,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
                             text = "Hi $firstName",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                             color = RFColors.TextPrimary
                         )
                         Text(
                             text = state.beatName,
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF64748B),
-                            fontWeight = FontWeight.Medium
+                            fontSize = 11.sp
                         )
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     if (state.isOfflineCache && state.totalShops > 0) {
                         Surface(
                             color = Color(0xFFFEF3C7),
@@ -132,7 +177,7 @@ fun SalesHomeScreen(
                                 )
                                 Spacer(Modifier.width(3.dp))
                                 Text(
-                                    text = "Offline copy",
+                                    text = "Offline",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFB45309)
@@ -141,23 +186,23 @@ fun SalesHomeScreen(
                         }
                     }
 
-                    // High-visibility duty status badge
+                    // Duty status badge
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(16.dp),
                         color = if (state.isOnShift) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
                         border = BorderStroke(1.dp, if (state.isOnShift) Color(0xFF86EFAC) else Color(0xFFE2E8F0))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(7.dp)
                                     .clip(CircleShape)
                                     .background(if (state.isOnShift) Color(0xFF16A34A) else Color(0xFF94A3B8))
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = if (state.isOnShift) "On Duty" else "Off Duty",
                                 style = MaterialTheme.typography.labelSmall,
@@ -170,539 +215,419 @@ fun SalesHomeScreen(
             }
         }
 
-        // 2. Primary Action Button (Field duty CTA)
-        if (!state.isOnShift) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(
-                    onClick = onStartShift,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = RFColors.Primary,
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Start Route / Duty",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-                Text(
-                    text = "Tap to begin daily shift, activate GPS and start shop visits",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = RFColors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = { onContinueRoute(state.nextShop?.id) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = RFColors.Success,
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                ) {
-                    Text(
-                        text = "Continue Route",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
-                    )
-                }
-
-                // Stop Route / End Duty Button
-                OutlinedButton(
-                    onClick = { showEndShiftConfirm = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.35f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = RFColors.DangerLight,
-                        contentColor = RFColors.Danger
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = RFColors.Danger
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Stop Route / End Duty",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = RFColors.Danger
-                    )
-                }
-
-                Text(
-                    text = if (state.nextShop != null) "Next destination: ${state.nextShop.name}" else "Beat route in progress",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = RFColors.Success,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-        }
-
-        // 3. Next Shop Card (Hero card for current action)
-        if (state.totalShops == 0) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        if (isMapView) {
+            // ==========================================
+            // MAP-FIRST MODE (~75% SCREEN SPACE)
+            // ==========================================
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
             ) {
-                Column(
+                RouteFlowMap(
+                    markers = markers,
+                    selectedMarkerId = selectedRetailerId,
+                    onMarkerSelected = { marker ->
+                        selectedRetailerId = marker.id
+                    },
+                    onDismissSelection = {
+                        selectedRetailerId = null
+                    },
+                    isMapView = true,
+                    onToggleView = { isMapView = it },
+                    enablePolylines = false,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Docked Bottom Card / Contextual Information Sheet
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .align(Alignment.BottomCenter)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Store,
-                        contentDescription = null,
-                        tint = Color(0xFF94A3B8),
-                        modifier = Modifier.size(44.dp)
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = "No shops assigned yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = RFColors.TextPrimary
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "No shops assigned yet. Contact owner/admin.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = RFColors.TextSecondary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    OutlinedButton(
-                        onClick = onSyncNow,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB))
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Sync Again", fontWeight = FontWeight.Bold)
+                    if (selectedMarker != null) {
+                        // Marker selected: Reveal shop specifics, credit and direct actions
+                        MapContextualSheet(
+                            marker = selectedMarker,
+                            onDismiss = { selectedRetailerId = null },
+                            primaryActionLabel = stringResource(R.string.van_spot_sale_action),
+                            primaryActionIcon = Icons.Default.PointOfSale,
+                            onPrimaryAction = {
+                                onStartVanSaleForRetailer(selectedMarker.retailerId ?: selectedMarker.id)
+                            },
+                            secondaryActionLabel = stringResource(R.string.check_in_visit),
+                            secondaryActionIcon = Icons.Default.Store,
+                            onSecondaryAction = {
+                                onContinueRoute(selectedMarker.retailerId ?: selectedMarker.id)
+                            }
+                        )
+                    } else {
+                        // No marker selected: Docked Route Summary & Primary Action Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Metric row: Visited / Remaining / Orders
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "${state.shopsVisited} / ${state.totalShops} Shops Visited",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = RFColors.TextPrimary
+                                        )
+                                    }
+
+                                    Surface(
+                                        color = Color(0xFFEFF6FF),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "Orders: ${CurrencyFormatter.formatPaise(state.todayOrderValuePaise)}",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = RFColors.Primary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                // Primary Flow Buttons
+                                if (!state.isOnShift) {
+                                    Button(
+                                        onClick = onStartShift,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(46.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = "Start Route / Duty",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        // Continue visits
+                                        Button(
+                                            onClick = { onContinueRoute(state.nextShop?.id) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(46.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = RFColors.Success)
+                                        ) {
+                                            Text(
+                                                text = if (state.nextShop != null) "Next Shop" else "Continue Beat",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        // Van Spot Sale button
+                                        Button(
+                                            onClick = onStartVanSale,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(46.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.PointOfSale,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = "Van Sale",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+
+                                        // End shift icon button
+                                        IconButton(
+                                            onClick = { showEndShiftConfirm = true },
+                                            modifier = Modifier
+                                                .size(46.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(RFColors.DangerLight)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Stop,
+                                                contentDescription = "End Duty",
+                                                tint = RFColors.Danger,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-        } else if (state.nextShop != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-                border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        } else {
+            // ==========================================
+            // LIST VIEW MODE (Full Scrollable Dashboard)
+            // ==========================================
+            val scrollState = rememberScrollState()
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                // Top switcher bar to jump back to map
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "NEXT SHOP TO VISIT",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "List View Active",
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D),
-                            letterSpacing = 1.sp
-                        )
-                        Surface(
-                            color = Color(0xFFDCFCE7),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = Color(0xFF166534)
-                                )
-                                Text(
-                                    text = "GPS Tagged",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF166534)
-                                )
-                            }
-                        }
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text = state.nextShop.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
                             color = RFColors.TextPrimary
                         )
-                        Text(
-                            text = state.nextShop.address,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF475569)
-                        )
-                    }
-
-                    val outstanding = state.nextShop.outstandingAmountPaise
-                    val (moneyLabel, moneyColor) = when {
-                        outstanding > 0 -> "Pending Udhaar: ₹${"%,d".format(outstanding / 100)}" to Color(0xFFDC2626)
-                        outstanding < 0 -> "Advance Balance: ₹${"%,d".format(-outstanding / 100)}" to Color(0xFF15803D)
-                        else -> "No Due" to Color(0xFF64748B)
-                    }
-
-                    Text(
-                        text = moneyLabel,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = moneyColor
-                    )
-
-                    Button(
-                        onClick = { onContinueRoute(state.nextShop.id) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF16A34A),
-                            contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                    ) {
-                        Text(
-                            text = "Visit Now",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = Color.White
-                        )
+                        TextButton(onClick = { isMapView = true }) {
+                            Icon(Icons.Default.Route, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Switch to Map", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
-            }
-        } else {
-            // All shops visited
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-                border = BorderStroke(1.dp, Color(0xFFBBF7D0))
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+
+                // Primary Action Button (Field duty CTA)
+                if (!state.isOnShift) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Button(
+                            onClick = onStartShift,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Start Route / Duty",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { onContinueRoute(state.nextShop?.id) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RFColors.Success),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                        ) {
+                            Text(
+                                text = "Continue Route",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
+                            )
+                        }
+
+                        // Stop Route / End Duty Button
+                        OutlinedButton(
+                            onClick = { showEndShiftConfirm = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, RFColors.Danger.copy(alpha = 0.35f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = RFColors.DangerLight,
+                                contentColor = RFColors.Danger
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = RFColors.Danger
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Stop Route / End Duty",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = RFColors.Danger
+                            )
+                        }
+                    }
+                }
+
+                // Van Spot Sale Button in List View
+                Button(
+                    onClick = onStartVanSale,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CheckCircle,
+                        imageVector = Icons.Default.PointOfSale,
                         contentDescription = null,
-                        tint = Color(0xFF16A34A),
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "All Beat Visits Completed!",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF15803D)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Great job! All assigned shops visited today.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF166534)
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    OutlinedButton(
-                        onClick = onStartVisits,
-                        modifier = Modifier.fillMaxWidth().height(46.dp),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Review All Shops", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // 4. Today Route Summary: 4 Clear Field Metrics
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = "Today's Route Summary",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = RFColors.TextPrimary
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Metric 1: Shops Assigned
-                SummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "Shops Assigned",
-                    value = "${state.totalShops}",
-                    subtext = "In your beat",
-                    icon = Icons.Default.Store,
-                    accentColor = Color(0xFF2563EB)
-                )
-
-                // Metric 2: Shops Visited
-                SummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "Shops Visited",
-                    value = "${state.shopsVisited}",
-                    subtext = "${state.remainingShops} pending",
-                    icon = Icons.Default.CheckCircle,
-                    accentColor = Color(0xFF15803D)
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Metric 3: Orders Booked
-                SummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "Orders Booked",
-                    value = "${state.todayOrdersCount}",
-                    subtext = if (state.todayOrderValuePaise > 0) CurrencyFormatter.formatPaise(state.todayOrderValuePaise) else "None booked yet",
-                    icon = Icons.Default.ShoppingCart,
-                    accentColor = Color(0xFF7C3AED)
-                )
-
-                // Metric 4: Collection Pending
-                val pendingAmount = state.pendingCollectionPaise
-                SummaryTile(
-                    modifier = Modifier.weight(1f),
-                    title = "Collection Pending",
-                    value = CurrencyFormatter.formatPaise(pendingAmount),
-                    subtext = if (pendingAmount > 0) "Pending Udhaar" else "No Due",
-                    icon = Icons.Default.Payments,
-                    accentColor = Color(0xFFD97706)
-                )
-            }
-
-            // Sales Incentive Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF5FF)),
-                border = BorderStroke(1.dp, Color(0xFFE9D5FF)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFF3E8FF)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MonetizationOn,
-                                contentDescription = null,
-                                tint = Color(0xFF9333EA),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Today's Incentive",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF581C87)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Surface(
-                                    color = Color(0xFFF3E8FF),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = "2% + ₹50/visit",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF7E22CE),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = "Live field commission earned today",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF7E22CE)
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = CurrencyFormatter.formatPaise(state.todayIncentivePaise),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF7E22CE),
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
-        }
-
-        // 5. Offline Pending Sync Banner (if applicable)
-        if (state.pendingSyncCount > 0 || state.isSyncing) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("offline_sync_card"),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
-                border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFEF3C7)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CloudUpload,
-                                contentDescription = null,
-                                tint = Color(0xFFD97706),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = if (state.isSyncing) "Syncing with server…" else "${state.pendingSyncCount} changes waiting to sync",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF92400E)
-                            )
-                            Text(
-                                text = if (state.isSyncing) "Uploading queued orders…" else "Tap sync when connected",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFB45309)
-                            )
-                        }
-                    }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = onSyncNow,
-                        enabled = !state.isSyncing,
-                        modifier = Modifier.testTag("sync_now_button"),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
-                    ) {
-                        if (state.isSyncing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Sync Now", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
+                    Text(
+                        text = "Van Spot Sale (Vehicle Stock)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
+
+                // Today Route Summary Tiles
+                Text(
+                    text = "Today's Route Summary",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = RFColors.TextPrimary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    SummaryTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Shops Assigned",
+                        value = "${state.totalShops}",
+                        subtext = "In your beat",
+                        icon = Icons.Default.Store,
+                        accentColor = Color(0xFF2563EB)
+                    )
+                    SummaryTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Shops Visited",
+                        value = "${state.shopsVisited}",
+                        subtext = "${state.remainingShops} pending",
+                        icon = Icons.Default.CheckCircle,
+                        accentColor = Color(0xFF16A34A)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    SummaryTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Booked Today",
+                        value = CurrencyFormatter.formatPaise(state.todayOrderValuePaise),
+                        subtext = "${state.todayOrdersCount} orders",
+                        icon = Icons.Default.ShoppingCart,
+                        accentColor = Color(0xFF9333EA)
+                    )
+                    SummaryTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Pending Udhaar",
+                        value = CurrencyFormatter.formatPaise(state.pendingCollectionPaise),
+                        subtext = "To collect",
+                        icon = Icons.Default.Payments,
+                        accentColor = Color(0xFFDC2626)
+                    )
+                }
+
+                // View all assigned shops CTA
+                OutlinedButton(
+                    onClick = onStartVisits,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF2563EB))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Store,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "View All Assigned Shops (${state.totalShops})",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
             }
         }
-
-        // 6. Secondary CTA: View Full Beat Shops
-        OutlinedButton(
-            onClick = onStartVisits,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, Color(0xFF2563EB))
-        ) {
-            Icon(
-                imageVector = Icons.Default.Store,
-                contentDescription = null,
-                tint = Color(0xFF2563EB),
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "View All Assigned Shops (${state.totalShops})",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2563EB)
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
     }
 
     if (showEndShiftConfirm) {

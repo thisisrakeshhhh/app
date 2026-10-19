@@ -939,3 +939,40 @@ data class AlertConfigRequest(
     val warnDays: Int? = null,
     val blockDays: Int? = null
 )
+
+@Serializable
+data class VanSaleOrderInfo(
+    val id: String? = null,
+    val retailerId: String,
+    val tripId: String? = null
+)
+
+@Serializable
+data class VanSaleItemRequest(
+    val productId: String,
+    val quantity: Int
+)
+
+@Serializable
+data class VanSaleSubmitRequest(
+    val order: VanSaleOrderInfo,
+    val items: List<VanSaleItemRequest>,
+    val paymentMethod: String = "CASH",
+    val notes: String? = null,
+    val isProvisional: Boolean = false,
+    val idempotencyKey: String,
+    val creditOverridePaise: Long? = null,
+    val creditOverrideReason: String? = null
+)
+
+@Serializable
+data class VanSaleSubmitResponse(
+    val success: Boolean,
+    val orderId: String,
+    val status: String,
+    val totalAmountPaise: Long,
+    val isProvisional: Boolean = false,
+    val idempotent: Boolean = false,
+    val message: String? = null
+)
+

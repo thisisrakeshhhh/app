@@ -1,5 +1,5 @@
 import { Hono, type MiddlewareHandler } from 'hono';
-import { requestIp } from './security';
+import { requestIp, normalizeRole } from './security';
 import bcrypt from 'bcryptjs';
 
 type GovEnv = {
@@ -418,7 +418,7 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
   // ── 5. Payment Verification Lifecycle (ENTERED, VERIFIED, CLEARED, REJECTED) ──
   router.get('/payments/verification-queue', auth, async (c) => {
     const user = c.get('user');
-    if (!user || !['OWNER', 'ADMIN'].includes(user.role)) {
+    if (!user || !['OWNER', 'ADMIN'].includes(normalizeRole(user.role))) {
       return c.json({ error: 'Permission denied' }, 403);
     }
 
@@ -440,7 +440,7 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
 
   router.post('/payments/:id/verify', auth, async (c) => {
     const user = c.get('user');
-    if (!user || !['OWNER', 'ADMIN'].includes(user.role)) {
+    if (!user || !['OWNER', 'ADMIN'].includes(normalizeRole(user.role))) {
       return c.json({ error: 'Permission denied: Owner or Admin role required' }, 403);
     }
 
@@ -455,8 +455,8 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
     if (!payment) return c.json({ error: 'Payment record not found' }, 404);
 
     await db.prepare(
-      'UPDATE collections SET status = ?, verified_by = ?, verified_at = ? WHERE id = ?'
-    ).bind('VERIFIED', user.sub, now, paymentId).run();
+      'UPDATE collections SET status = ?, verified_by = ?, verified_at = ? WHERE id = ? AND company_id = ?'
+    ).bind('VERIFIED', user.sub, now, paymentId, user.company_id).run();
 
     await recordAudit(c, 'PAYMENT_VERIFIED', paymentId, `Verified ${payment.payment_method} payment of ₹${payment.amount_paise / 100}`);
 
@@ -465,7 +465,7 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
 
   router.post('/payments/:id/clear', auth, async (c) => {
     const user = c.get('user');
-    if (!user || user.role !== 'OWNER') {
+    if (!user || normalizeRole(user.role) !== 'OWNER') {
       return c.json({ error: 'Permission denied: Only business Owner can clear payments' }, 403);
     }
 
@@ -480,8 +480,8 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
     if (!payment) return c.json({ error: 'Payment not found' }, 404);
 
     await db.prepare(
-      'UPDATE collections SET status = ?, cleared_at = ? WHERE id = ?'
-    ).bind('CLEARED', now, paymentId).run();
+      'UPDATE collections SET status = ?, cleared_at = ? WHERE id = ? AND company_id = ?'
+    ).bind('CLEARED', now, paymentId, user.company_id).run();
 
     await recordAudit(c, 'PAYMENT_CLEARED', paymentId, `Payment of ₹${payment.amount_paise / 100} cleared and credited to bank`);
 
@@ -503,7 +503,7 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
 
   router.post('/suppliers', auth, async (c) => {
     const user = c.get('user');
-    if (!user || !['OWNER', 'ADMIN', 'WAREHOUSE_MANAGER'].includes(user.role)) {
+    if (!user || !['OWNER', 'ADMIN', 'WAREHOUSE_MANAGER'].includes(normalizeRole(user.role))) {
       return c.json({ error: 'Permission denied' }, 403);
     }
 
@@ -548,7 +548,7 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
 
   router.post('/grn', auth, async (c) => {
     const user = c.get('user');
-    if (!user || !['OWNER', 'WAREHOUSE_MANAGER'].includes(user.role)) {
+    if (!user || !['OWNER', 'WAREHOUSE_MANAGER'].includes(normalizeRole(user.role))) {
       return c.json({ error: 'Permission denied: Warehouse Manager or Owner role required' }, 403);
     }
 
@@ -598,7 +598,7 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
 
   router.post('/grn/:id/approve', auth, async (c) => {
     const user = c.get('user');
-    if (!user || user.role !== 'OWNER') {
+    if (!user || normalizeRole(user.role) !== 'OWNER') {
       return c.json({ error: 'Permission denied: Only business Owner can approve inward stock GRN' }, 403);
     }
 
@@ -620,8 +620,8 @@ export function governanceRouter(auth: MiddlewareHandler<GovEnv>) {
     ).bind(grnId).all<any>();
 
     const statements: any[] = [
-      db.prepare("UPDATE goods_receipt_notes SET status = 'APPROVED', approved_by = ?, approved_at = ? WHERE id = ?")
-        .bind(user.sub, now, grnId)
+      db.prepare("UPDATE goods_receipt_notes SET status = 'APPROVED', approved_by = ?, approved_at = ? WHERE id = ? AND company_id = ? AND status = 'PENDING_APPROVAL'")
+        .bind(user.sub, now, grnId, user.company_id)
     ];
 
     for (const item of items) {

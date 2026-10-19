@@ -406,4 +406,121 @@ class NetworkOrderRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    // --- Van Sales (Source corrected — not runtime-verified) ---
+    override suspend fun submitVanSaleOrder(
+        order: OrderEntity,
+        items: List<OrderItemEntity>,
+        tripId: String,
+        paymentMethod: String,
+        notes: String?,
+        isProvisional: Boolean,
+        creditOverridePaise: Long?,
+        creditOverrideReason: String?
+    ): Result<com.routeflow.app.core.network.dto.VanSaleSubmitResponse> = try {
+        val idempotencyKey = "van_idemp_${UUID.randomUUID()}"
+        val request = com.routeflow.app.core.network.dto.VanSaleSubmitRequest(
+            order = com.routeflow.app.core.network.dto.VanSaleOrderInfo(
+                id = order.id,
+                retailerId = order.retailerId,
+                tripId = tripId
+            ),
+            items = items.map {
+                com.routeflow.app.core.network.dto.VanSaleItemRequest(
+                    productId = it.productId,
+                    quantity = it.quantity
+                )
+            },
+            paymentMethod = paymentMethod,
+            notes = notes,
+            isProvisional = isProvisional,
+            idempotencyKey = idempotencyKey,
+            creditOverridePaise = creditOverridePaise,
+            creditOverrideReason = creditOverrideReason
+        )
+        val payload = json.encodeToString(request)
+        val currentUserId = tokenStorage.getUserId() ?: ""
+        val currentCompanyId = tokenStorage.getCompanyId() ?: ""
+
+        database.withTransaction {
+            database.orderDao().insertOrder(order)
+            database.orderDao().insertOrderItems(items)
+            database.syncOutboxDao().insertSyncItem(
+                SyncOutboxEntity(
+                    type = "VAN_SALE_ORDER",
+                    payload = payload,
+                    idempotencyKey = idempotencyKey,
+                    userId = currentUserId,
+                    companyId = currentCompanyId,
+                    syncState = "SAVED_OFFLINE"
+                )
+            )
+        }
+
+        // Attempt immediate network submission if online
+        try {
+            val response = api.submitVanSale(request, idempotencyKey)
+            if (response.success) {
+                val syncItem = database.syncOutboxDao().getAllPendingSyncs()
+                    .firstOrNull { it.idempotencyKey == idempotencyKey }
+                if (syncItem != null) {
+                    database.syncOutboxDao().deleteSyncItem(syncItem)
+                }
+                val finalStatus = if (response.status.equals("DELIVERED", ignoreCase = true)) "DELIVERED" else "SUBMITTED"
+                database.orderDao().updateOrderStatus(order.id, finalStatus, System.currentTimeMillis())
+                Result.success(response)
+            } else {
+                Result.failure(Exception(response.message ?: "Van sale submission rejected by server"))
+            }
+        } catch (e: Exception) {
+            val code = (e as? retrofit2.HttpException)?.code()
+            val permanent = code in listOf(400, 403, 404, 409, 422) || e is IllegalArgumentException
+            if (permanent) {
+                // Quarantine in outbox and propagate rejection to UI
+                val syncItem = database.syncOutboxDao().getAllPendingSyncs()
+                    .firstOrNull { it.idempotencyKey == idempotencyKey }
+                if (syncItem != null) {
+                    database.syncOutboxDao().updateSyncItem(
+                        syncItem.copy(
+                            syncState = "NEEDS_ATTENTION",
+                            lastError = "VALIDATION_REVIEW",
+                            retryCount = syncItem.retryCount + 1
+                        )
+                    )
+                }
+                Result.failure(e)
+            } else {
+                // Transient offline / network failure: enqueue WorkManager and inform user of offline queuing
+                syncManager.scheduleSync(currentUserId, currentCompanyId)
+                Result.success(
+                    com.routeflow.app.core.network.dto.VanSaleSubmitResponse(
+                        success = true,
+                        orderId = order.id,
+                        status = "SAVED_OFFLINE",
+                        totalAmountPaise = order.totalAmountPaise,
+                        isProvisional = isProvisional,
+                        message = "Saved offline; queued for background sync"
+                    )
+                )
+            }
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun confirmVanSaleOrder(
+        orderId: String
+    ): Result<com.routeflow.app.core.network.dto.VanSaleSubmitResponse> = try {
+        val idempotencyKey = "van_conf_idemp_${UUID.randomUUID()}"
+        val response = api.confirmVanSale(orderId, idempotencyKey)
+        if (response.success) {
+            database.orderDao().updateOrderStatus(orderId, "DELIVERED", System.currentTimeMillis())
+            Result.success(response)
+        } else {
+            Result.failure(Exception(response.message ?: "Confirmation failed"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }
+

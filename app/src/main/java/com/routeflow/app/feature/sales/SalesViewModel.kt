@@ -48,7 +48,9 @@ data class SalesHomeState(
     val pendingSyncCount: Int = 0,
     val isSyncing: Boolean = false,
     val isOfflineCache: Boolean = false,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val allRetailers: List<Retailer> = emptyList(),
+    val visitedRetailerIds: Set<String> = emptySet()
 )
 
 @HiltViewModel
@@ -113,6 +115,8 @@ class SalesViewModel @Inject constructor(
             todayOrdersCount = todayOrders.size,
             todayOrderValuePaise = todayOrderValue,
             todayIncentivePaise = todayIncentive,
+            allRetailers = beatRetailers,
+            visitedRetailerIds = completedRetailerIds,
             isLoading = false
         )
     }
@@ -158,7 +162,8 @@ class SalesViewModel @Inject constructor(
             recentOrders = recentOrderSummaries,
             pendingSyncCount = userPendingSyncs.size,
             isSyncing = isSyncing,
-            isOfflineCache = isOffline
+            isOfflineCache = isOffline,
+            allRetailers = retailers
         )
     }.stateIn(
         scope = viewModelScope,

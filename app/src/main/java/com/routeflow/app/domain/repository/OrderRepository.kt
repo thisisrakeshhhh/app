@@ -67,4 +67,21 @@ interface OrderRepository {
     suspend fun reorderTripStops(tripId: String, stopOrder: List<String>): Result<Unit>
     suspend fun startTrip(tripId: String): Result<Unit>
     suspend fun completeTrip(tripId: String): Result<Unit>
+
+    // --- Van Sales (Source corrected — not runtime-verified) ---
+    suspend fun submitVanSaleOrder(
+        order: OrderEntity,
+        items: List<OrderItemEntity>,
+        tripId: String,
+        paymentMethod: String = "CASH",
+        notes: String? = null,
+        isProvisional: Boolean = false,
+        creditOverridePaise: Long? = null,
+        creditOverrideReason: String? = null
+    ): Result<com.routeflow.app.core.network.dto.VanSaleSubmitResponse>
+
+    suspend fun confirmVanSaleOrder(
+        orderId: String
+    ): Result<com.routeflow.app.core.network.dto.VanSaleSubmitResponse>
 }
+

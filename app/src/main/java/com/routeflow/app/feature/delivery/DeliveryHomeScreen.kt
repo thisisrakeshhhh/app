@@ -11,23 +11,39 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.routeflow.app.R
 import com.routeflow.app.core.common.CurrencyFormatter
 import com.routeflow.app.core.design.LoadingState
 import com.routeflow.app.core.design.RFColors
+import com.routeflow.app.core.design.map.LogisticsMarker
+import com.routeflow.app.core.design.map.LogisticsMarkerStatus
+import com.routeflow.app.core.design.map.LogisticsMarkerType
+import com.routeflow.app.core.design.map.MapContextualSheet
+import com.routeflow.app.core.design.map.RouteFlowMap
 import com.routeflow.app.domain.model.Employee
 
+/**
+ * Map-First Delivery Logistics Dashboard.
+ * 75% interactive route map plotting numbered delivery stops connected by route polylines.
+ * Selecting a stop reveals order payment details, address, navigation, and one-tap delivery completion.
+ */
 @Composable
 fun DeliveryHomeScreen(
     employee: Employee,
@@ -39,65 +55,109 @@ fun DeliveryHomeScreen(
 ) {
     val isHindi = currentLanguage == "hi"
     val context = LocalContext.current
+    var isMapView by remember { mutableStateOf(true) }
+    var selectedStopOrderId by remember { mutableStateOf<String?>(null) }
 
     if (state.isLoading) {
         LoadingState(Modifier.fillMaxSize())
     } else {
+        // Map delivery stops into unified LogisticsMarkers
+        val markers = remember(deliveryList) {
+            deliveryList.mapIndexed { index, stop ->
+                LogisticsMarker(
+                    id = stop.order.id,
+                    title = stop.retailerName,
+                    subtitle = "Stop #${stop.stopSequence} • ${stop.order.id.takeLast(6).uppercase()}",
+                    latitude = stop.latitude,
+                    longitude = stop.longitude,
+                    type = LogisticsMarkerType.DELIVERY_STOP,
+                    status = if (index == 0) LogisticsMarkerStatus.IN_PROGRESS else LogisticsMarkerStatus.PENDING,
+                    sequenceNumber = stop.stopSequence,
+                    balancePaise = stop.order.totalAmountPaise,
+                    address = stop.retailerAddress,
+                    contactPhone = stop.contactNumber,
+                    orderId = stop.order.id,
+                    retailerId = stop.order.retailerId
+                )
+            }
+        }
+
+        val selectedMarker = remember(selectedStopOrderId, markers) {
+            markers.find { it.id == selectedStopOrderId }
+        }
+
         val nextStop = deliveryList.firstOrNull()
 
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(RFColors.Background)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // 1. Driver Header Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, RFColors.Border),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            // 1. Compact Delivery Top Bar (Driver, Status, Stops & Cash Held)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, RFColors.Border),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (employee.name.isNotBlank()) employee.name else if (isHindi) "डिलीवरी एक्जीक्यूटिव" else "Delivery Executive",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = RFColors.TextPrimary
+                        )
+                        Text(
+                            text = if (isHindi) "सक्रिय वितरण रूट • ${state.assignedCount} स्टॉप्स" else "Active Route • ${state.assignedCount} Stops",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = RFColors.TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        // Cash Held Pill
+                        Surface(
+                            color = Color(0xFFF0FDF4),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                        ) {
                             Text(
-                                text = if (employee.name.isNotBlank()) employee.name else if (isHindi) "डिलीवरी एक्जीक्यूटिव" else "Delivery Executive",
-                                style = MaterialTheme.typography.titleMedium,
+                                text = CurrencyFormatter.formatPaise(state.paymentsCollectedPaise),
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = RFColors.TextPrimary
-                            )
-                            Text(
-                                text = if (isHindi) "सक्रिय वितरण रूट" else "Active Delivery Route",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = RFColors.TextSecondary,
-                                fontWeight = FontWeight.Medium
+                                color = Color(0xFF16A34A),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
 
-                        // Status Pill
+                        // Duty status badge
                         Surface(
                             color = RFColors.SuccessLight,
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(16.dp),
                             border = BorderStroke(1.dp, RFColors.Success.copy(alpha = 0.3f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(7.dp)
+                                        .size(6.dp)
                                         .clip(CircleShape)
                                         .background(RFColors.Success)
                                 )
@@ -113,280 +173,325 @@ fun DeliveryHomeScreen(
                 }
             }
 
-            // 2. Route Metrics Row (Remaining Stops & Cash Held)
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            if (isMapView) {
+                // ==========================================
+                // MAP-FIRST MODE (~75% SCREEN SPACE)
+                // ==========================================
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, RFColors.Border),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = if (isHindi) "शेष स्टॉप्स" else "Remaining Stops",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = RFColors.TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "${state.assignedCount}",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = RFColors.Primary
-                            )
-                        }
-                    }
+                    RouteFlowMap(
+                        markers = markers,
+                        selectedMarkerId = selectedStopOrderId,
+                        onMarkerSelected = { marker ->
+                            selectedStopOrderId = marker.id
+                        },
+                        onDismissSelection = {
+                            selectedStopOrderId = null
+                        },
+                        isMapView = true,
+                        onToggleView = { isMapView = it },
+                        enablePolylines = true,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
-                    Card(
-                        modifier = Modifier.weight(1.3f),
-                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, RFColors.Border),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    // Docked Bottom Card / Contextual Information Sheet
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = if (isHindi) "पास में नकद" else "Cash in Hand",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = RFColors.TextSecondary,
-                                fontWeight = FontWeight.Medium
+                        if (selectedMarker != null) {
+                            // Marker Selected: Show order COD amount, address, and Deliver action
+                            MapContextualSheet(
+                                marker = selectedMarker,
+                                onDismiss = { selectedStopOrderId = null },
+                                primaryActionLabel = stringResource(R.string.deliver_order_action),
+                                primaryActionIcon = Icons.Default.LocalShipping,
+                                onPrimaryAction = {
+                                    onDeliveryClick(selectedMarker.orderId ?: selectedMarker.id)
+                                },
+                                secondaryActionLabel = if (isHindi) "नेविगेट" else "Navigate",
+                                secondaryActionIcon = Icons.Default.Navigation,
+                                onSecondaryAction = {
+                                    val lat = selectedMarker.latitude
+                                    val lng = selectedMarker.longitude
+                                    val uri = if (lat != 0.0 && lng != 0.0) {
+                                        Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(selectedMarker.title)})")
+                                    } else {
+                                        Uri.parse("geo:0,0?q=${Uri.encode(selectedMarker.address ?: selectedMarker.title)}")
+                                    }
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                    } catch (_: Exception) {}
+                                }
                             )
-                            Text(
-                                text = CurrencyFormatter.formatPaise(state.paymentsCollectedPaise),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = RFColors.Success,
-                                maxLines = 1
-                            )
+                        } else if (nextStop != null) {
+                            // No Marker Selected: Docked Next Stop Decision Card
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = RFColors.InfoLight
+                                            ) {
+                                                Text(
+                                                    text = if (isHindi) "अगला स्टॉप #1" else "NEXT STOP #1",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = RFColors.Primary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                            Text(
+                                                text = nextStop.retailerName,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = RFColors.TextPrimary,
+                                                maxLines = 1
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "COD: ${CurrencyFormatter.formatPaise(nextStop.order.totalAmountPaise)}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF16A34A)
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                val lat = nextStop.latitude
+                                                val lng = nextStop.longitude
+                                                val uri = if (lat != 0.0 && lng != 0.0) {
+                                                    Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(nextStop.retailerName)})")
+                                                } else {
+                                                    Uri.parse("geo:0,0?q=${Uri.encode(nextStop.retailerAddress)}")
+                                                }
+                                                try {
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                                } catch (_: Exception) {}
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(44.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            border = BorderStroke(1.5.dp, RFColors.Primary),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = RFColors.Primary),
+                                            contentPadding = PaddingValues(horizontal = 8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(if (isHindi) "नेविगेट" else "Navigate", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        }
+
+                                        Button(
+                                            onClick = { onDeliveryClick(nextStop.order.id) },
+                                            modifier = Modifier
+                                                .weight(1.3f)
+                                                .height(44.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = RFColors.Primary)
+                                        ) {
+                                            Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(if (isHindi) "डिलीवर करें (OTP)" else "Deliver Order", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // All deliveries done
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF16A34A),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = if (isHindi) "आज की सभी डिलीवरी पूर्ण!" else "All deliveries completed today!",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF15803D)
+                                        )
+                                        Text(
+                                            text = if (isHindi) "कैश जमा करने हेतु हैंडओवर टैब पर जाएं।" else "Proceed to Handover tab to submit cash.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF64748B)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
-
-            // 3. Next Stop Card (Primary Decision Focus)
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
-                    border = BorderStroke(1.5.dp, RFColors.Primary),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            } else {
+                // ==========================================
+                // LIST VIEW MODE (Full Scrollable Delivery List)
+                // ==========================================
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                    // Switcher back to map
+                    item {
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = RFColors.InfoLight
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = if (isHindi) "अगला डिलीवरी स्टॉप" else "NEXT DELIVERY STOP",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = RFColors.Primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        if (nextStop != null) {
-                            Text(
-                                text = nextStop.retailerName,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = RFColors.TextPrimary
-                            )
-
-                            if (nextStop.retailerAddress.isNotBlank()) {
-                                Text(
-                                    text = nextStop.retailerAddress,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = RFColors.TextSecondary,
-                                    maxLines = 2
-                                )
-                            }
-
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (isHindi) "कुल देय राशि" else "Amount Due",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = RFColors.TextSecondary
-                                )
-                                Text(
-                                    text = CurrencyFormatter.formatPaise(nextStop.order.totalAmountPaise),
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = if (isHindi) "डिलीवरी सूची सक्रिय" else "Delivery List View Active",
                                     fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
                                     color = RFColors.TextPrimary
                                 )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        val lat = nextStop.latitude
-                                        val lng = nextStop.longitude
-                                        val uri = if (lat != 0.0 && lng != 0.0) {
-                                            Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(nextStop.retailerName)})")
-                                        } else {
-                                            Uri.parse("geo:0,0?q=${Uri.encode(nextStop.retailerAddress)}")
-                                        }
-                                        try {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-                                        } catch (_: Exception) {}
-                                    },
-                                    modifier = Modifier.weight(1f).height(48.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, RFColors.Primary.copy(alpha = 0.3f)),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = RFColors.InfoLight,
-                                        contentColor = RFColors.Primary
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                ) {
-                                    Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(if (isHindi) "नेविगेट" else "Navigate", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                }
-
-                                Button(
-                                    onClick = { onDeliveryClick(nextStop.order.id) },
-                                    modifier = Modifier.weight(1.3f).height(48.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = RFColors.Primary,
-                                        contentColor = Color.White
-                                    )
-                                ) {
-                                    Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(if (isHindi) "डिलीवर करें (OTP)" else "Deliver (OTP)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                TextButton(onClick = { isMapView = true }) {
+                                    Icon(Icons.Default.Route, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(if (isHindi) "नक्शा खोलें" else "Switch to Map", fontWeight = FontWeight.Bold)
                                 }
                             }
-                        } else {
+                        }
+                    }
+
+                    // Remaining Route Stops List
+                    if (deliveryList.isNotEmpty()) {
+                        item {
                             Text(
-                                text = if (state.completedCount > 0) {
-                                    if (isHindi) "सभी डिलीवरी पूर्ण हो गई हैं!" else "All deliveries completed for today!"
-                                } else {
-                                    if (isHindi) "कोई डिलीवरी आवंटित नहीं है" else "No deliveries assigned yet"
-                                },
+                                text = if (isHindi) "मार्ग के सभी स्टॉप्स (${deliveryList.size})" else "All Route Stops (${deliveryList.size})",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = RFColors.TextPrimary
                             )
-                            Text(
-                                text = if (state.completedCount > 0) {
-                                    if (isHindi) "रोकड़ सुपुर्दगी टैब में जाकर कैश जमा करें।" else "Go to Cash Handover tab to submit physical collections."
-                                } else {
-                                    if (isHindi) "वेयरहाउस द्वारा माल डिस्पैच होने पर स्टॉप्स यहाँ दिखेंगे।" else "Orders dispatched by warehouse will appear here."
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = RFColors.TextSecondary
-                            )
                         }
-                    }
-                }
-            }
 
-            // 4. Remaining Route Stops List
-            if (deliveryList.size > 1) {
-                item {
-                    Text(
-                        text = if (isHindi) "शेष मार्ग स्टॉप्स (${deliveryList.size - 1})" else "Upcoming Stops (${deliveryList.size - 1})",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = RFColors.TextPrimary
-                    )
-                }
-
-                items(deliveryList.drop(1), key = { it.order.id }) { stop ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onDeliveryClick(stop.order.id) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
-                        border = BorderStroke(1.dp, RFColors.Border),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        items(deliveryList, key = { it.order.id }) { stop ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onDeliveryClick(stop.order.id) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                                border = BorderStroke(1.dp, RFColors.Border),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                             ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = RFColors.InfoLight,
-                                    modifier = Modifier.size(36.dp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = RFColors.InfoLight,
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    text = "${stop.stopSequence}",
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = RFColors.Primary,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                        }
+
+                                        Column {
+                                            Text(
+                                                text = stop.retailerName,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = RFColors.TextPrimary
+                                            )
+                                            if (stop.retailerAddress.isNotBlank()) {
+                                                Text(
+                                                    text = stop.retailerAddress,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = RFColors.TextSecondary,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            text = "${stop.stopSequence}",
+                                            text = CurrencyFormatter.formatPaise(stop.order.totalAmountPaise),
+                                            style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = RFColors.Primary,
-                                            fontSize = 14.sp
+                                            color = RFColors.TextPrimary
                                         )
-                                    }
-                                }
-
-                                Column {
-                                    Text(
-                                        text = stop.retailerName,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = RFColors.TextPrimary
-                                    )
-                                    if (stop.retailerAddress.isNotBlank()) {
                                         Text(
-                                            text = stop.retailerAddress,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = RFColors.TextSecondary,
-                                            maxLines = 1
+                                            text = if (isHindi) "डिलीवर करें >" else "Deliver >",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = RFColors.Primary
                                         )
                                     }
                                 }
-                            }
-
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = CurrencyFormatter.formatPaise(stop.order.totalAmountPaise),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RFColors.TextPrimary
-                                )
-                                Text(
-                                    text = if (isHindi) "डिलीवर करें >" else "Deliver >",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = RFColors.Primary
-                                )
                             }
                         }
                     }

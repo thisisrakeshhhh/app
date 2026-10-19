@@ -85,6 +85,19 @@ interface RouteFlowApi {
     @POST("orders/{id}/request-otp")
     suspend fun requestDeliveryOtp(@Path("id") orderId: String): com.routeflow.app.core.network.dto.OtpResponse
 
+    // --- Van Sales Endpoints ---
+    @POST("van-sales/orders")
+    suspend fun submitVanSale(
+        @Body request: com.routeflow.app.core.network.dto.VanSaleSubmitRequest,
+        @retrofit2.http.Header("Idempotency-Key") idempotencyKey: String? = null
+    ): com.routeflow.app.core.network.dto.VanSaleSubmitResponse
+
+    @POST("van-sales/orders/{id}/confirm")
+    suspend fun confirmVanSale(
+        @Path("id") orderId: String,
+        @retrofit2.http.Header("Idempotency-Key") idempotencyKey: String? = null
+    ): com.routeflow.app.core.network.dto.VanSaleSubmitResponse
+
     // --- Master Data Endpoints ---
     @POST("products")
     suspend fun createProduct(@Body request: com.routeflow.app.core.network.dto.CreateProductRequest): StatusResponse

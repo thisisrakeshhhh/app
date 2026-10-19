@@ -1,4 +1,5 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
+import { normalizeRole } from './security';
 
 export type Actor = { sub: string; company_id: string; role: string; sid: string; name: string };
 type WarehouseEnv = { Bindings: { DB: D1Database }; Variables: { user: Actor } };
@@ -7,7 +8,7 @@ type Ctx = Context<WarehouseEnv>;
 const bad = (c: Ctx, error: string, status: 400 | 403 | 404 | 409 = 400) =>
   c.json({ error }, status);
 
-const warehouseRoles = ['WAREHOUSE_MANAGER', 'OWNER', 'ADMIN'];
+const warehouseRoles = ['WAREHOUSE_MANAGER', 'WAREHOUSE', 'OWNER', 'ADMIN'];
 
 const audit = (c: Ctx, action: string, id: string, details: unknown) =>
   c.env.DB.prepare(
@@ -757,8 +758,8 @@ export function warehouseRouter(authMiddleware: MiddlewareHandler<WarehouseEnv>)
   router.get('/dispatch-batches', async (c) => {
     const user = c.get('user');
     // Allow delivery executives to see batches assigned to them
-    const isWarehouseOrAdmin = warehouseRoles.includes(user.role);
-    const isDelivery = user.role === 'DELIVERY_EXECUTIVE';
+    const isWarehouseOrAdmin = warehouseRoles.includes(user.role) || warehouseRoles.includes(normalizeRole(user.role));
+    const isDelivery = user.role === 'DELIVERY_EXECUTIVE' || normalizeRole(user.role) === 'DELIVERY';
 
     if (!isWarehouseOrAdmin && !isDelivery) {
       return bad(c, 'Permission denied', 403);
@@ -791,7 +792,7 @@ export function warehouseRouter(authMiddleware: MiddlewareHandler<WarehouseEnv>)
   // ──────────────────────────────────────────────────────────────
   router.post('/dispatch-batches/:id/assign-driver', async (c) => {
     const user = c.get('user');
-    if (!warehouseRoles.includes(user.role)) {
+    if (!warehouseRoles.includes(user.role) && !warehouseRoles.includes(normalizeRole(user.role))) {
       return bad(c, 'Permission denied', 403);
     }
 
@@ -800,9 +801,9 @@ export function warehouseRouter(authMiddleware: MiddlewareHandler<WarehouseEnv>)
 
     if (!body.deliveryExecutiveId) return bad(c, 'deliveryExecutiveId required');
 
-    // Verify driver exists
+    // Verify driver exists (accepts both legacy and canonical delivery role)
     const driver = await c.env.DB.prepare(
-      "SELECT id, full_name FROM users WHERE id = ? AND company_id = ? AND role = 'DELIVERY_EXECUTIVE' AND is_active = 1"
+      "SELECT id, full_name FROM users WHERE id = ? AND company_id = ? AND role IN ('DELIVERY_EXECUTIVE', 'DELIVERY') AND is_active = 1"
     ).bind(body.deliveryExecutiveId, user.company_id).first<{ id: string; full_name: string }>();
 
     if (!driver) return bad(c, 'Delivery executive invalid or inactive', 400);
