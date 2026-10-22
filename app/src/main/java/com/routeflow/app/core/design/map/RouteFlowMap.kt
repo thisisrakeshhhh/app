@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -36,8 +37,9 @@ fun RouteFlowMap(
 
     val isGoogleMapsAvailable = remember { MapConfig.isGoogleMapsConfigured() }
 
-    // Canvas map zoom level state
+    // Authoritative canvas map viewport state (zoom and pan)
     var canvasZoom by remember { mutableFloatStateOf(1.0f) }
+    var canvasPan by remember { mutableStateOf(Offset.Zero) }
 
     // Google Maps Camera state
     val defaultTarget = remember(validMarkers) {
@@ -120,6 +122,8 @@ fun RouteFlowMap(
                 onDismissSelection = onDismissSelection,
                 zoomLevel = canvasZoom,
                 onZoomChange = { canvasZoom = it },
+                panOffset = canvasPan,
+                onPanChange = { canvasPan = it },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -137,6 +141,7 @@ fun RouteFlowMap(
                     }
                 } else {
                     canvasZoom = 1.0f
+                    canvasPan = Offset.Zero
                 }
             },
             onZoomIn = {

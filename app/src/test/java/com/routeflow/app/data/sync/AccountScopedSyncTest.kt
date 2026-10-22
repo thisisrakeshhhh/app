@@ -380,5 +380,7 @@ class AccountScopedSyncTest {
         override suspend fun handoverDispatchBatch(id: String): StatusResponse = StatusResponse(success = true)
         override suspend fun getWarehouseReturns(): com.routeflow.app.core.network.dto.WarehouseReturnsResponse = com.routeflow.app.core.network.dto.WarehouseReturnsResponse()
         override suspend fun inspectWarehouseReturn(request: com.routeflow.app.core.network.dto.InspectWarehouseReturnRequest): com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse = com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse(success = true)
+        override suspend fun submitVanSale(request: com.routeflow.app.core.network.dto.VanSaleSubmitRequest, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
+        override suspend fun confirmVanSale(orderId: String, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
     }
 }

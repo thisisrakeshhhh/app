@@ -118,7 +118,7 @@ fun MapContextualSheet(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = RFColors.TextPrimary,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                         marker.subtitle?.let {
