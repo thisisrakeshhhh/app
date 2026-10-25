@@ -161,6 +161,7 @@ dependencies {
     implementation(libs.compose.icons.extended)
     implementation(libs.google.maps.compose)
     implementation(libs.google.play.services.maps)
+    implementation(libs.maplibre.android)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)

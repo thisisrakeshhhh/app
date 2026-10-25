@@ -2,7 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { apiFetch, getStoredUser, clearSession, User, API_BASE, getStoredToken } from '@/lib/api';
+
+const RouteFlowWebMap = dynamic(() => import('@/components/RouteFlowWebMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[600px] bg-slate-100 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-2">
+      <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+      <span className="text-xs font-semibold">Loading Live Geographic Street Map...</span>
+    </div>
+  ),
+});
 import {
   Truck,
   Package,
@@ -94,7 +105,8 @@ function formatStatusLabel(status: string | undefined): string {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'control_room' | 'exceptions' | 'cash_control' | 'reports' | 'orders' | 'handovers' | 'products' | 'retailers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'control_room' | 'exceptions' | 'cash_control' | 'reports' | 'orders' | 'handovers' | 'products' | 'retailers' | 'map'>('overview');
+  const [retailerViewMode, setRetailerViewMode] = useState<'table' | 'map'>('table');
   const [lang, setLang] = useState<'en' | 'hi'>('en');
 
   useEffect(() => {
@@ -842,6 +854,13 @@ export default function DashboardPage() {
               badge: retailers.length,
               badgeColor: 'bg-slate-200 text-slate-700'
             }] : []),
+            {
+              id: 'map',
+              label: lang === 'hi' ? 'लाइव मैप' : 'Territory Map',
+              icon: MapPin,
+              badge: null,
+              badgeColor: ''
+            },
           ];
 
           return (
@@ -1987,15 +2006,45 @@ export default function DashboardPage() {
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Retailers & Distribution Network</h1>
                 <p className="text-xs sm:text-sm text-slate-500">Registered shops and wholesale distribution accounts</p>
               </div>
-              <button
-                onClick={() => setShowAddRetailerModal(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer self-start sm:self-auto"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Retailer / Shop</span>
-              </button>
+              <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setRetailerViewMode('table')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${retailerViewMode === 'table' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    List View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRetailerViewMode('map')}
+                    className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${retailerViewMode === 'map' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Map View</span>
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowAddRetailerModal(true)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Retailer / Shop</span>
+                </button>
+              </div>
             </div>
 
+            {retailerViewMode === 'map' ? (
+              <RouteFlowWebMap
+                retailers={retailers}
+                orders={orders}
+                onBookOrder={handleOpenOrderBooking}
+                onView360={handleOpenRetailer360}
+                lang={lang}
+                height="650px"
+              />
+            ) : (
+              <>
             {/* Mobile Cards (Visible on screens < 768px) */}
             <div className="md:hidden space-y-3">
               {retailers.length === 0 ? (
@@ -2095,6 +2144,42 @@ export default function DashboardPage() {
                 </table>
               </div>
             </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 6. TERRITORY MAP TAB */}
+        {activeTab === 'map' && (
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                  <span>{lang === 'hi' ? 'लाइव क्षेत्र व वितरण मैप' : 'Live Territory & Delivery Fleet Map'}</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  {lang === 'hi'
+                    ? 'चंडीगढ़, मोहाली और पंचकुला में वास्तविक सड़क मैप पर दुकानें और सक्रिय डिलीवरी रूट'
+                    : 'Real geographic street map tracking shops, beats, and delivery routes across Chandigarh, Mohali, and Panchkula'}
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('retailers')}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl transition cursor-pointer self-start sm:self-auto"
+              >
+                {lang === 'hi' ? 'दुकानों की सूची देखें' : 'View Shop Directory'}
+              </button>
+            </div>
+
+            <RouteFlowWebMap
+              retailers={retailers}
+              orders={orders}
+              onBookOrder={handleOpenOrderBooking}
+              onView360={handleOpenRetailer360}
+              lang={lang}
+              height="680px"
+            />
           </div>
         )}
 
@@ -2886,6 +2971,14 @@ export default function DashboardPage() {
 
               {/* Quick Navigation Items */}
               <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+                <button
+                  onClick={() => { setActiveTab('map'); setShowMoreMobileMenu(false); }}
+                  className="p-3 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded-xl text-left flex items-center gap-2 text-blue-900 transition cursor-pointer col-span-2"
+                >
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  <span className="font-bold">{lang === 'hi' ? 'लाइव क्षेत्र मैप' : 'Live Territory Map'}</span>
+                </button>
+
                 <button
                   onClick={() => { setActiveTab('control_room'); setShowMoreMobileMenu(false); }}
                   className="p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200/80 rounded-xl text-left flex items-center gap-2 text-slate-800 hover:text-blue-700 transition cursor-pointer"

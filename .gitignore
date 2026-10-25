@@ -48,6 +48,7 @@ node_modules/
 *.sqlite-wal
 *.sqlite-shm
 *.db
+*.pmtiles
 current_ui.xml
 
 backend/tmp/
