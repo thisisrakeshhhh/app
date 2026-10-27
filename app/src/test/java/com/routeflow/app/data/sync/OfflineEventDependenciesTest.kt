@@ -426,6 +426,7 @@ class OfflineEventDependenciesTest {
         override suspend fun inspectWarehouseReturn(request: com.routeflow.app.core.network.dto.InspectWarehouseReturnRequest): com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse = com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse(success = true)
         override suspend fun submitVanSale(request: com.routeflow.app.core.network.dto.VanSaleSubmitRequest, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
         override suspend fun confirmVanSale(orderId: String, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
+        override suspend fun updateStopStatus(routeId: String, stopId: String, request: com.routeflow.app.core.network.dto.UpdateStopStatusRequest, account: String?, idempotencyKey: String?): com.routeflow.app.core.network.dto.UpdateStopStatusResponse = com.routeflow.app.core.network.dto.UpdateStopStatusResponse(success = true)
     }
 
     // Helper fake TokenStorage

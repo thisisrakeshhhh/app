@@ -216,6 +216,178 @@ class AccountScopedSyncTest {
         assertEquals("QUARANTINED", quarantined.first().type)
     }
 
+    @Test
+    fun testRouteStopStatus_atomicEnqueueAndSuccessfulDispatch() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_1",
+            stopId = "stop_1",
+            status = "VISITED",
+            visitedAt = 1000L,
+            notes = "Cash collected",
+            clientTimestamp = 1000L
+        )
+
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 10,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_uuid_101",
+                createdAt = 1000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertEquals(1, fakeApi.submittedStopStatuses.size)
+        assertEquals("VISITED", fakeApi.submittedStopStatuses[0].status)
+        assertEquals(1000L, fakeApi.submittedStopStatuses[0].visitedAt)
+        assertEquals("Cash collected", fakeApi.submittedStopStatuses[0].notes)
+
+        // Verify outbox item was cleaned up after successful server acknowledgement
+        val pending = database.syncOutboxDao().getPendingSyncsForUser("user_A", "comp_A")
+        assertEquals(0, pending.size)
+    }
+
+    @Test
+    fun testRouteStopStatus_http500_retriesAndRetainsOutbox() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_1",
+            stopId = "stop_2",
+            status = "SKIPPED",
+            visitedAt = null,
+            notes = "Store closed",
+            clientTimestamp = 2000L
+        )
+
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 11,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_uuid_102",
+                createdAt = 2000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        // Simulate HTTP 500 transient server failure
+        fakeApi.updateStopStatusFailure = retrofit2.HttpException(
+            retrofit2.Response.error<Any>(500, okhttp3.ResponseBody.create(null, "Internal Server Error"))
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.retry(), result)
+        assertEquals(0, fakeApi.submittedStopStatuses.size)
+
+        // Event remains retained in outbox with retry count incremented
+        val pending = database.syncOutboxDao().getPendingSyncsForUser("user_A", "comp_A")
+        assertEquals(1, pending.size)
+        assertEquals(1, pending[0].retryCount)
+        assertEquals("SAVED_OFFLINE", pending[0].syncState)
+        assertEquals("CONNECTION_RETRY", pending[0].lastError)
+    }
+
+    @Test
+    fun testRouteStopStatus_permanentFailure403_markedNeedsAttention() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_1",
+            stopId = "stop_3",
+            status = "VISITED",
+            visitedAt = 3000L,
+            notes = "Illegal update attempt",
+            clientTimestamp = 3000L
+        )
+
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 12,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_uuid_103",
+                createdAt = 3000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        // Simulate HTTP 403 Forbidden permanent failure
+        fakeApi.updateStopStatusFailure = retrofit2.HttpException(
+            retrofit2.Response.error<Any>(403, okhttp3.ResponseBody.create(null, "Forbidden"))
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.failure(), result)
+        assertEquals(0, fakeApi.submittedStopStatuses.size)
+
+        // Event is marked as NEEDS_ATTENTION to prevent infinite crash loops
+        val pending = database.syncOutboxDao().getPendingSyncsForUser("user_A", "comp_A")
+        assertEquals(1, pending.size)
+        assertEquals("NEEDS_ATTENTION", pending[0].syncState)
+        assertEquals("VALIDATION_REVIEW", pending[0].lastError)
+    }
+
+    @Test
+    fun testRouteStopStatus_accountSwitch_doesNotSyncOtherUsersStops() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val payloadA = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_A",
+            stopId = "stop_A_1",
+            status = "VISITED",
+            visitedAt = 4000L,
+            notes = "User A visit",
+            clientTimestamp = 4000L
+        )
+
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 13,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payloadA),
+                idempotencyKey = "stop_status_uuid_104",
+                createdAt = 4000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        // Switch to User B
+        testTokenStorage.saveUser("user_B", "User B", "SALESPERSON", "comp_B")
+
+        val workerB = createWorker("user_B", "comp_B")
+        val resultB = workerB.doWork()
+        assertEquals(ListenableWorker.Result.success(), resultB)
+        assertEquals(0, fakeApi.submittedStopStatuses.size)
+
+        // User A's stop update is still preserved safely in outbox
+        assertEquals(1, database.syncOutboxDao().getPendingSyncsForUser("user_A", "comp_A").size)
+
+        // Switch back to User A
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+        val workerA = createWorker("user_A", "comp_A")
+        val resultA = workerA.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), resultA)
+        assertEquals(1, fakeApi.submittedStopStatuses.size)
+        assertEquals(0, database.syncOutboxDao().getPendingSyncsForUser("user_A", "comp_A").size)
+    }
+
     // Fake TokenStorage that stores active user in memory without EncryptedSharedPreferences dependency
     class FakeTokenStorage(context: Context) : TokenStorage(context) {
         private var userId: String? = null
@@ -382,5 +554,29 @@ class AccountScopedSyncTest {
         override suspend fun inspectWarehouseReturn(request: com.routeflow.app.core.network.dto.InspectWarehouseReturnRequest): com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse = com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse(success = true)
         override suspend fun submitVanSale(request: com.routeflow.app.core.network.dto.VanSaleSubmitRequest, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
         override suspend fun confirmVanSale(orderId: String, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
+
+        val submittedStopStatuses = mutableListOf<com.routeflow.app.core.network.dto.UpdateStopStatusRequest>()
+        var updateStopStatusFailure: Exception? = null
+
+        override suspend fun updateStopStatus(
+            routeId: String,
+            stopId: String,
+            request: com.routeflow.app.core.network.dto.UpdateStopStatusRequest,
+            account: String?,
+            idempotencyKey: String?
+        ): com.routeflow.app.core.network.dto.UpdateStopStatusResponse {
+            updateStopStatusFailure?.let { throw it }
+            submittedStopStatuses.add(request)
+            return com.routeflow.app.core.network.dto.UpdateStopStatusResponse(
+                success = true,
+                stop = com.routeflow.app.core.network.dto.PlannedRouteStopNetworkDto(
+                    id = stopId,
+                    route_id = routeId,
+                    status = request.status,
+                    visited_at = request.visitedAt,
+                    notes = request.notes
+                )
+            )
+        }
     }
 }

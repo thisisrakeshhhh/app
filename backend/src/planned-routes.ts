@@ -731,15 +731,43 @@ router.post('/:routeId/stops/:stopId/status', async (c) => {
   }
 
   const now = Date.now();
-  const visitedAt = status === 'VISITED' ? (stop.visited_at || now) : null;
+  const clientVisitedAt = typeof body.visitedAt === 'number' && body.visitedAt > 0 ? body.visitedAt : null;
+  const clientTimestamp = typeof body.clientTimestamp === 'number' && body.clientTimestamp > 0 ? body.clientTimestamp : now;
+
+  // Stale event & transition guard:
+  // For field salespersons, a VISITED stop is finalized and cannot be regressed to PENDING or SKIPPED,
+  // regardless of client device timestamps (protects against clock skew and delayed outbox events).
+  // Authorized planners (e.g. Owner/Admin with 'route:plan') may correct stop statuses if needed.
+  if (!isPlanner && stop.status === 'VISITED' && status !== 'VISITED') {
+    return c.json({
+      success: true,
+      idempotent: true,
+      ignoredStale: true,
+      message: 'Stop status regression rejected; stop is already finalized as VISITED',
+      stop
+    });
+  }
+
+  // Idempotent duplicate: if status, visited_at, and notes match, return immediately
+  if (stop.status === status && (status !== 'VISITED' || stop.visited_at === (clientVisitedAt || stop.visited_at)) && stop.notes === notes) {
+    return c.json({
+      success: true,
+      idempotent: true,
+      stop
+    });
+  }
+
+  const visitedAt = status === 'VISITED' ? (stop.visited_at || clientVisitedAt || now) : null;
 
   await c.env.DB.prepare(`
     UPDATE planned_route_stops SET
       status = ?, visited_at = ?, notes = ?, updated_at = ?
-    WHERE id = ? AND route_id = ?
-  `).bind(status, visitedAt, notes, now, stopId, routeId).run();
+    WHERE id = ? AND route_id = ? AND company_id = ?
+  `).bind(status, visitedAt, notes, now, stopId, routeId, user.company_id).run();
 
-  const updatedStop = await c.env.DB.prepare('SELECT * FROM planned_route_stops WHERE id = ?').bind(stopId).first();
+  const updatedStop = await c.env.DB.prepare('SELECT * FROM planned_route_stops WHERE id = ? AND company_id = ?')
+    .bind(stopId, user.company_id)
+    .first();
 
   return c.json({
     success: true,

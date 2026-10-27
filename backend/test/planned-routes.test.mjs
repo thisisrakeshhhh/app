@@ -294,3 +294,107 @@ test('4. Security & Multi-Tenant Authorization: Salesperson route ID spoofing, c
   assert.equal(publishEmpty.httpStatus, 400);
   assert.match(publishEmpty.error, /zero stops/i);
 });
+
+test('5. Stop Status Sync: Offline timestamp preservation, replay idempotency, stale event defense, and ownership guards', async () => {
+  // Create and publish a 2-stop route for user_sales
+  const rRes = ok(await req('owner', '/planned-routes', {
+    routeDate: '2026-10-29',
+    name: 'Stop Sync Test Beat',
+    salespersonId: 'user_sales',
+    stops: [
+      { retailerId: 'R1', stopSequence: 1 },
+      { retailerId: 'R2', stopSequence: 2 }
+    ]
+  }));
+  const routeId = rRes.route.id;
+  ok(await req('owner', `/planned-routes/${routeId}/publish`, {}));
+
+  const stop1Id = rRes.stops[0].id;
+  const stop2Id = rRes.stops[1].id;
+
+  // 1. Cross-user attack: Salesperson from Company 2 cannot update Stop 1 -> 404 (multi-tenant boundary)
+  const crossCompRes = await req('sales_comp2', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'VISITED'
+  });
+  assert.equal(crossCompRes.httpStatus, 404, 'Cross-company stop update must return 404');
+
+  // 2. Unauthorized role attack: Delivery cannot update stop -> 403 Forbidden
+  const deliveryRes = await req('delivery', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'VISITED'
+  });
+  assert.equal(deliveryRes.httpStatus, 403, 'Delivery executive cannot update route stop status');
+
+  // 3. Assigned salesperson marks Stop 1 as VISITED with an offline client timestamp (e.g. 2 hours ago)
+  const offlineVisitTime = Date.now() - 7200000;
+  const visitRes = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'VISITED',
+    visitedAt: offlineVisitTime,
+    clientTimestamp: offlineVisitTime,
+    notes: 'Visited offline earlier'
+  }));
+  assert.equal(visitRes.stop.status, 'VISITED');
+  assert.equal(visitRes.stop.visited_at, offlineVisitTime, 'Backend must preserve original offline visitedAt timestamp');
+
+  // 4. Duplicate delivery / replay: repeating the exact same stop update returns 200 with idempotent: true
+  const dupVisitRes = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'VISITED',
+    visitedAt: offlineVisitTime,
+    clientTimestamp: offlineVisitTime,
+    notes: 'Visited offline earlier'
+  }));
+  assert.equal(dupVisitRes.idempotent, true, 'Replay of identical stop update must be idempotent');
+  assert.equal(dupVisitRes.stop.visited_at, offlineVisitTime);
+
+  // 5. Stale event & clock-skew guard:
+  // 5a. Stale event with older timestamp attempting to set Stop 1 to SKIPPED is safely ignored
+  const staleTime = offlineVisitTime - 10000;
+  const staleRes = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'SKIPPED',
+    clientTimestamp: staleTime,
+    notes: 'Stale offline skip before actual visit'
+  }));
+  assert.equal(staleRes.ignoredStale, true, 'Stale update must be safely ignored');
+  assert.equal(staleRes.stop.status, 'VISITED', 'Stop status must remain VISITED and not regress');
+
+  // 5b. Future clock-skew attack: salesperson sends SKIPPED with a future timestamp (+24 hours) -> rejected/ignored
+  const futureClockSkewTime = Date.now() + 86400000;
+  const futureSkipRes = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'SKIPPED',
+    clientTimestamp: futureClockSkewTime,
+    notes: 'Delayed event with skewed future device clock'
+  }));
+  assert.equal(futureSkipRes.ignoredStale, true, 'Future clock-skewed skip attempt must be safely ignored');
+  assert.equal(futureSkipRes.stop.status, 'VISITED', 'Stop status must remain VISITED and not regress');
+
+  // 5c. Salesperson cannot regress VISITED to PENDING
+  const pendingRegressRes = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop1Id}/status`, {
+    status: 'PENDING',
+    notes: 'Attempt to reset visited stop to pending'
+  }));
+  assert.equal(pendingRegressRes.ignoredStale, true, 'Pending regression attempt must be safely ignored');
+  assert.equal(pendingRegressRes.stop.status, 'VISITED', 'Stop status must remain VISITED and not regress');
+
+  // 6. Valid first-time transitions on unvisited Stop 2:
+  // 6a. Valid PENDING -> SKIPPED transition succeeds
+  const skipStop2Res = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop2Id}/status`, {
+    status: 'SKIPPED',
+    notes: 'Store closed today'
+  }));
+  assert.equal(skipStop2Res.stop.status, 'SKIPPED', 'Initial PENDING to SKIPPED must succeed');
+
+  // 6b. Valid SKIPPED -> VISITED transition succeeds (store reopened later in the day)
+  const visitStop2Res = ok(await req('sales', `/planned-routes/${routeId}/stops/${stop2Id}/status`, {
+    status: 'VISITED',
+    notes: 'Store reopened in the afternoon'
+  }));
+  assert.equal(visitStop2Res.stop.status, 'VISITED', 'Subsequent visit of skipped stop must succeed');
+
+  // 7. Permitted planner correction:
+  // An authorized planner (e.g. Owner with 'route:plan') can correct a VISITED stop back to PENDING or SKIPPED
+  const plannerCorrectionRes = ok(await req('owner', `/planned-routes/${routeId}/stops/${stop2Id}/status`, {
+    status: 'PENDING',
+    notes: 'Owner corrected stop status to PENDING for re-assignment'
+  }));
+  assert.equal(plannerCorrectionRes.stop.status, 'PENDING', 'Authorized planner correction must be permitted');
+  assert.equal(plannerCorrectionRes.stop.visited_at, null, 'Visited timestamp must be cleared on transition to PENDING');
+});

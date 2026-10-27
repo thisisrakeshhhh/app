@@ -47,15 +47,19 @@ class SyncManager @Inject constructor(
             )
             .build()
 
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            uniqueWorkName,
-            ExistingWorkPolicy.KEEP,
-            syncRequest
-        )
-        val periodic = androidx.work.PeriodicWorkRequestBuilder<OrderSyncWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
-            .setInputData(workDataOf(OrderSyncWorker.KEY_USER_ID to targetUserId, OrderSyncWorker.KEY_COMPANY_ID to targetCompanyId))
-            .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork("${uniqueWorkName}_recovery", androidx.work.ExistingPeriodicWorkPolicy.KEEP, periodic)
+        try {
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                uniqueWorkName,
+                ExistingWorkPolicy.KEEP,
+                syncRequest
+            )
+            val periodic = androidx.work.PeriodicWorkRequestBuilder<OrderSyncWorker>(15, TimeUnit.MINUTES)
+                .setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
+                .setInputData(workDataOf(OrderSyncWorker.KEY_USER_ID to targetUserId, OrderSyncWorker.KEY_COMPANY_ID to targetCompanyId))
+                .build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork("${uniqueWorkName}_recovery", androidx.work.ExistingPeriodicWorkPolicy.KEEP, periodic)
+        } catch (_: Exception) {
+            // WorkManager not initialized or unavailable (e.g. during headless unit tests)
+        }
     }
 }

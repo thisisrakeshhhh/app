@@ -105,6 +105,23 @@ class OrderSyncWorker @AssistedInject constructor(
                         }
                         response.success
                     }
+                    "ROUTE_STOP_STATUS" -> {
+                        val payload = json.decodeFromString<com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload>(event.payload)
+                        val request = com.routeflow.app.core.network.dto.UpdateStopStatusRequest(
+                            status = payload.status,
+                            notes = payload.notes,
+                            visitedAt = payload.visitedAt,
+                            clientTimestamp = payload.clientTimestamp
+                        )
+                        val response = api.updateStopStatus(
+                            routeId = payload.routeId,
+                            stopId = payload.stopId,
+                            request = request,
+                            account = account,
+                            idempotencyKey = event.idempotencyKey
+                        )
+                        response.success
+                    }
                     else -> throw IllegalArgumentException("Unsupported saved event; contact owner")
                 }
                 if (!success) throw java.io.IOException("Server did not acknowledge saved event")

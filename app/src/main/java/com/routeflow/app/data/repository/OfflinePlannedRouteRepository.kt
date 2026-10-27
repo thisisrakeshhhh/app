@@ -1,11 +1,16 @@
 package com.routeflow.app.data.repository
 
+import androidx.room.withTransaction
+import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.PlannedRouteDao
 import com.routeflow.app.core.database.dao.RetailerDao
 import com.routeflow.app.core.database.entity.PlannedRouteEntity
 import com.routeflow.app.core.database.entity.PlannedRouteStopEntity
+import com.routeflow.app.core.database.entity.SyncOutboxEntity
+import com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload
 import com.routeflow.app.core.security.TokenStorage
 import com.routeflow.app.core.util.OsrmRoutingHelper
+import com.routeflow.app.data.sync.SyncManager
 import com.routeflow.app.domain.model.PlannedRoute
 import com.routeflow.app.domain.model.PlannedRouteStop
 import com.routeflow.app.domain.model.RouteStatus
@@ -17,6 +22,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -28,9 +35,12 @@ import javax.inject.Singleton
 
 @Singleton
 class OfflinePlannedRouteRepository @Inject constructor(
+    private val database: RouteFlowDatabase,
     private val plannedRouteDao: PlannedRouteDao,
     private val retailerDao: RetailerDao,
-    private val tokenStorage: TokenStorage
+    private val tokenStorage: TokenStorage,
+    private val syncManager: SyncManager,
+    private val json: Json = Json { ignoreUnknownKeys = true }
 ) : PlannedRouteRepository {
 
     override fun observeAllRoutes(companyId: String): Flow<List<PlannedRoute>> =
@@ -356,19 +366,56 @@ class OfflinePlannedRouteRepository @Inject constructor(
         notes: String?
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            val userId = tokenStorage.getUserId()
+            val companyId = tokenStorage.getCompanyId()
+            if (userId.isNullOrBlank() || companyId.isNullOrBlank()) {
+                return@withContext Result.failure(
+                    IllegalStateException("Cannot sync route stop: authenticated user and company identity required")
+                )
+            }
+
             val existing = plannedRouteDao.getStopById(stopId)
                 ?: return@withContext Result.failure(IllegalStateException("Stop not found: $stopId"))
 
             val now = System.currentTimeMillis()
             val visitedAt = if (status == StopStatus.VISITED) (existing.visitedAt ?: now) else null
 
-            plannedRouteDao.updateStopStatus(
-                stopId = stopId,
-                status = status.name,
-                visitedAt = visitedAt,
-                notes = notes ?: existing.notes,
-                updatedAt = now
-            )
+            database.withTransaction {
+                // 1. Local SQLite update for instant UI responsiveness
+                plannedRouteDao.updateStopStatus(
+                    stopId = stopId,
+                    status = status.name,
+                    visitedAt = visitedAt,
+                    notes = notes ?: existing.notes,
+                    updatedAt = now
+                )
+
+                // 2. Atomic Outbox Enqueue with a stable unique event UUID
+                val eventId = UUID.randomUUID().toString()
+                val payloadObj = RouteStopStatusSyncPayload(
+                    routeId = routeId,
+                    stopId = stopId,
+                    status = status.name,
+                    visitedAt = visitedAt,
+                    notes = notes ?: existing.notes,
+                    clientTimestamp = now
+                )
+                val outboxItem = SyncOutboxEntity(
+                    type = "ROUTE_STOP_STATUS",
+                    payload = json.encodeToString(payloadObj),
+                    idempotencyKey = "stop_status_${eventId}",
+                    userId = userId,
+                    companyId = companyId,
+                    createdAt = now,
+                    syncState = "SAVED_OFFLINE"
+                )
+                database.syncOutboxDao().insertSyncItem(outboxItem)
+            }
+
+            // 3. Dispatch via WorkManager using account-scoped sync manager
+            try {
+                syncManager.scheduleSync(userId, companyId)
+            } catch (_: Exception) {}
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

@@ -85,6 +85,16 @@ interface RouteFlowApi {
     @POST("orders/{id}/request-otp")
     suspend fun requestDeliveryOtp(@Path("id") orderId: String): com.routeflow.app.core.network.dto.OtpResponse
 
+    // --- Planned Routes Endpoints ---
+    @POST("planned-routes/{routeId}/stops/{stopId}/status")
+    suspend fun updateStopStatus(
+        @Path("routeId") routeId: String,
+        @Path("stopId") stopId: String,
+        @Body request: com.routeflow.app.core.network.dto.UpdateStopStatusRequest,
+        @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null,
+        @retrofit2.http.Header("Idempotency-Key") idempotencyKey: String? = null
+    ): com.routeflow.app.core.network.dto.UpdateStopStatusResponse
+
     // --- Van Sales Endpoints ---
     @POST("van-sales/orders")
     suspend fun submitVanSale(

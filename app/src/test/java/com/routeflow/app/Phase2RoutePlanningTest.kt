@@ -41,9 +41,11 @@ class Phase2RoutePlanningTest {
         tokenStorage.saveUser("user_owner", "Owner", "OWNER", "comp_1")
 
         repository = OfflinePlannedRouteRepository(
+            database = database,
             plannedRouteDao = database.plannedRouteDao(),
             retailerDao = database.retailerDao(),
-            tokenStorage = tokenStorage
+            tokenStorage = tokenStorage,
+            syncManager = com.routeflow.app.data.sync.SyncManager(context, tokenStorage)
         )
 
         // Seed 3 active retailers in Chandigarh / Mohali
@@ -296,6 +298,17 @@ class Phase2RoutePlanningTest {
 
         assertEquals(StopStatus.SKIPPED, updatedStops[1].status)
         assertEquals("Shop was locked", updatedStops[1].notes)
+
+        // Workstream 1: Verify sync_outbox contains atomically enqueued ROUTE_STOP_STATUS events
+        val outboxItems = database.syncOutboxDao().getPendingSyncsForUser("user_owner", "comp_1")
+        val stopSyncItems = outboxItems.filter { it.type == "ROUTE_STOP_STATUS" }
+        assertEquals(2, stopSyncItems.size)
+        assertTrue(stopSyncItems[0].idempotencyKey.startsWith("stop_status_"))
+        assertTrue(stopSyncItems[1].idempotencyKey.startsWith("stop_status_"))
+        assertEquals("comp_1", stopSyncItems[0].companyId)
+        assertEquals("user_owner", stopSyncItems[0].userId)
+        assertTrue(stopSyncItems[0].payload.contains("VISITED"))
+        assertTrue(stopSyncItems[1].payload.contains("SKIPPED"))
     }
 
     @Test
