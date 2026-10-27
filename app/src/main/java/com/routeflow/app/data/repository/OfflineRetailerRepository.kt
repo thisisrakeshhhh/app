@@ -3,14 +3,18 @@ package com.routeflow.app.data.repository
 import androidx.room.withTransaction
 import com.routeflow.app.core.database.RouteFlowDatabase
 import com.routeflow.app.core.database.dao.RetailerDao
+import com.routeflow.app.core.database.dao.RetailerPriceOverrideDao
 import com.routeflow.app.core.database.entity.RetailerEntity
+import com.routeflow.app.core.database.entity.RetailerPriceOverrideEntity
 import com.routeflow.app.core.network.api.RouteFlowApi
 import com.routeflow.app.core.network.dto.CreateRetailerRequest
 import com.routeflow.app.core.network.dto.UpdateRetailerRequest
 import com.routeflow.app.core.security.TokenStorage
+import com.routeflow.app.domain.model.Product
 import com.routeflow.app.domain.model.Retailer
 import com.routeflow.app.domain.repository.RetailerRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -18,8 +22,10 @@ class OfflineRetailerRepository @Inject constructor(
     private val retailerDao: RetailerDao,
     private val api: RouteFlowApi,
     private val tokenStorage: TokenStorage,
-    private val database: RouteFlowDatabase
+    private val database: RouteFlowDatabase,
+    private val retailerPriceOverrideDao: RetailerPriceOverrideDao
 ) : RetailerRepository {
+
     override fun getAllRetailers(): Flow<List<Retailer>> =
         retailerDao.getAllRetailers().map { entities ->
             entities.map { it.asDomainModel() }
@@ -38,17 +44,13 @@ class OfflineRetailerRepository @Inject constructor(
     }
 
     override suspend fun createRetailer(request: CreateRetailerRequest): Result<Unit> = try {
-        val resp = api.createRetailer(request)
-        if (resp.success) {
-            syncRetailersFromServer()
-            Result.success(Unit)
-        } else {
-            saveLocalRetailer(request)
-            Result.success(Unit)
-        }
-    } catch (e: Exception) {
         saveLocalRetailer(request)
+        try {
+            api.createRetailer(request)
+        } catch (_: Exception) {}
         Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     private suspend fun saveLocalRetailer(request: CreateRetailerRequest) {
@@ -66,51 +68,112 @@ class OfflineRetailerRepository @Inject constructor(
             outstandingAmountPaise = 0L,
             companyId = companyId,
             lastSyncedAt = System.currentTimeMillis(),
-            source = "LOCAL"
+            source = "LOCAL",
+            isActive = true
         )
         retailerDao.insertRetailers(listOf(entity))
     }
 
     override suspend fun updateRetailer(id: String, request: UpdateRetailerRequest): Result<Unit> = try {
-        val resp = api.updateRetailer(id, request)
-        if (resp.success) {
-            syncRetailersFromServer()
-            Result.success(Unit)
-        } else {
-            Result.failure(Exception(resp.message ?: "Failed to update retailer"))
-        }
+        saveLocalRetailerUpdate(id, request)
+        try {
+            api.updateRetailer(id, request)
+        } catch (_: Exception) {}
+        Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
     }
 
+    private suspend fun saveLocalRetailerUpdate(id: String, request: UpdateRetailerRequest) {
+        val existing = retailerDao.getRetailerById(id).first()
+        if (existing != null) {
+            val updated = existing.copy(
+                name = request.name ?: existing.name,
+                address = request.address ?: existing.address,
+                contactNumber = request.contactNumber ?: existing.contactNumber,
+                creditLimitPaise = request.creditLimitPaise ?: existing.creditLimitPaise,
+                isActive = request.isActive ?: existing.isActive
+            )
+            retailerDao.insertRetailers(listOf(updated))
+        }
+    }
+
     override suspend fun syncRetailersFromServer(): Result<Unit> = try {
         val retailersDto = api.getRetailers()
-        val companyId = tokenStorage.getCompanyId() ?: ""
-        val syncTimestamp = System.currentTimeMillis()
-        val entities = retailersDto.map { dto ->
-            RetailerEntity(
-                id = dto.id,
-                name = dto.name,
-                beatId = dto.beatId,
-                address = dto.address,
-                contactNumber = dto.contactNumber,
-                latitude = dto.latitude ?: 0.0,
-                longitude = dto.longitude ?: 0.0,
-                creditLimitPaise = dto.creditLimitPaise,
-                outstandingAmountPaise = dto.outstandingAmountPaise,
-                companyId = companyId,
-                lastSyncedAt = syncTimestamp,
-                source = "SERVER"
-            )
-        }
-        database.withTransaction {
-            retailerDao.deleteServerRetailers()
-            retailerDao.insertRetailers(entities)
+        if (retailersDto.isNotEmpty()) {
+            val companyId = tokenStorage.getCompanyId() ?: ""
+            val syncTimestamp = System.currentTimeMillis()
+            val entities = retailersDto.map { dto ->
+                RetailerEntity(
+                    id = dto.id,
+                    name = dto.name,
+                    beatId = dto.beatId,
+                    address = dto.address,
+                    contactNumber = dto.contactNumber,
+                    latitude = dto.latitude ?: 0.0,
+                    longitude = dto.longitude ?: 0.0,
+                    creditLimitPaise = dto.creditLimitPaise,
+                    outstandingAmountPaise = dto.outstandingAmountPaise,
+                    companyId = companyId,
+                    lastSyncedAt = syncTimestamp,
+                    source = "SERVER",
+                    isActive = true
+                )
+            }
+            database.withTransaction {
+                retailerDao.deleteServerRetailers()
+                retailerDao.insertRetailers(entities)
+            }
         }
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override suspend fun deactivateRetailer(retailerId: String): Result<Unit> = try {
+        retailerDao.updateRetailerActiveStatus(retailerId, false)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun activateRetailer(retailerId: String): Result<Unit> = try {
+        retailerDao.updateRetailerActiveStatus(retailerId, true)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    /**
+     * Phase 1 Explicit Price-Selection Rule:
+     * An applicable active retailer-specific price takes precedence over the default product price.
+     * Never chooses randomly.
+     */
+    override suspend fun getApplicablePrice(retailerId: String, product: Product): Long {
+        val override = retailerPriceOverrideDao.getActiveOverride(retailerId, product.id)
+        return if (override != null && override.isActive) {
+            override.pricePaise
+        } else {
+            product.pricePaise
+        }
+    }
+
+    override suspend fun setRetailerPriceOverride(retailerId: String, productId: String, pricePaise: Long): Result<Unit> = try {
+        val entity = RetailerPriceOverrideEntity(
+            id = "RPO-${retailerId}-${productId}",
+            retailerId = retailerId,
+            productId = productId,
+            pricePaise = pricePaise,
+            isActive = true
+        )
+        retailerPriceOverrideDao.insertOverride(entity)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override fun getPriceOverridesForRetailer(retailerId: String): Flow<List<RetailerPriceOverrideEntity>> =
+        retailerPriceOverrideDao.getOverridesForRetailer(retailerId)
 }
 
 private fun RetailerEntity.asDomainModel() = Retailer(
@@ -125,7 +188,8 @@ private fun RetailerEntity.asDomainModel() = Retailer(
     outstandingAmountPaise = outstandingAmountPaise,
     companyId = companyId,
     lastSyncedAt = lastSyncedAt,
-    source = source
+    source = source,
+    isActive = isActive
 )
 
 private fun Retailer.asEntity() = RetailerEntity(
@@ -140,5 +204,6 @@ private fun Retailer.asEntity() = RetailerEntity(
     outstandingAmountPaise = outstandingAmountPaise,
     companyId = companyId,
     lastSyncedAt = lastSyncedAt,
-    source = source
+    source = source,
+    isActive = isActive
 )

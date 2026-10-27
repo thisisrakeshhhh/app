@@ -78,5 +78,9 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWarehouseRepository(repository: com.routeflow.app.data.repository.OfflineWarehouseRepository): com.routeflow.app.domain.repository.WarehouseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlannedRouteRepository(repository: com.routeflow.app.data.repository.OfflinePlannedRouteRepository): com.routeflow.app.domain.repository.PlannedRouteRepository
 }
 

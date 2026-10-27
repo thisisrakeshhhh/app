@@ -41,7 +41,8 @@ export function canPerform(role: string, action: string): boolean {
       'inventory:read', 'inventory:inward', 'inventory:adjust',
       'retailer:read', 'retailer:create', 'retailer:credit_override',
       'finance:settle', 'analytics:read',
-      'van_sales:manage', 'van_sales:create', 'van_sales:confirm'
+      'van_sales:manage', 'van_sales:create', 'van_sales:confirm',
+      'route:plan', 'route:publish', 'route:read'
     ],
     WAREHOUSE: [
       'catalog:read',
@@ -55,7 +56,8 @@ export function canPerform(role: string, action: string): boolean {
       'inventory:read',
       'retailer:read', 'retailer:create',
       'finance:collect',
-      'van_sales:create', 'van_sales:confirm'
+      'van_sales:create', 'van_sales:confirm',
+      'route:read', 'route:execute'
     ],
     DELIVERY: [
       'order:read', 'order:deliver',

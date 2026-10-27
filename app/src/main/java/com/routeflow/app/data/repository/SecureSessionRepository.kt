@@ -38,6 +38,7 @@ class SecureSessionRepository @Inject constructor(
 
     override fun login(employee: Employee) {
         _activeEmployee.value = employee
+        tokenStorage.saveUser(employee.id, employee.name, employee.role.name, tokenStorage.getCompanyId() ?: "comp_1")
     }
 
     override fun logout() {
@@ -45,12 +46,5 @@ class SecureSessionRepository @Inject constructor(
         context.getSharedPreferences("rf_shift_prefs", Context.MODE_PRIVATE).edit().clear().apply()
         _activeEmployee.value = null
         tokenStorage.clear()
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    databaseProvider.get().clearAllTables()
-                } catch (_: Exception) {}
-            }
-        } catch (_: Exception) {}
     }
 }

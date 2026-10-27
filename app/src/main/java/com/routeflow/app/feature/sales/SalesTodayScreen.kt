@@ -37,7 +37,8 @@ fun SalesTodayScreen(
     onEndShift: () -> Unit,
     onRetailerClick: (String) -> Unit,
     onClearMessages: () -> Unit,
-    onSyncAgain: (() -> Unit)? = null
+    onSyncAgain: (() -> Unit)? = null,
+    onNavigateRoute: (() -> Unit)? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var blockedVisitRetailerName by remember { mutableStateOf<String?>(null) }
@@ -165,6 +166,22 @@ fun SalesTodayScreen(
                                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Start Duty / Shift", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            }
+                        }
+
+                        if (onNavigateRoute != null) {
+                            OutlinedButton(
+                                onClick = onNavigateRoute,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, RFColors.Primary.copy(alpha = 0.4f)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = RFColors.Primary)
+                            ) {
+                                Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Today's Assigned Route & Map", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             }
                         }
                     }

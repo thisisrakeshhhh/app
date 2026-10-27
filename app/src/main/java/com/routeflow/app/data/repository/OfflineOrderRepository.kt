@@ -23,7 +23,24 @@ class OfflineOrderRepository @Inject constructor(
 
     override suspend fun createOrder(order: OrderEntity, items: List<OrderItemEntity>): Result<Unit> {
         return try {
-            database.orderDao().createOrderWithItems(order, items)
+            if (items.isEmpty()) {
+                return Result.failure(IllegalArgumentException("Order must have at least one item"))
+            }
+            if (items.any { it.quantity <= 0 }) {
+                return Result.failure(IllegalArgumentException("Item quantities must be positive"))
+            }
+            if (items.any { it.pricePaiseAtTime < 0 }) {
+                return Result.failure(IllegalArgumentException("Item prices must be non-negative"))
+            }
+
+            // Recalculate totals authoritatively in paise to prevent floating point inaccuracies
+            val authoritativeTotal = items.sumOf { it.quantity.toLong() * it.pricePaiseAtTime }
+            val validatedOrder = order.copy(
+                totalAmountPaise = authoritativeTotal,
+                updatedAt = System.currentTimeMillis()
+            )
+
+            database.orderDao().createOrderWithItems(validatedOrder, items)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -35,23 +52,51 @@ class OfflineOrderRepository @Inject constructor(
             val order = database.orderDao().getOrderById(orderId).first() 
                 ?: throw Exception("Order not found")
             
-            if (order.status != "SUBMITTED") throw Exception("Invalid status for approval")
+            // Idempotent retry: do not duplicate reservation if already approved
+            if (order.status == "APPROVED") {
+                return@withTransaction Result.success(Unit)
+            }
+
+            if (order.status != "SUBMITTED") {
+                throw Exception("Invalid status for approval: ${order.status}")
+            }
+
+            // Validate active retailer
+            val retailer = database.retailerDao().getRetailerById(order.retailerId).first()
+            if (retailer != null && !retailer.isActive) {
+                throw Exception("Cannot confirm order for deactivated retailer: ${retailer.name}")
+            }
             
             val items = database.orderDao().getItemsForOrder(orderId).first()
             val products = database.productDao().getAllProducts().first()
             
-            // Check and reserve stock
-            items.forEach { item ->
-                val product = products.find { it.id == item.productId }
-                    ?: throw Exception("Product ${item.productId} not found")
+            // Aggregate required quantities per product to handle duplicate line items accurately
+            val requiredPerProduct = items.groupBy { it.productId }.mapValues { (_, itemList) ->
+                itemList.sumOf { it.quantity + it.freeQuantity }
+            }
+
+            // Check active status and available stock
+            requiredPerProduct.forEach { (productId, required) ->
+                val product = products.find { it.id == productId }
+                    ?: throw Exception("Product $productId not found")
+
+                if (!product.isActive) {
+                    throw Exception("Cannot confirm order containing deactivated product: ${product.name}")
+                }
                 
-                val required = item.quantity + item.freeQuantity
                 val available = product.stockQuantity - product.reservedQuantity
                 if (available < required) {
                     throw Exception("Insufficient stock for ${product.name}")
                 }
-                
-                database.productDao().updateReservation(product.id, product.reservedQuantity + required)
+            }
+
+            // Atomically reserve stock exactly once with conditional SQL guard
+            requiredPerProduct.forEach { (productId, required) ->
+                val product = products.find { it.id == productId }!!
+                val rowsUpdated = database.productDao().reserveStockSafely(productId, required)
+                if (rowsUpdated == 0) {
+                    throw Exception("Insufficient stock for ${product.name}")
+                }
             }
             
             database.orderDao().updateOrderStatus(orderId, "APPROVED", System.currentTimeMillis())
@@ -62,10 +107,33 @@ class OfflineOrderRepository @Inject constructor(
     }
 
     override suspend fun rejectOrder(orderId: String, reason: String): Result<Unit> = try {
-        database.orderDao().updateOrderStatus(orderId, "REJECTED", System.currentTimeMillis())
-        // If we reject an already approved order (if that's allowed), we'd need to release reservation.
-        // For now, only SUBMITTED can be approved/rejected.
-        Result.success(Unit)
+        database.withTransaction {
+            val order = database.orderDao().getOrderById(orderId).first()
+                ?: throw Exception("Order not found")
+
+            // Idempotent retry: already rejected
+            if (order.status == "REJECTED") {
+                return@withTransaction Result.success(Unit)
+            }
+
+            if (order.status != "SUBMITTED" && order.status != "APPROVED") {
+                throw Exception("Cannot reject order with status ${order.status}")
+            }
+
+            // Release reservation only when valid transition requires it and reservation exists
+            if (order.status == "APPROVED") {
+                val items = database.orderDao().getItemsForOrder(orderId).first()
+                val requiredPerProduct = items.groupBy { it.productId }.mapValues { (_, itemList) ->
+                    itemList.sumOf { it.quantity + it.freeQuantity }
+                }
+                requiredPerProduct.forEach { (productId, required) ->
+                    database.productDao().releaseStockSafely(productId, required)
+                }
+            }
+
+            database.orderDao().updateOrderStatus(orderId, "REJECTED", System.currentTimeMillis())
+            Result.success(Unit)
+        }
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -274,6 +342,3 @@ class OfflineOrderRepository @Inject constructor(
         Result.failure(e)
     }
 }
-
-
-

@@ -11,6 +11,13 @@ data class Product(
     val reservedQuantity: Int = 0,
     val barcode: String? = null,
     val sku: String? = null,
-    val hindiName: String? = null
-)
+    val hindiName: String? = null,
+    val isActive: Boolean = true,
+    val minStockThreshold: Int = 10
+) {
+    val availableQuantity: Int
+        get() = maxOf(0, stockQuantity - reservedQuantity)
 
+    val isLowStock: Boolean
+        get() = availableQuantity in 1..minStockThreshold
+}

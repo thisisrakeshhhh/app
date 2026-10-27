@@ -24,8 +24,23 @@ interface ProductDao {
     @Query("UPDATE products SET stockQuantity = :newQuantity WHERE id = :productId")
     suspend fun updateStock(productId: String, newQuantity: Int)
 
+    @Query("UPDATE products SET stockQuantity = :newQuantity WHERE id = :productId AND :newQuantity >= reservedQuantity AND :newQuantity >= 0")
+    suspend fun updateStockSafely(productId: String, newQuantity: Int): Int
+
     @Query("UPDATE products SET reservedQuantity = :newReserved WHERE id = :productId")
     suspend fun updateReservation(productId: String, newReserved: Int)
+
+    @Query("UPDATE products SET reservedQuantity = reservedQuantity + :quantity WHERE id = :productId AND (stockQuantity - reservedQuantity) >= :quantity")
+    suspend fun reserveStockSafely(productId: String, quantity: Int): Int
+
+    @Query("UPDATE products SET reservedQuantity = max(0, reservedQuantity - :quantity) WHERE id = :productId")
+    suspend fun releaseStockSafely(productId: String, quantity: Int): Int
+
+    @Query("UPDATE products SET isActive = :isActive WHERE id = :productId")
+    suspend fun updateProductActiveStatus(productId: String, isActive: Boolean)
+
+    @Query("UPDATE products SET name = :name, category = :category, pricePaise = :pricePaise, unit = :unit, isActive = :isActive WHERE id = :productId")
+    suspend fun updateProductDetails(productId: String, name: String, category: String, pricePaise: Long, unit: String, isActive: Boolean)
 
     @Query("SELECT * FROM products WHERE barcode = :barcode OR sku = :barcode LIMIT 1")
     suspend fun getProductByBarcode(barcode: String): ProductEntity?
@@ -36,4 +51,3 @@ interface ProductDao {
     @Query("DELETE FROM products")
     suspend fun deleteAllProducts()
 }
-

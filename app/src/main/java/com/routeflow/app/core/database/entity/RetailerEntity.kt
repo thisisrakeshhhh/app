@@ -16,5 +16,6 @@ data class RetailerEntity(
     val outstandingAmountPaise: Long,
     val companyId: String = "",
     val lastSyncedAt: Long = 0L,
-    val source: String = "SERVER"
+    val source: String = "SERVER",
+    val isActive: Boolean = true
 )

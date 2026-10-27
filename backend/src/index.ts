@@ -14,6 +14,7 @@ import { tripRouter } from './trips';
 import { governanceRouter } from './governance';
 import { operatingRouter } from './operating';
 import { warehouseRouter } from './warehouse';
+import { plannedRoutesRouter } from './planned-routes';
 
 type Bindings = {
   DB: D1Database;
@@ -925,16 +926,24 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
     .all();
 
   // Stock check: available = stock_quantity - reserved_quantity
+  const requiredMap = new Map<string, number>();
   for (const item of items as any[]) {
-    const product = await c.env.DB.prepare('SELECT name, stock_quantity, reserved_quantity FROM products WHERE id = ? AND company_id = ?')
-      .bind(item.product_id, user.company_id)
+    const req = (item.quantity || 0) + (item.free_quantity || 0);
+    requiredMap.set(item.product_id, (requiredMap.get(item.product_id) || 0) + req);
+  }
+
+  for (const [productId, required] of requiredMap.entries()) {
+    const product = await c.env.DB.prepare('SELECT name, stock_quantity, reserved_quantity, is_active FROM products WHERE id = ? AND company_id = ?')
+      .bind(productId, user.company_id)
       .first() as any;
 
     if (!product) {
-      return c.json({ error: `Product ${item.product_id} not found` }, 400);
+      return c.json({ error: `Product ${productId} not found` }, 400);
+    }
+    if (product.is_active === 0) {
+      return c.json({ error: `Cannot approve order containing deactivated product: ${product.name}` }, 400);
     }
 
-    const required = (item.quantity || 0) + (item.free_quantity || 0);
     const available = product.stock_quantity - product.reserved_quantity;
     if (available < required) {
       return c.json({
@@ -961,11 +970,10 @@ app.post('/orders/:id/approve', authMiddleware, async (c) => {
         .bind(items[0]?.product_id || 'P1', user.company_id)
     );
   } else {
-    for (const item of items as any[]) {
-      const required = (item.quantity || 0) + (item.free_quantity || 0);
+    for (const [productId, required] of requiredMap.entries()) {
       statements.push(
-        c.env.DB.prepare('UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ?')
-          .bind(required, item.product_id, user.company_id)
+        c.env.DB.prepare('UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ? AND (stock_quantity - reserved_quantity) >= ?')
+          .bind(required, productId, user.company_id, required)
       );
     }
   }
@@ -2833,9 +2841,10 @@ app.post('/van-sales/orders', authMiddleware, async (c) => {
 
   // 4. Server-side credit policy evaluation
   let creditOverridePaise = 0;
+  let overrideReason: string | null = null;
   if (paymentMethod === 'CREDIT') {
     const override = body.creditOverridePaise ?? 0;
-    const overrideReason = body.creditOverrideReason?.trim() || null;
+    overrideReason = body.creditOverrideReason?.trim() || null;
     if (!Number.isSafeInteger(override) || override < 0 || override > 1000000000 || (override > 0 && (!canPerform(user.role, 'retailer:credit_override') || !overrideReason))) {
       return c.json({ error: 'Credit override requires authorized role, bounded amount and reason' }, 403);
     }
@@ -3488,6 +3497,7 @@ app.route('/trips', tripRouter(authMiddleware));
 app.route('/', governanceRouter(authMiddleware));
 app.route('/', operatingRouter(authMiddleware));
 app.route('/warehouse', warehouseRouter(authMiddleware));
+app.route('/planned-routes', plannedRoutesRouter(authMiddleware));
 
 export default app;
 

@@ -128,7 +128,8 @@ export function warehouseRouter(authMiddleware: MiddlewareHandler<WarehouseEnv>)
       'EXPIRED',
       'RETURNED_TO_GODOWN',
       'MANUAL_CORRECTION',
-      'STOCK_RECEIPT'
+      'STOCK_RECEIPT',
+      'OPENING_STOCK'
     ];
     if (!reason || !validReasons.includes(reason)) {
       return bad(c, `Invalid reason. Allowed: ${validReasons.join(', ')}`);
@@ -302,8 +303,8 @@ export function warehouseRouter(authMiddleware: MiddlewareHandler<WarehouseEnv>)
 
     await c.env.DB.batch([
       c.env.DB.prepare(
-        'UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ?'
-      ).bind(physicalCount, productId, user.company_id),
+        'UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ? AND ? >= reserved_quantity'
+      ).bind(physicalCount, productId, user.company_id, physicalCount),
       c.env.DB.prepare(
         `INSERT INTO stock_movements
          (id, company_id, product_id, batch_id, movement_type, quantity, stock_before, stock_after, reason, notes, created_by, created_at)

@@ -50,7 +50,8 @@ fun OwnerBusinessHubScreen(
     onNavigateEmployees: () -> Unit,
     onNavigateHandovers: () -> Unit = {},
     onNavigateCollections: () -> Unit = {},
-    onNavigateReturns: () -> Unit = {}
+    onNavigateReturns: () -> Unit = {},
+    onNavigateRoutes: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -121,6 +122,13 @@ fun OwnerBusinessHubScreen(
                 subtitle = "${state.beats.size} Beats Configured",
                 icon = Icons.Default.Map,
                 onClick = onNavigateBeats
+            )
+
+            BusinessCard(
+                title = "Daily Route Planning",
+                subtitle = "Manual stop ordering with road route estimation",
+                icon = Icons.Default.Map,
+                onClick = onNavigateRoutes
             )
 
             BusinessCard(

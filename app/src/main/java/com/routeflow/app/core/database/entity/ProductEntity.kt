@@ -15,6 +15,7 @@ data class ProductEntity(
     val imageUrl: String? = null,
     val barcode: String? = null,
     val sku: String? = null,
-    val hindiName: String? = null
+    val hindiName: String? = null,
+    val isActive: Boolean = true,
+    val minStockThreshold: Int = 10
 )
-

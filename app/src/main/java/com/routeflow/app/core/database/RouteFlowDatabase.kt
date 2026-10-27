@@ -12,6 +12,7 @@ import com.routeflow.app.core.database.dao.VisitDao
 import com.routeflow.app.core.database.dao.SyncOutboxDao
 import com.routeflow.app.core.database.dao.CollectionRecordDao
 import com.routeflow.app.core.database.dao.ShiftLocationDao
+import com.routeflow.app.core.database.dao.RetailerPriceOverrideDao
 import com.routeflow.app.core.database.entity.CollectionRecordEntity
 import com.routeflow.app.core.database.entity.DeliveryRecordEntity
 import com.routeflow.app.core.database.entity.OrderEntity
@@ -19,6 +20,7 @@ import com.routeflow.app.core.database.entity.OrderItemEntity
 import com.routeflow.app.core.database.entity.PaymentEntity
 import com.routeflow.app.core.database.entity.ProductEntity
 import com.routeflow.app.core.database.entity.RetailerEntity
+import com.routeflow.app.core.database.entity.RetailerPriceOverrideEntity
 import com.routeflow.app.core.database.entity.ShiftLocationEntity
 import com.routeflow.app.core.database.entity.SyncOutboxEntity
 import com.routeflow.app.core.database.entity.TargetEntity
@@ -44,9 +46,12 @@ import com.routeflow.app.core.database.entity.VisitEntity
         com.routeflow.app.core.database.entity.StockMovementEntity::class,
         com.routeflow.app.core.database.entity.DispatchBatchEntity::class,
         com.routeflow.app.core.database.entity.DispatchBatchOrderEntity::class,
-        com.routeflow.app.core.database.entity.WarehouseReturnEntity::class
+        com.routeflow.app.core.database.entity.WarehouseReturnEntity::class,
+        RetailerPriceOverrideEntity::class,
+        com.routeflow.app.core.database.entity.PlannedRouteEntity::class,
+        com.routeflow.app.core.database.entity.PlannedRouteStopEntity::class
     ],
-    version = 11,
+    version = 13,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -64,9 +69,88 @@ abstract class RouteFlowDatabase : RoomDatabase() {
     abstract fun stockMovementDao(): com.routeflow.app.core.database.dao.StockMovementDao
     abstract fun dispatchBatchDao(): com.routeflow.app.core.database.dao.DispatchBatchDao
     abstract fun warehouseReturnDao(): com.routeflow.app.core.database.dao.WarehouseReturnDao
+    abstract fun retailerPriceOverrideDao(): RetailerPriceOverrideDao
+    abstract fun plannedRouteDao(): com.routeflow.app.core.database.dao.PlannedRouteDao
 
     companion object {
         const val DATABASE_NAME = "routeflow_db"
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `planned_routes` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `companyId` TEXT NOT NULL,
+                        `routeDate` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `salespersonId` TEXT NOT NULL,
+                        `salespersonName` TEXT NOT NULL,
+                        `status` TEXT NOT NULL DEFAULT 'DRAFT',
+                        `totalStops` INTEGER NOT NULL DEFAULT 0,
+                        `roadDistanceMeters` REAL NOT NULL DEFAULT 0.0,
+                        `roadDurationSeconds` REAL NOT NULL DEFAULT 0.0,
+                        `routeGeometry` TEXT,
+                        `routingProvider` TEXT NOT NULL DEFAULT 'OSRM',
+                        `routingCalculatedAt` INTEGER,
+                        `version` INTEGER NOT NULL DEFAULT 1,
+                        `publishedAt` INTEGER,
+                        `publishedBy` TEXT,
+                        `cancelledAt` INTEGER,
+                        `cancelledBy` TEXT,
+                        `cancellationReason` TEXT,
+                        `createdBy` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `planned_route_stops` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `routeId` TEXT NOT NULL,
+                        `companyId` TEXT NOT NULL,
+                        `retailerId` TEXT NOT NULL,
+                        `retailerName` TEXT NOT NULL,
+                        `stopSequence` INTEGER NOT NULL,
+                        `address` TEXT NOT NULL DEFAULT '',
+                        `contactNumber` TEXT NOT NULL DEFAULT '',
+                        `latitude` REAL NOT NULL DEFAULT 0.0,
+                        `longitude` REAL NOT NULL DEFAULT 0.0,
+                        `status` TEXT NOT NULL DEFAULT 'PENDING',
+                        `visitedAt` INTEGER,
+                        `notes` TEXT,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        FOREIGN KEY(`routeId`) REFERENCES `planned_routes`(`id`) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_planned_routes_companyId_routeDate` ON `planned_routes` (`companyId`, `routeDate`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_planned_routes_companyId_salespersonId_status` ON `planned_routes` (`companyId`, `salespersonId`, `status`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_planned_route_stops_routeId_stopSequence` ON `planned_route_stops` (`routeId`, `stopSequence`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_planned_route_stops_routeId_retailerId` ON `planned_route_stops` (`routeId`, `retailerId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_planned_route_stops_companyId_retailerId` ON `planned_route_stops` (`companyId`, `retailerId`)")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `products` ADD COLUMN `isActive` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `products` ADD COLUMN `minStockThreshold` INTEGER NOT NULL DEFAULT 10")
+                db.execSQL("ALTER TABLE `retailers` ADD COLUMN `isActive` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `retailer_price_overrides` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `retailerId` TEXT NOT NULL,
+                        `productId` TEXT NOT NULL,
+                        `pricePaise` INTEGER NOT NULL,
+                        `isActive` INTEGER NOT NULL DEFAULT 1
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_retailer_price_overrides_retailerId_productId` ON `retailer_price_overrides` (`retailerId`, `productId`)")
+            }
+        }
 
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {

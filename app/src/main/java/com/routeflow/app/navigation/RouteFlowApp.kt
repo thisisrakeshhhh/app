@@ -109,6 +109,10 @@ import com.routeflow.app.feature.owner.OwnerMasterViewModel
 import com.routeflow.app.feature.owner.OwnerProductsScreen
 import com.routeflow.app.feature.owner.OwnerRetailersScreen
 import com.routeflow.app.feature.owner.OwnerReturnsScreen
+import com.routeflow.app.feature.owner.OwnerRoutesScreen
+import com.routeflow.app.feature.owner.OwnerRoutesViewModel
+import com.routeflow.app.feature.owner.OwnerRoutePlannerScreen
+import com.routeflow.app.feature.owner.OwnerRoutePlannerViewModel
 import com.routeflow.app.feature.owner.OwnerTeamScreen
 import com.routeflow.app.feature.owner.OwnerTeamViewModel
 import com.routeflow.app.feature.owner.OwnerViewModel
@@ -119,6 +123,8 @@ import com.routeflow.app.feature.sales.RetailerListViewModel
 import com.routeflow.app.feature.sales.SalesCollectionsScreen
 import com.routeflow.app.feature.sales.SalesHomeScreen
 import com.routeflow.app.feature.sales.SalesProfileScreen
+import com.routeflow.app.feature.sales.SalesRouteScreen
+import com.routeflow.app.feature.sales.SalesRouteViewModel
 import com.routeflow.app.feature.sales.SalesTodayScreen
 import com.routeflow.app.feature.sales.SalesTodayViewModel
 import com.routeflow.app.feature.sales.SalesViewModel
@@ -152,6 +158,8 @@ private const val OWNER_ACTIVITY = "owner/activity"
 private const val OWNER_HANDOVERS = "owner/handovers"
 private const val OWNER_COLLECTIONS = "owner/collections"
 private const val OWNER_RETURNS = "owner/returns"
+private const val OWNER_ROUTES = "owner/routes"
+private const val OWNER_ROUTE_PLANNER = "owner/route-planner"
 
 // Admin / Team Leader Routes — delegated subset of Owner operations
 private const val ADMIN_APPROVALS = "admin/approvals"
@@ -167,6 +175,7 @@ private const val SALES_ORDER_BOOKING = "sales/order/{retailerId}"
 private const val SALES_VAN_SALE = "sales/van-sale/{retailerId}"
 private const val SALES_COLLECTIONS = "sales/collections"
 private const val SALES_PROFILE = "sales/profile"
+private const val SALES_ROUTE = "sales/route"
 
 // Warehouse Routes
 private const val WAREHOUSE_PICKING = "warehouse/picking"
@@ -577,7 +586,8 @@ fun RouteFlowApp(
                     onNavigateEmployees = { navController.navigate(OWNER_EMPLOYEES) },
                     onNavigateHandovers = { navController.navigate(OWNER_HANDOVERS) },
                     onNavigateCollections = { navController.navigate(OWNER_COLLECTIONS) },
-                    onNavigateReturns = { navController.navigate(OWNER_RETURNS) }
+                    onNavigateReturns = { navController.navigate(OWNER_RETURNS) },
+                    onNavigateRoutes = { navController.navigate(OWNER_ROUTES) }
                 )
             }
 
@@ -667,6 +677,40 @@ fun RouteFlowApp(
             composable(OWNER_RETURNS) {
                 OwnerReturnsScreen(
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(OWNER_ROUTES) {
+                val viewModel: OwnerRoutesViewModel = hiltViewModel()
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+                OwnerRoutesScreen(
+                    state = state,
+                    onDateSelected = viewModel::onDateSelected,
+                    onPublishRoute = viewModel::publishRoute,
+                    onCancelRoute = viewModel::cancelRoute,
+                    onNavigatePlanner = { navController.navigate(OWNER_ROUTE_PLANNER) },
+                    onNavigateBack = { navController.popBackStack() },
+                    onClearMessages = viewModel::clearMessages
+                )
+            }
+
+            composable(OWNER_ROUTE_PLANNER) {
+                val viewModel: OwnerRoutePlannerViewModel = hiltViewModel()
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+                OwnerRoutePlannerScreen(
+                    state = state,
+                    onDateChanged = viewModel::onDateChanged,
+                    onNameChanged = viewModel::onNameChanged,
+                    onSalespersonSelected = viewModel::onSalespersonSelected,
+                    onAddRetailerStop = viewModel::onAddRetailerStop,
+                    onMoveStopUp = viewModel::onMoveStopUp,
+                    onMoveStopDown = viewModel::onMoveStopDown,
+                    onRemoveStop = viewModel::onRemoveStop,
+                    onRecalculateRoad = viewModel::recalculateRoadRoute,
+                    onSaveDraft = { viewModel.saveDraft { navController.popBackStack() } },
+                    onPublishRoute = { viewModel.publishRoute { navController.popBackStack() } },
+                    onNavigateBack = { navController.popBackStack() },
+                    onClearMessages = viewModel::clearMessages
                 )
             }
 
@@ -764,7 +808,8 @@ fun RouteFlowApp(
                     onEndShift = { viewModel.endShift() },
                     onRetailerClick = { id -> navController.navigate("sales/visit/$id") },
                     onClearMessages = viewModel::clearMessages,
-                    onSyncAgain = { viewModel.syncRetailers() }
+                    onSyncAgain = { viewModel.syncRetailers() },
+                    onNavigateRoute = { navController.navigate(SALES_ROUTE) }
                 )
             }
 
@@ -832,6 +877,22 @@ fun RouteFlowApp(
                         onLogout = onDemoLogout
                     )
                 }
+            }
+
+            composable(SALES_ROUTE) {
+                val viewModel: SalesRouteViewModel = hiltViewModel()
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+                SalesRouteScreen(
+                    state = state,
+                    onSelectStop = viewModel::onSelectStop,
+                    onMarkVisited = viewModel::markStopVisited,
+                    onMarkSkipped = viewModel::markStopSkipped,
+                    onBookOrder = { retailerId ->
+                        navController.navigate("sales/order/$retailerId")
+                    },
+                    onNavigateBack = { navController.popBackStack() },
+                    onClearMessages = viewModel::clearMessages
+                )
             }
 
             composable(

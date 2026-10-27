@@ -24,6 +24,12 @@ interface RetailerDao {
     @Query("UPDATE retailers SET outstandingAmountPaise = :newAmount WHERE id = :retailerId")
     suspend fun updateOutstanding(retailerId: String, newAmount: Long)
 
+    @Query("UPDATE retailers SET isActive = :isActive WHERE id = :retailerId")
+    suspend fun updateRetailerActiveStatus(retailerId: String, isActive: Boolean)
+
+    @Query("UPDATE retailers SET name = :name, address = :address, contactNumber = :contactNumber, creditLimitPaise = :creditLimitPaise, isActive = :isActive WHERE id = :retailerId")
+    suspend fun updateRetailerDetails(retailerId: String, name: String, address: String, contactNumber: String, creditLimitPaise: Long, isActive: Boolean)
+
     @Query("DELETE FROM retailers WHERE source != 'LOCAL'")
     suspend fun deleteServerRetailers()
 

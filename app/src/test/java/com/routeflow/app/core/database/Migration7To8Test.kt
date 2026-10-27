@@ -207,6 +207,7 @@ class Migration7To8Test {
 
         // Insert representative version 7 rows
         v7Db.execSQL("INSERT INTO retailers (id, name, beatId, address, contactNumber, latitude, longitude, creditLimitPaise, outstandingAmountPaise) VALUES ('ret_1', 'Retailer One', 'BEAT-01', 'Test Address', '9999999999', 26.85, 75.76, 500000, 0)")
+        v7Db.execSQL("INSERT INTO products (id, name, category, pricePaise, stockQuantity, reservedQuantity, unit) VALUES ('prod_1', 'Tea', 'Beverages', 10000, 50, 0, 'PACKET')")
         v7Db.execSQL("INSERT INTO orders (id, retailerId, employeeId, status, totalAmountPaise, createdAt, updatedAt) VALUES ('ord_101', 'ret_1', 'user_sales', 'SUBMITTED', 45000, 1000, 1000)")
         v7Db.execSQL("INSERT INTO order_items (id, orderId, productId, quantity, freeQuantity, pricePaiseAtTime, isPicked) VALUES ('item_101', 'ord_101', 'prod_1', 2, 0, 22500, 0)")
         v7Db.execSQL("INSERT INTO visits (id, retailerId, employeeId, checkInTime, checkOutTime, latitude, longitude, accuracy, status) VALUES ('vis_101', 'ret_1', 'user_sales', 2000, 2900, 26.85, 75.76, 10.0, 'COMPLETED')")
@@ -224,14 +225,16 @@ class Migration7To8Test {
                 RouteFlowDatabase.MIGRATION_7_8,
                 RouteFlowDatabase.MIGRATION_8_9,
                 RouteFlowDatabase.MIGRATION_9_10,
-                RouteFlowDatabase.MIGRATION_10_11
+                RouteFlowDatabase.MIGRATION_10_11,
+                RouteFlowDatabase.MIGRATION_11_12,
+                RouteFlowDatabase.MIGRATION_12_13
             )
             .allowMainThreadQueries()
             .build()
 
-        // Room will validate schema at version 11
+        // Room will validate schema at version 13
         val openDb = roomDb.openHelper.writableDatabase
-        assertEquals(11, openDb.version)
+        assertEquals(13, openDb.version)
 
         // Step 3: Verify existing data survived and migrated columns have expected defaults
         // A. Orders & Order Items
@@ -263,14 +266,38 @@ class Migration7To8Test {
         assertEquals("ENTERED", colCursor.getString(1))
         assertNull(colCursor.getString(2))
         assertEquals("REC-001", colCursor.getString(3))
-        // E. Retailers: check companyId='', lastSyncedAt=0, source='SERVER'
-        val retCursor = openDb.query("SELECT id, companyId, lastSyncedAt, source FROM retailers WHERE id='ret_1'")
+        // E. Retailers: check companyId='', lastSyncedAt=0, source='SERVER', isActive=1 (Migration 11->12)
+        val retCursor = openDb.query("SELECT id, companyId, lastSyncedAt, source, isActive FROM retailers WHERE id='ret_1'")
         assertTrue(retCursor.moveToFirst())
         assertEquals("ret_1", retCursor.getString(0))
         assertEquals("", retCursor.getString(1))
         assertEquals(0L, retCursor.getLong(2))
         assertEquals("SERVER", retCursor.getString(3))
+        assertEquals(1, retCursor.getInt(4)) // isActive defaults to 1
         retCursor.close()
+
+        // E2. Products: check pre-existing product migrated with isActive=1 and minStockThreshold=10 (Migration 11->12)
+        val prodCursor = openDb.query("SELECT id, name, isActive, minStockThreshold FROM products WHERE id='prod_1'")
+        assertTrue(prodCursor.moveToFirst())
+        assertEquals("prod_1", prodCursor.getString(0))
+        assertEquals("Tea", prodCursor.getString(1))
+        assertEquals(1, prodCursor.getInt(2)) // isActive defaults to 1
+        assertEquals(10, prodCursor.getInt(3)) // minStockThreshold defaults to 10
+        prodCursor.close()
+
+        // E3. Retailer Price Overrides: check table created by Migration 11->12 supports inserts and queries
+        val overrideDao = roomDb.retailerPriceOverrideDao()
+        val overrideEntity = com.routeflow.app.core.database.entity.RetailerPriceOverrideEntity(
+            id = "ovr_1",
+            retailerId = "ret_1",
+            productId = "prod_1",
+            pricePaise = 9500L,
+            isActive = true
+        )
+        overrideDao.insertOverride(overrideEntity)
+        val loadedOverride = overrideDao.getActiveOverride("ret_1", "prod_1")
+        assertNotNull(loadedOverride)
+        assertEquals(9500L, loadedOverride?.pricePaise)
 
         // F. New tables: local_shifts and field_records exist and functional
         val fieldDao: FieldRecordDao = roomDb.fieldRecordDao()

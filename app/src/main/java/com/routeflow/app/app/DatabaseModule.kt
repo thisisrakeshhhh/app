@@ -7,6 +7,7 @@ import com.routeflow.app.core.database.dao.OrderDao
 import com.routeflow.app.core.database.dao.PaymentDao
 import com.routeflow.app.core.database.dao.ProductDao
 import com.routeflow.app.core.database.dao.RetailerDao
+import com.routeflow.app.core.database.dao.RetailerPriceOverrideDao
 import com.routeflow.app.core.database.dao.SyncOutboxDao
 import com.routeflow.app.core.database.dao.VisitDao
 import dagger.Module
@@ -37,9 +38,16 @@ object DatabaseModule {
             RouteFlowDatabase.MIGRATION_7_8,
             RouteFlowDatabase.MIGRATION_8_9,
             RouteFlowDatabase.MIGRATION_9_10,
-            RouteFlowDatabase.MIGRATION_10_11
+            RouteFlowDatabase.MIGRATION_10_11,
+            RouteFlowDatabase.MIGRATION_11_12,
+            RouteFlowDatabase.MIGRATION_12_13
         )
         .build()
+    }
+
+    @Provides
+    fun providePlannedRouteDao(database: RouteFlowDatabase): com.routeflow.app.core.database.dao.PlannedRouteDao {
+        return database.plannedRouteDao()
     }
 
     @Provides
@@ -111,5 +119,9 @@ object DatabaseModule {
     fun provideWarehouseReturnDao(database: RouteFlowDatabase): com.routeflow.app.core.database.dao.WarehouseReturnDao {
         return database.warehouseReturnDao()
     }
-}
 
+    @Provides
+    fun provideRetailerPriceOverrideDao(database: RouteFlowDatabase): RetailerPriceOverrideDao {
+        return database.retailerPriceOverrideDao()
+    }
+}

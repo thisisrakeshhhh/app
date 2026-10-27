@@ -92,6 +92,7 @@ fun RouteFlowMapLibreView(
     onDismissSelection: () -> Unit,
     modifier: Modifier = Modifier,
     enablePolylines: Boolean = true,
+    routeCoordinates: List<Pair<Double, Double>>? = null,
     controller: RouteFlowMapLibreController = rememberRouteFlowMapLibreController(),
     onMapReady: () -> Unit = {},
     onMapError: (String) -> Unit = {}
@@ -217,7 +218,7 @@ fun RouteFlowMapLibreView(
                                 .build()
 
                             // Render annotations immediately upon style load
-                            renderMapLibreAnnotations(map, currentMarkers, enablePolylines)
+                            renderMapLibreAnnotations(map, currentMarkers, enablePolylines, routeCoordinates)
                         }
 
                         // Marker Click Listener: uses screen-space projection to support cycling
@@ -275,7 +276,7 @@ fun RouteFlowMapLibreView(
             },
             update = {
                 val map = controller.mapInstance ?: return@AndroidView
-                renderMapLibreAnnotations(map, validMarkers, enablePolylines)
+                renderMapLibreAnnotations(map, validMarkers, enablePolylines, routeCoordinates)
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -303,7 +304,8 @@ fun RouteFlowMapLibreView(
 private fun renderMapLibreAnnotations(
     map: MapLibreMap,
     markers: List<LogisticsMarker>,
-    enablePolylines: Boolean
+    enablePolylines: Boolean,
+    routeCoordinates: List<Pair<Double, Double>>? = null
 ) {
     Log.d("RouteFlowMapLibre", "renderMapLibreAnnotations: adding ${markers.size} markers, enablePolylines=$enablePolylines")
     map.clear()
@@ -319,19 +321,23 @@ private fun renderMapLibreAnnotations(
         map.addMarker(markerOptions)
     }
 
-    // Plot Delivery Route Polylines
+    // Plot Route Polylines (OSRM road-following geometry or sequence fallback)
     if (enablePolylines) {
-        val polylinePoints = markers
-            .filter { it.sequenceNumber != null }
-            .sortedBy { it.sequenceNumber }
-            .map { LatLng(it.latitude, it.longitude) }
+        val polylinePoints = if (!routeCoordinates.isNullOrEmpty() && routeCoordinates.size >= 2) {
+            routeCoordinates.map { LatLng(it.first, it.second) }
+        } else {
+            markers
+                .filter { it.sequenceNumber != null }
+                .sortedBy { it.sequenceNumber }
+                .map { LatLng(it.latitude, it.longitude) }
+        }
 
         if (polylinePoints.size >= 2) {
             map.addPolyline(
                 PolylineOptions()
                     .addAll(polylinePoints)
                     .color(0xFF2563EB.toInt())
-                    .width(4f)
+                    .width(5f)
             )
         }
     }

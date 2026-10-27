@@ -49,6 +49,7 @@ fun RouteFlowMap(
     onToggleView: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     enablePolylines: Boolean = true,
+    routeCoordinates: List<Pair<Double, Double>>? = null,
     providerMode: MapProviderMode? = null,
     archiveFile: File? = null,
     onProviderFallback: ((fallbackMode: MapProviderMode, reason: String) -> Unit)? = null
@@ -180,6 +181,7 @@ fun RouteFlowMap(
                     onDismissSelection = onDismissSelection,
                     modifier = Modifier.fillMaxSize(),
                     enablePolylines = enablePolylines,
+                    routeCoordinates = routeCoordinates,
                     controller = mapLibreController,
                     onMapError = { err ->
                         mapLibreRuntimeError = err
@@ -225,10 +227,14 @@ fun RouteFlowMap(
 
                     // Connect sequential delivery stops with polyline
                     if (enablePolylines) {
-                        val polylinePoints = validMarkers
-                            .filter { it.sequenceNumber != null }
-                            .sortedBy { it.sequenceNumber }
-                            .map { LatLng(it.latitude, it.longitude) }
+                        val polylinePoints = if (!routeCoordinates.isNullOrEmpty() && routeCoordinates.size >= 2) {
+                            routeCoordinates.map { LatLng(it.first, it.second) }
+                        } else {
+                            validMarkers
+                                .filter { it.sequenceNumber != null }
+                                .sortedBy { it.sequenceNumber }
+                                .map { LatLng(it.latitude, it.longitude) }
+                        }
 
                         if (polylinePoints.size >= 2) {
                             Polyline(

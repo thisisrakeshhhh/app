@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -34,12 +36,14 @@ data class OrderBookingState(
     val isLoading: Boolean = false,
     val assignedRetailers: List<Retailer> = emptyList(),
     val selectedRetailer: Retailer? = null,
-    val isRetailerSelectionRequired: Boolean = false
+    val isRetailerSelectionRequired: Boolean = false,
+    val priceOverrides: Map<String, Long> = emptyMap()
 ) {
     val cartTotalPaise: Long
         get() = allProductsForCart.sumOf { product ->
             val qty = cart[product.id] ?: 0
-            qty * product.pricePaise
+            val unitPrice = priceOverrides[product.id] ?: product.pricePaise
+            qty.toLong() * unitPrice
         }
 
     val categories: List<String>
@@ -48,7 +52,8 @@ data class OrderBookingState(
 
 data class ProductItemState(
     val product: Product,
-    val freeQuantity: Int = 0
+    val freeQuantity: Int = 0,
+    val applicablePricePaise: Long = product.pricePaise
 )
 
 @HiltViewModel
@@ -86,14 +91,18 @@ class OrderBookingViewModel @Inject constructor(
         filterState,
         submissionState
     ) { products, (retailers, selectedRetailerId), (search, category), (cart, isSubmitting, submittedId) ->
-        // Auto-select first retailer if not specified and coming from general tab
-        val activeRetailerId = selectedRetailerId ?: (if (rawRetailerId == "all") retailers.firstOrNull()?.id else null)
-        val selectedRetailer = retailers.find { it.id == activeRetailerId }
+        // Only active retailers can be selected for new orders
+        val activeRetailers = retailers.filter { it.isActive }
+        val activeRetailerId = selectedRetailerId ?: (if (rawRetailerId == "all") activeRetailers.firstOrNull()?.id else null)
+        val selectedRetailer = activeRetailers.find { it.id == activeRetailerId }
 
-        val mappedProducts = products.map { product ->
+        // Only active products are available for ordering
+        val activeProducts = products.filter { it.isActive }
+
+        val mappedProducts = activeProducts.map { product ->
             val qty = cart[product.id] ?: 0
             val freeQty = if (product.name == "Premium Tea") qty / 10 else 0
-            ProductItemState(product, freeQty)
+            ProductItemState(product, freeQty, product.pricePaise)
         }
 
         val filtered = mappedProducts.filter {
@@ -103,13 +112,13 @@ class OrderBookingViewModel @Inject constructor(
 
         OrderBookingState(
             products = filtered,
-            allProductsForCart = products,
+            allProductsForCart = activeProducts,
             searchQuery = search,
             selectedCategory = category,
             cart = cart,
             isSubmitting = isSubmitting,
             orderSubmittedId = submittedId,
-            assignedRetailers = retailers,
+            assignedRetailers = activeRetailers,
             selectedRetailer = selectedRetailer,
             isRetailerSelectionRequired = rawRetailerId == "all"
         )
@@ -137,7 +146,8 @@ class OrderBookingViewModel @Inject constructor(
             val newQty = (currentQty + delta).coerceAtLeast(0)
 
             val product = allProducts.value.find { it.id == productId }
-            if (product != null && newQty > product.stockQuantity) {
+            // Cannot order deactivated products or order more than on-hand stock
+            if (product != null && (!product.isActive || newQty > product.stockQuantity)) {
                 return@update current
             }
 
@@ -150,10 +160,10 @@ class OrderBookingViewModel @Inject constructor(
         val currentCart = _cart.value
         if (currentCart.isEmpty()) return
 
-        val targetRetailerId = state.value.selectedRetailer?.id
-            ?: if (rawRetailerId != "all") rawRetailerId else null
+        val targetRetailer = state.value.selectedRetailer
+            ?: if (rawRetailerId != "all") state.value.assignedRetailers.find { it.id == rawRetailerId } else null
 
-        if (targetRetailerId.isNullOrBlank()) return
+        if (targetRetailer == null || !targetRetailer.isActive) return
 
         viewModelScope.launch {
             val employeeId = sessionRepository.activeEmployee.value?.id ?: return@launch
@@ -164,9 +174,15 @@ class OrderBookingViewModel @Inject constructor(
 
             var totalAmount: Long = 0
             val orderItems = currentCart.mapNotNull { (productId, quantity) ->
+                if (quantity <= 0) return@mapNotNull null
                 val product = allProducts.value.find { it.id == productId } ?: return@mapNotNull null
+                if (!product.isActive) return@mapNotNull null
+
+                // Explicit pricing rule: active retailer-specific override takes precedence over default catalogue price
+                val applicableUnitPrice = retailerRepository.getApplicablePrice(targetRetailer.id, product)
                 val freeQty = if (product.name == "Premium Tea") quantity / 10 else 0
-                totalAmount += quantity * product.pricePaise
+                val lineTotal = quantity.toLong() * applicableUnitPrice
+                totalAmount += lineTotal
 
                 OrderItemEntity(
                     id = UUID.randomUUID().toString(),
@@ -174,7 +190,7 @@ class OrderBookingViewModel @Inject constructor(
                     productId = productId,
                     quantity = quantity,
                     freeQuantity = freeQty,
-                    pricePaiseAtTime = product.pricePaise
+                    pricePaiseAtTime = applicableUnitPrice
                 )
             }
 
@@ -185,7 +201,7 @@ class OrderBookingViewModel @Inject constructor(
 
             val order = OrderEntity(
                 id = orderId,
-                retailerId = targetRetailerId,
+                retailerId = targetRetailer.id,
                 employeeId = employeeId,
                 status = "SUBMITTED",
                 totalAmountPaise = totalAmount,
