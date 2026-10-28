@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -145,9 +146,11 @@ fun RouteFlowMap(
         }
     }
 
-    // Authoritative canvas map viewport state (zoom and pan)
-    var canvasZoom by remember { mutableFloatStateOf(1.0f) }
-    var canvasPan by remember { mutableStateOf(Offset.Zero) }
+    // Authoritative canvas map viewport state (zoom and pan) preserved across screen navigation
+    var canvasZoom by rememberSaveable { mutableFloatStateOf(1.0f) }
+    var canvasPanX by rememberSaveable { mutableFloatStateOf(0f) }
+    var canvasPanY by rememberSaveable { mutableFloatStateOf(0f) }
+    val canvasPan = Offset(canvasPanX, canvasPanY)
 
     // Google Maps Camera state
     val defaultTarget = remember(validMarkers) {
@@ -256,7 +259,10 @@ fun RouteFlowMap(
                     zoomLevel = canvasZoom,
                     onZoomChange = { canvasZoom = it },
                     panOffset = canvasPan,
-                    onPanChange = { canvasPan = it },
+                    onPanChange = {
+                        canvasPanX = it.x
+                        canvasPanY = it.y
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -381,7 +387,8 @@ fun RouteFlowMap(
                     }
                     MapProviderMode.LOGISTICS_CANVAS -> {
                         canvasZoom = 1.0f
-                        canvasPan = Offset.Zero
+                        canvasPanX = 0f
+                        canvasPanY = 0f
                     }
                 }
             },

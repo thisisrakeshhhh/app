@@ -26,6 +26,7 @@ data class PlannedRouteStop(
     val status: StopStatus = StopStatus.PENDING,
     val visitedAt: Long? = null,
     val notes: String? = null,
+    val syncStatus: String = "LOCAL_ONLY",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

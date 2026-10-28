@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.PendingActions
@@ -61,6 +62,7 @@ fun OwnerHomeScreen(
     onViewReturns: () -> Unit = {},
     onViewTeam: () -> Unit = {},
     onViewReports: () -> Unit = {},
+    onViewRoutes: () -> Unit = {},
     onRefresh: () -> Unit = {}
 ) {
     if (state.isLoading) {
@@ -533,6 +535,16 @@ fun OwnerHomeScreen(
                                 subtitle = if (state.pendingHandoverCount > 0) "${CurrencyFormatter.formatPaise(state.pendingHandoverAmountPaise)} awaiting collection" else "All driver cash handed over",
                                 statusText = if (state.pendingHandoverCount > 0) "${state.pendingHandoverCount} pending" else "Clear",
                                 onClick = onViewHandovers
+                            )
+                            HorizontalDivider(color = RFColors.Border)
+                            AttentionRow(
+                                icon = Icons.Default.DirectionsCar,
+                                iconTint = RFColors.Primary,
+                                iconBg = RFColors.InfoSurface,
+                                title = "Daily Route Progress",
+                                subtitle = "Live route execution & salesperson stop inspection",
+                                statusText = "View",
+                                onClick = onViewRoutes
                             )
                         }
                     }

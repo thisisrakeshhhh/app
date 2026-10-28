@@ -31,7 +31,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.After
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -388,6 +388,326 @@ class AccountScopedSyncTest {
         assertEquals(0, database.syncOutboxDao().getPendingSyncsForUser("user_A", "comp_A").size)
     }
 
+    @Test
+    fun testRouteStopStatus_acknowledgesAndMarksCloudConfirmed() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val route = com.routeflow.app.core.database.entity.PlannedRouteEntity(
+            id = "route_1", companyId = "comp_A", routeDate = "2026-10-27", name = "Test Route",
+            salespersonId = "user_A", salespersonName = "User A", status = "PUBLISHED", createdBy = "user_A",
+            createdAt = 1000L, updatedAt = 1000L
+        )
+        val stop = com.routeflow.app.core.database.entity.PlannedRouteStopEntity(
+            id = "stop_1", routeId = "route_1", companyId = "comp_A", retailerId = "ret_1",
+            retailerName = "Retailer 1", stopSequence = 1, status = "VISITED",
+            syncStatus = "SAVED_OFFLINE", createdAt = 1000L, updatedAt = 1000L
+        )
+        database.plannedRouteDao().insertRoute(route)
+        database.plannedRouteDao().insertStop(stop)
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_1",
+            stopId = "stop_1",
+            status = "VISITED",
+            visitedAt = 1000L,
+            notes = "Completed",
+            clientTimestamp = 1000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 100,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_confirm_1",
+                createdAt = 1000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        val updatedStop = database.plannedRouteDao().getStopById("stop_1")
+        assertNotNull(updatedStop)
+        assertEquals("CLOUD_CONFIRMED", updatedStop!!.syncStatus)
+    }
+
+    @Test
+    fun testRouteStopStatus_staleRegressionAlignsServerStatusAndMarksCloudConfirmed() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val route = com.routeflow.app.core.database.entity.PlannedRouteEntity(
+            id = "route_2", companyId = "comp_A", routeDate = "2026-10-27", name = "Test Route 2",
+            salespersonId = "user_A", salespersonName = "User A", status = "PUBLISHED", createdBy = "user_A",
+            createdAt = 1000L, updatedAt = 1000L
+        )
+        val stop = com.routeflow.app.core.database.entity.PlannedRouteStopEntity(
+            id = "stop_2", routeId = "route_2", companyId = "comp_A", retailerId = "ret_1",
+            retailerName = "Retailer 1", stopSequence = 1, status = "SKIPPED",
+            syncStatus = "SAVED_OFFLINE", createdAt = 1000L, updatedAt = 1000L
+        )
+        database.plannedRouteDao().insertRoute(route)
+        database.plannedRouteDao().insertStop(stop)
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_2",
+            stopId = "stop_2",
+            status = "SKIPPED",
+            visitedAt = null,
+            notes = "Tried to skip",
+            clientTimestamp = 2000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 101,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_stale_1",
+                createdAt = 2000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        fakeApi.updateStopStatusResponse = com.routeflow.app.core.network.dto.UpdateStopStatusResponse(
+            success = true,
+            ignoredStale = true,
+            stop = com.routeflow.app.core.network.dto.PlannedRouteStopNetworkDto(
+                id = "stop_2",
+                route_id = "route_2",
+                status = "VISITED",
+                visited_at = 1500L,
+                notes = "Actual visit"
+            )
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        val updatedStop = database.plannedRouteDao().getStopById("stop_2")
+        assertNotNull(updatedStop)
+        assertEquals("VISITED", updatedStop!!.status)
+        assertEquals("CLOUD_CONFIRMED", updatedStop.syncStatus)
+    }
+
+    @Test
+    fun testRouteStopStatus_permanentFailureMarksNeedsAttention() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val route = com.routeflow.app.core.database.entity.PlannedRouteEntity(
+            id = "route_3", companyId = "comp_A", routeDate = "2026-10-27", name = "Test Route 3",
+            salespersonId = "user_A", salespersonName = "User A", status = "PUBLISHED", createdBy = "user_A",
+            createdAt = 1000L, updatedAt = 1000L
+        )
+        val stop = com.routeflow.app.core.database.entity.PlannedRouteStopEntity(
+            id = "stop_3", routeId = "route_3", companyId = "comp_A", retailerId = "ret_1",
+            retailerName = "Retailer 1", stopSequence = 1, status = "VISITED",
+            syncStatus = "SAVED_OFFLINE", createdAt = 1000L, updatedAt = 1000L
+        )
+        database.plannedRouteDao().insertRoute(route)
+        database.plannedRouteDao().insertStop(stop)
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_3",
+            stopId = "stop_3",
+            status = "VISITED",
+            visitedAt = 1000L,
+            notes = "Test",
+            clientTimestamp = 1000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 102,
+                type = "ROUTE_STOP_STATUS",
+                payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_fail_1",
+                createdAt = 1000L,
+                userId = "user_A",
+                companyId = "comp_A"
+            )
+        )
+
+        fakeApi.updateStopStatusFailure = retrofit2.HttpException(
+            retrofit2.Response.error<Any>(422, okhttp3.ResponseBody.create(null, "Unprocessable Entity"))
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.failure(), result)
+        val updatedStop = database.plannedRouteDao().getStopById("stop_3")
+        assertNotNull(updatedStop)
+        assertEquals("NEEDS_ATTENTION", updatedStop!!.syncStatus)
+    }
+
+    @Test
+    fun testRouteStopStatus_olderSuccessDoesNotConfirmNewerLocalEdit() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val route = com.routeflow.app.core.database.entity.PlannedRouteEntity(
+            id = "route_race", companyId = "comp_A", routeDate = "2026-10-27", name = "Race Route",
+            salespersonId = "user_A", salespersonName = "User A", status = "PUBLISHED", createdBy = "user_A",
+            createdAt = 1000L, updatedAt = 1000L
+        )
+        // Stop currently has a newer SKIPPED status created at t2 = 2000L
+        val stop = com.routeflow.app.core.database.entity.PlannedRouteStopEntity(
+            id = "stop_race", routeId = "route_race", companyId = "comp_A", retailerId = "ret_1",
+            retailerName = "Retailer 1", stopSequence = 1, status = "SKIPPED",
+            notes = "Customer refused", syncStatus = "SAVED_OFFLINE", createdAt = 1000L, updatedAt = 2000L
+        )
+        database.plannedRouteDao().insertRoute(route)
+        database.plannedRouteDao().insertStop(stop)
+
+        // Event E1 for older VISITED at t1 = 1000L
+        val payload1 = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_race", stopId = "stop_race", status = "VISITED",
+            visitedAt = 1000L, notes = "Initial visit", clientTimestamp = 1000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 201, type = "ROUTE_STOP_STATUS", payload = json.encodeToString(payload1),
+                idempotencyKey = "stop_status_race_1", createdAt = 1000L, userId = "user_A", companyId = "comp_A"
+            )
+        )
+
+        // Event E2 for newer SKIPPED at t2 = 2000L
+        val payload2 = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_race", stopId = "stop_race", status = "SKIPPED",
+            visitedAt = null, notes = "Customer refused", clientTimestamp = 2000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 202, type = "ROUTE_STOP_STATUS", payload = json.encodeToString(payload2),
+                idempotencyKey = "stop_status_race_2", createdAt = 2000L, userId = "user_A", companyId = "comp_A"
+            )
+        )
+
+        // Server returns normal success for E1 (VISITED)
+        fakeApi.updateStopStatusResponse = com.routeflow.app.core.network.dto.UpdateStopStatusResponse(
+            success = true,
+            stop = com.routeflow.app.core.network.dto.PlannedRouteStopNetworkDto(
+                id = "stop_race", route_id = "route_race", company_id = "comp_A",
+                status = "VISITED", visited_at = 1000L, notes = "Initial visit"
+            )
+        )
+
+        // Process only event E1
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        // Local stop must NOT be marked CLOUD_CONFIRMED, and must NOT be regressed to VISITED!
+        val currentStop = database.plannedRouteDao().getStopById("stop_race")
+        assertNotNull(currentStop)
+        assertEquals("SKIPPED", currentStop!!.status)
+        assertEquals("Customer refused", currentStop.notes)
+        assertEquals("SAVED_OFFLINE", currentStop.syncStatus)
+    }
+
+    @Test
+    fun testRouteStopStatus_olderPermanentErrorDoesNotMarkNewerEditAsFailed() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val route = com.routeflow.app.core.database.entity.PlannedRouteEntity(
+            id = "route_race2", companyId = "comp_A", routeDate = "2026-10-27", name = "Race Route 2",
+            salespersonId = "user_A", salespersonName = "User A", status = "PUBLISHED", createdBy = "user_A",
+            createdAt = 1000L, updatedAt = 1000L
+        )
+        val stop = com.routeflow.app.core.database.entity.PlannedRouteStopEntity(
+            id = "stop_race2", routeId = "route_race2", companyId = "comp_A", retailerId = "ret_1",
+            retailerName = "Retailer 1", stopSequence = 1, status = "SKIPPED",
+            notes = "Newer edit", syncStatus = "SAVED_OFFLINE", createdAt = 1000L, updatedAt = 2000L
+        )
+        database.plannedRouteDao().insertRoute(route)
+        database.plannedRouteDao().insertStop(stop)
+
+        // Event E1 for older attempt at t1 = 1000L
+        val payload1 = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_race2", stopId = "stop_race2", status = "VISITED",
+            visitedAt = 1000L, notes = "Old visit", clientTimestamp = 1000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 203, type = "ROUTE_STOP_STATUS", payload = json.encodeToString(payload1),
+                idempotencyKey = "stop_status_race_3", createdAt = 1000L, userId = "user_A", companyId = "comp_A"
+            )
+        )
+
+        // Event E2 for newer edit at t2 = 2000L
+        val payload2 = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_race2", stopId = "stop_race2", status = "SKIPPED",
+            visitedAt = null, notes = "Newer edit", clientTimestamp = 2000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 204, type = "ROUTE_STOP_STATUS", payload = json.encodeToString(payload2),
+                idempotencyKey = "stop_status_race_4", createdAt = 2000L, userId = "user_A", companyId = "comp_A"
+            )
+        )
+
+        // Simulate permanent 400 for E1
+        fakeApi.updateStopStatusFailure = retrofit2.HttpException(
+            retrofit2.Response.error<Any>(400, okhttp3.ResponseBody.create(null, "Bad Request"))
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        worker.doWork()
+
+        // The newer edit on the stop must NOT be marked NEEDS_ATTENTION by the old event's failure
+        val currentStop = database.plannedRouteDao().getStopById("stop_race2")
+        assertNotNull(currentStop)
+        assertEquals("SAVED_OFFLINE", currentStop!!.syncStatus)
+    }
+
+    @Test
+    fun testRouteStopStatus_rejectsMismatchedStopOrRouteId() = runBlocking {
+        testTokenStorage.saveUser("user_A", "User A", "SALESPERSON", "comp_A")
+
+        val route = com.routeflow.app.core.database.entity.PlannedRouteEntity(
+            id = "route_mismatch", companyId = "comp_A", routeDate = "2026-10-27", name = "Mismatch Route",
+            salespersonId = "user_A", salespersonName = "User A", status = "PUBLISHED", createdBy = "user_A",
+            createdAt = 1000L, updatedAt = 1000L
+        )
+        val stop = com.routeflow.app.core.database.entity.PlannedRouteStopEntity(
+            id = "stop_mismatch", routeId = "route_mismatch", companyId = "comp_A", retailerId = "ret_1",
+            retailerName = "Retailer 1", stopSequence = 1, status = "VISITED",
+            syncStatus = "SAVED_OFFLINE", createdAt = 1000L, updatedAt = 1000L
+        )
+        database.plannedRouteDao().insertRoute(route)
+        database.plannedRouteDao().insertStop(stop)
+
+        val payload = com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload(
+            routeId = "route_mismatch", stopId = "stop_mismatch", status = "VISITED",
+            visitedAt = 1000L, notes = "Visit", clientTimestamp = 1000L
+        )
+        database.syncOutboxDao().insertSyncItem(
+            SyncOutboxEntity(
+                id = 205, type = "ROUTE_STOP_STATUS", payload = json.encodeToString(payload),
+                idempotencyKey = "stop_status_mismatch_1", createdAt = 1000L, userId = "user_A", companyId = "comp_A"
+            )
+        )
+
+        // Server returns mismatched stop ID!
+        fakeApi.updateStopStatusResponse = com.routeflow.app.core.network.dto.UpdateStopStatusResponse(
+            success = true,
+            stop = com.routeflow.app.core.network.dto.PlannedRouteStopNetworkDto(
+                id = "DIFFERENT_STOP_ID", route_id = "route_mismatch", company_id = "comp_A",
+                status = "VISITED"
+            )
+        )
+
+        val worker = createWorker("user_A", "comp_A")
+        val result = worker.doWork()
+
+        // Worker should retry (not success) and NOT mark the stop cloud confirmed
+        assertEquals(ListenableWorker.Result.retry(), result)
+        val currentStop = database.plannedRouteDao().getStopById("stop_mismatch")
+        assertNotNull(currentStop)
+        assertEquals("SAVED_OFFLINE", currentStop!!.syncStatus)
+    }
+
     // Fake TokenStorage that stores active user in memory without EncryptedSharedPreferences dependency
     class FakeTokenStorage(context: Context) : TokenStorage(context) {
         private var userId: String? = null
@@ -554,6 +874,12 @@ class AccountScopedSyncTest {
         override suspend fun inspectWarehouseReturn(request: com.routeflow.app.core.network.dto.InspectWarehouseReturnRequest): com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse = com.routeflow.app.core.network.dto.InspectWarehouseReturnResponse(success = true)
         override suspend fun submitVanSale(request: com.routeflow.app.core.network.dto.VanSaleSubmitRequest, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
         override suspend fun confirmVanSale(orderId: String, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
+        var updateStopStatusResponse: com.routeflow.app.core.network.dto.UpdateStopStatusResponse? = null
+        var getRouteByIdResponse: com.routeflow.app.core.network.dto.PlannedRouteDetailResponse? = null
+        override suspend fun getRoutes(date: String?, salespersonId: String?, status: String?, account: String?): com.routeflow.app.core.network.dto.PlannedRoutesListResponse =
+            com.routeflow.app.core.network.dto.PlannedRoutesListResponse(success = true)
+        override suspend fun getRouteById(routeId: String, account: String?): com.routeflow.app.core.network.dto.PlannedRouteDetailResponse =
+            getRouteByIdResponse ?: com.routeflow.app.core.network.dto.PlannedRouteDetailResponse(success = true)
 
         val submittedStopStatuses = mutableListOf<com.routeflow.app.core.network.dto.UpdateStopStatusRequest>()
         var updateStopStatusFailure: Exception? = null
@@ -567,6 +893,7 @@ class AccountScopedSyncTest {
         ): com.routeflow.app.core.network.dto.UpdateStopStatusResponse {
             updateStopStatusFailure?.let { throw it }
             submittedStopStatuses.add(request)
+            updateStopStatusResponse?.let { return it }
             return com.routeflow.app.core.network.dto.UpdateStopStatusResponse(
                 success = true,
                 stop = com.routeflow.app.core.network.dto.PlannedRouteStopNetworkDto(

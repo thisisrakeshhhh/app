@@ -293,4 +293,199 @@ class RouteFlowCanvasSpatialMathTest {
         assertEquals(screenPosBefore.x, screenPosAfter.x, 0.01f)
         assertEquals(screenPosBefore.y, screenPosAfter.y, 0.01f)
     }
+
+    @Test
+    fun unprojectCoordinates_invertsProjectCoordinates_precisely() {
+        val bounds = CanvasBoundingBox(26.0, 29.0, 75.0, 78.0)
+        val canvasWidth = 1080f
+        val canvasHeight = 1920f
+        val scale = 1.75f
+        val panOffset = Offset(120f, -85f)
+
+        val testPoints = listOf(
+            Pair(26.5, 75.5),
+            Pair(27.0, 76.5),
+            Pair(28.2, 77.1),
+            Pair(28.9, 77.9)
+        )
+
+        for ((origLat, origLng) in testPoints) {
+            val projected = RouteFlowCanvasSpatialMath.projectCoordinates(
+                lat = origLat,
+                lng = origLng,
+                bounds = bounds,
+                canvasWidth = canvasWidth,
+                canvasHeight = canvasHeight,
+                scale = scale,
+                panOffset = panOffset,
+                padding = 64f
+            )
+
+            val unprojected = RouteFlowCanvasSpatialMath.unprojectCoordinates(
+                screenOffset = projected,
+                bounds = bounds,
+                canvasWidth = canvasWidth,
+                canvasHeight = canvasHeight,
+                scale = scale,
+                panOffset = panOffset,
+                padding = 64f
+            )
+
+            assertEquals("Lat round-trip mismatch", origLat, unprojected.first, 0.0001)
+            assertEquals("Lng round-trip mismatch", origLng, unprojected.second, 0.0001)
+        }
+    }
+
+    @Test
+    fun pinchZoom_repeatedCycles_accumulatesZeroDrift() {
+        val bounds = CanvasBoundingBox(25.0, 30.0, 74.0, 79.0)
+        val canvasCenter = Offset(540f, 960f)
+        var currentPan = Offset(30f, -40f)
+        var currentScale = 1.0f
+
+        val focalPoints = listOf(
+            Offset(200f, 300f),
+            Offset(800f, 600f),
+            Offset(500f, 1200f),
+            Offset(700f, 400f)
+        )
+
+        // Repeat zoom in (2.0x) and zoom out (0.5x) cycles across multiple focal points
+        for (focalPoint in focalPoints) {
+            val initialPanForFocus = currentPan
+            val initialScaleForFocus = currentScale
+
+            // Zoom In by 2.0x
+            val zoomedScale = currentScale * 2.0f
+            val panAfterZoomIn = RouteFlowCanvasSpatialMath.calculatePinchPan(
+                oldPan = currentPan,
+                oldScale = currentScale,
+                newScale = zoomedScale,
+                centroid = focalPoint,
+                canvasCenter = canvasCenter
+            )
+
+            // Zoom back Out by 0.5x (returning to original scale)
+            val restoredScale = zoomedScale * 0.5f
+            val panAfterZoomOut = RouteFlowCanvasSpatialMath.calculatePinchPan(
+                oldPan = panAfterZoomIn,
+                oldScale = zoomedScale,
+                newScale = restoredScale,
+                centroid = focalPoint,
+                canvasCenter = canvasCenter
+            )
+
+            assertEquals("Scale must return to initial", initialScaleForFocus, restoredScale, 0.0001f)
+            assertEquals("Pan X must not accumulate drift", initialPanForFocus.x, panAfterZoomOut.x, 0.01f)
+            assertEquals("Pan Y must not accumulate drift", initialPanForFocus.y, panAfterZoomOut.y, 0.01f)
+
+            currentPan = panAfterZoomOut
+            currentScale = restoredScale
+        }
+    }
+
+    @Test
+    fun hitTestMarker_afterZoomAndPan_detectsCorrectMarker() {
+        val bounds = CanvasBoundingBox(26.0, 28.0, 75.0, 77.0)
+        val markerA = createMarker("M_A", "Shop A", 26.50, 75.50)
+        val markerB = createMarker("M_B", "Shop B", 27.50, 76.50)
+        val canvasWidth = 1000f
+        val canvasHeight = 1000f
+        val scale = 2.5f
+        val panOffset = Offset(150f, -120f)
+
+        val posA = RouteFlowCanvasSpatialMath.projectCoordinates(
+            lat = markerA.latitude,
+            lng = markerA.longitude,
+            bounds = bounds,
+            canvasWidth = canvasWidth,
+            canvasHeight = canvasHeight,
+            scale = scale,
+            panOffset = panOffset,
+            padding = 64f
+        )
+
+        // Tap directly on projected marker A (with slight 5px offset)
+        val hitA = RouteFlowCanvasSpatialMath.hitTestMarker(
+            tapOffset = Offset(posA.x + 5f, posA.y + 5f),
+            markers = listOf(markerA, markerB),
+            bounds = bounds,
+            canvasWidth = canvasWidth,
+            canvasHeight = canvasHeight,
+            scale = scale,
+            panOffset = panOffset,
+            touchRadiusPx = 36f,
+            padding = 64f
+        )
+
+        assertNotNull("Marker A must be detected under zoom & pan", hitA)
+        assertEquals("M_A", hitA?.id)
+
+        // Tap far away from both markers
+        val missHit = RouteFlowCanvasSpatialMath.hitTestMarker(
+            tapOffset = Offset(posA.x + 200f, posA.y + 200f),
+            markers = listOf(markerA, markerB),
+            bounds = bounds,
+            canvasWidth = canvasWidth,
+            canvasHeight = canvasHeight,
+            scale = scale,
+            panOffset = panOffset,
+            touchRadiusPx = 36f,
+            padding = 64f
+        )
+        assertNull("Tap far away must return null", missHit)
+    }
+
+    @Test
+    fun spatialMath_handlesDegenerateOrInvalidInputsGracefully() {
+        val bounds = CanvasBoundingBox(0.0, 0.0, 0.0, 0.0)
+
+        // Zero or negative canvas dimensions
+        val posZero = RouteFlowCanvasSpatialMath.projectCoordinates(
+            lat = 26.0,
+            lng = 75.0,
+            bounds = bounds,
+            canvasWidth = 0f,
+            canvasHeight = 0f,
+            scale = 1.0f,
+            panOffset = Offset.Zero
+        )
+        assertNotNull(posZero)
+
+        // Zero or negative scale
+        val unprojZeroScale = RouteFlowCanvasSpatialMath.unprojectCoordinates(
+            screenOffset = Offset(100f, 100f),
+            bounds = bounds,
+            canvasWidth = 1000f,
+            canvasHeight = 1000f,
+            scale = 0f,
+            panOffset = Offset.Zero
+        )
+        assertNotNull(unprojZeroScale)
+
+        // calculatePinchPan with zero scale
+        val panZeroScale = RouteFlowCanvasSpatialMath.calculatePinchPan(
+            oldPan = Offset(10f, 20f),
+            oldScale = 0f,
+            newScale = 1.0f,
+            centroid = Offset(100f, 100f),
+            canvasCenter = Offset(500f, 500f),
+            panDelta = Offset(5f, 5f)
+        )
+        assertEquals(15f, panZeroScale.x, 0.001f)
+        assertEquals(25f, panZeroScale.y, 0.001f)
+
+        // hitTestMarker with zero width
+        val hitZeroCanvas = RouteFlowCanvasSpatialMath.hitTestMarker(
+            tapOffset = Offset(100f, 100f),
+            markers = listOf(createMarker("1", "Store", 26.0, 75.0)),
+            bounds = bounds,
+            canvasWidth = 0f,
+            canvasHeight = 0f,
+            scale = 1.0f,
+            panOffset = Offset.Zero,
+            touchRadiusPx = 36f
+        )
+        assertNull(hitZeroCanvas)
+    }
 }

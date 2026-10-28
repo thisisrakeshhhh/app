@@ -18,7 +18,9 @@ import javax.inject.Inject
 data class OwnerRoutesState(
     val selectedDate: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
     val routes: List<PlannedRoute> = emptyList(),
+    val selectedRouteForInspection: PlannedRoute? = null,
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val message: String? = null,
     val errorMessage: String? = null
 )
@@ -31,26 +33,41 @@ class OwnerRoutesViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _selectedDate = MutableStateFlow(SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()))
+    private val _selectedRouteIdForInspection = MutableStateFlow<String?>(null)
+    private val _isRefreshing = MutableStateFlow(false)
     private val _message = MutableStateFlow<String?>(null)
     private val _errorMessage = MutableStateFlow<String?>(null)
     private val _isLoading = MutableStateFlow(false)
 
+    private data class OperationStatus(
+        val isLoading: Boolean,
+        val isRefreshing: Boolean,
+        val message: String?,
+        val errorMessage: String?
+    )
+
+    private val _statusFlow = combine(_isLoading, _isRefreshing, _message, _errorMessage) { loading, refreshing, msg, err ->
+        OperationStatus(loading, refreshing, msg, err)
+    }
+
+    private val _routesWithDate = _selectedDate.flatMapLatest { date ->
+        val companyId = tokenStorage.getCompanyId() ?: "comp_1"
+        plannedRouteRepository.observeRoutesByDate(companyId, date).map { routes -> date to routes }
+    }
+
     val uiState: StateFlow<OwnerRoutesState> = combine(
-        _selectedDate,
-        _selectedDate.flatMapLatest { date ->
-            val companyId = tokenStorage.getCompanyId() ?: "comp_1"
-            plannedRouteRepository.observeRoutesByDate(companyId, date)
-        },
-        _isLoading,
-        _message,
-        _errorMessage
-    ) { date, routes, loading, msg, err ->
+        _routesWithDate,
+        _selectedRouteIdForInspection,
+        _statusFlow
+    ) { (date, routes), selectedId, status ->
         OwnerRoutesState(
             selectedDate = date,
             routes = routes,
-            isLoading = loading,
-            message = msg,
-            errorMessage = err
+            selectedRouteForInspection = routes.find { it.id == selectedId },
+            isLoading = status.isLoading,
+            isRefreshing = status.isRefreshing,
+            message = status.message,
+            errorMessage = status.errorMessage
         )
     }.stateIn(
         scope = viewModelScope,
@@ -60,6 +77,22 @@ class OwnerRoutesViewModel @Inject constructor(
 
     fun onDateSelected(date: String) {
         _selectedDate.value = date
+    }
+
+    fun selectRouteForInspection(route: PlannedRoute?) {
+        _selectedRouteIdForInspection.value = route?.id
+    }
+
+    fun refreshRoute(routeId: String) {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val result = plannedRouteRepository.refreshRouteFromServer(routeId)
+            _isRefreshing.value = false
+            result.fold(
+                onSuccess = { _message.value = "Route updated from cloud" },
+                onFailure = { _errorMessage.value = "Cloud refresh failed: ${it.message ?: "Network error"}" }
+            )
+        }
     }
 
     fun publishRoute(routeId: String) {

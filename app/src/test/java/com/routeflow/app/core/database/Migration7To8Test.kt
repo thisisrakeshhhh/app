@@ -227,14 +227,15 @@ class Migration7To8Test {
                 RouteFlowDatabase.MIGRATION_9_10,
                 RouteFlowDatabase.MIGRATION_10_11,
                 RouteFlowDatabase.MIGRATION_11_12,
-                RouteFlowDatabase.MIGRATION_12_13
+                RouteFlowDatabase.MIGRATION_12_13,
+                RouteFlowDatabase.MIGRATION_13_14
             )
             .allowMainThreadQueries()
             .build()
 
-        // Room will validate schema at version 13
+        // Room will validate schema at version 14
         val openDb = roomDb.openHelper.writableDatabase
-        assertEquals(13, openDb.version)
+        assertEquals(14, openDb.version)
 
         // Step 3: Verify existing data survived and migrated columns have expected defaults
         // A. Orders & Order Items

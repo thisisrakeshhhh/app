@@ -101,6 +101,9 @@ fun RouteFlowLogisticsCanvasMap(
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startPos = down.position
                         var isDragOrPinch = false
+                        var activeScale = currentZoom
+                        var activePan = currentPan
+                        var prevPointerCount = 1
 
                         do {
                             val event = awaitPointerEvent()
@@ -109,25 +112,29 @@ fun RouteFlowLogisticsCanvasMap(
 
                             if (pointerCount >= 2) {
                                 isDragOrPinch = true
-                                val zoomChange = event.calculateZoom()
-                                val panChange = event.calculatePan()
-                                val centroid = event.calculateCentroid()
+                                if (prevPointerCount >= 2) {
+                                    val zoomChange = event.calculateZoom()
+                                    val panChange = event.calculatePan()
+                                    val centroid = event.calculateCentroid()
 
-                                if (zoomChange != 1f || panChange != Offset.Zero) {
-                                    val oldScale = currentZoom
-                                    val newScale = (oldScale * zoomChange).coerceIn(0.5f, 4.0f)
-                                    val canvasCenter = Offset(size.width / 2f, size.height / 2f)
-                                    val newPan = RouteFlowCanvasSpatialMath.calculatePinchPan(
-                                        oldPan = currentPan,
-                                        oldScale = oldScale,
-                                        newScale = newScale,
-                                        centroid = centroid,
-                                        canvasCenter = canvasCenter,
-                                        panDelta = panChange
-                                    )
-                                    currentOnZoomChange(newScale)
-                                    currentOnPanChange(newPan)
-                                    event.changes.forEach { it.consume() }
+                                    if (zoomChange != 1f || panChange != Offset.Zero) {
+                                        val oldScale = activeScale
+                                        val newScale = (oldScale * zoomChange).coerceIn(0.5f, 4.0f)
+                                        val canvasCenter = Offset(size.width / 2f, size.height / 2f)
+                                        val newPan = RouteFlowCanvasSpatialMath.calculatePinchPan(
+                                            oldPan = activePan,
+                                            oldScale = oldScale,
+                                            newScale = newScale,
+                                            centroid = centroid,
+                                            canvasCenter = canvasCenter,
+                                            panDelta = panChange
+                                        )
+                                        activeScale = newScale
+                                        activePan = newPan
+                                        currentOnZoomChange(activeScale)
+                                        currentOnPanChange(activePan)
+                                        event.changes.forEach { it.consume() }
+                                    }
                                 }
                             } else if (pointerCount == 1) {
                                 val change = pressedChanges.first()
@@ -140,14 +147,17 @@ fun RouteFlowLogisticsCanvasMap(
                                 }
 
                                 if (isDragOrPinch) {
-                                    val panChange = change.positionChange()
-                                    if (panChange != Offset.Zero) {
-                                        val newPan = currentPan + panChange
-                                        currentOnPanChange(newPan)
-                                        change.consume()
+                                    if (prevPointerCount == 1) {
+                                        val panChange = change.positionChange()
+                                        if (panChange != Offset.Zero) {
+                                            activePan += panChange
+                                            currentOnPanChange(activePan)
+                                            change.consume()
+                                        }
                                     }
                                 }
                             }
+                            prevPointerCount = pointerCount
                         } while (event.changes.any { it.pressed })
 
                         if (!isDragOrPinch) {
@@ -158,8 +168,8 @@ fun RouteFlowLogisticsCanvasMap(
                                 bounds = currentBounds,
                                 canvasWidth = size.width.toFloat(),
                                 canvasHeight = size.height.toFloat(),
-                                scale = currentZoom,
-                                panOffset = currentPan,
+                                scale = activeScale,
+                                panOffset = activePan,
                                 touchRadiusPx = touchRadiusPx,
                                 selectedMarkerId = currentSelectedId,
                                 paddingLeft = padLeft,
@@ -389,6 +399,77 @@ internal object RouteFlowCanvasSpatialMath {
     ): Offset = projectCoordinates(
         lat = lat,
         lng = lng,
+        bounds = bounds,
+        canvasWidth = canvasWidth,
+        canvasHeight = canvasHeight,
+        scale = scale,
+        panOffset = panOffset,
+        paddingLeft = padding,
+        paddingTop = padding,
+        paddingRight = padding,
+        paddingBottom = padding
+    )
+
+    fun unprojectCoordinates(
+        screenOffset: Offset,
+        bounds: CanvasBoundingBox,
+        canvasWidth: Float,
+        canvasHeight: Float,
+        scale: Float,
+        panOffset: Offset,
+        paddingLeft: Float,
+        paddingTop: Float,
+        paddingRight: Float,
+        paddingBottom: Float
+    ): Pair<Double, Double> {
+        val availableWidth = max(canvasWidth - paddingLeft - paddingRight, 100f)
+        val availableHeight = max(canvasHeight - paddingTop - paddingBottom, 100f)
+
+        val latSpan = max(bounds.maxLat - bounds.minLat, 0.0001)
+        val lngSpan = max(bounds.maxLng - bounds.minLng, 0.0001)
+
+        val avgLatRad = Math.toRadians((bounds.minLat + bounds.maxLat) / 2.0)
+        val cosLat = max(Math.cos(avgLatRad), 0.1)
+
+        val geoWidth = lngSpan * cosLat
+        val geoHeight = latSpan
+
+        val scaleX = (availableWidth / geoWidth).toFloat()
+        val scaleY = (availableHeight / geoHeight).toFloat()
+        val spatialScale = min(scaleX, scaleY)
+
+        val fittedWidth = (geoWidth * spatialScale).toFloat()
+        val fittedHeight = (geoHeight * spatialScale).toFloat()
+
+        val offsetX = paddingLeft + (availableWidth - fittedWidth) / 2f
+        val offsetY = paddingTop + (availableHeight - fittedHeight) / 2f
+
+        val centerX = canvasWidth / 2f
+        val centerY = canvasHeight / 2f
+
+        val safeScale = if (scale <= 0f) 1.0f else scale
+        val baseX = centerX + (screenOffset.x - centerX - panOffset.x) / safeScale
+        val baseY = centerY + (screenOffset.y - centerY - panOffset.y) / safeScale
+
+        val relX = if (fittedWidth > 0f) (baseX - offsetX) / fittedWidth else 0f
+        val relY = if (fittedHeight > 0f) (baseY - offsetY) / fittedHeight else 0f
+
+        val lng = bounds.minLng + (relX.toDouble() * geoWidth) / cosLat
+        val lat = bounds.minLat + (1.0 - relY.toDouble()) * latSpan
+
+        return Pair(lat, lng)
+    }
+
+    fun unprojectCoordinates(
+        screenOffset: Offset,
+        bounds: CanvasBoundingBox,
+        canvasWidth: Float,
+        canvasHeight: Float,
+        scale: Float,
+        panOffset: Offset,
+        padding: Float = 64f
+    ): Pair<Double, Double> = unprojectCoordinates(
+        screenOffset = screenOffset,
         bounds = bounds,
         canvasWidth = canvasWidth,
         canvasHeight = canvasHeight,

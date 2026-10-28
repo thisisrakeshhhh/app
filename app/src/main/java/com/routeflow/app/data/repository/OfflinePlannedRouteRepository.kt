@@ -7,6 +7,7 @@ import com.routeflow.app.core.database.dao.RetailerDao
 import com.routeflow.app.core.database.entity.PlannedRouteEntity
 import com.routeflow.app.core.database.entity.PlannedRouteStopEntity
 import com.routeflow.app.core.database.entity.SyncOutboxEntity
+import com.routeflow.app.core.network.api.RouteFlowApi
 import com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload
 import com.routeflow.app.core.security.TokenStorage
 import com.routeflow.app.core.util.OsrmRoutingHelper
@@ -40,17 +41,24 @@ class OfflinePlannedRouteRepository @Inject constructor(
     private val retailerDao: RetailerDao,
     private val tokenStorage: TokenStorage,
     private val syncManager: SyncManager,
+    private val api: com.routeflow.app.core.network.api.RouteFlowApi? = null,
     private val json: Json = Json { ignoreUnknownKeys = true }
 ) : PlannedRouteRepository {
 
     override fun observeAllRoutes(companyId: String): Flow<List<PlannedRoute>> =
         plannedRouteDao.observeAllRoutes(companyId).map { entities ->
-            entities.map { it.toDomain() }
+            entities.map { entity ->
+                val stops = plannedRouteDao.getStopsForRoute(entity.id).map { it.toDomain() }
+                entity.toDomain(stops)
+            }
         }
 
     override fun observeRoutesByDate(companyId: String, date: String): Flow<List<PlannedRoute>> =
         plannedRouteDao.observeRoutesByDate(companyId, date).map { entities ->
-            entities.map { it.toDomain() }
+            entities.map { entity ->
+                val stops = plannedRouteDao.getStopsForRoute(entity.id).map { it.toDomain() }
+                entity.toDomain(stops)
+            }
         }
 
     override fun observePublishedRoutesForSalesperson(
@@ -58,7 +66,10 @@ class OfflinePlannedRouteRepository @Inject constructor(
         salespersonId: String
     ): Flow<List<PlannedRoute>> =
         plannedRouteDao.observePublishedRoutesForSalesperson(companyId, salespersonId).map { entities ->
-            entities.map { it.toDomain() }
+            entities.map { entity ->
+                val stops = plannedRouteDao.getStopsForRoute(entity.id).map { it.toDomain() }
+                entity.toDomain(stops)
+            }
         }
 
     override fun observeTodayRouteForSalesperson(
@@ -66,7 +77,12 @@ class OfflinePlannedRouteRepository @Inject constructor(
         salespersonId: String,
         date: String
     ): Flow<PlannedRoute?> =
-        plannedRouteDao.observeTodayPublishedRouteForSalesperson(companyId, salespersonId, date).map { it?.toDomain() }
+        plannedRouteDao.observeTodayPublishedRouteForSalesperson(companyId, salespersonId, date).map { entity ->
+            entity?.let {
+                val stops = plannedRouteDao.getStopsForRoute(it.id).map { s -> s.toDomain() }
+                it.toDomain(stops)
+            }
+        }
 
     override suspend fun getRouteById(routeId: String): PlannedRoute? {
         val entity = plannedRouteDao.getRouteById(routeId) ?: return null
@@ -219,6 +235,7 @@ class OfflinePlannedRouteRepository @Inject constructor(
                     status = StopStatus.PENDING.name,
                     visitedAt = null,
                     notes = s.notes,
+                    syncStatus = "LOCAL_ONLY",
                     createdAt = now,
                     updatedAt = now
                 )
@@ -285,6 +302,7 @@ class OfflinePlannedRouteRepository @Inject constructor(
                     status = s.status.name,
                     visitedAt = s.visitedAt,
                     notes = s.notes,
+                    syncStatus = s.syncStatus.ifBlank { "LOCAL_ONLY" },
                     createdAt = s.createdAt,
                     updatedAt = now
                 )
@@ -387,8 +405,10 @@ class OfflinePlannedRouteRepository @Inject constructor(
                     status = status.name,
                     visitedAt = visitedAt,
                     notes = notes ?: existing.notes,
-                    updatedAt = now
+                    updatedAt = now,
+                    syncStatus = "SAVED_OFFLINE"
                 )
+                plannedRouteDao.touchRouteUpdatedAt(routeId, now)
 
                 // 2. Atomic Outbox Enqueue with a stable unique event UUID
                 val eventId = UUID.randomUUID().toString()
@@ -417,6 +437,135 @@ class OfflinePlannedRouteRepository @Inject constructor(
                 syncManager.scheduleSync(userId, companyId)
             } catch (_: Exception) {}
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun refreshRouteFromServer(routeId: String): Result<PlannedRoute> = withContext(Dispatchers.IO) {
+        try {
+            val apiClient = api ?: return@withContext Result.failure(IllegalStateException("API client not configured"))
+            val companyId = tokenStorage.getCompanyId() ?: "comp_1"
+            val requestStartTime = System.currentTimeMillis()
+            val response = apiClient.getRouteById(routeId, companyId)
+            if (!response.success || response.route == null) {
+                return@withContext Result.failure(Exception(response.error ?: "Failed to fetch route from server"))
+            }
+
+            val serverRoute = response.route
+            if (serverRoute.company_id != null && serverRoute.company_id != companyId) {
+                return@withContext Result.failure(IllegalStateException("Route company mismatch: server belongs to ${serverRoute.company_id}, active company is $companyId"))
+            }
+            if (serverRoute.id != routeId) {
+                return@withContext Result.failure(IllegalStateException("Route ID mismatch: expected $routeId, received ${serverRoute.id}"))
+            }
+
+            val serverStops = response.stops ?: emptyList()
+
+            database.withTransaction {
+                // 1. Update route header with server metadata
+                val existingRoute = plannedRouteDao.getRouteById(routeId)
+                val updatedRoute = (existingRoute ?: PlannedRouteEntity(
+                    id = serverRoute.id,
+                    companyId = serverRoute.company_id ?: companyId,
+                    routeDate = serverRoute.route_date ?: "",
+                    name = serverRoute.name,
+                    salespersonId = serverRoute.salesperson_id ?: "",
+                    salespersonName = serverRoute.salesperson_name ?: "",
+                    status = serverRoute.status,
+                    totalStops = serverRoute.total_stops,
+                    roadDistanceMeters = serverRoute.road_distance_meters,
+                    roadDurationSeconds = serverRoute.road_duration_seconds,
+                    routeGeometry = serverRoute.route_geometry,
+                    routingProvider = serverRoute.routing_provider ?: "OSRM",
+                    routingCalculatedAt = serverRoute.routing_calculated_at,
+                    version = serverRoute.version,
+                    publishedAt = serverRoute.published_at,
+                    publishedBy = serverRoute.published_by,
+                    cancelledAt = serverRoute.cancelled_at,
+                    cancelledBy = serverRoute.cancelled_by,
+                    cancellationReason = serverRoute.cancellation_reason,
+                    createdBy = serverRoute.created_by ?: "",
+                    createdAt = serverRoute.created_at ?: System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis()
+                )).copy(
+                    status = serverRoute.status,
+                    totalStops = serverRoute.total_stops,
+                    roadDistanceMeters = serverRoute.road_distance_meters,
+                    roadDurationSeconds = serverRoute.road_duration_seconds,
+                    routeGeometry = serverRoute.route_geometry,
+                    updatedAt = System.currentTimeMillis()
+                )
+                if (existingRoute != null) {
+                    plannedRouteDao.updateRoute(updatedRoute)
+                } else {
+                    plannedRouteDao.insertRoute(updatedRoute)
+                }
+
+                // 2. Identify pending outbox items for ROUTE_STOP_STATUS
+                val pendingOutbox: List<SyncOutboxEntity> = database.syncOutboxDao().getPendingSyncsForCompany(companyId)
+                val pendingStopIds: Set<String> = pendingOutbox
+                    .filter { it.type == "ROUTE_STOP_STATUS" }
+                    .mapNotNull { item ->
+                        try {
+                            json.decodeFromString<RouteStopStatusSyncPayload>(item.payload).stopId
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    .toSet()
+
+                // 3. Fetch current local stops
+                val localStops = plannedRouteDao.getStopsForRoute(routeId).associateBy { it.id }
+
+                // 4. Process server stops
+                for (sStop in serverStops) {
+                    val localStop = localStops[sStop.id]
+
+                    // Conflict Safeguards:
+                    // 1. A stop has a pending edit queued in the outbox
+                    // 2. A stop has an active local offline/syncing/attention state
+                    // 3. A stop was modified locally while the refresh HTTP request was in flight
+                    val editedDuringRequest = localStop != null && localStop.updatedAt >= requestStartTime
+                    val hasLocalPendingEdit = sStop.id in pendingStopIds ||
+                            (localStop != null && localStop.syncStatus in listOf("SAVED_OFFLINE", "SYNCING", "NEEDS_ATTENTION")) ||
+                            editedDuringRequest
+
+                    if (!hasLocalPendingEdit) {
+                        val updatedStop = (localStop ?: PlannedRouteStopEntity(
+                            id = sStop.id,
+                            routeId = routeId,
+                            companyId = companyId,
+                            retailerId = sStop.retailer_id ?: "",
+                            retailerName = sStop.retailer_name ?: "",
+                            stopSequence = sStop.stop_sequence ?: 1,
+                            address = sStop.address ?: "",
+                            contactNumber = sStop.contact_number ?: "",
+                            latitude = sStop.latitude ?: 0.0,
+                            longitude = sStop.longitude ?: 0.0,
+                            status = sStop.status,
+                            visitedAt = sStop.visited_at,
+                            notes = sStop.notes,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = sStop.updated_at ?: System.currentTimeMillis()
+                        )).copy(
+                            status = sStop.status,
+                            visitedAt = sStop.visited_at,
+                            notes = sStop.notes,
+                            updatedAt = sStop.updated_at ?: System.currentTimeMillis(),
+                            syncStatus = "CLOUD_CONFIRMED"
+                        )
+                        plannedRouteDao.insertStop(updatedStop)
+                    }
+                }
+            }
+
+            val finalRoute = getRouteById(routeId)
+            if (finalRoute != null) {
+                Result.success(finalRoute)
+            } else {
+                Result.failure(Exception("Route not found after refresh"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -475,6 +624,7 @@ class OfflinePlannedRouteRepository @Inject constructor(
             status = try { StopStatus.valueOf(status) } catch (_: Exception) { StopStatus.PENDING },
             visitedAt = visitedAt,
             notes = notes,
+            syncStatus = syncStatus,
             createdAt = createdAt,
             updatedAt = updatedAt
         )

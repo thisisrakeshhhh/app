@@ -43,6 +43,9 @@ interface PlannedRouteDao {
     suspend fun insertRoutes(routes: List<PlannedRouteEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStop(stop: PlannedRouteStopEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStops(stops: List<PlannedRouteStopEntity>)
 
     @Update
@@ -51,8 +54,14 @@ interface PlannedRouteDao {
     @Update
     suspend fun updateStop(stop: PlannedRouteStopEntity)
 
-    @Query("UPDATE planned_route_stops SET status = :status, visitedAt = :visitedAt, notes = :notes, updatedAt = :updatedAt WHERE id = :stopId")
-    suspend fun updateStopStatus(stopId: String, status: String, visitedAt: Long?, notes: String?, updatedAt: Long)
+    @Query("UPDATE planned_route_stops SET status = :status, visitedAt = :visitedAt, notes = :notes, updatedAt = :updatedAt, syncStatus = :syncStatus WHERE id = :stopId")
+    suspend fun updateStopStatus(stopId: String, status: String, visitedAt: Long?, notes: String?, updatedAt: Long, syncStatus: String = "SAVED_OFFLINE")
+
+    @Query("UPDATE planned_route_stops SET syncStatus = :syncStatus WHERE id = :stopId")
+    suspend fun updateStopSyncStatus(stopId: String, syncStatus: String)
+
+    @Query("UPDATE planned_routes SET updatedAt = :updatedAt WHERE id = :routeId")
+    suspend fun touchRouteUpdatedAt(routeId: String, updatedAt: Long)
 
     @Query("DELETE FROM planned_route_stops WHERE routeId = :routeId")
     suspend fun deleteStopsForRoute(routeId: String)

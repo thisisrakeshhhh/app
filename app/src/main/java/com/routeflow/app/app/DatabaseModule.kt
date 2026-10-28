@@ -40,7 +40,8 @@ object DatabaseModule {
             RouteFlowDatabase.MIGRATION_9_10,
             RouteFlowDatabase.MIGRATION_10_11,
             RouteFlowDatabase.MIGRATION_11_12,
-            RouteFlowDatabase.MIGRATION_12_13
+            RouteFlowDatabase.MIGRATION_12_13,
+            RouteFlowDatabase.MIGRATION_13_14
         )
         .build()
     }

@@ -36,6 +36,7 @@ data class PlannedRouteStopEntity(
     val status: String = "PENDING", // "PENDING", "VISITED", "SKIPPED"
     val visitedAt: Long? = null,
     val notes: String? = null,
+    val syncStatus: String = "LOCAL_ONLY", // "CLOUD_CONFIRMED", "SAVED_OFFLINE", "SYNCING", "NEEDS_ATTENTION", "LOCAL_ONLY", "UNVERIFIED"
     val createdAt: Long,
     val updatedAt: Long
 )

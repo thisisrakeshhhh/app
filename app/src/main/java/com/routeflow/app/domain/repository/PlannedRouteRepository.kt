@@ -39,4 +39,5 @@ interface PlannedRouteRepository {
     suspend fun publishRoute(routeId: String): Result<PlannedRoute>
     suspend fun cancelRoute(routeId: String, reason: String?): Result<Unit>
     suspend fun updateStopStatus(stopId: String, routeId: String, status: StopStatus, notes: String?): Result<Unit>
+    suspend fun refreshRouteFromServer(routeId: String): Result<PlannedRoute>
 }

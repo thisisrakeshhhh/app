@@ -51,7 +51,7 @@ import com.routeflow.app.core.database.entity.VisitEntity
         com.routeflow.app.core.database.entity.PlannedRouteEntity::class,
         com.routeflow.app.core.database.entity.PlannedRouteStopEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 abstract class RouteFlowDatabase : RoomDatabase() {
@@ -74,6 +74,12 @@ abstract class RouteFlowDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "routeflow_db"
+
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `planned_route_stops` ADD COLUMN `syncStatus` TEXT NOT NULL DEFAULT 'UNVERIFIED'")
+            }
+        }
 
         val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {

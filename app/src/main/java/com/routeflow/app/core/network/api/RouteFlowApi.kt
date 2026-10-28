@@ -86,6 +86,20 @@ interface RouteFlowApi {
     suspend fun requestDeliveryOtp(@Path("id") orderId: String): com.routeflow.app.core.network.dto.OtpResponse
 
     // --- Planned Routes Endpoints ---
+    @retrofit2.http.GET("planned-routes")
+    suspend fun getRoutes(
+        @retrofit2.http.Query("date") date: String? = null,
+        @retrofit2.http.Query("salesperson_id") salespersonId: String? = null,
+        @retrofit2.http.Query("status") status: String? = null,
+        @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null
+    ): com.routeflow.app.core.network.dto.PlannedRoutesListResponse
+
+    @retrofit2.http.GET("planned-routes/{id}")
+    suspend fun getRouteById(
+        @Path("id") routeId: String,
+        @retrofit2.http.Header("X-RouteFlow-Account") account: String? = null
+    ): com.routeflow.app.core.network.dto.PlannedRouteDetailResponse
+
     @POST("planned-routes/{routeId}/stops/{stopId}/status")
     suspend fun updateStopStatus(
         @Path("routeId") routeId: String,

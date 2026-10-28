@@ -367,6 +367,8 @@ class WarehouseDataPipelineTest {
         override suspend fun completeTrip(id: String): StatusResponse = StatusResponse(success = true)
         override suspend fun submitVanSale(request: com.routeflow.app.core.network.dto.VanSaleSubmitRequest, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
         override suspend fun confirmVanSale(orderId: String, idempotencyKey: String?): com.routeflow.app.core.network.dto.VanSaleSubmitResponse = throw NotImplementedError()
+        override suspend fun getRoutes(date: String?, salespersonId: String?, status: String?, account: String?): com.routeflow.app.core.network.dto.PlannedRoutesListResponse = com.routeflow.app.core.network.dto.PlannedRoutesListResponse(success = true)
+        override suspend fun getRouteById(routeId: String, account: String?): com.routeflow.app.core.network.dto.PlannedRouteDetailResponse = com.routeflow.app.core.network.dto.PlannedRouteDetailResponse(success = true)
         override suspend fun updateStopStatus(routeId: String, stopId: String, request: com.routeflow.app.core.network.dto.UpdateStopStatusRequest, account: String?, idempotencyKey: String?): com.routeflow.app.core.network.dto.UpdateStopStatusResponse = com.routeflow.app.core.network.dto.UpdateStopStatusResponse(success = true)
     }
 }

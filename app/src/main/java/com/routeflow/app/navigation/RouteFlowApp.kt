@@ -559,6 +559,7 @@ fun RouteFlowApp(
                         onViewReturns = { navController.navigate(OWNER_RETURNS) },
                         onViewTeam = { navController.navigate(OWNER_TEAM) },
                         onViewReports = { navController.navigate(OWNER_ACTIVITY) },
+                        onViewRoutes = { navController.navigate(OWNER_ROUTES) },
                         onRefresh = viewModel::refreshOperations
                     )
 
@@ -688,6 +689,8 @@ fun RouteFlowApp(
                     onDateSelected = viewModel::onDateSelected,
                     onPublishRoute = viewModel::publishRoute,
                     onCancelRoute = viewModel::cancelRoute,
+                    onSelectRouteForInspection = viewModel::selectRouteForInspection,
+                    onRefreshRoute = viewModel::refreshRoute,
                     onNavigatePlanner = { navController.navigate(OWNER_ROUTE_PLANNER) },
                     onNavigateBack = { navController.popBackStack() },
                     onClearMessages = viewModel::clearMessages

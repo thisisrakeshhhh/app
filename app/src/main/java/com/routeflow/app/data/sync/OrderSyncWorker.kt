@@ -120,6 +120,52 @@ class OrderSyncWorker @AssistedInject constructor(
                             account = account,
                             idempotencyKey = event.idempotencyKey
                         )
+
+                        // Strict response validation
+                        val serverStop = response.stop ?: throw java.io.IOException("Server response missing stop object")
+                        if (serverStop.id != payload.stopId || serverStop.route_id != payload.routeId) {
+                            throw java.io.IOException("Server returned mismatched stop or route ID")
+                        }
+                        if (account != null && serverStop.company_id != null && serverStop.company_id != account) {
+                            throw java.io.IOException("Server returned mismatched company tenant")
+                        }
+                        if (!response.ignoredStale && serverStop.status != payload.status) {
+                            throw java.io.IOException("Server stop status does not confirm requested state")
+                        }
+
+                        localCommit = {
+                            val currentStop = database.plannedRouteDao().getStopById(payload.stopId)
+                            if (currentStop != null) {
+                                val pendingOutbox = database.syncOutboxDao().getPendingSyncsForCompany(account ?: currentStop.companyId)
+                                val hasNewerOutbox = pendingOutbox.any { other ->
+                                    other.id != event.id &&
+                                    other.type == "ROUTE_STOP_STATUS" &&
+                                    other.createdAt > event.createdAt &&
+                                    try {
+                                        json.decodeFromString<com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload>(other.payload).stopId == payload.stopId
+                                    } catch (_: Exception) { false }
+                                }
+                                val hasNewerLocalEdit = currentStop.updatedAt > payload.clientTimestamp
+
+                                // Only update local stop state if no newer local edit or outbox item supersedes this event
+                                if (!hasNewerOutbox && !hasNewerLocalEdit) {
+                                    if (response.ignoredStale) {
+                                        database.plannedRouteDao().updateStopStatus(
+                                            stopId = payload.stopId,
+                                            status = serverStop.status,
+                                            visitedAt = serverStop.visited_at ?: payload.visitedAt,
+                                            notes = serverStop.notes ?: currentStop.notes,
+                                            updatedAt = serverStop.updated_at ?: System.currentTimeMillis(),
+                                            syncStatus = "CLOUD_CONFIRMED"
+                                        )
+                                        database.plannedRouteDao().touchRouteUpdatedAt(payload.routeId, System.currentTimeMillis())
+                                    } else if (serverStop.status == payload.status) {
+                                        database.plannedRouteDao().updateStopSyncStatus(payload.stopId, "CLOUD_CONFIRMED")
+                                        database.plannedRouteDao().touchRouteUpdatedAt(payload.routeId, System.currentTimeMillis())
+                                    }
+                                }
+                            }
+                        }
                         response.success
                     }
                     else -> throw IllegalArgumentException("Unsupported saved event; contact owner")
@@ -138,6 +184,27 @@ class OrderSyncWorker @AssistedInject constructor(
                             val request = json.decodeFromString<StockCheckDto>(event.payload)
                             val checkId = request.id ?: event.idempotencyKey
                             database.stockCheckDao().updateSyncStatus(checkId, "FAILED")
+                        } catch (_: Exception) {}
+                    }
+                    if (event.type == "ROUTE_STOP_STATUS") {
+                        try {
+                            val payload = json.decodeFromString<com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload>(event.payload)
+                            val currentStop = database.plannedRouteDao().getStopById(payload.stopId)
+                            if (currentStop != null) {
+                                val pendingOutbox = database.syncOutboxDao().getPendingSyncsForCompany(account ?: currentStop.companyId)
+                                val hasNewerOutbox = pendingOutbox.any { other ->
+                                    other.id != event.id &&
+                                    other.type == "ROUTE_STOP_STATUS" &&
+                                    other.createdAt > event.createdAt &&
+                                    try {
+                                        json.decodeFromString<com.routeflow.app.core.network.dto.RouteStopStatusSyncPayload>(other.payload).stopId == payload.stopId
+                                    } catch (_: Exception) { false }
+                                }
+                                val hasNewerLocalEdit = currentStop.updatedAt > payload.clientTimestamp
+                                if (!hasNewerOutbox && !hasNewerLocalEdit) {
+                                    database.plannedRouteDao().updateStopSyncStatus(payload.stopId, "NEEDS_ATTENTION")
+                                }
+                            }
                         } catch (_: Exception) {}
                     }
                 }
