@@ -203,19 +203,34 @@ fun RouteFlowMapLibreView(
                             Log.d("RouteFlowMapLibre", "Style loaded successfully. Markers count: ${currentMarkers.size}")
                             onMapReady()
 
-                            // Set initial camera to center of markers or default Tricity center
-                            val target = if (currentMarkers.isNotEmpty()) {
-                                LatLng(
-                                    currentMarkers.map { it.latitude }.average(),
-                                    currentMarkers.map { it.longitude }.average()
-                                )
+                            // Set initial camera to center of markers with dynamic span-based zoom
+                            if (currentMarkers.isNotEmpty()) {
+                                val minLat = currentMarkers.minOf { it.latitude }
+                                val maxLat = currentMarkers.maxOf { it.latitude }
+                                val minLng = currentMarkers.minOf { it.longitude }
+                                val maxLng = currentMarkers.maxOf { it.longitude }
+                                val centerLat = (minLat + maxLat) / 2.0
+                                val centerLng = (minLng + maxLng) / 2.0
+                                val span = maxOf(maxLat - minLat, maxLng - minLng)
+                                val dynamicZoom = when {
+                                    span > 5.0 -> 5.0
+                                    span > 2.0 -> 6.5
+                                    span > 1.0 -> 7.8
+                                    span > 0.5 -> 9.2
+                                    span > 0.2 -> 10.5
+                                    span > 0.05 -> 12.0
+                                    else -> 13.5
+                                }
+                                map.cameraPosition = CameraPosition.Builder()
+                                    .target(LatLng(centerLat, centerLng))
+                                    .zoom(dynamicZoom)
+                                    .build()
                             } else {
-                                LatLng(30.7333, 76.7794)
+                                map.cameraPosition = CameraPosition.Builder()
+                                    .target(LatLng(30.7333, 76.7794))
+                                    .zoom(13.0)
+                                    .build()
                             }
-                            map.cameraPosition = CameraPosition.Builder()
-                                .target(target)
-                                .zoom(13.0)
-                                .build()
 
                             // Render annotations immediately upon style load
                             renderMapLibreAnnotations(map, currentMarkers, enablePolylines, routeCoordinates)

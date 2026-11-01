@@ -82,9 +82,6 @@ fun OwnerEmployeesScreen(
                     Text("Staff & Roles", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("${state.employees.size} team members · Roles & Security", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
-                OutlinedButton(onClick = onBack) {
-                    Text("Back")
-                }
             }
 
             if (state.successMessage != null) {

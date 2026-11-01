@@ -44,6 +44,22 @@ export function canPerform(role: string, action: string): boolean {
       'van_sales:manage', 'van_sales:create', 'van_sales:confirm',
       'route:plan', 'route:publish', 'route:read'
     ],
+    SALES_MANAGER: [
+      'catalog:read',
+      'order:read', 'order:approve', 'order:reject',
+      'retailer:read',
+      'analytics:read',
+      'route:plan', 'route:publish', 'route:read',
+      'team:read'
+    ],
+    ACCOUNTANT: [
+      'catalog:read',
+      'order:read',
+      'retailer:read', 'retailer:credit_override',
+      'finance:read', 'finance:collect', 'finance:settle', 'finance:handover_ack',
+      'collections:review',
+      'analytics:read'
+    ],
     WAREHOUSE: [
       'catalog:read',
       'order:read', 'order:pick', 'order:pack', 'order:dispatch',
@@ -128,4 +144,30 @@ export async function verifyTenantMembership(
   }
 
   return { isMember: false, role: null };
+}
+
+/**
+ * Resolves the authoritative retailer record ID associated with a user in a given company.
+ * Supports direct match (user ID == retailer ID) and contact number / username mapping.
+ */
+export async function resolveRetailerIdForUser(
+  db: D1Database,
+  companyId: string,
+  userId: string
+): Promise<string | null> {
+  // 1. Direct match: user ID matches retailer primary key ID
+  const direct = await db.prepare(
+    'SELECT id FROM retailers WHERE id = ? AND company_id = ?'
+  ).bind(userId, companyId).first<{ id: string }>();
+  if (direct) return direct.id;
+
+  // 2. Link by contact number matching user's username or direct user ID match
+  const linked = await db.prepare(
+    `SELECT r.id FROM retailers r
+     JOIN users u ON (u.username = r.contact_number OR u.id = r.id)
+     WHERE u.id = ? AND r.company_id = ?`
+  ).bind(userId, companyId).first<{ id: string }>();
+  if (linked) return linked.id;
+
+  return null;
 }

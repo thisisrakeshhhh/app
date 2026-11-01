@@ -331,10 +331,15 @@ fun RouteFlowApp(
                        currentRoute == RoleDestination.WAREHOUSE.route ||
                        currentRoute == RoleDestination.DELIVERY.route
     val isSubScreen = !bottomNavItems.any { it.route == currentRoute } && !isHomeScreen
+    val hasOwnTopBar = currentRoute == OWNER_ROUTES ||
+                       currentRoute == OWNER_ROUTE_PLANNER ||
+                       currentRoute == SALES_ROUTE ||
+                       currentRoute?.startsWith("sales/van-sale") == true ||
+                       currentRoute?.startsWith("sales/stock-check") == true
 
     Scaffold(
         topBar = {
-            if (employee != null) {
+            if (employee != null && !hasOwnTopBar) {
                 val screenTitle = when (currentRoute) {
                     RoleDestination.OWNER.route -> "RouteFlow"
                     OWNER_APPROVALS -> if (isHindi) "ऑर्डर मंज़ूरी" else "Orders"

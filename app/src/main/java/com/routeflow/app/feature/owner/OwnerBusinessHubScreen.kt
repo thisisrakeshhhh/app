@@ -2,6 +2,7 @@ package com.routeflow.app.feature.owner
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -61,10 +63,9 @@ fun OwnerBusinessHubScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = stringResource(R.string.tab_business),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            color = RFColors.TextPrimary
+            text = "Operations, reconciliations & master data control",
+            style = MaterialTheme.typography.bodySmall,
+            color = RFColors.TextSecondary
         )
             Text(
                 text = "Financial & Settlement Operations",
@@ -154,13 +155,15 @@ private fun BusinessCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -168,13 +171,21 @@ private fun BusinessCard(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = RFColors.Primary
-                )
-                Spacer(modifier = Modifier.size(16.dp))
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    color = RFColors.InfoSurface,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = RFColors.Primary
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
                         text = title,

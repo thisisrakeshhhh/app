@@ -58,7 +58,7 @@ fun RouteFlowMap(
     val context = LocalContext.current
     var archiveUpdateTrigger by remember { mutableIntStateOf(0) }
     var importStatusMessage by remember { mutableStateOf<String?>(null) }
-    var showImportBanner by remember { mutableStateOf(true) }
+    var showImportBanner by remember { mutableStateOf(false) }
 
     val effectiveArchive = archiveFile ?: remember(context, archiveUpdateTrigger) {
         MapConfig.resolveDefaultArchiveFile(context)
@@ -82,7 +82,7 @@ fun RouteFlowMap(
     }
 
     // Determine effective provider
-    val effectiveProvider = remember(targetMode, effectiveArchive, mapLibreRuntimeError) {
+    val effectiveProvider = remember(targetMode, effectiveArchive, mapLibreRuntimeError, validMarkers) {
         when (targetMode) {
             MapProviderMode.GOOGLE_MAPS -> {
                 if (MapConfig.isGoogleMapsConfigured()) {
@@ -100,6 +100,11 @@ fun RouteFlowMap(
                     val validation = PmtilesHeaderInspector.inspect(effectiveArchive)
                     if (validation !is PmtilesArchiveValidation.Valid) {
                         MapProviderMode.LOGISTICS_CANVAS
+                    } else if (validMarkers.isNotEmpty() && !validation.coversAny(validMarkers)) {
+                        // Regional coverage mismatch: Archive covers a different region (e.g. Chandigarh),
+                        // while business markers are located elsewhere (e.g. Jaipur/Delhi).
+                        // Fall back to vector logistics canvas so markers are immediately visible!
+                        MapProviderMode.LOGISTICS_CANVAS
                     } else {
                         MapProviderMode.MAPLIBRE_OFFLINE
                     }
@@ -110,17 +115,18 @@ fun RouteFlowMap(
     }
 
     // Notify fallback callback if MapLibre was expected but could not be rendered
-    LaunchedEffect(targetMode, effectiveArchive, mapLibreRuntimeError) {
+    LaunchedEffect(targetMode, effectiveArchive, mapLibreRuntimeError, validMarkers) {
         if (targetMode == MapProviderMode.MAPLIBRE_OFFLINE && effectiveProvider == MapProviderMode.LOGISTICS_CANVAS) {
             val reason = when {
                 mapLibreRuntimeError != null -> mapLibreRuntimeError!!
                 !effectiveArchive.exists() -> "PMTiles archive missing at: ${effectiveArchive.absolutePath}"
                 else -> {
                     val validation = PmtilesHeaderInspector.inspect(effectiveArchive)
-                    if (validation is PmtilesArchiveValidation.Corrupt) {
-                        validation.reason
-                    } else {
-                        "Archive validation failed"
+                    when {
+                        validation is PmtilesArchiveValidation.Corrupt -> validation.reason
+                        validation is PmtilesArchiveValidation.Valid && validMarkers.isNotEmpty() && !validation.coversAny(validMarkers) ->
+                            "Archive bounds [${validation.minLon}, ${validation.minLat} to ${validation.maxLon}, ${validation.maxLat}] do not cover active territory markers"
+                        else -> "Archive validation failed"
                     }
                 }
             }
@@ -268,8 +274,24 @@ fun RouteFlowMap(
             }
         }
 
-        // Actionable Empty-State / Provisioning Notice (when in Canvas mode due to unconfigured maps)
+        // Actionable Empty-State / Provisioning Notice (when in Canvas mode due to unconfigured maps or regional mismatch)
         if (showImportBanner && effectiveProvider == MapProviderMode.LOGISTICS_CANVAS && !MapConfig.isGoogleMapsConfigured()) {
+            val isCoverageMismatch = effectiveArchive.exists() && validMarkers.isNotEmpty() &&
+                PmtilesHeaderInspector.inspect(effectiveArchive).let {
+                    it is PmtilesArchiveValidation.Valid && !it.coversAny(validMarkers)
+                }
+
+            val bannerTitle = if (isCoverageMismatch) {
+                "Territory Outside Street Archive"
+            } else {
+                "Offline Street Map Not Found"
+            }
+            val bannerDescription = if (isCoverageMismatch) {
+                "Viewing Logistics Spatial Grid. Active retailers are outside the loaded regional archive bounds. Real GPS coordinates plotted on spatial grid."
+            } else {
+                "Viewing Logistics Spatial Grid. To display regional streets and buildings offline, import a licensed territory .pmtiles map."
+            }
+
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -298,7 +320,7 @@ fun RouteFlowMap(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Offline Street Map Not Found",
+                                text = bannerTitle,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 color = Color.White
@@ -318,7 +340,7 @@ fun RouteFlowMap(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Viewing Logistics Spatial Grid. To display regional streets and buildings offline, import a licensed territory .pmtiles map.",
+                        text = bannerDescription,
                         fontSize = 11.sp,
                         color = Color(0xFF94A3B8),
                         lineHeight = 15.sp
@@ -374,9 +396,27 @@ fun RouteFlowMap(
             onRecenter = {
                 when (effectiveProvider) {
                     MapProviderMode.MAPLIBRE_OFFLINE -> {
-                        val lat = if (validMarkers.isNotEmpty()) validMarkers.map { it.latitude }.average() else 30.7333
-                        val lng = if (validMarkers.isNotEmpty()) validMarkers.map { it.longitude }.average() else 76.7794
-                        mapLibreController.recenter(org.maplibre.android.geometry.LatLng(lat, lng), 13.0)
+                        if (validMarkers.isNotEmpty()) {
+                            val minLat = validMarkers.minOf { it.latitude }
+                            val maxLat = validMarkers.maxOf { it.latitude }
+                            val minLng = validMarkers.minOf { it.longitude }
+                            val maxLng = validMarkers.maxOf { it.longitude }
+                            val centerLat = (minLat + maxLat) / 2.0
+                            val centerLng = (minLng + maxLng) / 2.0
+                            val span = maxOf(maxLat - minLat, maxLng - minLng)
+                            val dynamicZoom = when {
+                                span > 5.0 -> 5.0
+                                span > 2.0 -> 6.5
+                                span > 1.0 -> 7.8
+                                span > 0.5 -> 9.2
+                                span > 0.2 -> 10.5
+                                span > 0.05 -> 12.0
+                                else -> 13.5
+                            }
+                            mapLibreController.recenter(org.maplibre.android.geometry.LatLng(centerLat, centerLng), dynamicZoom)
+                        } else {
+                            mapLibreController.recenter(org.maplibre.android.geometry.LatLng(30.7333, 76.7794), 13.0)
+                        }
                     }
                     MapProviderMode.GOOGLE_MAPS -> {
                         coroutineScope.launch {

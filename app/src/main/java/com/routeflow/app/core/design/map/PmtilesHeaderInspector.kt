@@ -21,8 +21,22 @@ sealed interface PmtilesArchiveValidation {
         val tileCompression: String,
         val tileType: String,
         val minZoom: Int,
-        val maxZoom: Int
-    ) : PmtilesArchiveValidation
+        val maxZoom: Int,
+        val minLon: Double = -180.0,
+        val minLat: Double = -90.0,
+        val maxLon: Double = 180.0,
+        val maxLat: Double = 90.0
+    ) : PmtilesArchiveValidation {
+        fun contains(lat: Double, lon: Double): Boolean {
+            return lat in minLat..maxLat && lon in minLon..maxLon
+        }
+
+        fun coversAny(markers: List<LogisticsMarker>): Boolean {
+            val valid = markers.filter { it.hasValidCoordinates }
+            if (valid.isEmpty()) return true
+            return valid.any { contains(it.latitude, it.longitude) }
+        }
+    }
 }
 
 /**
@@ -152,6 +166,18 @@ object PmtilesHeaderInspector {
                     )
                 }
 
+                // Extract spatial bounding box (bytes 102..117: min_lon, min_lat, max_lon, max_lat as 10^7 int32)
+                val rawMinLon = readInt32LE(header, 102)
+                val rawMinLat = readInt32LE(header, 106)
+                val rawMaxLon = readInt32LE(header, 110)
+                val rawMaxLat = readInt32LE(header, 114)
+
+                val isZeroBounds = rawMinLon == 0 && rawMinLat == 0 && rawMaxLon == 0 && rawMaxLat == 0
+                val minLon = if (isZeroBounds) -180.0 else rawMinLon / 10_000_000.0
+                val minLat = if (isZeroBounds) -90.0 else rawMinLat / 10_000_000.0
+                val maxLon = if (isZeroBounds) 180.0 else rawMaxLon / 10_000_000.0
+                val maxLat = if (isZeroBounds) 90.0 else rawMaxLat / 10_000_000.0
+
                 // Validate internal compression against MapLibre 11.8.8 capabilities (gzip or none)
                 if (internalCompressionCode != 1 && internalCompressionCode != 2) {
                     return PmtilesArchiveValidation.Corrupt(
@@ -183,7 +209,11 @@ object PmtilesHeaderInspector {
                     tileCompression = tileCompression,
                     tileType = tileType,
                     minZoom = minZoom,
-                    maxZoom = maxZoom
+                    maxZoom = maxZoom,
+                    minLon = minLon,
+                    minLat = minLat,
+                    maxLon = maxLon,
+                    maxLat = maxLat
                 )
             }
         } catch (e: Exception) {
@@ -192,5 +222,12 @@ object PmtilesHeaderInspector {
                 "I/O error inspecting PMTiles header: ${e.message}"
             )
         }
+    }
+
+    private fun readInt32LE(bytes: ByteArray, offset: Int): Int {
+        return (bytes[offset].toInt() and 0xFF) or
+               ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+               ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+               ((bytes[offset + 3].toInt()) shl 24)
     }
 }

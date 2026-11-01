@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { canPerform } from './security';
+import { canPerform, normalizeRole } from './security';
 
 export function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth radius in meters
@@ -296,7 +296,7 @@ router.post('/', async (c) => {
   if (salesperson.is_active === 0) {
     return c.json({ error: 'Cannot assign route to deactivated salesperson' }, 400);
   }
-  if (salesperson.role !== 'SALESPERSON') {
+  if (normalizeRole(salesperson.role) !== 'SALES') {
     return c.json({ error: `User is not a salesperson (role: ${salesperson.role})` }, 400);
   }
 
@@ -462,7 +462,7 @@ router.put('/:id', async (c) => {
 
   if (!salesperson) return c.json({ error: 'Salesperson not found' }, 404);
   if (salesperson.is_active === 0) return c.json({ error: 'Cannot assign route to deactivated salesperson' }, 400);
-  if (salesperson.role !== 'SALESPERSON') return c.json({ error: 'User is not a salesperson' }, 400);
+  if (normalizeRole(salesperson.role) !== 'SALES') return c.json({ error: 'User is not a salesperson' }, 400);
 
   const now = Date.now();
   const statements: any[] = [];

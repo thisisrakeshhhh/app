@@ -1,6 +1,6 @@
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
-import { rateLimit, requestIp, canPerform, normalizeRole, verifyTenantMembership } from './security';
+import { rateLimit, requestIp, canPerform, normalizeRole, verifyTenantMembership, resolveRetailerIdForUser } from './security';
 import { calculateGstBreakdown, evaluateCreditPolicy, buildRetailerLedgerStatements } from './fmcg-engine';
 import { dailyCycle } from './daily-cycle';
 import { fieldCycle } from './field-cycle';
@@ -393,14 +393,23 @@ app.route('/', onboardingRouter(authMiddleware));
 
 app.get('/retailers', authMiddleware, async (c) => {
   const user = c.get('user');
+  const normRole = normalizeRole(user.role);
 
   let query = 'SELECT id, name, beat_id AS beatId, address, contact_number AS contactNumber, latitude, longitude, credit_limit_paise AS creditLimitPaise, outstanding_amount_paise AS outstandingAmountPaise, is_active AS isActive, payment_terms_days AS paymentTermsDays FROM retailers WHERE company_id = ?';
   const params: any[] = [user.company_id];
 
-  // Salesperson beat assignment check: only show retailers for beats assigned to this salesperson
-  if (user.role === 'SALESPERSON') {
+  if (normRole === 'SALES') {
     query += ' AND beat_id IN (SELECT beat_id FROM user_beat_assignments WHERE user_id = ? AND company_id = ?)';
     params.push(user.sub, user.company_id);
+  } else if (normRole === 'RETAILER') {
+    const retailerId = await resolveRetailerIdForUser(c.env.DB, user.company_id, user.sub);
+    if (!retailerId) {
+      return c.json([]);
+    }
+    query += ' AND id = ?';
+    params.push(retailerId);
+  } else if (!['OWNER', 'ADMIN', 'SALES_MANAGER', 'ACCOUNTANT', 'WAREHOUSE', 'DELIVERY'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: unauthorized role' }, 403);
   }
 
   const { results } = await c.env.DB.prepare(query).bind(...params).all();
@@ -575,6 +584,18 @@ app.post('/orders', authMiddleware, async (c) => {
     return c.json({ error: 'Invalid total amount: must be positive integer bounded to 1,000,000,000 paise' }, 400);
   }
 
+  const normRole = normalizeRole(user.role);
+  if (normRole === 'RETAILER') {
+    const authRetId = await resolveRetailerIdForUser(c.env.DB, user.company_id, user.sub);
+    if (!authRetId) {
+      return c.json({ error: 'Retailer profile not found for authenticated account' }, 403);
+    }
+    if (order.retailerId && order.retailerId !== authRetId) {
+      return c.json({ error: 'Forbidden: cannot create orders on behalf of another retailer' }, 403);
+    }
+    order.retailerId = authRetId;
+  }
+
   // Validate retailer and tenant isolation
   const retailer = await c.env.DB.prepare('SELECT * FROM retailers WHERE id = ? AND company_id = ?')
     .bind(order.retailerId, user.company_id)
@@ -585,7 +606,7 @@ app.post('/orders', authMiddleware, async (c) => {
   }
 
   // Salesperson beat assignment enforcement
-  if (normalizeRole(user.role) === 'SALES') {
+  if (normRole === 'SALES') {
     const beatAssignment = await c.env.DB.prepare(
       'SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND beat_id = ? AND company_id = ?'
     )
@@ -751,19 +772,30 @@ app.post('/orders', authMiddleware, async (c) => {
 
 app.get('/orders', authMiddleware, async (c) => {
   const user = c.get('user');
+  const normRole = normalizeRole(user.role);
   let query = 'SELECT id, retailer_id AS retailerId, employee_id AS employeeId, status, total_amount_paise AS totalAmountPaise, delivered_amount_paise AS deliveredAmountPaise, delivery_failure_reason AS deliveryFailureReason, delivery_notes AS deliveryNotes, rescheduled_date AS rescheduledDate, created_at AS createdAt, updated_at AS updatedAt, delivery_employee_id AS deliveryEmployeeId, rejection_reason AS rejectionReason, payment_method AS paymentMethod FROM orders WHERE company_id = ?';
   const params: any[] = [user.company_id];
 
-  if (user.role === 'SALESPERSON') {
+  if (normRole === 'SALES') {
     query += ' AND employee_id = ?';
     params.push(user.sub);
-  } else if (user.role === 'DELIVERY_EXECUTIVE') {
-    // Delivery users must list ONLY their assigned orders that are in delivery transit or completed
+  } else if (normRole === 'DELIVERY') {
     query += ' AND delivery_employee_id = ? AND status IN (?, ?, ?, ?)';
     params.push(user.sub, 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_DELIVERED', 'DELIVERY_FAILED');
-  } else if (user.role === 'WAREHOUSE_MANAGER') {
+  } else if (normRole === 'WAREHOUSE') {
     query += ' AND status IN (?, ?, ?, ?)';
     params.push('APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY');
+  } else if (normRole === 'RETAILER') {
+    const retailerId = await resolveRetailerIdForUser(c.env.DB, user.company_id, user.sub);
+    if (!retailerId) {
+      return c.json([]);
+    }
+    query += ' AND retailer_id = ?';
+    params.push(retailerId);
+  } else if (['OWNER', 'ADMIN', 'SALES_MANAGER', 'ACCOUNTANT'].includes(normRole)) {
+    // Management roles see all company orders
+  } else {
+    return c.json({ error: 'Permission denied: unauthorized role' }, 403);
   }
 
   query += ' ORDER BY created_at DESC';
@@ -790,15 +822,25 @@ app.post('/orders/items-bulk', authMiddleware, async (c) => {
   let ownershipQuery = `SELECT id FROM orders WHERE company_id = ? AND id IN (${placeholders})`;
   const ownershipParams: any[] = [user.company_id, ...ids];
 
-  if (user.role === 'SALESPERSON') {
+  const normRole = normalizeRole(user.role);
+  if (normRole === 'SALES') {
     ownershipQuery += ' AND employee_id = ?';
     ownershipParams.push(user.sub);
-  } else if (user.role === 'DELIVERY_EXECUTIVE') {
+  } else if (normRole === 'DELIVERY') {
     ownershipQuery += ' AND delivery_employee_id = ? AND status IN (?, ?, ?, ?)';
     ownershipParams.push(user.sub, 'OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_DELIVERED', 'DELIVERY_FAILED');
-  } else if (user.role === 'WAREHOUSE_MANAGER') {
+  } else if (normRole === 'WAREHOUSE') {
     ownershipQuery += ' AND status IN (?, ?, ?, ?)';
     ownershipParams.push('APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY');
+  } else if (normRole === 'RETAILER') {
+    const retailerId = await resolveRetailerIdForUser(c.env.DB, user.company_id, user.sub);
+    if (!retailerId) {
+      return c.json({ items: [] });
+    }
+    ownershipQuery += ' AND retailer_id = ?';
+    ownershipParams.push(retailerId);
+  } else if (!['OWNER', 'ADMIN', 'SALES_MANAGER', 'ACCOUNTANT'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: unauthorized role' }, 403);
   }
 
   const { results: ownedOrders } = await c.env.DB.prepare(ownershipQuery).bind(...ownershipParams).all();
@@ -821,8 +863,9 @@ app.post('/orders/items-bulk', authMiddleware, async (c) => {
 
 app.get('/orders/pending', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
-    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
+  const normRole = normalizeRole(user.role);
+  if (!['OWNER', 'ADMIN', 'SALES_MANAGER'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: owner, admin, or sales manager role required' }, 403);
   }
 
   const { results } = await c.env.DB.prepare(
@@ -846,24 +889,38 @@ app.get('/orders/:id', authMiddleware, async (c) => {
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
 
+  const normRole = normalizeRole(user.role);
   // Salesperson role check: can only see their own orders
-  if (user.role === 'SALESPERSON' && order.employeeId !== user.sub) {
+  if (normRole === 'SALES' && order.employeeId !== user.sub) {
     return c.json({ error: 'Permission denied' }, 403);
   }
 
-  // Warehouse manager role check: cannot view unapproved submitted orders
-  if (user.role === 'WAREHOUSE_MANAGER' && !['APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY'].includes(order.status)) {
-    return c.json({ error: 'Permission denied: order not ready for warehouse fulfillment' }, 403);
-  }
-
   // Delivery executive role check: can only view orders assigned to them and in delivery status
-  if (user.role === 'DELIVERY_EXECUTIVE') {
+  if (normRole === 'DELIVERY') {
     if (order.deliveryEmployeeId !== user.sub) {
       return c.json({ error: 'Permission denied: order not assigned to you' }, 403);
     }
     if (!['OUT_FOR_DELIVERY', 'DELIVERED', 'PARTIALLY_DELIVERED', 'DELIVERY_FAILED'].includes(order.status)) {
       return c.json({ error: 'Permission denied: order not yet dispatched for delivery' }, 403);
     }
+  }
+
+  // Warehouse manager role check: cannot view unapproved submitted orders
+  if (normRole === 'WAREHOUSE' && !['APPROVED', 'PICKING', 'PACKED', 'OUT_FOR_DELIVERY'].includes(order.status)) {
+    return c.json({ error: 'Permission denied: order not ready for warehouse fulfillment' }, 403);
+  }
+
+  // Retailer role check: can only view their own orders
+  if (normRole === 'RETAILER') {
+    const retailerId = await resolveRetailerIdForUser(c.env.DB, user.company_id, user.sub);
+    if (!retailerId || order.retailerId !== retailerId) {
+      return c.json({ error: 'Order not found' }, 404);
+    }
+  }
+
+  // Fail-closed for unknown roles
+  if (!['OWNER', 'ADMIN', 'SALES_MANAGER', 'ACCOUNTANT', 'WAREHOUSE', 'SALES', 'DELIVERY', 'RETAILER'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: unauthorized role' }, 403);
   }
 
   const { results: rawItems } = await c.env.DB.prepare(
@@ -2310,7 +2367,13 @@ app.post('/employees', authMiddleware, async (c) => {
     return c.json({ error: 'username, password, fullName, and role are required' }, 400);
   }
 
-  const VALID_ROLES = ['OWNER', 'ADMIN', 'SALESPERSON', 'WAREHOUSE_MANAGER', 'DELIVERY_EXECUTIVE'];
+  const VALID_ROLES = [
+    'OWNER', 'ADMIN', 'SALES_MANAGER', 'ACCOUNTANT',
+    'WAREHOUSE', 'WAREHOUSE_MANAGER',
+    'SALES', 'SALESPERSON',
+    'DELIVERY', 'DELIVERY_EXECUTIVE',
+    'RETAILER'
+  ];
   if (!VALID_ROLES.includes(role)) {
     return c.json({ error: `Invalid role. Allowed: ${VALID_ROLES.join(', ')}` }, 400);
   }
@@ -2329,7 +2392,7 @@ app.post('/employees', authMiddleware, async (c) => {
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'EMPLOYEE_CREATED', id, `Created employee: ${fullName} (${role})`, now)
   ];
 
-  if (role === 'SALESPERSON' && beatId) {
+  if ((role === 'SALESPERSON' || role === 'SALES') && beatId) {
     statements.push(
       c.env.DB.prepare(
         `INSERT OR REPLACE INTO user_beat_assignments (user_id, beat_id, company_id, created_at)
@@ -2504,15 +2567,16 @@ app.post('/beats/:id/assign', authMiddleware, async (c) => {
 
 app.get('/team/status', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  const normRole = normalizeRole(user.role);
+  if (!['OWNER', 'ADMIN', 'SALES_MANAGER'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: owner, admin, or sales manager role required' }, 403);
   }
 
   const { results: employees } = await c.env.DB.prepare(
     `SELECT u.id, u.full_name AS fullName, u.role, u.is_active AS isActive,
             (SELECT GROUP_CONCAT(beat_id) FROM user_beat_assignments WHERE user_id = u.id AND company_id = u.company_id) AS assignedBeats
      FROM users u
-     WHERE u.company_id = ? AND u.role IN ('SALESPERSON', 'DELIVERY_EXECUTIVE') AND u.is_active = 1
+     WHERE u.company_id = ? AND u.role IN ('SALESPERSON', 'SALES', 'DELIVERY_EXECUTIVE', 'DELIVERY') AND u.is_active = 1
      ORDER BY u.full_name ASC`
   ).bind(user.company_id).all();
 
@@ -2531,7 +2595,7 @@ app.get('/team/status', authMiddleware, async (c) => {
     let completedStops = 0;
     let totalStops = 0;
 
-    if (emp.role === 'SALESPERSON') {
+    if (emp.role === 'SALESPERSON' || emp.role === 'SALES') {
       const beatList = emp.assignedBeats ? emp.assignedBeats.split(',') : [];
       if (beatList.length > 0) {
         const total = await c.env.DB.prepare(
@@ -2584,8 +2648,9 @@ app.get('/team/status', authMiddleware, async (c) => {
 
 app.get('/owner/visits/daily', authMiddleware, async (c) => {
   const user = c.get('user');
-  if (user.role !== 'OWNER') {
-    return c.json({ error: 'Permission denied: owner role required' }, 403);
+  const normRole = normalizeRole(user.role);
+  if (!['OWNER', 'ADMIN', 'SALES_MANAGER'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: owner, admin, or sales manager role required' }, 403);
   }
 
   const dateParam = c.req.query('date');
@@ -3408,7 +3473,13 @@ app.post('/van-sales/orders/:id/confirm', authMiddleware, async (c) => {
 app.get('/retailers/:id/ledger', authMiddleware, async (c) => {
   const user = c.get('user');
   const retailerId = c.req.param('id');
-  if (!canPerform(user.role, 'retailer:read') && !(user.role === 'RETAILER' && user.sub === retailerId)) {
+  const normRole = normalizeRole(user.role);
+  let isOwnRetailer = false;
+  if (normRole === 'RETAILER') {
+    const authRetId = await resolveRetailerIdForUser(c.env.DB, user.company_id, user.sub);
+    isOwnRetailer = (authRetId === retailerId);
+  }
+  if (!canPerform(user.role, 'retailer:read') && !isOwnRetailer) {
     return c.json({ error: 'Permission denied' }, 403);
   }
 
@@ -3484,6 +3555,104 @@ app.put('/credit-policy', authMiddleware, async (c) => {
   } catch (e: any) {
     return c.json({ error: e.message || 'Failed to update credit policy' }, 500);
   }
+});
+
+// ============================================================================
+// ACCOUNTANT & GST ENDPOINTS
+// ============================================================================
+
+app.get('/accounting/summary', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const normRole = normalizeRole(user.role);
+  if (!['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(normRole)) {
+    return c.json({ error: 'Permission denied: owner, admin, or accountant role required' }, 403);
+  }
+
+  const salesRow = await c.env.DB.prepare(
+    "SELECT COALESCE(SUM(total_amount_paise), 0) AS total_booked_paise, COALESCE(SUM(CASE WHEN status IN ('DELIVERED', 'PARTIALLY_DELIVERED') THEN delivered_amount_paise ELSE 0 END), 0) AS total_delivered_paise, COUNT(*) AS order_count FROM orders WHERE company_id = ?"
+  ).bind(user.company_id).first<any>();
+
+  const deliveredPaise = Number(salesRow?.total_delivered_paise || 0);
+  const gstBreakdown = calculateGstBreakdown({ pricePaise: deliveredPaise, quantity: 1, gstRate: 18.0, isPriceTaxInclusive: true });
+
+  const udhaarRow = await c.env.DB.prepare(
+    "SELECT COALESCE(SUM(outstanding_amount_paise), 0) AS total_outstanding_paise, COUNT(*) AS active_retailers FROM retailers WHERE company_id = ? AND is_active = 1"
+  ).bind(user.company_id).first<any>();
+
+  const cashRow = await c.env.DB.prepare(
+    "SELECT COALESCE(SUM(CASE WHEN entry_type='CASH_PAYMENT' THEN amount_paise WHEN entry_type='CASH_REVERSAL' THEN -amount_paise ELSE 0 END), 0) AS net_cash_paise FROM payment_ledger WHERE company_id = ?"
+  ).bind(user.company_id).first<any>();
+
+  return c.json({
+    companyId: user.company_id,
+    bookedSalesPaise: Number(salesRow?.total_booked_paise || 0),
+    deliveredSalesPaise: deliveredPaise,
+    orderCount: Number(salesRow?.order_count || 0),
+    gst: {
+      rate: gstBreakdown.gstRate,
+      taxableAmountPaise: gstBreakdown.taxableAmountPaise,
+      cgstPaise: gstBreakdown.cgstAmountPaise,
+      sgstPaise: gstBreakdown.sgstAmountPaise,
+      totalTaxPaise: gstBreakdown.totalTaxPaise
+    },
+    outstandingReceivablesPaise: Number(udhaarRow?.total_outstanding_paise || 0),
+    activeRetailers: Number(udhaarRow?.active_retailers || 0),
+    netCashCollectedPaise: Number(cashRow?.net_cash_paise || 0)
+  });
+});
+
+app.post('/accounting/gst-calculate', authMiddleware, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const items: any[] = Array.isArray(body?.items) ? body.items : [];
+  const isInterState = Boolean(body?.isInterState);
+
+  let totalTaxable = 0;
+  let totalCgst = 0;
+  let totalSgst = 0;
+  let totalIgst = 0;
+  let grandTotal = 0;
+
+  const lines = items.map((it: any) => {
+    const pricePaise = Number(it.pricePaise || 0);
+    const qty = Number(it.quantity || 1);
+    const rate = Number(it.gstRate || 18.0);
+    const lineGst = calculateGstBreakdown({
+      pricePaise,
+      quantity: qty,
+      gstRate: rate,
+      isInterState
+    });
+
+    totalTaxable += lineGst.taxableAmountPaise;
+    totalCgst += lineGst.cgstAmountPaise;
+    totalSgst += lineGst.sgstAmountPaise;
+    totalIgst += lineGst.igstAmountPaise;
+    grandTotal += lineGst.totalLinePaise;
+
+    return {
+      productId: it.productId,
+      name: it.name,
+      quantity: qty,
+      unitType: it.unitType || 'PIECE',
+      gstRate: rate,
+      taxableAmountPaise: lineGst.taxableAmountPaise,
+      cgstPaise: lineGst.cgstAmountPaise,
+      sgstPaise: lineGst.sgstAmountPaise,
+      igstPaise: lineGst.igstAmountPaise,
+      totalLinePaise: lineGst.totalLinePaise
+    };
+  });
+
+  return c.json({
+    isInterState,
+    totalTaxableAmountPaise: totalTaxable,
+    totalCgstPaise: totalCgst,
+    totalSgstPaise: totalSgst,
+    totalIgstPaise: totalIgst,
+    totalTaxPaise: totalCgst + totalSgst + totalIgst,
+    grandTotalPaise: grandTotal,
+    lines
+  });
 });
 
 // ============================================================================

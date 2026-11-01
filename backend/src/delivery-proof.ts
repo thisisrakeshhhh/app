@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { rateLimit } from './security';
+import { rateLimit, normalizeRole } from './security';
 export function secureOtp():string {
  const a=new Uint32Array(1);let n:number;do{crypto.getRandomValues(a);n=a[0];}while(n>=4294800000);
  return (100000+n%900000).toString();
@@ -7,10 +7,12 @@ export function secureOtp():string {
 // The gateway contract is provider-neutral: an HTTPS POST must return
 // { accepted: true, messageId: string }. HTTP 200 alone is not acknowledgement.
 export async function requestOtp(c:Context<any>){
- const u=c.get('user');if(!['OWNER','DELIVERY_EXECUTIVE'].includes(u.role))return c.json({error:'Delivery or owner required'},403);
+ const u=c.get('user');
+ const normRole = normalizeRole(u.role);
+ if(!['OWNER','DELIVERY'].includes(normRole))return c.json({error:'Delivery or owner required'},403);
  const id=c.req.param('id');const db=c.env.DB as D1Database;
  const order=await db.prepare('SELECT * FROM orders WHERE id=? AND company_id=?').bind(id,u.company_id).first<any>();
- if(!order||(u.role==='DELIVERY_EXECUTIVE'&&order.delivery_employee_id!==u.sub))return c.json({error:'Order access denied'},403);
+ if(!order||(normRole==='DELIVERY'&&order.delivery_employee_id!==u.sub))return c.json({error:'Order access denied'},403);
  if(order.status!=='OUT_FOR_DELIVERY')return c.json({error:'Order must be out for delivery'},400);
  if(!await rateLimit(c,'delivery-otp',`${u.company_id}:${u.sub}`,60))return c.json({error:'Too many OTP requests. Try again later.'},429);
  const simulation=(c.env.ENVIRONMENT==='development'||c.env.ENVIRONMENT==='staging')&&c.env.SMS_MODE==='simulated';

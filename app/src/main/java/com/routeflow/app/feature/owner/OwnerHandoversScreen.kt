@@ -1,5 +1,6 @@
 package com.routeflow.app.feature.owner
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -36,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -48,6 +53,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -95,18 +102,25 @@ fun OwnerHandoversScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                    Text(stringResource(R.string.handover_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                IconButton(onClick = { viewModel.loadHandovers() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                Text(
+                    text = "Driver & Sales Cash Ledger",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = RFColors.TextSecondary
+                )
+                IconButton(
+                    onClick = { viewModel.loadHandovers() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
+                        tint = RFColors.Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 
@@ -283,29 +297,53 @@ private fun PendingHandoverCard(
     val fmt = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         handover.employee_name ?: handover.user_id,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.TextPrimary
                     )
+                    Spacer(Modifier.height(2.dp))
+                    Surface(
+                        color = RFColors.InfoSurface,
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                    ) {
+                        Text(
+                            text = handover.employee_role ?: "FIELD_STAFF",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = RFColors.Primary,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        handover.employee_role ?: "FIELD_STAFF",
+                        "Declared Cash",
                         style = MaterialTheme.typography.labelSmall,
                         color = RFColors.TextSecondary
                     )
+                    Text(
+                        CurrencyFormatter.formatPaise(handover.amount_paise),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = RFColors.Primary
+                    )
                 }
-                Text(
-                    CurrencyFormatter.formatPaise(handover.amount_paise),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = RFColors.Primary
-                )
             }
 
             Text(
@@ -315,11 +353,19 @@ private fun PendingHandoverCard(
             )
 
             if (!handover.notes.isNullOrBlank()) {
-                Text(
-                    "Notes: ${handover.notes}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = RFColors.TextPrimary
-                )
+                Surface(
+                    color = Color(0xFFF8FAFC),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Notes: ${handover.notes}",
+                        modifier = Modifier.padding(10.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RFColors.TextPrimary
+                    )
+                }
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -327,9 +373,10 @@ private fun PendingHandoverCard(
                     onClick = onReject,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = RFColors.Error)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = null)
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(stringResource(R.string.returns_reject_button))
                 }
@@ -338,14 +385,15 @@ private fun PendingHandoverCard(
                     onClick = onAccept,
                     enabled = !isProcessing,
                     modifier = Modifier.weight(1.5f),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RFColors.Primary,
                         contentColor = Color.White
                     )
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Accept Cash", color = Color.White)
+                    Text("Accept Cash", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -357,34 +405,47 @@ private fun CompletedHandoverCard(handover: CashHandoverDto) {
     val fmt = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
     val isAccepted = handover.status == "ACCEPTED"
     val statusColor = if (isAccepted) RFColors.Success else RFColors.Error
+    val statusBg = if (isAccepted) RFColors.SuccessLight else RFColors.DangerLight
+    val statusBorder = if (isAccepted) Color(0xFFA7F3D0) else Color(0xFFFECACA)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     handover.employee_name ?: handover.user_id,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = com.routeflow.app.core.util.StatusMapper.statusLabel(handover.status),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = statusColor
+                    color = RFColors.TextPrimary
                 )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusBg,
+                    border = BorderStroke(1.dp, statusBorder)
+                ) {
+                    Text(
+                        text = com.routeflow.app.core.util.StatusMapper.statusLabel(handover.status),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Declared: ${CurrencyFormatter.formatPaise(handover.amount_paise)}", style = MaterialTheme.typography.bodySmall)
+                Text("Declared: ${CurrencyFormatter.formatPaise(handover.amount_paise)}", style = MaterialTheme.typography.bodySmall, color = RFColors.TextSecondary)
                 if (handover.received_amount_paise != null) {
                     Text(
                         "Received: ${CurrencyFormatter.formatPaise(handover.received_amount_paise)}",
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.Primary
                     )
                 }
             }

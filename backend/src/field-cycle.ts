@@ -1,5 +1,6 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import { audit, commit, replay, retailerAllowed, type CycleEnv } from './daily-cycle';
+import { normalizeRole } from './security';
 type Row=Record<string,any>;
 const time=(x:unknown):x is number=>Number.isSafeInteger(x)&&(x as number)>0&&(x as number)<=Date.now()+60000;
 const coordinates=(b:Row)=> (b.latitude==null&&b.longitude==null)||(Number.isFinite(b.latitude)&&Math.abs(b.latitude)<=90&&Number.isFinite(b.longitude)&&Math.abs(b.longitude)<=180);
@@ -7,7 +8,7 @@ export function fieldCycle(auth:MiddlewareHandler<CycleEnv>){
  const app=new Hono<CycleEnv>();app.use('*',auth);
  app.post('/visits',async c=>{
   const u=c.get('user'),b=await c.req.json<Row>();
-  if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Visit access denied'},403);
+  const normRole = normalizeRole(u.role); if(!['OWNER','SALES'].includes(normRole))return c.json({error:'Visit access denied'},403);
   const ret=await c.env.DB.prepare('SELECT beat_id FROM retailers WHERE id=? AND company_id=?').bind(b.retailerId,u.company_id).first();
   if(!ret)return c.json({error:'Retailer not found in this company'},400);
   if(!await retailerAllowed(c.env.DB,u,b.retailerId))return c.json({error:'Visit access denied'},403);
@@ -19,18 +20,21 @@ export function fieldCycle(auth:MiddlewareHandler<CycleEnv>){
  app.put('/visits/:id/checkout',async c=>{
   const u=c.get('user'),id=c.req.param('id'),b=await c.req.json<Row>();
   const v=await c.env.DB.prepare('SELECT * FROM visits WHERE id=? AND company_id=? AND employee_id=?').bind(id,u.company_id,u.sub).first<Row>();
-  if(!v||!['OWNER','SALESPERSON'].includes(u.role)||!await retailerAllowed(c.env.DB,u,v.retailer_id))return c.json({error:'Visit access denied'},403);
+  const normRole = normalizeRole(u.role); if(!v||!['OWNER','SALES'].includes(normRole)||!await retailerAllowed(c.env.DB,u,v.retailer_id))return c.json({error:'Visit access denied'},403);
   b.idempotencyKey=b.idempotencyKey||`checkout_${id}`;const prior=await replay(c,`VISIT_END_${id}`,b);if(prior)return prior;
   if(!time(b.checkOutTime)||b.checkOutTime<v.check_in_time||v.status!=='ACTIVE')return c.json({error:'Invalid checkout event'},409);
   return commit(c,`VISIT_END_${id}`,b,[c.env.DB.prepare("UPDATE visits SET check_out_time=?,duration_seconds=?,status='COMPLETED',no_order_reason=?,notes=? WHERE id=?").bind(b.checkOutTime,Math.floor((b.checkOutTime-v.check_in_time)/1000),b.noOrderReason??null,b.notes??null,id),audit(c,'VISIT_COMPLETED',id,b)],{success:true});
  });
- app.get('/visits',async c=>{
-  const u=c.get('user');if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Visit access denied'},403);
-  return c.json((await c.env.DB.prepare(`SELECT id,retailer_id AS retailerId,employee_id AS employeeId,check_in_time AS checkInTime,check_out_time AS checkOutTime,latitude,longitude,accuracy,duration_seconds AS durationSeconds,status,no_order_reason AS noOrderReason,notes FROM visits WHERE company_id=? ${u.role==='OWNER'?'':'AND employee_id=?'} ORDER BY check_in_time DESC LIMIT 200`).bind(u.company_id,...(u.role==='OWNER'?[]:[u.sub])).all()).results);
- });
+ app.get('/visits', async c => {
+   const u = c.get('user');
+   const normRole = normalizeRole(u.role);
+   if (!['OWNER', 'ADMIN', 'SALES_MANAGER', 'SALES'].includes(normRole)) return c.json({ error: 'Visit access denied' }, 403);
+   const isManager = ['OWNER', 'ADMIN', 'SALES_MANAGER'].includes(normRole);
+   return c.json((await c.env.DB.prepare(`SELECT id,retailer_id AS retailerId,employee_id AS employeeId,check_in_time AS checkInTime,check_out_time AS checkOutTime,latitude,longitude,accuracy,duration_seconds AS durationSeconds,status,no_order_reason AS noOrderReason,notes FROM visits WHERE company_id=? ${isManager ? '' : 'AND employee_id=?'} ORDER BY check_in_time DESC LIMIT 200`).bind(u.company_id, ...(isManager ? [] : [u.sub])).all()).results);
+  });
  app.post('/stock-checks',async c=>{
   const u=c.get('user'),b=await c.req.json<Row>();
-  if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Stock check access denied'},403);
+  const normRole = normalizeRole(u.role); if(!['OWNER','SALES'].includes(normRole))return c.json({error:'Stock check access denied'},403);
   const ret=await c.env.DB.prepare('SELECT beat_id FROM retailers WHERE id=? AND company_id=?').bind(b.retailerId,u.company_id).first();
   if(!ret)return c.json({error:'Retailer not found in this company'},400);
   if(!await retailerAllowed(c.env.DB,u,b.retailerId))return c.json({error:'Stock check access denied'},403);
@@ -41,7 +45,7 @@ export function fieldCycle(auth:MiddlewareHandler<CycleEnv>){
  });
  app.get('/stock-checks/:retailerId',async c=>{
   const u=c.get('user'),id=c.req.param('retailerId');
-  if(!['OWNER','SALESPERSON'].includes(u.role))return c.json({error:'Stock check access denied'},403);
+  const normRole = normalizeRole(u.role); if(!['OWNER','ADMIN','SALES_MANAGER','SALES'].includes(normRole))return c.json({error:'Stock check access denied'},403);
   const ret=await c.env.DB.prepare('SELECT 1 FROM retailers WHERE id=? AND company_id=?').bind(id,u.company_id).first();
   if(!ret)return c.json({error:'Retailer not found in this company'},404);
   if(!await retailerAllowed(c.env.DB,u,id))return c.json({error:'Stock check access denied'},403);

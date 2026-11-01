@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -93,18 +94,25 @@ fun OwnerCollectionsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                    Text("Payment Review & Clearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                IconButton(onClick = { viewModel.loadCollections() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                Text(
+                    text = "UPI & Cheque Clearance Review",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = RFColors.TextSecondary
+                )
+                IconButton(
+                    onClick = { viewModel.loadCollections() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
+                        tint = RFColors.Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 

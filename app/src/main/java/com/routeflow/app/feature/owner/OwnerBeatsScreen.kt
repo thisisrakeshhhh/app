@@ -88,15 +88,11 @@ fun OwnerBeatsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                    Text(stringResource(R.string.owner_tab_beats), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                OutlinedButton(onClick = onBack) {
-                    Text("Back")
-                }
+                Text(
+                    text = "${state.beats.size} Configured Beats & Geofences",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = RFColors.TextSecondary
+                )
             }
 
             if (state.isLoading && state.beats.isEmpty()) {

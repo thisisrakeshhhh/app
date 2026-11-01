@@ -3,6 +3,7 @@ package com.routeflow.app.feature.owner
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Storefront
+import com.routeflow.app.core.design.RFColors
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -98,9 +102,6 @@ fun OwnerRetailersScreen(
                     Text("Retailer Network", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("${state.retailers.size} shops registered across active beats", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
-                OutlinedButton(onClick = onBack) {
-                    Text("Back")
-                }
             }
 
             if (state.successMessage != null) {
@@ -146,57 +147,109 @@ fun OwnerRetailersScreen(
                     val isCreditOver = retailer.outstandingAmountPaise > retailer.creditLimitPaise
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+                        border = BorderStroke(1.dp, RFColors.Border),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Retailer Store Header
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(retailer.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text("${retailer.address} · ${retailer.contactNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                                }
                                 Surface(
-                                    color = if (isCreditOver) Color(0xFFFEF2F2) else Color(0xFFECFDF5),
-                                    shape = RoundedCornerShape(4.dp),
-                                    border = BorderStroke(1.dp, if (isCreditOver) Color(0xFFFECACA) else Color(0xFFA7F3D0))
+                                    modifier = Modifier.size(44.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isCreditOver) RFColors.DangerSurface else RFColors.InfoSurface
                                 ) {
-                                    Text(
-                                        text = if (isCreditOver) "Over Limit" else "Credit OK",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isCreditOver) Color(0xFFDC2626) else Color(0xFF065F46)
-                                    )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.Storefront,
+                                            contentDescription = null,
+                                            tint = if (isCreditOver) RFColors.Danger else RFColors.Primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
                                 }
-                            }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Column {
-                                    Text("Credit Limit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                                    Text(CurrencyFormatter.formatPaise(retailer.creditLimitPaise), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                                }
-                                Column {
-                                    Text("Outstanding Udhaar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
-                                        CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise),
+                                        text = retailer.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = RFColors.TextPrimary
+                                    )
+                                    Text(
+                                        text = "${retailer.address} · ${retailer.contactNumber}",
                                         style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isCreditOver) Color(0xFFDC2626) else Color(0xFF2563EB)
+                                        color = RFColors.TextSecondary
                                     )
+                                }
+
+                                Surface(
+                                    color = if (isCreditOver) RFColors.DangerSurface else RFColors.SuccessSurface,
+                                    shape = CircleShape,
+                                    border = BorderStroke(1.dp, if (isCreditOver) RFColors.Danger.copy(alpha = 0.3f) else RFColors.Success.copy(alpha = 0.3f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(5.dp)
+                                                .background(if (isCreditOver) RFColors.Danger else RFColors.Success, CircleShape)
+                                        )
+                                        Text(
+                                            text = if (isCreditOver) "Over Limit" else "Credit OK",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isCreditOver) RFColors.Danger else RFColors.Success
+                                        )
+                                    }
                                 }
                             }
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            // Financial Summary Surface
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = RFColors.NeutralLight,
+                                border = BorderStroke(1.dp, RFColors.Border.copy(alpha = 0.6f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("Credit Limit", style = MaterialTheme.typography.labelSmall, color = RFColors.TextSecondary)
+                                        Text(
+                                            CurrencyFormatter.formatPaise(retailer.creditLimitPaise),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = RFColors.TextPrimary
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("Outstanding Udhaar", style = MaterialTheme.typography.labelSmall, color = RFColors.TextSecondary)
+                                        Text(
+                                            CurrencyFormatter.formatPaise(retailer.outstandingAmountPaise),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isCreditOver) RFColors.Danger else RFColors.Primary
+                                        )
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(color = RFColors.Border.copy(alpha = 0.6f))
 
                             // Action buttons: Call, WhatsApp, Ledger, Stock Audit, Edit
                             Row(
@@ -204,57 +257,82 @@ fun OwnerRetailersScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     // Call Shortcut
-                                    IconButton(
-                                        onClick = {
-                                            val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${retailer.contactNumber}"))
-                                            context.startActivity(dialIntent)
-                                        },
-                                        modifier = Modifier.size(36.dp)
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = RFColors.SuccessSurface,
+                                        modifier = Modifier.size(34.dp)
                                     ) {
-                                        Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF16A34A), modifier = Modifier.size(20.dp))
+                                        IconButton(
+                                            onClick = {
+                                                val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${retailer.contactNumber}"))
+                                                context.startActivity(dialIntent)
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Phone, contentDescription = "Call", tint = RFColors.Success, modifier = Modifier.size(16.dp))
+                                        }
                                     }
 
                                     // WhatsApp Shortcut
-                                    IconButton(
-                                        onClick = {
-                                            val cleanPhone = retailer.contactNumber.replace("+91", "").replace(" ", "").replace("-", "").trim()
-                                            val waIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/91$cleanPhone"))
-                                            context.startActivity(waIntent)
-                                        },
-                                        modifier = Modifier.size(36.dp)
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = RFColors.InfoSurface,
+                                        modifier = Modifier.size(34.dp)
                                     ) {
-                                        Icon(Icons.Default.Send, contentDescription = "WhatsApp", tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                                        IconButton(
+                                            onClick = {
+                                                val cleanPhone = retailer.contactNumber.replace("+91", "").replace(" ", "").replace("-", "").trim()
+                                                val waIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/91$cleanPhone"))
+                                                context.startActivity(waIntent)
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Send, contentDescription = "WhatsApp", tint = RFColors.Primary, modifier = Modifier.size(16.dp))
+                                        }
                                     }
 
                                     // Quick Ledger
                                     OutlinedButton(
                                         onClick = { viewingLedgerRetailer = retailer },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(32.dp)
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                        shape = CircleShape,
+                                        border = BorderStroke(1.dp, RFColors.Border),
+                                        modifier = Modifier.height(34.dp)
                                     ) {
-                                        Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = RFColors.TextPrimary, modifier = Modifier.size(14.dp))
                                         Spacer(Modifier.width(4.dp))
-                                        Text("Ledger", style = MaterialTheme.typography.labelSmall)
+                                        Text("Ledger", style = MaterialTheme.typography.labelSmall, color = RFColors.TextPrimary)
                                     }
                                 }
 
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    IconButton(
-                                        onClick = {
-                                            viewingStockCheckRetailer = retailer
-                                            onLoadStockChecks(retailer.id)
-                                        },
-                                        modifier = Modifier.size(36.dp).testTag("stock_checks_${retailer.id}")
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = RFColors.InfoSurface,
+                                        modifier = Modifier.size(34.dp)
                                     ) {
-                                        Icon(Icons.Default.Inventory, contentDescription = "Shelf Stock", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                        IconButton(
+                                            onClick = {
+                                                viewingStockCheckRetailer = retailer
+                                                onLoadStockChecks(retailer.id)
+                                            },
+                                            modifier = Modifier.testTag("stock_checks_${retailer.id}")
+                                        ) {
+                                            Icon(Icons.Default.Inventory, contentDescription = "Shelf Stock", tint = RFColors.Primary, modifier = Modifier.size(16.dp))
+                                        }
                                     }
-                                    IconButton(
-                                        onClick = { editingRetailer = retailer },
-                                        modifier = Modifier.size(36.dp).testTag("edit_retailer_${retailer.id}")
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = RFColors.NeutralLight,
+                                        border = BorderStroke(1.dp, RFColors.Border),
+                                        modifier = Modifier.size(34.dp)
                                     ) {
-                                        Icon(Icons.Default.Edit, contentDescription = "Edit Retailer", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                                        IconButton(
+                                            onClick = { editingRetailer = retailer },
+                                            modifier = Modifier.testTag("edit_retailer_${retailer.id}")
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Edit Retailer", tint = RFColors.TextSecondary, modifier = Modifier.size(16.dp))
+                                        }
                                     }
                                 }
                             }

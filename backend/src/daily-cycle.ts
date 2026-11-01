@@ -1,22 +1,26 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
-import { normalizeRole } from './security';
+import { normalizeRole, resolveRetailerIdForUser } from './security';
 
 export type Actor = { sub: string; company_id: string; role: string; sid: string; name: string };
 export type CycleEnv = { Bindings: { DB: D1Database }; Variables: { user: Actor } };
 type Ctx = Context<CycleEnv>;
 type Row = Record<string, any>;
-const fieldRoles = ['OWNER', 'SALESPERSON', 'SALES', 'DELIVERY_EXECUTIVE', 'DELIVERY'];
+const fieldRoles = ['OWNER', 'ADMIN', 'SALESPERSON', 'SALES', 'DELIVERY_EXECUTIVE', 'DELIVERY', 'ACCOUNTANT', 'SALES_MANAGER'];
 export const money = (n: unknown, zero = false): n is number => Number.isSafeInteger(n) && (n as number) >= (zero ? 0 : 1) && (n as number) <= 1_000_000_000;
 const quantity = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0 && (n as number) <= 100000;
 const bad = (c: Ctx, error: string, status: 400 | 403 | 404 | 409 = 400) => c.json({ error }, status);
 export async function retailerAllowed(db: D1Database, u: Actor, id: string): Promise<boolean> {
- if (!fieldRoles.includes(u.role) && !fieldRoles.includes(normalizeRole(u.role))) return false;
+ const normRole = normalizeRole(u.role);
  const r = await db.prepare('SELECT beat_id FROM retailers WHERE id = ? AND company_id = ?').bind(id, u.company_id).first<{ beat_id: string }>();
  if (!r) return false;
- const normRole = normalizeRole(u.role);
- if (normRole === 'OWNER') return true;
+ if (['OWNER', 'ADMIN', 'ACCOUNTANT', 'SALES_MANAGER'].includes(normRole)) return true;
  if (normRole === 'SALES') return !!await db.prepare('SELECT 1 FROM user_beat_assignments WHERE user_id = ? AND company_id = ? AND beat_id = ?').bind(u.sub, u.company_id, r.beat_id).first();
- return !!await db.prepare("SELECT 1 FROM orders WHERE retailer_id = ? AND company_id = ? AND delivery_employee_id = ? AND status IN ('OUT_FOR_DELIVERY','DELIVERED','PARTIALLY_DELIVERED')").bind(id, u.company_id, u.sub).first();
+ if (normRole === 'DELIVERY') return !!await db.prepare("SELECT 1 FROM orders WHERE retailer_id = ? AND company_id = ? AND delivery_employee_id = ? AND status IN ('OUT_FOR_DELIVERY','DELIVERED','PARTIALLY_DELIVERED')").bind(id, u.company_id, u.sub).first();
+ if (normRole === 'RETAILER') {
+   const authRetId = await resolveRetailerIdForUser(db, u.company_id, u.sub);
+   return authRetId === id;
+ }
+ return false;
 }
 export const audit = (c: Ctx, action: string, id: string, details: unknown) => c.env.DB.prepare(
  'INSERT INTO audit_logs (id,company_id,user_id,action,entity_id,details,timestamp) VALUES (?,?,?,?,?,?,?)'
@@ -116,14 +120,17 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,'COLLECT',b,statements,{success:true,collectionId:id,receiptId,status:b.paymentMethod === 'CASH' ? 'SETTLED' : 'ENTERED',unappliedPaise:b.paymentMethod === 'CASH' ? b.amountPaise-alloc.items.reduce((s,a)=>s+a.amountPaise,0) : b.amountPaise,balanceAfterPaise:current!.outstanding_amount_paise-(b.paymentMethod === 'CASH' ? b.amountPaise : 0)});
  });
  app.get('/collections', async c => {
-  const u = c.get('user'); if (!fieldRoles.includes(normalizeRole(u.role)) && !fieldRoles.includes(u.role)) return bad(c,'Collection access denied',403);
-  const retailerId = c.req.query('retailerId'); if (retailerId && !await retailerAllowed(c.env.DB,u,retailerId)) return bad(c,'Retailer access denied',403);
-  const isOwner = normalizeRole(u.role) === 'OWNER';
+   const u = c.get('user');
+   const normRole = normalizeRole(u.role);
+   if (!['OWNER', 'ADMIN', 'ACCOUNTANT', 'SALES', 'DELIVERY'].includes(normRole)) return bad(c, 'Collection access denied', 403);
+   const retailerId = c.req.query('retailerId');
+   if (retailerId && !await retailerAllowed(c.env.DB, u, retailerId)) return bad(c, 'Retailer access denied', 403);
+   const isOwner = ['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(normRole);
   const rows = await c.env.DB.prepare(`SELECT c.*,r.name AS retailer_name,u.full_name AS collected_by_name FROM collections c JOIN retailers r ON r.id=c.retailer_id JOIN users u ON u.id=c.collected_by WHERE c.company_id=? ${isOwner ? '' : 'AND c.collected_by=?'} ${retailerId ? 'AND c.retailer_id=?' : ''} ORDER BY c.created_at DESC LIMIT 200`).bind(u.company_id,...(isOwner ? [] : [u.sub]),...(retailerId ? [retailerId] : [])).all();
   return c.json({collections:rows.results});
  });
  app.post('/collections/:id/review', async c => {
-  const u = c.get('user'); if (normalizeRole(u.role) !== 'OWNER') return bad(c,'Owner required',403);
+  const u = c.get('user'); const normRole = normalizeRole(u.role); if (normRole !== 'OWNER' && normRole !== 'ACCOUNTANT') return bad(c, 'Owner or Accountant required', 403);
   const row = await collection(c,c.req.param('id')); if (!row) return bad(c,'Collection not found',404);
   const b = await c.req.json<Row>(); const prior = await replay(c,`REVIEW_${row.id}`,b); if (prior) return prior;
   if (!['VERIFY','CLEAR','REJECT','REVERSE'].includes(b.action) || !b.reason?.trim()) return bad(c,'Action and reason required');
@@ -173,12 +180,12 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
   return commit(c,'HANDOVER',b,[c.env.DB.prepare("INSERT INTO cash_handovers(id,company_id,user_id,amount_paise,status,submitted_at,notes,expected_amount_paise) VALUES(?,?,?,?,'PENDING',?,?,?)").bind(id,u.company_id,u.sub,b.amountPaise,Date.now(),b.notes||null,held.cashHeldPaise),audit(c,'HANDOVER_REQUESTED',id,b)],{success:true,handoverId:id,status:'PENDING',amountPaise:b.amountPaise});
  });
  app.get('/owner/handovers', async c => {
-  if (normalizeRole(c.get('user').role) !== 'OWNER') return bad(c, 'Owner required', 403);
+  const normRole = normalizeRole(c.get('user').role); if (!['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(normRole)) return bad(c, 'Owner, Admin or Accountant required', 403);
   return c.json({ handovers: (await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(c.get('user').company_id).all()).results });
  });
  app.get('/cash-handovers', async c => {
   const u = c.get('user');
-  if (['OWNER', 'ADMIN'].includes(normalizeRole(u.role))) {
+  if (['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(normalizeRole(u.role))) {
    return c.json({ handovers: (await c.env.DB.prepare('SELECT h.*,u.full_name AS employee_name,u.role AS employee_role FROM cash_handovers h JOIN users u ON u.id=h.user_id WHERE h.company_id=? ORDER BY h.submitted_at DESC LIMIT 200').bind(u.company_id).all()).results });
   }
   const rows = await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE company_id=? AND user_id=? ORDER BY submitted_at DESC LIMIT 100').bind(u.company_id, u.sub).all<Row>();
@@ -206,7 +213,7 @@ export function dailyCycle(auth: MiddlewareHandler<CycleEnv>) {
  app.post('/cash-handovers/:id/acknowledge', async c => {
   const u = c.get('user');
   const normRole = normalizeRole(u.role);
-  if (normRole !== 'OWNER' && normRole !== 'ADMIN') return bad(c, 'Owner or Admin required', 403);
+  if (!['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(normRole)) return bad(c, 'Owner, Admin or Accountant required', 403);
   const row = await c.env.DB.prepare('SELECT * FROM cash_handovers WHERE id=? AND company_id=?').bind(c.req.param('id'), u.company_id).first<Row>();
   if (!row) return bad(c, 'Handover not found', 404);
   const b = await c.req.json<Row>();

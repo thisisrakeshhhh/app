@@ -50,7 +50,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Inventory2
 import com.routeflow.app.core.common.CurrencyFormatter
+import com.routeflow.app.core.design.RFColors
 import com.routeflow.app.domain.model.Product
 
 @Composable
@@ -83,9 +88,6 @@ fun OwnerProductsScreen(
                 Column {
                     Text("Product Catalog", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("${state.products.size} products registered", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                }
-                OutlinedButton(onClick = onBack) {
-                    Text("Back")
                 }
             }
 
@@ -190,31 +192,145 @@ private fun ProductItemCard(
     onEdit: () -> Unit,
     onAdjustStock: () -> Unit
 ) {
+    val isOutOfStock = product.stockQuantity <= 0
+    val isLowStock = product.stockQuantity in 1..19
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(containerColor = RFColors.Surface),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, RFColors.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("${product.category} · ${product.unit}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Wholesale: ${CurrencyFormatter.formatPaise(product.pricePaise)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                    Text("Stock: ${product.stockQuantity}", style = MaterialTheme.typography.bodySmall, color = if (product.stockQuantity < 20) Color(0xFFDC2626) else Color(0xFF16A34A), fontWeight = FontWeight.Bold)
+            // Icon container with category tone
+            Surface(
+                modifier = Modifier.size(46.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = RFColors.InfoSurface
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Inventory2,
+                        contentDescription = null,
+                        tint = RFColors.Primary,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = onAdjustStock, modifier = Modifier.testTag("adjust_stock_${product.id}")) {
-                    Icon(Icons.Default.Inventory, contentDescription = "Adjust Stock", tint = MaterialTheme.colorScheme.primary)
+
+            // Product Details
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "${product.category.uppercase()} · ${product.unit.uppercase()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = RFColors.TextSecondary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = RFColors.TextPrimary
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = CurrencyFormatter.formatPaise(product.pricePaise),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = RFColors.Primary
+                    )
+
+                    // Stock Status Pill
+                    Surface(
+                        shape = CircleShape,
+                        color = when {
+                            isOutOfStock -> RFColors.DangerSurface
+                            isLowStock -> RFColors.WarningSurface
+                            else -> RFColors.SuccessSurface
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                isOutOfStock -> RFColors.Danger.copy(alpha = 0.3f)
+                                isLowStock -> RFColors.Warning.copy(alpha = 0.3f)
+                                else -> RFColors.Success.copy(alpha = 0.3f)
+                            }
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(5.dp)
+                                    .background(
+                                        when {
+                                            isOutOfStock -> RFColors.Danger
+                                            isLowStock -> RFColors.Warning
+                                            else -> RFColors.Success
+                                        },
+                                        CircleShape
+                                    )
+                            )
+                            Text(
+                                text = when {
+                                    isOutOfStock -> "Out of stock"
+                                    isLowStock -> "${product.stockQuantity} low"
+                                    else -> "${product.stockQuantity} in stock"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = when {
+                                    isOutOfStock -> RFColors.Danger
+                                    isLowStock -> RFColors.Warning
+                                    else -> RFColors.Success
+                                }
+                            )
+                        }
+                    }
                 }
-                IconButton(onClick = onEdit, modifier = Modifier.testTag("edit_product_${product.id}")) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit Product", tint = MaterialTheme.colorScheme.secondary)
+            }
+
+            // Action Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Surface(
+                    shape = CircleShape,
+                    color = RFColors.InfoSurface,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    IconButton(onClick = onAdjustStock, modifier = Modifier.testTag("adjust_stock_${product.id}")) {
+                        Icon(
+                            Icons.Default.Inventory,
+                            contentDescription = "Adjust Stock",
+                            tint = RFColors.Primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = RFColors.NeutralLight,
+                    border = BorderStroke(1.dp, RFColors.Border),
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    IconButton(onClick = onEdit, modifier = Modifier.testTag("edit_product_${product.id}")) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit Product",
+                            tint = RFColors.TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

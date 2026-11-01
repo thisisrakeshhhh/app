@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude all secure storage Shared Preferences and session files from full backup on Android 6.0 - 11 -->
+    <exclude domain="sharedpref" path="FlutterSecureStorage" />
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="file" path=".routeflow_secure_session" />
+</full-backup-content>
