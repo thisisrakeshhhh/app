@@ -237,4 +237,73 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
       ),
     );
   }
+
+  /// Retrieves all mutations requiring user attention (permanently failed or server-rejected).
+  Future<List<OutboxMutationEntry>> getFailedMutations() async {
+    final query = select(db.outboxMutations)
+      ..where((tbl) => tbl.syncStatus.equals('FAILED_PERMANENT'))
+      ..orderBy([
+        (tbl) => OrderingTerm.desc(tbl.createdAtEpochMs),
+      ]);
+    return query.get();
+  }
+
+  /// Cancels and removes a failed mutation from the outbox queue.
+  Future<void> cancelMutation(String id) async {
+    await (delete(db.outboxMutations)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  /// Resets a failed mutation back to PENDING so the user can re-try sync.
+  Future<void> resetFailedToPending(String id) async {
+    await (update(db.outboxMutations)..where((tbl) => tbl.id.equals(id))).write(
+      const OutboxMutationsCompanion(
+        syncStatus: Value('PENDING'),
+        attemptCount: Value(0),
+        nextRetryAtMs: Value(null),
+      ),
+    );
+  }
+
+  /// Transactionally rewrites provisional business IDs upon server 200 acceptance.
+  ///
+  /// Updates the outbox mutation entry, replaces matching provisional references in
+  /// pending dependent outbox mutation payloads, and updates matching local retailer records.
+  Future<void> rewriteProvisionalId({
+    required String provisionalId,
+    required String serverBusinessId,
+    required String organizationId,
+  }) async {
+    await transaction(() async {
+      // 1. Update the mutation's own provisional record
+      await (update(db.outboxMutations)
+            ..where((tbl) => tbl.provisionalBusinessId.equals(provisionalId)))
+          .write(OutboxMutationsCompanion(
+        provisionalBusinessId: Value(serverBusinessId),
+      ));
+
+      // 2. Rewrite dependent references in payloadJson of pending mutations
+      final pending = await (select(db.outboxMutations)
+            ..where((tbl) =>
+                tbl.organizationId.equals(organizationId) &
+                (tbl.syncStatus.equals('PENDING') | tbl.syncStatus.equals('RETRYABLE_FAILURE'))))
+          .get();
+
+      for (final m in pending) {
+        if (m.payloadJson.contains(provisionalId)) {
+          final updatedPayloadJson = m.payloadJson.replaceAll(provisionalId, serverBusinessId);
+          await (update(db.outboxMutations)..where((tbl) => tbl.id.equals(m.id))).write(
+            OutboxMutationsCompanion(
+              payloadJson: Value(updatedPayloadJson),
+            ),
+          );
+        }
+      }
+
+      // 3. Update local retailers record if applicable
+      await db.customStatement(
+        'UPDATE retailers SET id = ? WHERE id = ?;',
+        [serverBusinessId, provisionalId],
+      );
+    });
+  }
 }

@@ -393,6 +393,66 @@ class RetailerShop {
   }
 
   String get totalTimeSpentFormatted => formatDuration(allTimeSpentSeconds);
+
+  RetailerShop copyWith({
+    String? id,
+    String? name,
+    String? ownerName,
+    String? phone,
+    String? address,
+    String? area,
+    int? creditLimitPaise,
+    int? outstandingPaise,
+    bool? visitedToday,
+    int? todayOrderTotalPaise,
+    int? totalTimeSpentSeconds,
+    DateTime? currentVisitStartTime,
+    DateTime? lastVisitEndTime,
+    int? visitCountToday,
+    double? latitude,
+    double? longitude,
+    String? classType,
+    String? classSource,
+    String? routeId,
+    String? shopType,
+    String? gstin,
+    String? pincode,
+    String? landmark,
+    String? status,
+    String? createdByUserId,
+    double? locationAccuracyMeters,
+    String? syncStatus,
+  }) {
+    return RetailerShop(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      ownerName: ownerName ?? this.ownerName,
+      phone: phone ?? this.phone,
+      address: address ?? this.address,
+      area: area ?? this.area,
+      creditLimitPaise: creditLimitPaise ?? this.creditLimitPaise,
+      outstandingPaise: outstandingPaise ?? this.outstandingPaise,
+      visitedToday: visitedToday ?? this.visitedToday,
+      todayOrderTotalPaise: todayOrderTotalPaise ?? this.todayOrderTotalPaise,
+      totalTimeSpentSeconds: totalTimeSpentSeconds ?? this.totalTimeSpentSeconds,
+      currentVisitStartTime: currentVisitStartTime ?? this.currentVisitStartTime,
+      lastVisitEndTime: lastVisitEndTime ?? this.lastVisitEndTime,
+      visitCountToday: visitCountToday ?? this.visitCountToday,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      classType: classType ?? this.classType,
+      classSource: classSource ?? this.classSource,
+      routeId: routeId ?? this.routeId,
+      shopType: shopType ?? this.shopType,
+      gstin: gstin ?? this.gstin,
+      pincode: pincode ?? this.pincode,
+      landmark: landmark ?? this.landmark,
+      status: status ?? this.status,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      locationAccuracyMeters: locationAccuracyMeters ?? this.locationAccuracyMeters,
+      syncStatus: syncStatus ?? this.syncStatus,
+    );
+  }
   String get activeVisitFormatted => formatDuration(currentVisitSeconds);
 
   void startVisit() {
@@ -420,6 +480,7 @@ enum OrderLifecycleStage {
   readyStock, // Picked and loaded into Car / Delivery Van
   orderSend, // Out for delivery on beat route
   delivered, // Delivered, OTP verified & cash collected
+  rejected, // Rejected by server or outbox validation
 }
 
 extension OrderLifecycleExt on OrderLifecycleStage {
@@ -433,6 +494,8 @@ extension OrderLifecycleExt on OrderLifecycleStage {
         return 'Order Send (On Route)';
       case OrderLifecycleStage.delivered:
         return 'Delivered & Settled';
+      case OrderLifecycleStage.rejected:
+        return 'Rejected (Reservation Released)';
     }
   }
 
@@ -446,6 +509,8 @@ extension OrderLifecycleExt on OrderLifecycleStage {
         return 2;
       case OrderLifecycleStage.delivered:
         return 3;
+      case OrderLifecycleStage.rejected:
+        return -1;
     }
   }
 }
@@ -490,6 +555,44 @@ class DistributorOrder {
   double get totalRupees => totalPaise / 100.0;
   double get taxableRupees => taxablePaise / 100.0;
   double get gstRupees => totalGstPaise / 100.0;
+
+  DistributorOrder copyWith({
+    String? id,
+    String? orderNumber,
+    String? shopId,
+    String? shopName,
+    String? shopPhone,
+    String? address,
+    List<CartItem>? items,
+    int? totalPaise,
+    int? taxablePaise,
+    int? totalGstPaise,
+    String? paymentMode,
+    OrderLifecycleStage? stage,
+    String? assignedCarNumber,
+    String? otp,
+    DateTime? createdAt,
+    bool? isPaid,
+  }) {
+    return DistributorOrder(
+      id: id ?? this.id,
+      orderNumber: orderNumber ?? this.orderNumber,
+      shopId: shopId ?? this.shopId,
+      shopName: shopName ?? this.shopName,
+      shopPhone: shopPhone ?? this.shopPhone,
+      address: address ?? this.address,
+      items: items ?? this.items,
+      totalPaise: totalPaise ?? this.totalPaise,
+      taxablePaise: taxablePaise ?? this.taxablePaise,
+      totalGstPaise: totalGstPaise ?? this.totalGstPaise,
+      paymentMode: paymentMode ?? this.paymentMode,
+      stage: stage ?? this.stage,
+      assignedCarNumber: assignedCarNumber ?? this.assignedCarNumber,
+      otp: otp ?? this.otp,
+      createdAt: createdAt ?? this.createdAt,
+      isPaid: isPaid ?? this.isPaid,
+    );
+  }
 }
 
 class DeliveryStop {

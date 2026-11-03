@@ -6,6 +6,10 @@ import 'package:drift/native.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lala_distributor/data/local/app_database.dart';
+import 'package:lala_distributor/data/local/local_repository.dart';
+import 'package:lala_distributor/domain/auth/auth_models.dart';
+import 'package:lala_distributor/models/models.dart';
+import 'package:lala_distributor/services/api_service.dart';
 import 'package:lala_distributor/services/sync_worker.dart';
 
 void main() {
@@ -393,6 +397,200 @@ void main() {
       expect(updated.syncStatus, 'FAILED_PERMANENT');
       expect(updated.syncedAtEpochMs, isNull);
       expect(updated.lastErrorCode, 'UNSUPPORTED_MUTATION_TYPE');
+    });
+
+    test('9. Provisional ID rewriting on server COMMITTED updates dependent outbox payloads', () async {
+      await insertTestMutation(
+        id: 'mut_shop_prov',
+        sequenceOrder: 1,
+        idempotencyKey: 'idem_shop_prov',
+        mutationType: 'CREATE_RETAILER',
+        payload: {'shopName': 'Shiv Kirana', 'phone': '9829011111'},
+        provisionalId: 'LOCAL-RET-999',
+      );
+
+      await insertTestMutation(
+        id: 'mut_order_dep',
+        sequenceOrder: 2,
+        idempotencyKey: 'idem_order_dep',
+        mutationType: 'CREATE_ORDER',
+        payload: {'retailerId': 'LOCAL-RET-999', 'totalPaise': 25000},
+        provisionalId: 'LOCAL-ORD-999',
+      );
+
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'results': [
+              {
+                'mutationId': 'mut_shop_prov',
+                'status': 'COMMITTED',
+                'serverBusinessId': 'ret_srv_actual_999',
+                'serverSequence': 5001,
+              },
+              {
+                'mutationId': 'mut_order_dep',
+                'status': 'COMMITTED',
+                'serverBusinessId': 'ord_srv_actual_999',
+                'serverSequence': 5002,
+              }
+            ],
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final result = await worker.processPendingOutbox(
+        organizationId: testOrgId,
+        userId: testUserId,
+      );
+
+      expect(result.success, true);
+      expect(result.syncedCount, 2);
+
+      // Verify shop provisional ID rewritten to serverBusinessId
+      final shopMut = await (db.select(db.outboxMutations)..where((tbl) => tbl.id.equals('mut_shop_prov'))).getSingle();
+      expect(shopMut.provisionalBusinessId, 'ret_srv_actual_999');
+      expect(shopMut.syncStatus, 'SYNCED');
+
+      // Verify order provisional ID rewritten to serverBusinessId
+      final orderMut = await (db.select(db.outboxMutations)..where((tbl) => tbl.id.equals('mut_order_dep'))).getSingle();
+      expect(orderMut.provisionalBusinessId, 'ord_srv_actual_999');
+      expect(orderMut.syncStatus, 'SYNCED');
+    });
+
+    test('10. Server REJECTED order releases virtual reservation in ApiService', () async {
+      final repo = LocalRepository(db);
+      final api = ApiService.internalForTesting(
+        database: db,
+        localRepo: repo,
+        sessionProvider: () => const UserSession(
+          userId: testUserId,
+          name: 'Test Sales',
+          activeOrganizationId: testOrgId,
+          activeRole: 'SALES',
+          organizations: [
+            OrganizationMembership(id: testOrgId, name: 'Test Org', role: 'SALES', isActive: true),
+          ],
+        ),
+      );
+      await api.syncForTesting(seed: true);
+
+      final shop = api.retailers.first;
+      final prod = api.products.first;
+      final initialAvailable = api.availableGodownPieces(prod.id);
+
+      api.selectShop(shop);
+      api.addToCart(prod, OrderUnit.box, 1);
+      final order = await api.confirmOrderDurable(
+        shopId: shop.id,
+        paymentMode: 'COD',
+        checkoutIdempotencyKey: 'idem_release_test_01',
+      );
+
+      // Invariant: Available stock was decreased by 1 box (virtual reservation placed)
+      expect(api.availableGodownPieces(prod.id), initialAvailable - prod.boxQty);
+
+      final pending = await db.outboxDao.getPendingQueue();
+      final orderMut = pending.firstWhere((m) => m.provisionalBusinessId == order.id);
+
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'results': [
+              {
+                'mutationId': orderMut.id,
+                'status': 'REJECTED',
+                'errorCode': 'INSUFFICIENT_STOCK',
+                'errorMessage': 'Godown physical stock exhausted on server',
+              }
+            ],
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        apiService: api,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final result = await worker.processPendingOutbox(
+        organizationId: testOrgId,
+        userId: testUserId,
+      );
+
+      expect(result.success, false);
+      expect(result.hasPermanentFailure, true);
+
+      // Invariant: Virtual reservation must be released! Stock back to initialAvailable
+      expect(api.availableGodownPieces(prod.id), initialAvailable);
+      expect(order.stage, OrderLifecycleStage.rejected);
+    });
+
+    test('11. Dependent order mutation is held back if its shop mutation is not in the batch', () async {
+      // 1. Pending shop mutation scheduled for future retry (cannot run now)
+      await db.outboxDao.insertOrderMutationAtomic(
+        id: 'mut_shop_future',
+        organizationId: testOrgId,
+        userId: testUserId,
+        idempotencyKey: 'idem_shop_future',
+        mutationType: 'CREATE_RETAILER',
+        payloadJson: jsonEncode({'name': 'Future Shop'}),
+        provisionalBusinessId: 'LOCAL-RET-FUTURE',
+        createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+      );
+      // Mark it with future retry timestamp
+      await (db.update(db.outboxMutations)..where((tbl) => tbl.id.equals('mut_shop_future'))).write(
+        OutboxMutationsCompanion(
+          syncStatus: const drift.Value('RETRYABLE_FAILURE'),
+          nextRetryAtMs: drift.Value(DateTime.now().millisecondsSinceEpoch + 60000),
+        ),
+      );
+
+      // 2. Ready order mutation targeting the un-synced shop
+      await insertTestMutation(
+        id: 'mut_order_blocked',
+        sequenceOrder: 2,
+        idempotencyKey: 'idem_order_blocked',
+        mutationType: 'CREATE_ORDER',
+        payload: {'retailerId': 'LOCAL-RET-FUTURE', 'totalPaise': 10000},
+        provisionalId: 'LOCAL-ORD-BLOCKED',
+      );
+
+      int requestsMade = 0;
+      final mockClient = MockClient((request) async {
+        requestsMade++;
+        return http.Response(jsonEncode({'success': true, 'results': []}), 200);
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final result = await worker.processPendingOutbox(
+        organizationId: testOrgId,
+        userId: testUserId,
+      );
+
+      // Invariant: Order was held back because shop is pending acceptance, 0 requests made
+      expect(result.syncedCount, 0);
+      expect(requestsMade, 0);
     });
   });
 }

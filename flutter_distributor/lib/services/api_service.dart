@@ -2085,6 +2085,49 @@ class ApiService extends ChangeNotifier {
     );
   }
 
+  /// Rewrites provisional retailer ID upon authentic server 200 acknowledgment.
+  void rewriteProvisionalRetailerId(String provisionalId, String serverBusinessId) {
+    bool updated = false;
+    final rIdx = _retailers.indexWhere((r) => r.id == provisionalId);
+    if (rIdx != -1) {
+      final old = _retailers[rIdx];
+      _retailers[rIdx] = old.copyWith(id: serverBusinessId, syncStatus: 'SYNCED');
+      updated = true;
+    }
+    for (int i = 0; i < _orders.length; i++) {
+      if (_orders[i].shopId == provisionalId) {
+        _orders[i] = _orders[i].copyWith(shopId: serverBusinessId);
+        updated = true;
+      }
+    }
+    if (_selectedShop?.id == provisionalId) {
+      _selectedShop = _selectedShop!.copyWith(id: serverBusinessId, syncStatus: 'SYNCED');
+      updated = true;
+    }
+    if (updated) notifyListeners();
+  }
+
+  /// Rewrites provisional order ID and orderNumber upon server 200 acknowledgment.
+  void rewriteProvisionalOrderId(String provisionalId, String serverBusinessId) {
+    final oIdx = _orders.indexWhere((o) => o.id == provisionalId);
+    if (oIdx != -1) {
+      _orders[oIdx] = _orders[oIdx].copyWith(
+        id: serverBusinessId,
+        orderNumber: serverBusinessId,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Releases virtual reservation for a booking rejected by the server or cancelled.
+  void releaseOrderReservation(String provisionalId, {String? reason}) {
+    final oIdx = _orders.indexWhere((o) => o.id == provisionalId || o.orderNumber == provisionalId);
+    if (oIdx != -1) {
+      _orders[oIdx].stage = OrderLifecycleStage.rejected;
+      notifyListeners();
+    }
+  }
+
   /// Slice 6: Returns strictly honest, unambiguous labels for sync status.
   /// Never claims an order is synced to cloud until real server acknowledgment.
   String getHonestSyncStatusLabel(String syncStatus) {
@@ -2150,7 +2193,7 @@ class ApiService extends ChangeNotifier {
       ),
       OrderTimelineStep(
         title: 'Cloud Sync',
-        subtitle: isSynced ? 'Synced to Cloudflare D1' : 'Pending upload to Cloudflare',
+        subtitle: isSynced ? 'Sent to the office' : 'Pending upload to Cloudflare',
         isCompleted: isSynced,
         timestamp: isSynced ? DateTime.now() : null,
       ),

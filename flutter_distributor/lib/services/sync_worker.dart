@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../data/local/app_database.dart';
+import 'api_service.dart';
 import 'auth_service.dart';
 
 enum SyncWorkerState {
@@ -60,6 +61,7 @@ class SyncWorker extends ChangeNotifier {
   final http.Client httpClient;
   final String baseUrl;
   final AuthService? authService;
+  final ApiService? apiService;
   final Future<String?> Function()? accessTokenProvider;
   final Future<bool> Function()? refreshTokenTrigger;
 
@@ -74,6 +76,7 @@ class SyncWorker extends ChangeNotifier {
     required this.httpClient,
     required this.baseUrl,
     this.authService,
+    this.apiService,
     this.accessTokenProvider,
     this.refreshTokenTrigger,
   });
@@ -127,10 +130,44 @@ class SyncWorker extends ChangeNotifier {
     }
 
     final nowEpochMs = DateTime.now().millisecondsSinceEpoch;
-    final readyMutations = pendingMutations.where((m) {
+
+    // Collect pending shop creation provisional IDs that have NOT yet synced
+    final pendingShopProvisionalIds = <String>{};
+    for (final m in pendingMutations) {
+      if (m.mutationType == 'CREATE_RETAILER' &&
+          m.provisionalBusinessId != null &&
+          (m.syncStatus == 'PENDING' || m.syncStatus == 'RETRYABLE_FAILURE')) {
+        pendingShopProvisionalIds.add(m.provisionalBusinessId!);
+      }
+    }
+
+    final readyMutations = <OutboxMutationEntry>[];
+    for (final m in pendingMutations) {
       final nextRetry = m.nextRetryAtMs;
-      return nextRetry == null || nextRetry <= nowEpochMs;
-    }).take(limit).toList();
+      if (nextRetry != null && nextRetry > nowEpochMs) continue;
+
+      if (m.mutationType == 'CREATE_ORDER') {
+        String? orderRetailerId;
+        try {
+          final payload = jsonDecode(m.payloadJson);
+          orderRetailerId = payload['retailer']?['id'] ?? payload['retailerId'];
+        } catch (_) {}
+
+        // If this order depends on a shop mutation that has not yet synced and is not earlier in this batch
+        if (orderRetailerId != null && pendingShopProvisionalIds.contains(orderRetailerId)) {
+          final shopAlreadyInBatch = readyMutations.any(
+            (r) => r.mutationType == 'CREATE_RETAILER' && r.provisionalBusinessId == orderRetailerId,
+          );
+          if (!shopAlreadyInBatch) {
+            // Hold order mutation back until its shop mutation is accepted
+            continue;
+          }
+        }
+      }
+
+      readyMutations.add(m);
+      if (readyMutations.length >= limit) break;
+    }
 
     if (readyMutations.isEmpty) {
       return SyncPushResult.empty();
@@ -233,6 +270,26 @@ class SyncWorker extends ChangeNotifier {
             if (status == 'COMMITTED') {
               await db.outboxDao.markSynced(id: m.id, syncedAtEpochMs: nowMs);
               syncedCount++;
+
+              // Transactional provisional ID rewriting
+              final serverBusinessId = res['serverBusinessId'] as String?;
+              final provId = m.provisionalBusinessId;
+              if (serverBusinessId != null &&
+                  serverBusinessId.isNotEmpty &&
+                  provId != null &&
+                  provId.isNotEmpty &&
+                  provId != serverBusinessId) {
+                await db.outboxDao.rewriteProvisionalId(
+                  provisionalId: provId,
+                  serverBusinessId: serverBusinessId,
+                  organizationId: orgId,
+                );
+                if (m.mutationType == 'CREATE_RETAILER') {
+                  apiService?.rewriteProvisionalRetailerId(provId, serverBusinessId);
+                } else if (m.mutationType == 'CREATE_ORDER') {
+                  apiService?.rewriteProvisionalOrderId(provId, serverBusinessId);
+                }
+              }
             } else if (status == 'REJECTED') {
               rejectedCount++;
               final errCode = res['errorCode'] as String? ?? 'UNSUPPORTED_MUTATION_TYPE';
@@ -242,6 +299,14 @@ class SyncWorker extends ChangeNotifier {
                 id: m.id,
                 errorCode: errCode,
               );
+
+              // Virtual reservation release on rejected order
+              if (m.mutationType == 'CREATE_ORDER') {
+                final provId = m.provisionalBusinessId;
+                if (provId != null) {
+                  apiService?.releaseOrderReservation(provId, reason: errMsg);
+                }
+              }
             }
           }
         }
@@ -268,12 +333,22 @@ class SyncWorker extends ChangeNotifier {
             id: failedMutationId,
             errorCode: 'IDEMPOTENCY_PAYLOAD_MISMATCH',
           );
+          final failedMut = readyMutations.cast<OutboxMutationEntry?>().firstWhere(
+                (m) => m?.id == failedMutationId,
+                orElse: () => null,
+              );
+          if (failedMut?.mutationType == 'CREATE_ORDER' && failedMut?.provisionalBusinessId != null) {
+            apiService?.releaseOrderReservation(failedMut!.provisionalBusinessId!, reason: message);
+          }
         } else {
           for (final m in readyMutations) {
             await db.outboxDao.markFailedPermanent(
               id: m.id,
               errorCode: 'IDEMPOTENCY_PAYLOAD_MISMATCH',
             );
+            if (m.mutationType == 'CREATE_ORDER' && m.provisionalBusinessId != null) {
+              apiService?.releaseOrderReservation(m.provisionalBusinessId!, reason: message);
+            }
           }
         }
 
@@ -304,12 +379,17 @@ class SyncWorker extends ChangeNotifier {
         return SyncPushResult.authRequired();
       }
 
-      // --- CASE 4: HTTP 403 Forbidden (RBAC / Tenant Mismatch) ---
-      if (response.statusCode == 403) {
+      // --- CASE 4: HTTP 403 Forbidden or HTTP 400 Bad Request ---
+      if (response.statusCode == 403 || response.statusCode == 400) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        final message = body['message'] as String? ?? 'Action forbidden by server permissions.';
+        final message = body['message'] as String? ?? 'Action rejected by server permissions.';
+        final errCode = body['error'] as String? ??
+            (response.statusCode == 403 ? 'FORBIDDEN_ROLE_ACTION' : 'BAD_REQUEST');
         for (final m in readyMutations) {
-          await db.outboxDao.markFailedPermanent(id: m.id, errorCode: 'FORBIDDEN_ROLE_ACTION');
+          await db.outboxDao.markFailedPermanent(id: m.id, errorCode: errCode);
+          if (m.mutationType == 'CREATE_ORDER' && m.provisionalBusinessId != null) {
+            apiService?.releaseOrderReservation(m.provisionalBusinessId!, reason: message);
+          }
         }
         _lastError = message;
         _setState(SyncWorkerState.idle);

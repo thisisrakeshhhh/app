@@ -15,6 +15,7 @@ class SyncStatusView extends StatefulWidget {
 class _SyncStatusViewState extends State<SyncStatusView> {
   bool _isLoading = true;
   List<OutboxMutationEntry> _pendingMutations = [];
+  List<OutboxMutationEntry> _failedMutations = [];
 
   @override
   void initState() {
@@ -24,12 +25,56 @@ class _SyncStatusViewState extends State<SyncStatusView> {
 
   Future<void> _loadMutations() async {
     setState(() => _isLoading = true);
-    final list = await widget.api.db.outboxDao.getPendingQueue();
+    final pending = await widget.api.db.outboxDao.getPendingQueue();
+    final failed = await widget.api.db.outboxDao.getFailedMutations();
     if (mounted) {
       setState(() {
-        _pendingMutations = list;
+        _pendingMutations = pending;
+        _failedMutations = failed;
         _isLoading = false;
       });
+    }
+  }
+
+  String _formatPlainReason(String? code) {
+    switch (code) {
+      case 'INSUFFICIENT_STOCK':
+        return 'Stock finished at office godown (गोदाम में स्टॉक समाप्त)';
+      case 'FORBIDDEN_ROLE_ACTION':
+        return 'Not permitted for this role (इस कार्य की अनुमति नहीं)';
+      case 'IDEMPOTENCY_PAYLOAD_MISMATCH':
+        return 'Duplicate transaction with conflicting data';
+      case 'UNSUPPORTED_MUTATION_TYPE':
+        return 'Update format not supported by server';
+      case 'INVALID_UNIT_MULTIPLIER':
+        return 'Product unit packaging mismatch with office master';
+      case 'BAD_REQUEST':
+        return 'Invalid data rejected by office server';
+      default:
+        return code ?? 'Submission rejected by office server';
+    }
+  }
+
+  Future<void> _cancelFailed(OutboxMutationEntry m) async {
+    await widget.api.db.outboxDao.cancelMutation(m.id);
+    if (m.provisionalBusinessId != null) {
+      widget.api.releaseOrderReservation(m.provisionalBusinessId!, reason: 'User cancelled');
+    }
+    await _loadMutations();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mutation cancelled and local reservation released.')),
+      );
+    }
+  }
+
+  Future<void> _retryFailed(OutboxMutationEntry m) async {
+    await widget.api.db.outboxDao.resetFailedToPending(m.id);
+    await _loadMutations();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Re-queued mutation for sync.')),
+      );
     }
   }
 
@@ -205,6 +250,96 @@ class _SyncStatusViewState extends State<SyncStatusView> {
                       ),
                     ),
                   ),
+
+                  if (_failedMutations.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.red[800], size: 20),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Needs Attention (${_failedMutations.length})',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red[900],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ..._failedMutations.map((m) {
+                      final plainReason = _formatPlainReason(m.lastErrorCode);
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Colors.red.shade300),
+                        ),
+                        color: Colors.red.shade50,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    m.mutationType,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'REJECTED',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              if (m.provisionalBusinessId != null)
+                                Text(
+                                  'Provisional: ${m.provisionalBusinessId}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                plainReason,
+                                style: TextStyle(fontSize: 12, color: Colors.red.shade800),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                                    label: const Text('Cancel & Release', style: TextStyle(color: Colors.red)),
+                                    onPressed: () => _cancelFailed(m),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Retry Sync'),
+                                    onPressed: () => _retryFailed(m),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
 
                   const SizedBox(height: 16),
                   Text(
