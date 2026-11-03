@@ -126,13 +126,14 @@ class _ReceiveStockGrnViewState extends State<ReceiveStockGrnView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
             children: [
               Text(
                 label,
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
-              const SizedBox(width: 6),
               Text(
                 '($hindiLabel)',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
@@ -355,18 +356,21 @@ class _ReceiveStockGrnViewState extends State<ReceiveStockGrnView> {
               ),
               child: Column(
                 children: [
-                  SwitchListTile(
-                    title: const Text(
-                      'Report Damaged / Broken Stock',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  Material(
+                    color: Colors.transparent,
+                    child: SwitchListTile(
+                      title: const Text(
+                        'Report Damaged / Broken Stock',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      subtitle: const Text(
+                        'खराब अथवा टूटा माल दर्ज करें (अलग क्वारंटाइन में रखा जाएगा)',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      value: _hasDamagedStock,
+                      activeThumbColor: Colors.deepOrange,
+                      onChanged: (v) => setState(() => _hasDamagedStock = v),
                     ),
-                    subtitle: const Text(
-                      'खराब अथवा टूटा माल दर्ज करें (अलग क्वारंटाइन में रखा जाएगा)',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    value: _hasDamagedStock,
-                    activeThumbColor: Colors.deepOrange,
-                    onChanged: (v) => setState(() => _hasDamagedStock = v),
                   ),
                   if (_hasDamagedStock) ...[
                     Padding(
