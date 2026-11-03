@@ -193,4 +193,48 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
           ),
         );
   }
+
+  /// Updates outbox mutation to SYNCED upon authentic server HTTP 200 acknowledgment.
+  Future<void> markSynced({
+    required String id,
+    required int syncedAtEpochMs,
+  }) async {
+    await (update(db.outboxMutations)..where((tbl) => tbl.id.equals(id))).write(
+      OutboxMutationsCompanion(
+        syncStatus: const Value('SYNCED'),
+        syncedAtEpochMs: Value(syncedAtEpochMs),
+      ),
+    );
+  }
+
+  /// Updates outbox mutation to FAILED_PERMANENT upon HTTP 409 conflict or unrecoverable error.
+  Future<void> markFailedPermanent({
+    required String id,
+    required String errorCode,
+  }) async {
+    await (update(db.outboxMutations)..where((tbl) => tbl.id.equals(id))).write(
+      OutboxMutationsCompanion(
+        syncStatus: const Value('FAILED_PERMANENT'),
+        lastErrorCode: Value(errorCode),
+      ),
+    );
+  }
+
+  /// Records retryable failure (network outage/timeout) with exponential backoff timestamp.
+  Future<void> markRetryableFailure({
+    required String id,
+    required String errorCode,
+    required int nextRetryAtMs,
+  }) async {
+    final existing = await (select(db.outboxMutations)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    final newAttempts = (existing?.attemptCount ?? 0) + 1;
+    await (update(db.outboxMutations)..where((tbl) => tbl.id.equals(id))).write(
+      OutboxMutationsCompanion(
+        syncStatus: const Value('RETRYABLE_FAILURE'),
+        attemptCount: Value(newAttempts),
+        lastErrorCode: Value(errorCode),
+        nextRetryAtMs: Value(nextRetryAtMs),
+      ),
+    );
+  }
 }
