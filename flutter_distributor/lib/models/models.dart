@@ -123,7 +123,8 @@ class ProductItem {
   final String name;
   final String hindiName;
   final String category;
-  final double mrpRupees;
+  final int mrpPaise; // Authoritative retail maximum price in integer paise
+  double get mrpRupees => mrpPaise / 100.0; // Display helper
   final int piecePricePaise; // Wholesale base price per piece
   final int stripQty; // Pieces in 1 hanging strip / ladi
   final int boxQty; // Pieces in 1 box / carton / peti
@@ -140,18 +141,19 @@ class ProductItem {
     required this.name,
     required this.hindiName,
     required this.category,
-    required this.mrpRupees,
+    int? mrpPaise,
+    double? mrpRupees,
     required this.piecePricePaise,
     required this.stripQty,
     required this.boxQty,
     this.gstRate = 18.0,
-    required this.godownStockBoxes,
+    this.godownStockBoxes = 0,
     this.carStockBoxes = 0,
     this.badge = '',
     this.imageUrl = '',
     this.customUnitMultipliers,
     this.customUnitPricesPaise,
-  });
+  }) : mrpPaise = mrpPaise ?? (mrpRupees != null ? (mrpRupees * 100).round() : 0);
 
   // Wholesale pricing: data-driven from unit_prices, with base piece fallback
   int priceForUnit(OrderUnit unit) {

@@ -60,6 +60,18 @@ class $ProductsTable extends Products
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _mrpPaiseMeta = const VerificationMeta(
+    'mrpPaise',
+  );
+  @override
+  late final GeneratedColumn<int> mrpPaise = GeneratedColumn<int>(
+    'mrp_paise',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _piecePricePaiseMeta = const VerificationMeta(
     'piecePricePaise',
   );
@@ -158,6 +170,7 @@ class $ProductsTable extends Products
     hindiName,
     category,
     mrpRupees,
+    mrpPaise,
     piecePricePaise,
     stripQty,
     boxQty,
@@ -215,6 +228,12 @@ class $ProductsTable extends Products
       );
     } else if (isInserting) {
       context.missing(_mrpRupeesMeta);
+    }
+    if (data.containsKey('mrp_paise')) {
+      context.handle(
+        _mrpPaiseMeta,
+        mrpPaise.isAcceptableOrUnknown(data['mrp_paise']!, _mrpPaiseMeta),
+      );
     }
     if (data.containsKey('piece_price_paise')) {
       context.handle(
@@ -304,6 +323,10 @@ class $ProductsTable extends Products
         DriftSqlType.double,
         data['${effectivePrefix}mrp_rupees'],
       )!,
+      mrpPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mrp_paise'],
+      )!,
       piecePricePaise: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}piece_price_paise'],
@@ -351,6 +374,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
   final String hindiName;
   final String category;
   final double mrpRupees;
+  final int mrpPaise;
   final int piecePricePaise;
   final int stripQty;
   final int boxQty;
@@ -365,6 +389,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
     required this.hindiName,
     required this.category,
     required this.mrpRupees,
+    required this.mrpPaise,
     required this.piecePricePaise,
     required this.stripQty,
     required this.boxQty,
@@ -382,6 +407,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
     map['hindi_name'] = Variable<String>(hindiName);
     map['category'] = Variable<String>(category);
     map['mrp_rupees'] = Variable<double>(mrpRupees);
+    map['mrp_paise'] = Variable<int>(mrpPaise);
     map['piece_price_paise'] = Variable<int>(piecePricePaise);
     map['strip_qty'] = Variable<int>(stripQty);
     map['box_qty'] = Variable<int>(boxQty);
@@ -400,6 +426,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
       hindiName: Value(hindiName),
       category: Value(category),
       mrpRupees: Value(mrpRupees),
+      mrpPaise: Value(mrpPaise),
       piecePricePaise: Value(piecePricePaise),
       stripQty: Value(stripQty),
       boxQty: Value(boxQty),
@@ -422,6 +449,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
       hindiName: serializer.fromJson<String>(json['hindiName']),
       category: serializer.fromJson<String>(json['category']),
       mrpRupees: serializer.fromJson<double>(json['mrpRupees']),
+      mrpPaise: serializer.fromJson<int>(json['mrpPaise']),
       piecePricePaise: serializer.fromJson<int>(json['piecePricePaise']),
       stripQty: serializer.fromJson<int>(json['stripQty']),
       boxQty: serializer.fromJson<int>(json['boxQty']),
@@ -441,6 +469,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
       'hindiName': serializer.toJson<String>(hindiName),
       'category': serializer.toJson<String>(category),
       'mrpRupees': serializer.toJson<double>(mrpRupees),
+      'mrpPaise': serializer.toJson<int>(mrpPaise),
       'piecePricePaise': serializer.toJson<int>(piecePricePaise),
       'stripQty': serializer.toJson<int>(stripQty),
       'boxQty': serializer.toJson<int>(boxQty),
@@ -458,6 +487,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
     String? hindiName,
     String? category,
     double? mrpRupees,
+    int? mrpPaise,
     int? piecePricePaise,
     int? stripQty,
     int? boxQty,
@@ -472,6 +502,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
     hindiName: hindiName ?? this.hindiName,
     category: category ?? this.category,
     mrpRupees: mrpRupees ?? this.mrpRupees,
+    mrpPaise: mrpPaise ?? this.mrpPaise,
     piecePricePaise: piecePricePaise ?? this.piecePricePaise,
     stripQty: stripQty ?? this.stripQty,
     boxQty: boxQty ?? this.boxQty,
@@ -488,6 +519,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
       hindiName: data.hindiName.present ? data.hindiName.value : this.hindiName,
       category: data.category.present ? data.category.value : this.category,
       mrpRupees: data.mrpRupees.present ? data.mrpRupees.value : this.mrpRupees,
+      mrpPaise: data.mrpPaise.present ? data.mrpPaise.value : this.mrpPaise,
       piecePricePaise: data.piecePricePaise.present
           ? data.piecePricePaise.value
           : this.piecePricePaise,
@@ -511,6 +543,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
           ..write('hindiName: $hindiName, ')
           ..write('category: $category, ')
           ..write('mrpRupees: $mrpRupees, ')
+          ..write('mrpPaise: $mrpPaise, ')
           ..write('piecePricePaise: $piecePricePaise, ')
           ..write('stripQty: $stripQty, ')
           ..write('boxQty: $boxQty, ')
@@ -530,6 +563,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
     hindiName,
     category,
     mrpRupees,
+    mrpPaise,
     piecePricePaise,
     stripQty,
     boxQty,
@@ -548,6 +582,7 @@ class ProductEntry extends DataClass implements Insertable<ProductEntry> {
           other.hindiName == this.hindiName &&
           other.category == this.category &&
           other.mrpRupees == this.mrpRupees &&
+          other.mrpPaise == this.mrpPaise &&
           other.piecePricePaise == this.piecePricePaise &&
           other.stripQty == this.stripQty &&
           other.boxQty == this.boxQty &&
@@ -564,6 +599,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
   final Value<String> hindiName;
   final Value<String> category;
   final Value<double> mrpRupees;
+  final Value<int> mrpPaise;
   final Value<int> piecePricePaise;
   final Value<int> stripQty;
   final Value<int> boxQty;
@@ -579,6 +615,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
     this.hindiName = const Value.absent(),
     this.category = const Value.absent(),
     this.mrpRupees = const Value.absent(),
+    this.mrpPaise = const Value.absent(),
     this.piecePricePaise = const Value.absent(),
     this.stripQty = const Value.absent(),
     this.boxQty = const Value.absent(),
@@ -595,6 +632,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
     required String hindiName,
     required String category,
     required double mrpRupees,
+    this.mrpPaise = const Value.absent(),
     required int piecePricePaise,
     required int stripQty,
     required int boxQty,
@@ -619,6 +657,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
     Expression<String>? hindiName,
     Expression<String>? category,
     Expression<double>? mrpRupees,
+    Expression<int>? mrpPaise,
     Expression<int>? piecePricePaise,
     Expression<int>? stripQty,
     Expression<int>? boxQty,
@@ -635,6 +674,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
       if (hindiName != null) 'hindi_name': hindiName,
       if (category != null) 'category': category,
       if (mrpRupees != null) 'mrp_rupees': mrpRupees,
+      if (mrpPaise != null) 'mrp_paise': mrpPaise,
       if (piecePricePaise != null) 'piece_price_paise': piecePricePaise,
       if (stripQty != null) 'strip_qty': stripQty,
       if (boxQty != null) 'box_qty': boxQty,
@@ -653,6 +693,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
     Value<String>? hindiName,
     Value<String>? category,
     Value<double>? mrpRupees,
+    Value<int>? mrpPaise,
     Value<int>? piecePricePaise,
     Value<int>? stripQty,
     Value<int>? boxQty,
@@ -669,6 +710,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
       hindiName: hindiName ?? this.hindiName,
       category: category ?? this.category,
       mrpRupees: mrpRupees ?? this.mrpRupees,
+      mrpPaise: mrpPaise ?? this.mrpPaise,
       piecePricePaise: piecePricePaise ?? this.piecePricePaise,
       stripQty: stripQty ?? this.stripQty,
       boxQty: boxQty ?? this.boxQty,
@@ -698,6 +740,9 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
     }
     if (mrpRupees.present) {
       map['mrp_rupees'] = Variable<double>(mrpRupees.value);
+    }
+    if (mrpPaise.present) {
+      map['mrp_paise'] = Variable<int>(mrpPaise.value);
     }
     if (piecePricePaise.present) {
       map['piece_price_paise'] = Variable<int>(piecePricePaise.value);
@@ -737,6 +782,7 @@ class ProductsCompanion extends UpdateCompanion<ProductEntry> {
           ..write('hindiName: $hindiName, ')
           ..write('category: $category, ')
           ..write('mrpRupees: $mrpRupees, ')
+          ..write('mrpPaise: $mrpPaise, ')
           ..write('piecePricePaise: $piecePricePaise, ')
           ..write('stripQty: $stripQty, ')
           ..write('boxQty: $boxQty, ')
@@ -8564,6 +8610,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       required String hindiName,
       required String category,
       required double mrpRupees,
+      Value<int> mrpPaise,
       required int piecePricePaise,
       required int stripQty,
       required int boxQty,
@@ -8581,6 +8628,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<String> hindiName,
       Value<String> category,
       Value<double> mrpRupees,
+      Value<int> mrpPaise,
       Value<int> piecePricePaise,
       Value<int> stripQty,
       Value<int> boxQty,
@@ -8712,6 +8760,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<double> get mrpRupees => $composableBuilder(
     column: $table.mrpRupees,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mrpPaise => $composableBuilder(
+    column: $table.mrpPaise,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8890,6 +8943,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get mrpPaise => $composableBuilder(
+    column: $table.mrpPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get piecePricePaise => $composableBuilder(
     column: $table.piecePricePaise,
     builder: (column) => ColumnOrderings(column),
@@ -8954,6 +9012,9 @@ class $$ProductsTableAnnotationComposer
 
   GeneratedColumn<double> get mrpRupees =>
       $composableBuilder(column: $table.mrpRupees, builder: (column) => column);
+
+  GeneratedColumn<int> get mrpPaise =>
+      $composableBuilder(column: $table.mrpPaise, builder: (column) => column);
 
   GeneratedColumn<int> get piecePricePaise => $composableBuilder(
     column: $table.piecePricePaise,
@@ -9124,6 +9185,7 @@ class $$ProductsTableTableManager
                 Value<String> hindiName = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<double> mrpRupees = const Value.absent(),
+                Value<int> mrpPaise = const Value.absent(),
                 Value<int> piecePricePaise = const Value.absent(),
                 Value<int> stripQty = const Value.absent(),
                 Value<int> boxQty = const Value.absent(),
@@ -9139,6 +9201,7 @@ class $$ProductsTableTableManager
                 hindiName: hindiName,
                 category: category,
                 mrpRupees: mrpRupees,
+                mrpPaise: mrpPaise,
                 piecePricePaise: piecePricePaise,
                 stripQty: stripQty,
                 boxQty: boxQty,
@@ -9156,6 +9219,7 @@ class $$ProductsTableTableManager
                 required String hindiName,
                 required String category,
                 required double mrpRupees,
+                Value<int> mrpPaise = const Value.absent(),
                 required int piecePricePaise,
                 required int stripQty,
                 required int boxQty,
@@ -9171,6 +9235,7 @@ class $$ProductsTableTableManager
                 hindiName: hindiName,
                 category: category,
                 mrpRupees: mrpRupees,
+                mrpPaise: mrpPaise,
                 piecePricePaise: piecePricePaise,
                 stripQty: stripQty,
                 boxQty: boxQty,

@@ -97,7 +97,7 @@ void main() {
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
       final repo = LocalRepository(upgradedDb);
 
-      expect(upgradedDb.schemaVersion, equals(5));
+      expect(upgradedDb.schemaVersion, equals(6));
 
       // Requirement 1: Products preserved and new isArchived column defaulted to false
       final products = await repo.getAllProducts();
@@ -150,8 +150,8 @@ void main() {
       await db.close();
     });
 
-    test('Fresh install initializes schema version 5 correctly', () async {
-      expect(db.schemaVersion, equals(5));
+    test('Fresh install initializes schema version 6 correctly', () async {
+      expect(db.schemaVersion, equals(6));
       expect(await repository.getMetadata('schema_initialized'), isNull);
       expect(await db.select(db.products).get(), isEmpty);
       expect(await db.select(db.inventoryMovements).get(), isEmpty);
@@ -485,7 +485,7 @@ void main() {
 
       // Open v4 database with AppDatabase target schemaVersion = 5
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
-      expect(upgradedDb.schemaVersion, equals(5));
+      expect(upgradedDb.schemaVersion, equals(6));
 
       // Verify v4 data preserved
       final repo = LocalRepository(upgradedDb);

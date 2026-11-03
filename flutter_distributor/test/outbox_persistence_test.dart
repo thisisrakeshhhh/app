@@ -66,6 +66,7 @@ void main() {
               hindiName: 'जयपुर कुरकुरे',
               category: 'Snacks',
               mrpRupees: 20.0,
+              mrpPaise: 2000,
               piecePricePaise: 1600,
               stripQty: 10,
               boxQty: 50,

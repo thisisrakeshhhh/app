@@ -14,6 +14,7 @@ class Products extends Table {
   TextColumn get hindiName => text()();
   TextColumn get category => text()();
   RealColumn get mrpRupees => real()();
+  IntColumn get mrpPaise => integer().withDefault(const Constant(0))();
   IntColumn get piecePricePaise => integer()();
   IntColumn get stripQty => integer()();
   IntColumn get boxQty => integer()();
@@ -283,7 +284,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -358,6 +359,11 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_route_stops_route_retailer ON route_stops (route_id, retailer_id);');
           await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_product_units_prod_unit ON product_units (product_id, unit_name);');
           await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_unit_prices_prod_unit ON unit_prices (product_id, unit_name);');
+        }
+        if (from < 6 && to >= 6) {
+          // Version 5 -> Version 6: Add mrp_paise to products and backfill from mrp_rupees
+          await m.addColumn(products, products.mrpPaise);
+          await customStatement('UPDATE products SET mrp_paise = CAST(ROUND(mrp_rupees * 100) AS INTEGER) WHERE mrp_paise = 0;');
         }
       },
       beforeOpen: (details) async {
