@@ -185,6 +185,9 @@ class ApiService extends ChangeNotifier {
   bool get isOnline => _isOnline;
   bool get isLoading => _isLoading;
 
+  /// Callback invoked whenever a new mutation is safely enqueued to SQLite outbox.
+  VoidCallback? onOutboxMutationEnqueued;
+
   // Active role
   AppRole _currentRole = AppRole.sales;
   AppRole get currentRole => _currentRole;
@@ -669,6 +672,7 @@ class ApiService extends ChangeNotifier {
     );
 
     _retailers.insert(0, newShop);
+    onOutboxMutationEnqueued?.call();
     notifyListeners();
     return newShop;
   }
@@ -887,6 +891,7 @@ class ApiService extends ChangeNotifier {
         customUnitMultipliers: unitMap,
         customUnitPricesPaise: priceMap,
       );
+      onOutboxMutationEnqueued?.call();
       notifyListeners();
     }
   }
@@ -982,6 +987,7 @@ class ApiService extends ChangeNotifier {
     );
 
     _products.add(newProduct);
+    onOutboxMutationEnqueued?.call();
     notifyListeners();
   }
 
@@ -1062,6 +1068,7 @@ class ApiService extends ChangeNotifier {
     final idx = _products.indexWhere((p) => p.id == productId);
     if (idx != -1) {
       _products[idx].godownStockBoxes += cartonsReceived;
+      onOutboxMutationEnqueued?.call();
       notifyListeners();
     }
   }
@@ -1129,6 +1136,7 @@ class ApiService extends ChangeNotifier {
     final idx = _products.indexWhere((p) => p.id == original.productId);
     if (idx != -1) {
       _products[idx].godownStockBoxes -= original.cartonDelta;
+      onOutboxMutationEnqueued?.call();
       notifyListeners();
     }
   }
@@ -2000,6 +2008,7 @@ class ApiService extends ChangeNotifier {
     _orders.insert(0, confirmedOrder);
     _cart.clear();
     await repository.deleteCartDraft(shop.id);
+    onOutboxMutationEnqueued?.call();
     notifyListeners();
     return confirmedOrder;
   }

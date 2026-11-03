@@ -3,6 +3,7 @@ import '../domain/auth/role_routing.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/sync_worker.dart';
 import '../theme/airbnb_theme.dart';
 import 'dashboards/admin_dashboard.dart';
 import 'dashboards/delivery_dashboard.dart';
@@ -22,11 +23,13 @@ import 'views/warehouse_subviews.dart';
 class RoleShell extends StatefulWidget {
   final ApiService api;
   final AuthService? authService;
+  final SyncWorker? syncWorker;
 
   const RoleShell({
     super.key,
     required this.api,
     this.authService,
+    this.syncWorker,
   });
 
   @override
@@ -534,6 +537,7 @@ class _RoleShellState extends State<RoleShell> {
           0 => AdminDashboard(
               api: widget.api,
               onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+              syncWorker: widget.syncWorker,
             ),
           1 => AdminOrdersView(api: widget.api),
           2 => AdminProductsView(api: widget.api),
@@ -544,6 +548,7 @@ class _RoleShellState extends State<RoleShell> {
           _ => AdminDashboard(
               api: widget.api,
               onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+              syncWorker: widget.syncWorker,
             ),
         };
     }

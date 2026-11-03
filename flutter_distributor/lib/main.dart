@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'data/auth/auth_repository.dart';
 import 'data/auth/secure_token_storage.dart';
 import 'domain/auth/tenant_boundary_gate.dart';
@@ -8,6 +9,7 @@ import 'screens/role_shell.dart';
 import 'screens/tenant_boundary_blocked_view.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'services/sync_worker.dart';
 import 'theme/airbnb_theme.dart';
 
 void main() {
@@ -24,11 +26,13 @@ void main() {
 class RoutidrowApp extends StatefulWidget {
   final ApiService? api;
   final AuthService? authService;
+  final SyncWorker? syncWorker;
 
   const RoutidrowApp({
     super.key,
     this.api,
     this.authService,
+    this.syncWorker,
   });
 
   @override
@@ -38,6 +42,8 @@ class RoutidrowApp extends StatefulWidget {
 class _RoutidrowAppState extends State<RoutidrowApp> {
   late final ApiService _api;
   late final AuthService _auth;
+  late final SyncWorker _syncWorker;
+  final http.Client _httpClient = http.Client();
 
   @override
   void initState() {
@@ -51,8 +57,35 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
           onLogoutCleanup: _api.clearTransientState,
         );
 
+    _syncWorker = widget.syncWorker ??
+        SyncWorker(
+          db: _api.db,
+          httpClient: _httpClient,
+          baseUrl: _api.cloudflareUrl,
+          authService: _auth,
+          apiService: _api,
+          accessTokenProvider: () async {
+            try {
+              return await _auth.getValidAccessToken();
+            } catch (_) {
+              return null;
+            }
+          },
+          refreshTokenTrigger: () async {
+            try {
+              await _auth.getValidAccessToken();
+              return true;
+            } catch (_) {
+              return false;
+            }
+          },
+        );
+
+    // Wire immediate sync pass upon outbox mutation insertion
+    _api.onOutboxMutationEnqueued = () => _syncWorker.processPendingOutbox();
+
     _api.addListener(_onStateChanged);
-    _auth.addListener(_onStateChanged);
+    _auth.addListener(_onAuthStateChanged);
 
     // Initialize session asynchronously
     _auth.initialize();
@@ -62,10 +95,22 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
     if (mounted) setState(() {});
   }
 
+  void _onAuthStateChanged() {
+    if (_auth.isAuthenticated && !_auth.isTenantBoundaryBlocked) {
+      _syncWorker.startPeriodicRunner();
+      _syncWorker.processPendingOutbox();
+    } else {
+      _syncWorker.stopRunner();
+    }
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _syncWorker.stopRunner();
     _api.removeListener(_onStateChanged);
-    _auth.removeListener(_onStateChanged);
+    _auth.removeListener(_onAuthStateChanged);
+    _httpClient.close();
     super.dispose();
   }
 
@@ -77,7 +122,11 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
     } else if (_auth.isTenantBoundaryBlocked) {
       homeScreen = TenantBoundaryBlockedView(authService: _auth);
     } else {
-      homeScreen = RoleShell(api: _api, authService: _auth);
+      homeScreen = RoleShell(
+        api: _api,
+        authService: _auth,
+        syncWorker: _syncWorker,
+      );
     }
 
     return MaterialApp(

@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import '../../data/local/app_database.dart';
 import '../../l10n/app_strings.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_worker.dart';
 
 class SyncStatusView extends StatefulWidget {
   final ApiService api;
+  final SyncWorker? syncWorker;
 
-  const SyncStatusView({super.key, required this.api});
+  const SyncStatusView({
+    super.key,
+    required this.api,
+    this.syncWorker,
+  });
 
   @override
   State<SyncStatusView> createState() => _SyncStatusViewState();
@@ -20,7 +26,20 @@ class _SyncStatusViewState extends State<SyncStatusView> {
   @override
   void initState() {
     super.initState();
+    widget.syncWorker?.addListener(_onSyncWorkerChanged);
     _loadMutations();
+  }
+
+  @override
+  void dispose() {
+    widget.syncWorker?.removeListener(_onSyncWorkerChanged);
+    super.dispose();
+  }
+
+  void _onSyncWorkerChanged() {
+    if (mounted) {
+      _loadMutations();
+    }
   }
 
   Future<void> _loadMutations() async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_worker.dart';
 import '../../theme/airbnb_theme.dart';
 import '../views/sync_status_view.dart';
 
@@ -9,11 +10,13 @@ import '../views/sync_status_view.dart';
 class AdminDashboard extends StatelessWidget {
   final ApiService api;
   final Function(int targetTab) onNavigateTab;
+  final SyncWorker? syncWorker;
 
   const AdminDashboard({
     super.key,
     required this.api,
     required this.onNavigateTab,
+    this.syncWorker,
   });
 
   @override
@@ -590,7 +593,9 @@ class AdminDashboard extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => SyncStatusView(api: api)),
+                MaterialPageRoute(
+                  builder: (_) => SyncStatusView(api: api, syncWorker: syncWorker),
+                ),
               );
             },
             borderRadius: BorderRadius.circular(14),
