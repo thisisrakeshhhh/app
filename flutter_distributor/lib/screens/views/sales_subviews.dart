@@ -24,6 +24,21 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
   RetailerShop? _activeShop;
   final Map<String, OrderUnit> _selectedUnits = {};
   final Map<String, int> _selectedQuantities = {};
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  List<ProductItem> get _orderAgainProducts {
+    if (_activeShop == null) return [];
+    final pastOrders = widget.api.orders.where((o) => o.shopId == _activeShop!.id);
+    final productIds = pastOrders.expand((o) => o.items).map((i) => i.product.id).toSet();
+    return widget.api.products.where((p) => productIds.contains(p.id)).toList();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   List<String> get _categories {
     final cats = <String>{'All'};
@@ -296,9 +311,15 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredProducts = _selectedCategory == 'All'
-        ? widget.api.products
-        : widget.api.products.where((p) => p.category == _selectedCategory).toList();
+    final filteredProducts = widget.api.products.where((p) {
+      final matchesCategory = _selectedCategory == 'All' || p.category == _selectedCategory;
+      final q = _searchQuery.trim().toLowerCase();
+      final matchesSearch = q.isEmpty ||
+          p.name.toLowerCase().contains(q) ||
+          p.hindiName.toLowerCase().contains(q) ||
+          p.id.toLowerCase().contains(q);
+      return matchesCategory && matchesSearch;
+    }).toList();
 
     return Column(
       children: [
@@ -334,6 +355,79 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
             ],
           ),
         ),
+
+        // 1.5 FIXED SEARCH BAR (English, Hindi, SKU)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: Colors.white,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: AirbnbTheme.cardBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AirbnbTheme.border),
+            ),
+            child: TextField(
+              key: const ValueKey('sales_order_search_field'),
+              controller: _searchCtrl,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              decoration: const InputDecoration(
+                hintText: 'Search product, हिन्दी नाम, or SKU...',
+                hintStyle: TextStyle(fontSize: 12, color: AirbnbTheme.grey),
+                prefixIcon: Icon(Icons.search, size: 18, color: AirbnbTheme.grey),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+        ),
+
+        // 1.8 ORDER AGAIN SHELF
+        if (_orderAgainProducts.isNotEmpty) ...[
+          Container(
+            key: const ValueKey('order_again_shelf'),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Order Again ⚡',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _orderAgainProducts.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (ctx, i) {
+                      final p = _orderAgainProducts[i];
+                      return ActionChip(
+                        avatar: const Icon(Icons.refresh, size: 14, color: AirbnbTheme.coral),
+                        label: Text('${p.name} (+1 Peti)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                        backgroundColor: AirbnbTheme.cardBg,
+                        side: const BorderSide(color: AirbnbTheme.border),
+                        onPressed: () {
+                          widget.api.addToCart(p, OrderUnit.box, 1);
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Added 1 Box of ${p.name} to cart!'),
+                              duration: const Duration(milliseconds: 700),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         // 2. CATEGORY HORIZONTAL CHIPS
         Container(
@@ -445,7 +539,7 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                           ],
                         ),
 
-                        // Quantity +/-
+                        // Quantity +/- and Quick-qty chips
                         Row(
                           children: [
                             IconButton(
@@ -454,9 +548,10 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                                   : null,
                               icon: const Icon(Icons.remove_circle_outline, size: 20),
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                             ),
                             Text(
+                              key: ValueKey('qty_display_${p.id}'),
                               '$currentQty',
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                             ),
@@ -464,8 +559,28 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                               onPressed: () => setState(() => _selectedQuantities[p.id] = currentQty + 1),
                               icon: const Icon(Icons.add_circle_outline, size: 20, color: AirbnbTheme.coral),
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                             ),
+                            const SizedBox(width: 4),
+                            for (final addCount in [1, 5, 10])
+                              InkWell(
+                                key: ValueKey('quick_qty_${addCount}_${p.id}'),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedQuantities[p.id] = currentQty + addCount;
+                                  });
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(left: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AirbnbTheme.lightGrey,
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: AirbnbTheme.border),
+                                  ),
+                                  child: Text('+$addCount', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
                           ],
                         ),
                       ],

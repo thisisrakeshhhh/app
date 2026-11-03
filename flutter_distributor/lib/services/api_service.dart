@@ -1765,6 +1765,23 @@ class ApiService extends ChangeNotifier {
     return repository.getProductMovements(productId);
   }
 
+  /// Generates human-readable WhatsApp order confirmation summary with items, totals, and delivery OTP
+  String generateWhatsAppOrderShareText(DistributorOrder order) {
+    final buf = StringBuffer();
+    buf.writeln('📦 RouteFlow Order Confirmation');
+    buf.writeln('Shop: ${order.shopName}');
+    buf.writeln('Order #: ${order.orderNumber}');
+    buf.writeln('Date: ${order.createdAt.day}/${order.createdAt.month}/${order.createdAt.year}');
+    buf.writeln('Items:');
+    for (final item in order.items) {
+      buf.writeln('• ${item.product.name} (${item.quantity} ${item.unit.shortCode}) - ₹${item.totalRupees.toStringAsFixed(2)}');
+    }
+    buf.writeln('Total: ₹${order.totalRupees.toStringAsFixed(2)}');
+    buf.writeln('Payment: ${order.paymentMode}');
+    buf.writeln('Delivery OTP: ${order.otp}');
+    return buf.toString();
+  }
+
   /// Alias for placeOrder with explicit preview semantics in Phase B1
   DistributorOrder confirmOrderAndPlace({
     required String shopId,
