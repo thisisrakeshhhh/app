@@ -2137,6 +2137,50 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  /// Updates order stage upon authentic pull delta from office server.
+  void updateOrderStageFromServer(String orderId, String newStage) {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx != -1) {
+      OrderLifecycleStage parsed;
+      switch (newStage.toUpperCase()) {
+        case 'READY_STOCK':
+        case 'PICKED':
+          parsed = OrderLifecycleStage.readyStock;
+          break;
+        case 'OUT_FOR_DELIVERY':
+        case 'ORDER_SEND':
+          parsed = OrderLifecycleStage.orderSend;
+          break;
+        case 'DELIVERED':
+          parsed = OrderLifecycleStage.delivered;
+          break;
+        case 'REJECTED':
+        case 'CANCELLED':
+          parsed = OrderLifecycleStage.rejected;
+          break;
+        default:
+          parsed = OrderLifecycleStage.booking;
+      }
+      _orders[idx].stage = parsed;
+      notifyListeners();
+    }
+  }
+
+  /// Updates retailer credit limit and classification upon authentic pull delta from office server.
+  void updateRetailerFromServer({
+    required String id,
+    int? creditLimitPaise,
+    String? classification,
+  }) {
+    final idx = _retailers.indexWhere((r) => r.id == id);
+    if (idx != -1) {
+      final r = _retailers[idx];
+      if (creditLimitPaise != null) r.creditLimitPaise = creditLimitPaise;
+      if (classification != null) r.classType = classification;
+      notifyListeners();
+    }
+  }
+
   /// Slice 6: Returns strictly honest, unambiguous labels for sync status.
   /// Never claims an order is synced to cloud until real server acknowledgment.
   String getHonestSyncStatusLabel(String syncStatus) {

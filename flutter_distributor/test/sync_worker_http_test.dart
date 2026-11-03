@@ -592,5 +592,80 @@ void main() {
       expect(result.syncedCount, 0);
       expect(requestsMade, 0);
     });
+
+    test('12. Delta Pull updates order stages and retailer credit in ApiService', () async {
+      final repo = LocalRepository(db);
+      final api = ApiService.internalForTesting(
+        database: db,
+        localRepo: repo,
+        sessionProvider: () => const UserSession(
+          userId: testUserId,
+          name: 'Test Sales',
+          activeOrganizationId: testOrgId,
+          activeRole: 'SALES',
+          organizations: [
+            OrganizationMembership(id: testOrgId, name: 'Test Org', role: 'SALES', isActive: true),
+          ],
+        ),
+      );
+      await api.syncForTesting(seed: true);
+
+      final shop = api.retailers.first;
+      final prod = api.products.first;
+
+      api.selectShop(shop);
+      api.addToCart(prod, OrderUnit.box, 1);
+      final order = await api.confirmOrderDurable(
+        shopId: shop.id,
+        paymentMode: 'COD',
+        checkoutIdempotencyKey: 'idem_delta_pull_01',
+      );
+      expect(order.stage, OrderLifecycleStage.booking);
+
+      final mockClient = MockClient((request) async {
+        expect(request.url.toString(), '$testBaseUrl/sync/pull');
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'latestServerSequence': 99,
+            'hasMore': false,
+            'delta': {
+              'orderStatusUpdates': [
+                {
+                  'serverOrderId': order.id,
+                  'newStage': 'READY_STOCK',
+                  'total_amount_paise': order.totalPaise,
+                }
+              ],
+              'retailers': [
+                {
+                  'id': shop.id,
+                  'creditLimitPaise': 5000000,
+                  'classification': 'CLASS_A',
+                }
+              ]
+            }
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        apiService: api,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final success = await worker.processPullDelta(organizationId: testOrgId);
+      expect(success, true);
+
+      // Invariant: Order stage was updated to readyStock via pull delta
+      expect(order.stage, OrderLifecycleStage.readyStock);
+      // Invariant: Retailer credit and class was updated via pull delta
+      expect(shop.creditLimitPaise, 5000000);
+      expect(shop.classType, 'CLASS_A');
+    });
   });
 }

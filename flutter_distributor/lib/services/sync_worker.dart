@@ -200,6 +200,82 @@ class SyncWorker extends ChangeNotifier {
     );
   }
 
+  /// Pulls delta updates from POST /sync/pull and integrates them into local repository and ApiService.
+  Future<bool> processPullDelta({
+    String? organizationId,
+    int? lastServerSequence,
+    int limit = 100,
+  }) async {
+    final orgId = organizationId ?? authService?.activeOrganization?.id ?? 'comp_1';
+
+    String? token = await _resolveAccessToken();
+    if (token == null || token.isEmpty) {
+      final refreshed = await _triggerTokenRefresh();
+      if (!refreshed) return false;
+      token = await _resolveAccessToken();
+      if (token == null || token.isEmpty) return false;
+    }
+
+    final uri = Uri.parse('$baseUrl/sync/pull');
+    try {
+      final response = await httpClient
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'organizationId': orgId,
+              'lastServerSequence': lastServerSequence ?? 0,
+              'limit': limit,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final delta = body['delta'] as Map<String, dynamic>? ?? {};
+
+        // 1. Process Order Status Updates
+        final orderUpdates = delta['orderStatusUpdates'] as List<dynamic>? ?? [];
+        for (final u in orderUpdates) {
+          if (u is Map<String, dynamic>) {
+            final orderId = u['serverOrderId'] as String?;
+            final newStageStr = u['newStage'] as String?;
+            if (orderId != null && newStageStr != null && apiService != null) {
+              apiService!.updateOrderStageFromServer(orderId, newStageStr);
+            }
+          }
+        }
+
+        // 2. Process Retailer Updates
+        final retailerUpdates = delta['retailers'] as List<dynamic>? ?? [];
+        for (final r in retailerUpdates) {
+          if (r is Map<String, dynamic>) {
+            final retId = r['id'] as String?;
+            final rawCredit = r['creditLimitPaise'];
+            final credit = rawCredit != null ? (rawCredit as num).toInt() : null;
+            if (retId != null && apiService != null) {
+              apiService!.updateRetailerFromServer(
+                id: retId,
+                creditLimitPaise: credit,
+                classification: r['classification'] as String?,
+              );
+            }
+          }
+        }
+
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('SyncWorker processPullDelta error: $e');
+      return false;
+    }
+  }
+
   Future<SyncPushResult> _sendBatch({
     required List<OutboxMutationEntry> readyMutations,
     required String orgId,

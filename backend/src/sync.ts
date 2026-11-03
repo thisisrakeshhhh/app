@@ -531,6 +531,349 @@ export function syncRouter(authMiddleware: any) {
           serverSequence: currentSeq
         });
 
+      } else if (mutationType === 'CREATE_PRODUCT') {
+        if (userRole !== 'OWNER' && userRole !== 'ADMIN') {
+          return c.json({
+            success: false,
+            error: 'FORBIDDEN_ROLE_ACTION',
+            message: 'Only Owner or Admin can create new products'
+          }, 403);
+        }
+
+        const prodId = payload?.id || `prod_${Date.now()}`;
+        const name = payload?.name?.trim();
+        if (!name) {
+          return c.json({ success: false, error: 'BAD_REQUEST', message: 'Product name is required' }, 400);
+        }
+        const hindiName = payload?.hindiName || name;
+        const category = payload?.category || 'General';
+        const pricePaise = Number(payload?.piecePricePaise || payload?.pricePaise || 0);
+        const mrpPaise = Number(payload?.mrpPaise || (Number(payload?.mrpRupees || 0) * 100));
+        const gstRate = Number(payload?.gstRate || 5.0);
+        const units = payload?.units || [];
+        const nowMs = Date.now();
+        currentSeq++;
+
+        const productStmts: D1PreparedStatement[] = [
+          c.env.DB.prepare(
+            `INSERT INTO products (id, company_id, name, hindi_name, category, price_paise, mrp_paise, gst_rate, stock_quantity, reserved_quantity, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+          ).bind(prodId, tenantId, name, hindiName, category, pricePaise, mrpPaise, gstRate, Math.floor(nowMs / 1000), Math.floor(nowMs / 1000)),
+
+          ...units.map((u: any) =>
+            c.env.DB.prepare(
+              `INSERT INTO product_units (id, organization_id, product_id, unit_name, multiplier_to_base, is_base_unit, allow_loose_sale, can_buy, can_sell, price_paise, mrp_paise, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              `punit_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
+              tenantId,
+              prodId,
+              (u.unitName || 'piece').toLowerCase().trim(),
+              Number(u.multiplierToBase || 1),
+              Number(u.multiplierToBase) === 1 ? 1 : 0,
+              u.allowLooseSale !== false ? 1 : 0,
+              u.canBuy !== false ? 1 : 0,
+              u.canSell !== false ? 1 : 0,
+              Number(u.wholesalePricePaise || pricePaise),
+              Number(u.mrpPaise || mrpPaise),
+              nowMs
+            )
+          ),
+
+          c.env.DB.prepare(
+            `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `audit_${nowMs}_${currentSeq}`,
+            tenantId,
+            user.sub,
+            idempotencyKey,
+            mutationType,
+            payloadHash,
+            payloadString,
+            provisionalBusinessId || null,
+            prodId,
+            sequenceOrder || 0,
+            currentSeq,
+            nowMs
+          )
+        ];
+
+        await c.env.DB.batch(productStmts);
+
+        results.push({
+          mutationId,
+          status: 'COMMITTED',
+          provisionalBusinessId,
+          serverBusinessId: prodId,
+          serverSequence: currentSeq
+        });
+
+      } else if (mutationType === 'UPDATE_PRODUCT_UNITS') {
+        if (userRole !== 'OWNER' && userRole !== 'ADMIN') {
+          return c.json({
+            success: false,
+            error: 'FORBIDDEN_ROLE_ACTION',
+            message: 'Only Owner or Admin can update product units'
+          }, 403);
+        }
+
+        const prodId = payload?.productId;
+        const units = payload?.units || [];
+        const nowMs = Date.now();
+        currentSeq++;
+
+        const unitStmts: D1PreparedStatement[] = [
+          c.env.DB.prepare('DELETE FROM product_units WHERE organization_id = ? AND product_id = ?').bind(tenantId, prodId),
+          ...units.map((u: any) =>
+            c.env.DB.prepare(
+              `INSERT INTO product_units (id, organization_id, product_id, unit_name, multiplier_to_base, is_base_unit, allow_loose_sale, can_buy, can_sell, price_paise, mrp_paise, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              `punit_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
+              tenantId,
+              prodId,
+              (u.unitName || 'piece').toLowerCase().trim(),
+              Number(u.multiplierToBase || 1),
+              Number(u.multiplierToBase) === 1 ? 1 : 0,
+              u.allowLooseSale !== false ? 1 : 0,
+              u.canBuy !== false ? 1 : 0,
+              u.canSell !== false ? 1 : 0,
+              Number(u.wholesalePricePaise || 0),
+              Number(u.mrpPaise || 0),
+              nowMs
+            )
+          ),
+          c.env.DB.prepare(
+            `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `audit_${nowMs}_${currentSeq}`,
+            tenantId,
+            user.sub,
+            idempotencyKey,
+            mutationType,
+            payloadHash,
+            payloadString,
+            provisionalBusinessId || null,
+            prodId,
+            sequenceOrder || 0,
+            currentSeq,
+            nowMs
+          )
+        ];
+
+        await c.env.DB.batch(unitStmts);
+
+        results.push({
+          mutationId,
+          status: 'COMMITTED',
+          provisionalBusinessId,
+          serverBusinessId: prodId,
+          serverSequence: currentSeq
+        });
+
+      } else if (mutationType === 'STOCK_INWARD') {
+        if (userRole !== 'WAREHOUSE' && userRole !== 'OWNER' && userRole !== 'ADMIN') {
+          return c.json({
+            success: false,
+            error: 'FORBIDDEN_ROLE_ACTION',
+            message: `Role '${userRole}' is not authorized to inward stock`
+          }, 403);
+        }
+
+        const prodId = payload?.productId;
+        const pieces = Number(
+          payload?.piecesReceived ||
+          payload?.looseQuantity ||
+          (payload?.cartonsReceived
+            ? (Number(payload.cartonsReceived) * Number(payload.piecesPerCarton || 20) + Number(payload.loosePiecesReceived || 0))
+            : (payload?.quantity || 0))
+        );
+        const nowMs = Date.now();
+        const inwardId = `inw_${nowMs}_${Math.random().toString(36).substring(2, 6)}`;
+        currentSeq++;
+
+        const prod = await c.env.DB.prepare(
+          'SELECT stock_quantity FROM products WHERE id = ? AND company_id = ?'
+        ).bind(prodId, tenantId).first<{ stock_quantity: number }>();
+
+        const stockBefore = prod?.stock_quantity ?? 0;
+        const stockAfter = stockBefore + pieces;
+
+        await c.env.DB.batch([
+          c.env.DB.prepare(
+            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND company_id = ?'
+          ).bind(pieces, prodId, tenantId),
+          c.env.DB.prepare(
+            `INSERT INTO stock_movements (id, company_id, product_id, batch_id, movement_type, quantity, stock_before, stock_after, reason, notes, created_by, created_at)
+             VALUES (?, ?, ?, ?, 'INWARD_GRN', ?, ?, ?, 'STOCK_INWARD', ?, ?, ?)`
+          ).bind(
+            `mov_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
+            tenantId,
+            prodId,
+            payload?.batchNumber || null,
+            pieces,
+            stockBefore,
+            stockAfter,
+            payload?.notes || 'Outbox Inward',
+            user.sub,
+            Math.floor(nowMs / 1000)
+          ),
+          c.env.DB.prepare(
+            `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `audit_${nowMs}_${currentSeq}`,
+            tenantId,
+            user.sub,
+            idempotencyKey,
+            mutationType,
+            payloadHash,
+            payloadString,
+            provisionalBusinessId || null,
+            inwardId,
+            sequenceOrder || 0,
+            currentSeq,
+            nowMs
+          )
+        ]);
+
+        results.push({
+          mutationId,
+          status: 'COMMITTED',
+          provisionalBusinessId,
+          serverBusinessId: inwardId,
+          serverSequence: currentSeq
+        });
+
+      } else if (mutationType === 'STOCK_ADJUSTMENT') {
+        if (userRole !== 'OWNER' && userRole !== 'ADMIN') {
+          return c.json({
+            success: false,
+            error: 'FORBIDDEN_ROLE_ACTION',
+            message: 'Only Owner or Admin can perform stock adjustments or reversals'
+          }, 403);
+        }
+
+        const prodId = payload?.productId;
+        const delta = Number(
+          payload?.quantityDelta ||
+          (payload?.cartonDelta
+            ? -(Number(payload.cartonDelta) * Number(payload.boxQty || 20))
+            : (payload?.delta || 0))
+        );
+        const reason = payload?.reason || 'STOCK_ADJUSTMENT';
+        const nowMs = Date.now();
+        const adjId = `adj_${nowMs}_${Math.random().toString(36).substring(2, 6)}`;
+        currentSeq++;
+
+        const prod = await c.env.DB.prepare(
+          'SELECT stock_quantity, reserved_quantity FROM products WHERE id = ? AND company_id = ?'
+        ).bind(prodId, tenantId).first<{ stock_quantity: number; reserved_quantity: number }>();
+
+        const stockBefore = prod?.stock_quantity ?? 0;
+        const stockAfter = stockBefore + delta;
+        if (stockAfter < (prod?.reserved_quantity ?? 0)) {
+          return c.json({
+            success: false,
+            error: 'INSUFFICIENT_STOCK',
+            message: 'Cannot adjust stock below current unpicked reservations'
+          }, 400);
+        }
+
+        await c.env.DB.batch([
+          c.env.DB.prepare(
+            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND company_id = ?'
+          ).bind(delta, prodId, tenantId),
+          c.env.DB.prepare(
+            `INSERT INTO stock_movements (id, company_id, product_id, movement_type, quantity, stock_before, stock_after, reason, notes, created_by, created_at)
+             VALUES (?, ?, ?, 'ADJUSTMENT', ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `mov_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
+            tenantId,
+            prodId,
+            delta,
+            stockBefore,
+            stockAfter,
+            reason,
+            payload?.notes || reason,
+            user.sub,
+            Math.floor(nowMs / 1000)
+          ),
+          c.env.DB.prepare(
+            `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `audit_${nowMs}_${currentSeq}`,
+            tenantId,
+            user.sub,
+            idempotencyKey,
+            mutationType,
+            payloadHash,
+            payloadString,
+            provisionalBusinessId || null,
+            adjId,
+            sequenceOrder || 0,
+            currentSeq,
+            nowMs
+          )
+        ]);
+
+        results.push({
+          mutationId,
+          status: 'COMMITTED',
+          provisionalBusinessId,
+          serverBusinessId: adjId,
+          serverSequence: currentSeq
+        });
+
+      } else if (mutationType === 'APPROVE_RETAILER') {
+        if (userRole !== 'OWNER' && userRole !== 'ADMIN') {
+          return c.json({
+            success: false,
+            error: 'FORBIDDEN_ROLE_ACTION',
+            message: 'Only Owner or Admin can approve retailers'
+          }, 403);
+        }
+
+        const retailerId = payload?.retailerId;
+        const creditLimitPaise = Number(payload?.creditLimitPaise || 0);
+        const classification = payload?.classification || 'CLASS_C';
+        const nowMs = Date.now();
+        currentSeq++;
+
+        await c.env.DB.batch([
+          c.env.DB.prepare(
+            'UPDATE retailers SET is_active = 1, credit_limit_paise = ?, classification = ? WHERE id = ? AND company_id = ?'
+          ).bind(creditLimitPaise, classification, retailerId, tenantId),
+          c.env.DB.prepare(
+            `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            `audit_${nowMs}_${currentSeq}`,
+            tenantId,
+            user.sub,
+            idempotencyKey,
+            mutationType,
+            payloadHash,
+            payloadString,
+            provisionalBusinessId || null,
+            retailerId,
+            sequenceOrder || 0,
+            currentSeq,
+            nowMs
+          )
+        ]);
+
+        results.push({
+          mutationId,
+          status: 'COMMITTED',
+          provisionalBusinessId,
+          serverBusinessId: retailerId,
+          serverSequence: currentSeq
+        });
+
       } else {
         // Mutation type without a real domain handler: MUST NEVER BE ACCEPTED SILENTLY
         results.push({
@@ -596,12 +939,17 @@ export function syncRouter(authMiddleware: any) {
       'SELECT id as serverOrderId, status as newStage, total_amount_paise FROM orders WHERE company_id = ? ORDER BY updated_at DESC LIMIT ?'
     ).bind(tenantId, fetchLimit).all();
 
+    const retailers = await c.env.DB.prepare(
+      'SELECT id, name, contact_number as phone, address, credit_limit_paise as creditLimitPaise, outstanding_amount_paise as outstandingPaise, classification, is_active as isActive, latitude, longitude FROM retailers WHERE company_id = ? LIMIT ?'
+    ).bind(tenantId, fetchLimit).all();
+
     return c.json({
       success: true,
       latestServerSequence,
       hasMore: false,
       delta: {
         products: products.results || [],
+        retailers: retailers.results || [],
         classSettings: classSettings.results || [],
         orderStatusUpdates: orderStatusUpdates.results || []
       }
