@@ -15,6 +15,7 @@ import { governanceRouter } from './governance';
 import { operatingRouter } from './operating';
 import { warehouseRouter } from './warehouse';
 import { plannedRoutesRouter } from './planned-routes';
+import { syncRouter } from './sync';
 
 type Bindings = {
   DB: D1Database;
@@ -3667,6 +3668,7 @@ app.route('/', governanceRouter(authMiddleware));
 app.route('/', operatingRouter(authMiddleware));
 app.route('/warehouse', warehouseRouter(authMiddleware));
 app.route('/planned-routes', plannedRoutesRouter(authMiddleware));
+app.route('/', syncRouter(authMiddleware));
 
 export default app;
 
