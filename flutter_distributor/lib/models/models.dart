@@ -69,6 +69,37 @@ extension OrderUnitExt on OrderUnit {
   }
 }
 
+enum StockHealth {
+  ok,
+  lowStock,
+  outOfStock,
+}
+
+class FourPartStockStatus {
+  final int onHandBoxes;
+  final int reservedBoxes;
+  final int availableBoxes;
+  final StockHealth health;
+
+  const FourPartStockStatus({
+    required this.onHandBoxes,
+    required this.reservedBoxes,
+    required this.availableBoxes,
+    required this.health,
+  });
+
+  String get healthBadge {
+    switch (health) {
+      case StockHealth.outOfStock:
+        return 'OUT';
+      case StockHealth.lowStock:
+        return 'LOW';
+      case StockHealth.ok:
+        return 'OK';
+    }
+  }
+}
+
 class ProductPackagingUnit {
   final String id;
   final String productId;

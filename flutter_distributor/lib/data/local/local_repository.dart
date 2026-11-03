@@ -283,6 +283,58 @@ class LocalRepository {
     });
   }
 
+  /// Records an opening balance stock movement into the SQLite ledger and updates snapshots
+  Future<void> recordOpeningBalance({
+    required String productId,
+    required int cartonCount,
+    required int loosePieces,
+    required String reason,
+    String? locationId,
+    String? idempotencyKey,
+  }) async {
+    await db.transaction(() async {
+      final now = DateTime.now();
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value('mov_${now.microsecondsSinceEpoch}_${productId}_opening'),
+          productId: Value(productId),
+          movementType: const Value('OPENING_BALANCE'),
+          cartonDelta: Value(cartonCount),
+          loosePieceDelta: Value(loosePieces),
+          reason: Value(reason),
+          locationId: Value(locationId),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+
+      final snap = await (db.select(db.inventorySnapshots)..where((tbl) => tbl.productId.equals(productId))).getSingleOrNull();
+      if (snap == null) {
+        await db.into(db.inventorySnapshots).insert(
+          InventorySnapshotsCompanion.insert(
+            productId: productId,
+            godownCartons: Value(cartonCount),
+            godownLoosePieces: Value(loosePieces),
+            updatedAt: now,
+          ),
+        );
+      } else {
+        await (db.update(db.inventorySnapshots)..where((tbl) => tbl.productId.equals(productId))).write(
+          InventorySnapshotsCompanion(
+            godownCartons: Value(snap.godownCartons + cartonCount),
+            godownLoosePieces: Value(snap.godownLoosePieces + loosePieces),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Retrieves chronological inventory movement history for a product
+  Future<List<InventoryMovementEntry>> getProductMovements(String productId) async {
+    return getMovementsForProduct(productId);
+  }
+
   /// Soft-archives a product, hiding it from normal active catalogs while preserving
   /// all past inventory movements and snapshots for auditing.
   Future<void> archiveProduct(String productId) async {

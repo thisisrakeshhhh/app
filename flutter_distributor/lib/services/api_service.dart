@@ -1640,8 +1640,13 @@ class ApiService extends ChangeNotifier {
     return order;
   }
 
+  final Map<String, int> _testVirtualReservations = {};
+
   /// Total pending pieces reserved across all Booking stage orders for a product.
   int pendingBookingPieces(String productId) {
+    if (_testVirtualReservations.containsKey(productId)) {
+      return _testVirtualReservations[productId]!;
+    }
     return _orders
         .where((o) => o.stage == OrderLifecycleStage.booking)
         .expand((o) => o.items)
@@ -1689,6 +1694,75 @@ class ApiService extends ChangeNotifier {
         );
     if (prod == null || prod.boxQty <= 0) return 0;
     return availableGodownPieces(productId) ~/ prod.boxQty;
+  }
+
+  /// Calculates authoritative 4-part stock status: On-Hand, Reserved, Available, and Health Status (OK/LOW/OUT)
+  FourPartStockStatus getFourPartStockStatus(String productId, {int? customThresholdPieces}) {
+    final prod = _products.cast<ProductItem?>().firstWhere(
+          (p) => p?.id == productId,
+          orElse: () => null,
+        );
+    final onHand = prod?.godownStockBoxes ?? 0;
+    final boxQty = (prod?.boxQty ?? 0) > 0 ? prod!.boxQty : 50;
+    final reservedBoxes = pendingBookingBoxes(productId);
+    final available = onHand - reservedBoxes;
+
+    final thresholdBoxes = customThresholdPieces != null
+        ? (customThresholdPieces / boxQty).ceil()
+        : 15;
+
+    final StockHealth health;
+    if (available <= 0) {
+      health = StockHealth.outOfStock;
+    } else if (available <= thresholdBoxes) {
+      health = StockHealth.lowStock;
+    } else {
+      health = StockHealth.ok;
+    }
+
+    return FourPartStockStatus(
+      onHandBoxes: onHand,
+      reservedBoxes: reservedBoxes,
+      availableBoxes: available > 0 ? available : 0,
+      health: health,
+    );
+  }
+
+  @visibleForTesting
+  void setVirtualReservationForTesting(String productId, int pieces) {
+    _testVirtualReservations[productId] = pieces;
+    notifyListeners();
+  }
+
+  /// Records an opening stock balance transaction into the SQLite ledger
+  Future<void> recordOpeningBalanceDurable({
+    required String productId,
+    required int cartonCount,
+    required int loosePieces,
+    required String reason,
+    String? locationId,
+    String? idempotencyKey,
+  }) async {
+    final key = idempotencyKey ?? 'idemp_opening_${generateUuidV4()}';
+    await repository.recordOpeningBalance(
+      productId: productId,
+      cartonCount: cartonCount,
+      loosePieces: loosePieces,
+      reason: reason,
+      locationId: locationId,
+      idempotencyKey: key,
+    );
+
+    final idx = _products.indexWhere((p) => p.id == productId);
+    if (idx != -1) {
+      _products[idx].godownStockBoxes += cartonCount;
+    }
+    notifyListeners();
+  }
+
+  /// Fetches chronological movement ledger for a product
+  Future<List<InventoryMovementEntry>> getProductMovementHistory(String productId) {
+    return repository.getProductMovements(productId);
   }
 
   /// Alias for placeOrder with explicit preview semantics in Phase B1

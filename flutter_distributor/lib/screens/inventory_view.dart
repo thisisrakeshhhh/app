@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/local/app_database.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/airbnb_theme.dart';
@@ -442,6 +443,88 @@ class _InventoryViewState extends State<InventoryView> {
     );
   }
 
+  void _showMovementHistory(ProductItem p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => FutureBuilder<List<InventoryMovementEntry>>(
+        future: widget.api.getProductMovementHistory(p.id),
+        builder: (ctx, snap) {
+          final movements = snap.data ?? [];
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.3,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (_, scrollCtrl) => Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                  Text('Stock Movement Ledger: ${p.name}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  Text('SKU: ${p.id} • MRP: ₹${p.mrpRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: snap.connectionState == ConnectionState.waiting
+                        ? const Center(child: CircularProgressIndicator())
+                        : movements.isEmpty
+                            ? const Center(child: Text('No movements recorded yet.', style: TextStyle(color: AirbnbTheme.grey)))
+                            : ListView.separated(
+                                controller: scrollCtrl,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                itemCount: movements.length,
+                                separatorBuilder: (_, _) => const Divider(height: 1),
+                                itemBuilder: (ctx, i) {
+                                  final m = movements[i];
+                                  final isPositive = m.cartonDelta > 0 || m.loosePieceDelta > 0;
+                                  return ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    leading: CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: m.movementType == 'OPENING_BALANCE'
+                                          ? Colors.blue.shade50
+                                          : (isPositive ? Colors.green.shade50 : Colors.red.shade50),
+                                      child: Icon(
+                                        m.movementType == 'OPENING_BALANCE'
+                                            ? Icons.account_balance
+                                            : (isPositive ? Icons.arrow_downward : Icons.arrow_upward),
+                                        size: 16,
+                                        color: m.movementType == 'OPENING_BALANCE'
+                                            ? Colors.blue.shade700
+                                            : (isPositive ? Colors.green.shade700 : Colors.red.shade700),
+                                      ),
+                                    ),
+                                    title: Text(
+                                      '${m.movementType} ${m.cartonDelta >= 0 ? "+${m.cartonDelta}" : m.cartonDelta} bxs, ${m.loosePieceDelta >= 0 ? "+${m.loosePieceDelta}" : m.loosePieceDelta} pcs',
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                    ),
+                                    subtitle: Text(
+                                      '${m.reason.isNotEmpty ? m.reason : "Stock movement"}${m.supplierName != null ? " • Supplier: ${m.supplierName}" : ""}\n${m.createdAt}',
+                                      style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final allProducts = widget.api.products;
@@ -674,8 +757,9 @@ class _InventoryViewState extends State<InventoryView> {
                   itemCount: filtered.length,
                   itemBuilder: (ctx, i) {
                     final p = filtered[i];
-                    final isLowStock = p.godownStockBoxes <= 15;
-                    final isOutOfStock = p.godownStockBoxes == 0;
+                    final fourPart = widget.api.getFourPartStockStatus(p.id);
+                    final isLowStock = fourPart.health == StockHealth.lowStock;
+                    final isOutOfStock = fourPart.health == StockHealth.outOfStock;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -799,62 +883,92 @@ class _InventoryViewState extends State<InventoryView> {
                             children: [
                               Wrap(
                                 crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 6,
+                                spacing: 5,
                                 runSpacing: 4,
                                 children: [
+                                  // Status Badge (OK / LOW / OUT)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: isOutOfStock
-                                          ? Colors.red.withValues(alpha: 0.1)
-                                          : isLowStock
-                                              ? Colors.amber.withValues(alpha: 0.15)
-                                              : AirbnbTheme.success.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(8),
+                                      color: fourPart.health == StockHealth.outOfStock
+                                          ? Colors.red.shade100
+                                          : (fourPart.health == StockHealth.lowStock
+                                              ? Colors.amber.shade100
+                                              : Colors.green.shade100),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          isOutOfStock
-                                              ? Icons.warning
-                                              : isLowStock
-                                                  ? Icons.info_outline
-                                                  : Icons.check_circle_outline,
-                                          size: 13,
-                                          color: isOutOfStock
-                                              ? Colors.red
-                                              : isLowStock
-                                                  ? Colors.amber[800]
-                                                  : AirbnbTheme.success,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          widget.api.pendingBookingPieces(p.id) > 0
-                                              ? 'Godown: ${p.godownStockBoxes} Bxs (${widget.api.pendingBookingBoxes(p.id)}b res)'
-                                              : 'Godown: ${p.godownStockBoxes} Boxes',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                            color: isOutOfStock
-                                                ? Colors.red
-                                                : isLowStock
-                                                    ? Colors.amber[900]
-                                                    : AirbnbTheme.success,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      fourPart.healthBadge,
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: fourPart.health == StockHealth.outOfStock
+                                            ? Colors.red.shade800
+                                            : (fourPart.health == StockHealth.lowStock
+                                                ? Colors.amber.shade900
+                                                : Colors.green.shade900),
+                                      ),
                                     ),
                                   ),
-                                  Text(
-                                    'Car: ${p.carStockBoxes} bxs',
-                                    style: const TextStyle(fontSize: 10, color: AirbnbTheme.grey),
+                                  // 1. On-Hand
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AirbnbTheme.lightGrey,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AirbnbTheme.border),
+                                    ),
+                                    child: Text(
+                                      'On-Hand: ${fourPart.onHandBoxes}b',
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                  // 2. Reserved
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: Colors.purple.shade100),
+                                    ),
+                                    child: Text(
+                                      'Res: ${fourPart.reservedBoxes}b',
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.purple.shade800),
+                                    ),
+                                  ),
+                                  // 3. Available
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: fourPart.availableBoxes > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: fourPart.availableBoxes > 0 ? Colors.green.shade200 : Colors.red.shade200,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Avail: ${fourPart.availableBoxes}b',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: fourPart.availableBoxes > 0 ? Colors.green.shade800 : Colors.red.shade800,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  // Movement Timeline History Button
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                    icon: const Icon(Icons.history, size: 16, color: AirbnbTheme.dark),
+                                    tooltip: 'Movement Timeline',
+                                    onPressed: () => _showMovementHistory(p),
+                                  ),
+                                  const SizedBox(width: 4),
                                   // Packaging Hierarchy & Multi-Tier Pricing Button
                                   IconButton(
                                     padding: EdgeInsets.zero,
