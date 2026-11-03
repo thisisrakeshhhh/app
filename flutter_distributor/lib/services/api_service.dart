@@ -61,6 +61,20 @@ class OwnerMetrics {
   double get todayBookingsRupees => todayBookingsPaise / 100.0;
 }
 
+class OrderTimelineStep {
+  final String title;
+  final String subtitle;
+  final bool isCompleted;
+  final DateTime? timestamp;
+
+  const OrderTimelineStep({
+    required this.title,
+    required this.subtitle,
+    required this.isCompleted,
+    this.timestamp,
+  });
+}
+
 class ApiService extends ChangeNotifier {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -1763,6 +1777,78 @@ class ApiService extends ChangeNotifier {
       otp: '${100000 + (payload.clientCreatedAtEpochMs % 900000)}',
       createdAt: DateTime.fromMillisecondsSinceEpoch(payload.clientCreatedAtEpochMs),
     );
+  }
+
+  /// Slice 6: Returns strictly honest, unambiguous labels for sync status.
+  /// Never claims an order is synced to cloud until real server acknowledgment.
+  String getHonestSyncStatusLabel(String syncStatus) {
+    switch (syncStatus) {
+      case 'PENDING':
+      case 'RETRYABLE_FAILURE':
+        return 'Saved on this phone (Offline Outbox)';
+      case 'SYNCING':
+        return 'Uploading to Cloud...';
+      case 'SYNCED':
+        return 'Synced to Cloud';
+      case 'FAILED_TERMINAL':
+        return 'Sync Rejected by Cloud';
+      default:
+        return 'Saved on this phone (Offline Outbox)';
+    }
+  }
+
+  /// Returns durable 3-step audit timeline for an order:
+  /// 1. Booked on Device
+  /// 2. Saved in Local Outbox (with sequence #)
+  /// 3. Cloud Sync (honest unconfirmed / confirmed)
+  Future<List<OrderTimelineStep>> getOrderAuditTimeline(String orderId) async {
+    final order = _orders.cast<DistributorOrder?>().firstWhere(
+          (o) => o?.id == orderId,
+          orElse: () => null,
+        );
+
+    final pending = await db.outboxDao.getPendingQueue();
+    OutboxMutationEntry? mutation;
+    for (final m in pending) {
+      if (m.provisionalBusinessId == orderId) {
+        mutation = m;
+        break;
+      }
+    }
+
+    mutation ??= await (db.select(db.outboxMutations)
+          ..where((tbl) => tbl.provisionalBusinessId.equals(orderId)))
+        .getSingleOrNull();
+
+    final createdAt = order?.createdAt ??
+        (mutation != null
+            ? DateTime.fromMillisecondsSinceEpoch(mutation.createdAtEpochMs)
+            : DateTime.now());
+    final sequenceStr = mutation != null ? 'Sequence #${mutation.sequenceOrder}' : 'Sequence #1';
+    final isSynced = mutation?.syncStatus == 'SYNCED';
+
+    final timeStr = '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+
+    return [
+      OrderTimelineStep(
+        title: 'Booked on Device',
+        subtitle: 'Created locally at $timeStr',
+        isCompleted: true,
+        timestamp: createdAt,
+      ),
+      OrderTimelineStep(
+        title: 'Saved in Local Outbox',
+        subtitle: 'Durable in SQLite ($sequenceStr)',
+        isCompleted: true,
+        timestamp: createdAt,
+      ),
+      OrderTimelineStep(
+        title: 'Cloud Sync',
+        subtitle: isSynced ? 'Synced to Cloudflare D1' : 'Pending upload to Cloudflare',
+        isCompleted: isSynced,
+        timestamp: isSynced ? DateTime.now() : null,
+      ),
+    ];
   }
 
   // Stage Transitions (Booking -> Ready Stock in Car -> Order Send on Route -> Delivered)

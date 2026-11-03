@@ -48,6 +48,17 @@ class AppStrings {
   static String get savedOnPhone => isHindi ? 'फोन पर सुरक्षित (लोकल)' : 'Saved on this phone';
   static String get waitingToSync => isHindi ? 'सिंक की प्रतीक्षा में' : 'Waiting to sync';
   static String get localOnlyMode => isHindi ? 'लोकल आउटबॉक्स मोड' : 'Local Outbox Mode';
+  static String get syncStatusTitle => isHindi ? 'सिंक स्थिति' : 'Sync Status';
+  static String get savedOnPhoneOutbox => isHindi ? 'फोन पर सुरक्षित (ऑफलाइन आउटबॉक्स)' : 'Saved on this phone (Offline Outbox)';
+  static String get uploadingToCloud => isHindi ? 'क्लाउड पर अपलोड हो रहा है...' : 'Uploading to Cloud...';
+  static String get syncedToCloud => isHindi ? 'क्लाउड पर सिंक हो गया' : 'Synced to Cloud';
+  static String get syncWorkerNote => isHindi ? 'सिंक वर्कर अभी निष्क्रिय है — सभी ऑर्डर और बदलाव फोन पर पूरी तरह सुरक्षित हैं।' : 'Sync worker inactive — mutations remain safe on phone.';
+  static String pendingMutationsCount(int count) => isHindi ? '$count बदलाव कतार में सुरक्षित' : '$count pending mutation(s) safely queued';
+  static String get bookedOnDevice => isHindi ? 'डिवाइस पर बुक हुआ' : 'Booked on Device';
+  static String get savedInLocalOutbox => isHindi ? 'लोकल आउटबॉक्स में सुरक्षित' : 'Saved in Local Outbox';
+  static String get cloudSync => isHindi ? 'क्लाउड सिंक' : 'Cloud Sync';
+  static String get pendingUploadCloudflare => isHindi ? 'क्लाउडफ्लेयर पर अपलोड लंबित' : 'Pending upload to Cloudflare';
+  static String get auditTimeline => isHindi ? 'ऑर्डर ऑडिट टाइमलाइन' : 'Order Audit Timeline';
 
   // Pillar C: Inventory & GRN
   static String get receiveStock => isHindi ? 'स्टॉक आवक (GRN)' : 'Receive Stock (GRN)';

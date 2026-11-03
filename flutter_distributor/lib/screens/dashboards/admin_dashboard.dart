@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import '../views/sync_status_view.dart';
 
 /// Distributor Admin Landing Dashboard.
 /// Displays executive financial overview, CBIC GST breakdown, driver cash vs retailer udhaar,
@@ -346,42 +347,52 @@ class AdminDashboard extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // 6. CLOUDFLARE EDGE & AUDIT BANNER
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(10),
+          // 6. CLOUDFLARE EDGE & AUDIT BANNER (Tap to view Honest Sync Status Screen)
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SyncStatusView(api: api)),
+              );
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cloud_done, color: Color(0xFFF57C00), size: 22),
                   ),
-                  child: const Icon(Icons.cloud_done, color: Color(0xFFF57C00), size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Cloudflare Workers & D1 Edge Storage',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Sub-50ms latency • Atomic stock reservations • Multi-tenant fence',
-                        style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
-                      ),
-                    ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Cloudflare Workers & D1 Edge Storage',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Offline Outbox • Tap to view sync monitor & audit trail',
+                          style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: AirbnbTheme.grey),
+                ],
+              ),
             ),
           ),
         ],
