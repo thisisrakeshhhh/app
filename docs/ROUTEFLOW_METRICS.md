@@ -8,7 +8,7 @@
 
 ## 1. Test Suite Verification Summary
 
-### Flutter Mobile Test Suite: 225 Tests across 36 Test Files (100% Pass)
+### Flutter Mobile Test Suite: 231 Tests across 37 Test Files (100% Pass)
 
 | # | Test File | Test Count | Domain / Slice Covered | Result |
 |---|---|:---:|---|:---:|
@@ -45,14 +45,15 @@
 | 31 | `test/spatial_domain_and_owner_role_test.dart` | 7 | Spatial beat coordinates & owner approval governance | **PASS** |
 | 32 | `test/stock_conversion_test.dart` | 10 | Packaging hierarchy conversions & integer rounding | **PASS** |
 | 33 | `test/sync_status_honesty_test.dart` | 2 | Slice 6: Honest Sync Status & 3-Step Order Timeline | **PASS** |
-| 34 | `test/tenant_boundary_containment_test.dart` | 13 | Fail-closed tenant isolation & local SQLite quarantine | **PASS** |
-| 35 | `test/token_refresh_coordinator_test.dart` | 7 | Refresh token rotation mutex & concurrency locks | **PASS** |
-| 36 | `test/widget_test.dart` | 1 | App root widget smoke test | **PASS** |
-| **TOTAL** | **36 Test Files** | **225** | **All 225 Tests Passing** | **100% PASS** |
+| 34 | `test/sync_worker_http_test.dart` | 6 | Part C2: Mobile Sync Worker, FIFO wire protocol, 401/409 handling | **PASS** |
+| 35 | `test/tenant_boundary_containment_test.dart` | 13 | Fail-closed tenant isolation & local SQLite quarantine | **PASS** |
+| 36 | `test/token_refresh_coordinator_test.dart` | 7 | Refresh token rotation mutex & concurrency locks | **PASS** |
+| 37 | `test/widget_test.dart` | 1 | App root widget smoke test | **PASS** |
+| **TOTAL** | **37 Test Files** | **231** | **All 231 Tests Passing** | **100% PASS** |
 
 ---
 
-### Cloudflare D1 Backend Test Suite: 64 Tests across 5 Test Files (100% Pass)
+### Cloudflare D1 Backend Test Suite: 72 Tests across 6 Test Files (100% Pass)
 
 | # | Backend Test File | Subtest Count | Coverage Scope | Result |
 |---|---|:---:|---|:---:|
@@ -60,8 +61,9 @@
 | 2 | `test/integration.test.mjs` | 25 | Multi-tenant auth, atomic transitions, payments, trips | **PASS** |
 | 3 | `test/planned-routes.test.mjs` | 5 | Road calculations, route planning, stop status sync | **PASS** |
 | 4 | `test/security-rbac-retailer.test.mjs` | 21 | RBAC permissions across all roles, tenant isolation | **PASS** |
-| 5 | `test/warehouse.test.mjs` | 8 | Picking queues, dispatch batches, stock audits, GRN | **PASS** |
-| **TOTAL** | **5 Test Files** | **64** | **All 64 Backend Subtests Passing** | **100% PASS** |
+| 5 | `test/sync-endpoints.test.mjs` | 8 | Part C1: Real Sync push/pull, RBAC, idempotency replay, 409 mismatch, overselling | **PASS** |
+| 6 | `test/warehouse.test.mjs` | 8 | Picking queues, dispatch batches, stock audits, GRN | **PASS** |
+| **TOTAL** | **6 Test Files** | **72** | **All 72 Backend Subtests Passing** | **100% PASS** |
 
 ---
 
@@ -75,16 +77,17 @@
    - Every mutation has a unique UUID v4 `idempotencyKey` preserved across retries.
    - Retries compare payload snapshots: exact payload match returns existing order; payload mismatch triggers `IDEMPOTENCY_PAYLOAD_MISMATCH` rejection.
    - Monotonic `sequence_order` allocated atomically inside SQLite transaction.
-3. **Data-Driven Unit Pricing:**
+3. **Data-Driven Unit Pricing & Server Recalculation:**
    - Float multipliers eliminated from `ProductItem`.
    - Prices dynamically queried from `unit_prices` SQLite table populated per-product.
+   - Backend `POST /sync/push` independently recalculates line totals, taxable amounts, and GST, preventing client tampering while protecting against overselling.
 4. **Honest Sync Invariant:**
    - Mobile client UI never displays "Synced to Cloud" until real server HTTP 200 acknowledgment.
-   - Status clearly reports "Saved on this phone (Offline Outbox)" with sequence order.
+   - Mobile `SyncWorker` reads local outbox in strict FIFO sequence order and transitions records from `PENDING` to `SYNCED` only on HTTP 200, handling exponential backoff on network failures and pausing on authentication expiry.
 5. **Credit & Khata Governance:**
    - Salespersons cannot alter credit limits or override khata blocks.
    - Class D and NEW retailers strictly enforce Cash/COD checkout (`canUseCreditOrKhata == false`).
-   - All credit limit modifications require sovereign Distributor Owner authorization.
+   - All credit limit modifications require sovereign Distributor Owner authorization on both mobile and edge server.
 
 ---
 
