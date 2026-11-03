@@ -222,19 +222,37 @@ class SyncWorker extends ChangeNotifier {
         }
 
         int syncedCount = 0;
+        int rejectedCount = 0;
+        String? firstRejectionError;
         final nowMs = DateTime.now().millisecondsSinceEpoch;
 
         for (final m in readyMutations) {
           final res = resultMap[m.id];
-          if (res != null && res['status'] == 'COMMITTED') {
-            await db.outboxDao.markSynced(id: m.id, syncedAtEpochMs: nowMs);
-            syncedCount++;
+          if (res != null) {
+            final status = res['status'] as String?;
+            if (status == 'COMMITTED') {
+              await db.outboxDao.markSynced(id: m.id, syncedAtEpochMs: nowMs);
+              syncedCount++;
+            } else if (status == 'REJECTED') {
+              rejectedCount++;
+              final errCode = res['errorCode'] as String? ?? 'UNSUPPORTED_MUTATION_TYPE';
+              final errMsg = res['errorMessage'] as String? ?? 'Mutation rejected by server';
+              firstRejectionError ??= errMsg;
+              await db.outboxDao.markFailedPermanent(
+                id: m.id,
+                errorCode: errCode,
+              );
+            }
           }
         }
 
         _consecutiveNetworkFailures = 0;
-        _lastError = null;
+        _lastError = firstRejectionError;
         _setState(SyncWorkerState.idle);
+
+        if (rejectedCount > 0 && syncedCount == 0) {
+          return SyncPushResult.permanentFailure(firstRejectionError ?? 'Mutations rejected by server');
+        }
         return SyncPushResult.success(syncedCount);
       }
 

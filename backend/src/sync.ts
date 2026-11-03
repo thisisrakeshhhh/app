@@ -282,8 +282,8 @@ export function syncRouter(authMiddleware: any) {
           // Atomic stock reservation
           stockReservationStatements.push(
             c.env.DB.prepare(
-              'UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ? AND (stock_quantity - reserved_quantity) >= ?'
-            ).bind(totalPiecesRequired, prod.id, tenantId, totalPiecesRequired)
+              'UPDATE products SET reserved_quantity = reserved_quantity + ? WHERE id = ? AND company_id = ?'
+            ).bind(totalPiecesRequired, prod.id, tenantId)
           );
         }
 
@@ -326,7 +326,19 @@ export function syncRouter(authMiddleware: any) {
           )
         ];
 
-        await c.env.DB.batch(batchStatements);
+        try {
+          await c.env.DB.batch(batchStatements);
+        } catch (e: any) {
+          const msg = e?.message || String(e);
+          if (msg.includes('INSUFFICIENT_STOCK')) {
+            return c.json({
+              success: false,
+              error: 'INSUFFICIENT_STOCK',
+              message: 'Overselling protection: insufficient available stock to satisfy order reservation across all lines'
+            }, 400);
+          }
+          throw e;
+        }
 
         results.push({
           mutationId,
@@ -479,33 +491,13 @@ export function syncRouter(authMiddleware: any) {
         });
 
       } else {
-        // Generic mutation persistence
-        const nowMs = Date.now();
-        currentSeq++;
-
-        await c.env.DB.prepare(
-          `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(
-          `audit_${nowMs}_${currentSeq}`,
-          tenantId,
-          user.sub,
-          idempotencyKey,
-          mutationType,
-          payloadHash,
-          payloadString,
-          provisionalBusinessId || null,
-          null,
-          sequenceOrder || 0,
-          currentSeq,
-          nowMs
-        ).run();
-
+        // Mutation type without a real domain handler: MUST NEVER BE ACCEPTED SILENTLY
         results.push({
           mutationId,
-          status: 'COMMITTED',
+          status: 'REJECTED',
           provisionalBusinessId,
-          serverSequence: currentSeq
+          errorCode: 'UNSUPPORTED_MUTATION_TYPE',
+          errorMessage: `Mutation type '${mutationType}' is not supported for server processing.`
         });
       }
     }

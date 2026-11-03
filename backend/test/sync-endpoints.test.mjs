@@ -411,4 +411,146 @@ describe('RouteFlow Phase C: Real Cloudflare D1 Sync Endpoints & Integrity Suite
     assert.ok(Array.isArray(json.delta.classSettings));
     assert.ok(Array.isArray(json.delta.orderStatusUpdates));
   });
+
+  test('8. Unhandled Mutation Types Rejected: Must never silently accept into audit log', async () => {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${salesToken}`
+      },
+      body: JSON.stringify({
+        clientBatchId: 'batch_unhandled_type',
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: 'mut_unhandled_visit',
+            sequenceOrder: 1,
+            idempotencyKey: `idem_unhandled_${Date.now()}`,
+            mutationType: 'RECORD_VISIT',
+            payload: { shopId: 'ret_1', outcome: 'SHOP_CLOSED' }
+          }
+        ]
+      })
+    });
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.results[0].mutationId, 'mut_unhandled_visit');
+    assert.equal(json.results[0].status, 'REJECTED');
+    assert.equal(json.results[0].errorCode, 'UNSUPPORTED_MUTATION_TYPE');
+  });
+
+  test('9. Multi-line Order All-or-Nothing: Out-of-stock line rolls back earlier line reservations', async () => {
+    // Check initial reserved_quantity of prod_1
+    const pullInitial = await fetch(`${BASE_URL}/sync/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({ organizationId: 'comp_1', limit: 50 })
+    });
+    const pullInitialJson = await pullInitial.json();
+    const prod1Before = pullInitialJson.delta.products.find(p => p.id === 'prod_1');
+    const reservedBefore = prod1Before.reserved_quantity;
+
+    // Send order where line 1 is in-stock (prod_1), but line 2 (prod_2) is out of stock (demands 99999)
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${salesToken}`
+      },
+      body: JSON.stringify({
+        clientBatchId: 'batch_multiline_fail',
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: 'mut_multiline_fail',
+            sequenceOrder: 50,
+            idempotencyKey: `idem_multiline_${Date.now()}`,
+            mutationType: 'CREATE_ORDER',
+            payload: {
+              retailerId: 'ret_1',
+              items: [
+                { productId: 'prod_1', orderedQuantity: 5 },
+                { productId: 'prod_2', orderedQuantity: 99999 }
+              ]
+            }
+          }
+        ]
+      })
+    });
+    assert.equal(res.status, 400, 'Must reject order due to line 2 being out of stock');
+    const json = await res.json();
+    assert.equal(json.error, 'INSUFFICIENT_STOCK');
+
+    // Verify prod_1 reserved_quantity was NOT incremented (all-or-nothing rollback)
+    const pullAfter = await fetch(`${BASE_URL}/sync/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({ organizationId: 'comp_1', limit: 50 })
+    });
+    const pullAfterJson = await pullAfter.json();
+    const prod1After = pullAfterJson.delta.products.find(p => p.id === 'prod_1');
+    assert.equal(prod1After.reserved_quantity, reservedBefore, 'Line 1 reservation must be completely rolled back');
+  });
+
+  test('10. Concurrent Order Race on Last Stock: Exactly one succeeds, second gets INSUFFICIENT_STOCK', async () => {
+    // Find prod_2 current available stock
+    const pullRes = await fetch(`${BASE_URL}/sync/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({ organizationId: 'comp_1', limit: 50 })
+    });
+    const pullJson = await pullRes.json();
+    const prod2 = pullJson.delta.products.find(p => p.id === 'prod_2');
+    const available = prod2.stock_quantity - prod2.reserved_quantity;
+    assert.ok(available > 0, 'prod_2 must have stock for concurrent test');
+
+    const now = Date.now();
+    // Fire two parallel requests competing for the ENTIRE remaining available stock of prod_2
+    const req1 = fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: `batch_race_1_${now}`,
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: `mut_race_1_${now}`,
+            sequenceOrder: 101,
+            idempotencyKey: `idem_race_1_${now}`,
+            mutationType: 'CREATE_ORDER',
+            payload: { retailerId: 'ret_1', items: [{ productId: 'prod_2', orderedQuantity: available }] }
+          }
+        ]
+      })
+    });
+
+    const req2 = fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: `batch_race_2_${now}`,
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: `mut_race_2_${now}`,
+            sequenceOrder: 102,
+            idempotencyKey: `idem_race_2_${now}`,
+            mutationType: 'CREATE_ORDER',
+            payload: { retailerId: 'ret_1', items: [{ productId: 'prod_2', orderedQuantity: available }] }
+          }
+        ]
+      })
+    });
+
+    const [res1, res2] = await Promise.all([req1, req2]);
+    const statuses = [res1.status, res2.status].sort();
+
+    // Exactly one must succeed (200) and one must be rejected (400)
+    assert.deepEqual(statuses, [200, 400], 'One order must succeed (200) and one must fail (400)');
+
+    const failedRes = res1.status === 400 ? res1 : res2;
+    const failedJson = await failedRes.json();
+    assert.equal(failedJson.error, 'INSUFFICIENT_STOCK');
+  });
 });

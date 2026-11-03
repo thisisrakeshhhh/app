@@ -345,5 +345,54 @@ void main() {
       expect(result.authRequired, true);
       expect(worker.state, SyncWorkerState.pausedAuthRequired);
     });
+
+    test('7. Server per-mutation REJECTED (UNSUPPORTED_MUTATION_TYPE) marks FAILED_PERMANENT and explains to user', () async {
+      final mut = await insertTestMutation(
+        id: 'mut_unsupported_visit',
+        sequenceOrder: 1,
+        idempotencyKey: 'idem_unsupported_visit',
+        mutationType: 'RECORD_VISIT',
+        payload: {'shopId': 'ret_1'},
+      );
+
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'results': [
+              {
+                'mutationId': mut.id,
+                'status': 'REJECTED',
+                'errorCode': 'UNSUPPORTED_MUTATION_TYPE',
+                'errorMessage': "Mutation type 'RECORD_VISIT' is not supported for server processing.",
+              }
+            ],
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final result = await worker.processPendingOutbox(
+        organizationId: testOrgId,
+        userId: testUserId,
+      );
+
+      expect(result.success, false);
+      expect(result.hasPermanentFailure, true);
+      expect(result.errorMessage, contains('RECORD_VISIT'));
+
+      // Invariant: Must NOT be marked SYNCED! Must be FAILED_PERMANENT with lastErrorCode
+      final updated = await (db.select(db.outboxMutations)..where((tbl) => tbl.id.equals(mut.id))).getSingle();
+      expect(updated.syncStatus, 'FAILED_PERMANENT');
+      expect(updated.syncedAtEpochMs, isNull);
+      expect(updated.lastErrorCode, 'UNSUPPORTED_MUTATION_TYPE');
+    });
   });
 }
