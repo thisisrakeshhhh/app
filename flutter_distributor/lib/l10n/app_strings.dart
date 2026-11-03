@@ -68,6 +68,15 @@ class AppStrings {
   static String get invoiceNumber => isHindi ? 'चालान / बिल नंबर' : 'Invoice / GRN No.';
   static String get supplierName => isHindi ? 'सप्लायर / कंपनी' : 'Supplier Name';
 
+  // Pillar B & Units: Sales & Packaging
+  static String get salesOrder => isHindi ? 'बिक्री ऑर्डर' : 'Sales Order';
+  static String get unitPiece => isHindi ? 'पीस' : 'Piece';
+  static String get unitStrip => isHindi ? 'स्ट्रिप / पत्ता' : 'Strip';
+  static String get unitBox => isHindi ? 'पेटी / बॉक्स' : 'Box';
+  static String get cartDraftSaved => isHindi ? 'कार्ट सुरक्षित (ड्राफ्ट)' : 'Cart draft auto-saved';
+  static String get noOrderRecorded => isHindi ? 'बिना ऑर्डर विज़िट दर्ज' : 'No-order visit recorded';
+  static String get creditLimitExceeded => isHindi ? 'उधार सीमा समाप्त' : 'Credit limit exceeded';
+
   // Validation Errors
   static String get shopNameRequired => isHindi ? 'कृपया दुकान का नाम लिखें' : 'Shop name is required';
   static String get ownerNameRequired => isHindi ? 'कृपया मालिक का नाम लिखें' : 'Owner name is required';

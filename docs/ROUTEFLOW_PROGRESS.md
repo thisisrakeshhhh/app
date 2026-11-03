@@ -51,9 +51,9 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 | **Slice 3** | Receive Stock GRN & Ledger (Pillar C2) | **COMPLETED** | `d8982f8` | +4 (`godown_grn_ledger_test.dart`) | **PASS (178/178)** |
 | **Slice 4** | Sales UX Upgrade (Pillar B) | **COMPLETED** | `8f6e968` | +5 (`sales_high_velocity_ux_test.dart`) | **PASS (183/183)** |
 | **Slice 5** | Owner Control Room Essentials | **COMPLETED** | `04a04ed` | +4 (`owner_control_room_test.dart`) | **PASS (187/187)** |
-| **Slice 6** | Honest Sync Status & Timelines | **COMPLETED** | pending | +2 (`sync_status_honesty_test.dart`) | **PASS (189/189)** |
-| **Slice 7** | Polish, Hindi Strings & Benchmarks | In Progress | — | +2 planned | Pending |
-| **Slice 8** | Backend Discovery & Sync Integration | Pending | — | TBD | Pending |
+| **Slice 6** | Honest Sync Status & Timelines | **COMPLETED** | `bcb7d0c` | +2 (`sync_status_honesty_test.dart`) | **PASS (189/189)** |
+| **Slice 7** | Polish, Hindi Strings & Benchmarks | **COMPLETED** | pending | +2 (`localization_and_performance_test.dart`) | **PASS (191/191)** |
+| **Slice 8** | Backend Discovery & Sync Integration | In Progress | — | TBD | Pending |
 
 ---
 
