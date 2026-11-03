@@ -667,5 +667,230 @@ void main() {
       expect(shop.creditLimitPaise, 5000000);
       expect(shop.classType, 'CLASS_A');
     });
+
+    test('13. Delta Pull preserves unsynced local rows and does not overwrite them', () async {
+      final repo = LocalRepository(db);
+      final api = ApiService.internalForTesting(
+        database: db,
+        localRepo: repo,
+        sessionProvider: () => const UserSession(
+          userId: testUserId,
+          name: 'Test Sales',
+          activeOrganizationId: testOrgId,
+          activeRole: 'SALES',
+          organizations: [
+            OrganizationMembership(id: testOrgId, name: 'Test Org', role: 'SALES', isActive: true),
+          ],
+        ),
+      );
+
+      // Insert pending uncommitted shop into outbox
+      await insertTestMutation(
+        id: 'mut_shop_pending_01',
+        sequenceOrder: 1,
+        idempotencyKey: 'idem_pending_shop_01',
+        mutationType: 'CREATE_RETAILER',
+        payload: {'shopName': 'Local Unsynced Shop', 'phone': '9829099999'},
+        provisionalId: 'PROV-LOCAL-SHOP-01',
+      );
+
+      final localShop = RetailerShop(
+        id: 'PROV-LOCAL-SHOP-01',
+        name: 'Local Unsynced Shop',
+        ownerName: 'Local Owner',
+        phone: '9829099999',
+        address: 'Local Address',
+        area: 'Local Area',
+        creditLimitPaise: 0,
+        outstandingPaise: 0,
+        classType: 'NEW',
+      );
+      api.retailers.add(localShop);
+
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'latestServerSequence': 105,
+            'delta': {
+              'retailers': [
+                {
+                  'id': 'PROV-LOCAL-SHOP-01',
+                  'creditLimitPaise': 99999999, // Server attempting to overwrite
+                  'classification': 'CLASS_OVERWRITE',
+                }
+              ]
+            }
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        apiService: api,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final success = await worker.processPullDelta(organizationId: testOrgId);
+      expect(success, true);
+
+      // Invariant: Unsynced local shop was preserved and NOT overwritten!
+      expect(localShop.creditLimitPaise, 0);
+      expect(localShop.classType, 'NEW');
+    });
+
+    test('14. Delta pull updates catalog products and stores sequence cursor in metadata', () async {
+      final repo = LocalRepository(db);
+      final api = ApiService.internalForTesting(
+        database: db,
+        localRepo: repo,
+        sessionProvider: () => const UserSession(
+          userId: testUserId,
+          name: 'Test Sales',
+          activeOrganizationId: testOrgId,
+          activeRole: 'SALES',
+          organizations: [
+            OrganizationMembership(id: testOrgId, name: 'Test Org', role: 'SALES', isActive: true),
+          ],
+        ),
+      );
+
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'latestServerSequence': 142,
+            'delta': {
+              'products': [
+                {
+                  'id': 'prod_remote_55',
+                  'name': 'Remote Ground Spices',
+                  'price_paise': 18000,
+                  'stock_quantity': 45,
+                  'category': 'Groceries'
+                }
+              ],
+              'productUnits': [
+                {
+                  'productId': 'prod_remote_55',
+                  'unitName': 'Crate',
+                  'multiplierToBase': 24,
+                  'pricePaise': 400000,
+                  'canSell': 1,
+                  'canBuy': 1
+                }
+              ]
+            }
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        apiService: api,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final success = await worker.processPullDelta(organizationId: testOrgId);
+      expect(success, true);
+      expect(worker.lastServerSequence, 142);
+      expect(worker.lastSuccessfulSyncTime, isNotNull);
+
+      // Verify product catalog updated in memory
+      final p = api.products.firstWhere((prod) => prod.id == 'prod_remote_55');
+      expect(p.name, 'Remote Ground Spices');
+      expect(p.piecePricePaise, 18000);
+      expect(p.godownStockBoxes, 45);
+      expect(p.customUnitMultipliers?['crate'], 24);
+
+      // Verify sequence cursor persisted in SQLite metadata
+      final meta = await (db.select(db.databaseMetadata)
+            ..where((tbl) => tbl.key.equals('last_server_sequence')))
+          .getSingleOrNull();
+      expect(meta?.value, '142');
+    });
+
+    test('15. Permanent failure cascade: rejected shop cascades rejection to dependent orders', () async {
+      final repo = LocalRepository(db);
+      final api = ApiService.internalForTesting(
+        database: db,
+        localRepo: repo,
+        sessionProvider: () => const UserSession(
+          userId: testUserId,
+          name: 'Test Sales',
+          activeOrganizationId: testOrgId,
+          activeRole: 'SALES',
+          organizations: [
+            OrganizationMembership(id: testOrgId, name: 'Test Org', role: 'SALES', isActive: true),
+          ],
+        ),
+      );
+
+      // Create shop and dependent order
+      await insertTestMutation(
+        id: 'mut_shop_bad_01',
+        sequenceOrder: 1,
+        idempotencyKey: 'idem_shop_bad_01',
+        mutationType: 'CREATE_RETAILER',
+        payload: {'shopName': 'Bad Shop'},
+        provisionalId: 'PROV-BAD-SHOP',
+      );
+
+      await insertTestMutation(
+        id: 'mut_order_dep_02',
+        sequenceOrder: 2,
+        idempotencyKey: 'idem_order_dep_02',
+        mutationType: 'CREATE_ORDER',
+        payload: {'retailerId': 'PROV-BAD-SHOP', 'totalPaise': 30000},
+        provisionalId: 'PROV-ORDER-DEP',
+      );
+
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'processedCount': 1,
+            'results': [
+              {
+                'mutationId': 'mut_shop_bad_01',
+                'status': 'REJECTED',
+                'errorCode': 'FORBIDDEN_ROLE_ACTION',
+                'errorMessage': 'Sales cannot set non-zero credit'
+              }
+            ]
+          }),
+          200,
+        );
+      });
+
+      final worker = SyncWorker(
+        db: db,
+        apiService: api,
+        httpClient: mockClient,
+        baseUrl: testBaseUrl,
+        accessTokenProvider: () async => 'test_token',
+      );
+
+      final result = await worker.processPendingOutbox(
+        organizationId: testOrgId,
+        userId: testUserId,
+      );
+
+      expect(result.hasPermanentFailure, true);
+
+      // Check dependent order status in SQLite outbox
+      final depOrder = await (db.select(db.outboxMutations)
+            ..where((tbl) => tbl.id.equals('mut_order_dep_02')))
+          .getSingle();
+
+      expect(depOrder.syncStatus, 'FAILED_PERMANENT');
+      expect(depOrder.lastErrorCode, 'DEPENDENT_SHOP_REJECTED');
+    });
   });
 }

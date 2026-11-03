@@ -57,7 +57,7 @@ class AppStrings {
   static String get bookedOnDevice => isHindi ? 'डिवाइस पर बुक हुआ' : 'Booked on Device';
   static String get savedInLocalOutbox => isHindi ? 'लोकल आउटबॉक्स में सुरक्षित' : 'Saved in Local Outbox';
   static String get cloudSync => isHindi ? 'क्लाउड सिंक' : 'Cloud Sync';
-  static String get pendingUploadCloudflare => isHindi ? 'क्लाउडफ्लेयर पर अपलोड लंबित' : 'Pending upload to Cloudflare';
+  static String get pendingUploadCloudflare => isHindi ? 'ऑफिस सर्वर पर अपलोड लंबित' : 'Pending upload to Office Cloud';
   static String get auditTimeline => isHindi ? 'ऑर्डर ऑडिट टाइमलाइन' : 'Order Audit Timeline';
 
   // Pillar C: Inventory & GRN

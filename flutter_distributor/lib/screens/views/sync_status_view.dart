@@ -59,6 +59,8 @@ class _SyncStatusViewState extends State<SyncStatusView> {
     switch (code) {
       case 'INSUFFICIENT_STOCK':
         return 'Stock finished at office godown (गोदाम में स्टॉक समाप्त)';
+      case 'DEPENDENT_SHOP_REJECTED':
+        return 'Shop was rejected by office; dependent order cancelled (दुकान अस्वीकृत हो गई)';
       case 'FORBIDDEN_ROLE_ACTION':
         return 'Not permitted for this role (इस कार्य की अनुमति नहीं)';
       case 'IDEMPOTENCY_PAYLOAD_MISMATCH':
@@ -239,6 +241,21 @@ class _SyncStatusViewState extends State<SyncStatusView> {
                           Text(
                             AppStrings.pendingMutationsCount(_pendingMutations.length),
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, size: 14, color: Colors.grey[700]),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  widget.syncWorker?.lastSuccessfulSyncTime != null
+                                      ? 'Catalog as of: ${widget.syncWorker!.lastSuccessfulSyncTime!.hour.toString().padLeft(2, '0')}:${widget.syncWorker!.lastSuccessfulSyncTime!.minute.toString().padLeft(2, '0')} (अंतिम सिंक समय)'
+                                      : 'Catalog: Working from local device copy (ऑफलाइन कॉपी)',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 10),
                           Container(

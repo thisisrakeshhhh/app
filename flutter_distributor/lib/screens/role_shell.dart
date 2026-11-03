@@ -261,22 +261,22 @@ class _RoleShellState extends State<RoleShell> {
           children: const [
             Icon(Icons.cloud_done, color: Color(0xFFF38020)),
             SizedBox(width: 10),
-            Text('Cloudflare Serverless', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text('RouteFlow Cloud Sync', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Backend: Cloudflare Workers + D1 Database', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Backend: RouteFlow Central Office Database', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 6),
-            Text('Edge Endpoint: ${widget.api.cloudflareUrl}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+            Text('Server: ${widget.api.cloudflareUrl}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AirbnbTheme.lightGrey, borderRadius: BorderRadius.circular(10)),
               child: const Text(
-                '⚡ Sub-50ms latency edge routing\n🔒 Tamper-proof 6-digit delivery OTP\n📦 Atomic D1 stock & car reservations\n📊 Live GST invoice breakdown',
+                '⚡ Sub-50ms latency cloud sync\n🔒 Tamper-proof 6-digit delivery OTP\n📦 Atomic stock & car reservations\n📊 Live GST invoice breakdown',
                 style: TextStyle(fontSize: 12, height: 1.5),
               ),
             ),
@@ -429,7 +429,7 @@ class _RoleShellState extends State<RoleShell> {
                 children: const [
                   Icon(Icons.cloud, size: 10, color: Color(0xFFF57C00)),
                   SizedBox(width: 2),
-                  Text('Edge D1', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
+                  Text('Sync Live', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
                 ],
               ),
             ),

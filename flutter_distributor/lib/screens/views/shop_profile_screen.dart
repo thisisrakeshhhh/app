@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
@@ -141,12 +142,18 @@ class ShopProfileScreen extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Opening WhatsApp for ${shop.phone}...')),
+                            final lastOrder = api.orders.cast<DistributorOrder?>().firstWhere(
+                              (o) => o?.shopId == shop.id,
+                              orElse: () => null,
                             );
+                            final shareText = lastOrder != null
+                                ? api.generateWhatsAppOrderShareText(lastOrder)
+                                : 'Shop: ${shop.name}\nPhone: ${shop.phone}\nAddress: ${shop.address}';
+                            // ignore: deprecated_member_use
+                            Share.share(shareText);
                           },
-                          icon: const Icon(Icons.chat_bubble_outline, size: 16, color: Color(0xFF25D366)),
-                          label: const Text('WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
+                          icon: const Icon(Icons.share, size: 16, color: Color(0xFF25D366)),
+                          label: const Text('Share', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
                           style: OutlinedButton.styleFrom(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             padding: const EdgeInsets.symmetric(vertical: 10),

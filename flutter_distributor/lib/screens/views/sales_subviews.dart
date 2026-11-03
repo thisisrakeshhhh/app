@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../domain/outbox/outbox_models.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -235,6 +236,12 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                               SnackBar(
                                 content: Text('[LOCAL OUTBOX] Order ${order.orderNumber} booked on Credit for ${_activeShop!.name}'),
                                 backgroundColor: AirbnbTheme.coral,
+                                action: SnackBarAction(
+                                  label: 'Share (शेयर)',
+                                  textColor: Colors.white,
+                                  // ignore: deprecated_member_use
+                                  onPressed: () => Share.share(widget.api.generateWhatsAppOrderShareText(order)),
+                                ),
                               ),
                             );
                           }
@@ -275,6 +282,12 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                               SnackBar(
                                 content: Text('[LOCAL OUTBOX] Order ${order.orderNumber} booked for COD for ${_activeShop!.name}'),
                                 backgroundColor: AirbnbTheme.success,
+                                action: SnackBarAction(
+                                  label: 'Share (शेयर)',
+                                  textColor: Colors.white,
+                                  // ignore: deprecated_member_use
+                                  onPressed: () => Share.share(widget.api.generateWhatsAppOrderShareText(order)),
+                                ),
                               ),
                             );
                           }

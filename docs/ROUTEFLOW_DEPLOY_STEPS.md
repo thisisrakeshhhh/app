@@ -82,10 +82,19 @@ npx wrangler secret put JWT_SECRET
 ```
 
 ### Step 2: Run Staging Migrations
-Apply migrations including `0024_offline_sync_outbox_support.sql` to the Cloudflare D1 staging database:
+Apply all schema migrations (including `0024_offline_sync_outbox_support.sql`, `0025_retailer_class_settings.sql`, `0026_products_oversell_guard_trigger.sql`, and `0027_product_packaging_units.sql`) to the Cloudflare D1 staging database:
 ```powershell
 cd d:\app\backend
 npx wrangler d1 migrations apply routeflow-d1-staging --remote
+```
+
+### Local Isolated D1 Test Server
+To run isolated, local-only end-to-end tests against real D1 without touching remote databases:
+```powershell
+cd d:\app\backend
+npm test
+# Or boot standalone runner for client HTTP testing:
+node test/run-isolated-server.mjs
 ```
 
 ### Step 3: Deploy Cloudflare Worker API

@@ -408,6 +408,7 @@ describe('RouteFlow Phase C: Real Cloudflare D1 Sync Endpoints & Integrity Suite
     assert.equal(json.success, true);
     assert.ok(Array.isArray(json.delta.products));
     assert.ok(json.delta.products.length > 0, 'Products should not be empty');
+    assert.ok(Array.isArray(json.delta.productUnits), 'Product units array should be returned');
     assert.ok(Array.isArray(json.delta.classSettings));
     assert.ok(Array.isArray(json.delta.orderStatusUpdates));
   });

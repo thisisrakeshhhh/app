@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:http/http.dart' as http;
 import '../data/local/app_database.dart';
+import '../models/models.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 
@@ -84,6 +86,10 @@ class SyncWorker extends ChangeNotifier {
   SyncWorkerState get state => _state;
   String? get lastError => _lastError;
   bool get isSyncing => _state == SyncWorkerState.syncing;
+  DateTime? _lastSuccessfulSyncTime;
+  DateTime? get lastSuccessfulSyncTime => _lastSuccessfulSyncTime;
+  int _lastServerSequence = 0;
+  int get lastServerSequence => _lastServerSequence;
 
   /// Starts periodic sync runner (default every 15 seconds).
   void startPeriodicRunner({Duration interval = const Duration(seconds: 15)}) {
@@ -141,6 +147,15 @@ class SyncWorker extends ChangeNotifier {
       }
     }
 
+    // Collect failed permanent shop provisional IDs to cascade rejection to dependent orders
+    final failedPermanentMutations = await db.outboxDao.getFailedMutations();
+    final failedShopProvisionalIds = <String>{};
+    for (final m in failedPermanentMutations) {
+      if (m.mutationType == 'CREATE_RETAILER' && m.provisionalBusinessId != null) {
+        failedShopProvisionalIds.add(m.provisionalBusinessId!);
+      }
+    }
+
     final readyMutations = <OutboxMutationEntry>[];
     for (final m in pendingMutations) {
       final nextRetry = m.nextRetryAtMs;
@@ -152,6 +167,21 @@ class SyncWorker extends ChangeNotifier {
           final payload = jsonDecode(m.payloadJson);
           orderRetailerId = payload['retailer']?['id'] ?? payload['retailerId'];
         } catch (_) {}
+
+        // Edge case: If this order references a shop that failed permanently, cascade rejection immediately
+        if (orderRetailerId != null && failedShopProvisionalIds.contains(orderRetailerId)) {
+          await db.outboxDao.markFailedPermanent(
+            id: m.id,
+            errorCode: 'DEPENDENT_SHOP_REJECTED',
+          );
+          if (m.provisionalBusinessId != null) {
+            apiService?.releaseOrderReservation(
+              m.provisionalBusinessId!,
+              reason: 'Dependent shop creation failed permanently',
+            );
+          }
+          continue;
+        }
 
         // If this order depends on a shop mutation that has not yet synced and is not earlier in this batch
         if (orderRetailerId != null && pendingShopProvisionalIds.contains(orderRetailerId)) {
@@ -216,6 +246,16 @@ class SyncWorker extends ChangeNotifier {
       if (token == null || token.isEmpty) return false;
     }
 
+    int effectiveSeq = lastServerSequence ?? _lastServerSequence;
+    if (effectiveSeq == 0) {
+      final meta = await (db.select(db.databaseMetadata)
+            ..where((tbl) => tbl.key.equals('last_server_sequence')))
+          .getSingleOrNull();
+      if (meta != null && meta.value.isNotEmpty) {
+        effectiveSeq = int.tryParse(meta.value) ?? 0;
+      }
+    }
+
     final uri = Uri.parse('$baseUrl/sync/pull');
     try {
       final response = await httpClient
@@ -227,7 +267,7 @@ class SyncWorker extends ChangeNotifier {
             },
             body: jsonEncode({
               'organizationId': orgId,
-              'lastServerSequence': lastServerSequence ?? 0,
+              'lastServerSequence': effectiveSeq,
               'limit': limit,
             }),
           )
@@ -236,6 +276,23 @@ class SyncWorker extends ChangeNotifier {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final delta = body['delta'] as Map<String, dynamic>? ?? {};
+        final latestSeq = (body['latestServerSequence'] as num?)?.toInt() ?? effectiveSeq;
+        _lastServerSequence = latestSeq;
+        _lastSuccessfulSyncTime = DateTime.now();
+
+        // 0. Protect unsynced local mutations from being overwritten
+        final pending = await db.outboxDao.getPendingQueue();
+        final pendingShopIds = <String>{};
+        final pendingProductIds = <String>{};
+        for (final p in pending) {
+          if (p.mutationType == 'CREATE_RETAILER' && p.provisionalBusinessId != null) {
+            pendingShopIds.add(p.provisionalBusinessId!);
+          }
+          if ((p.mutationType == 'CREATE_PRODUCT' || p.mutationType == 'UPDATE_PRODUCT_UNITS') &&
+              p.provisionalBusinessId != null) {
+            pendingProductIds.add(p.provisionalBusinessId!);
+          }
+        }
 
         // 1. Process Order Status Updates
         final orderUpdates = delta['orderStatusUpdates'] as List<dynamic>? ?? [];
@@ -254,9 +311,13 @@ class SyncWorker extends ChangeNotifier {
         for (final r in retailerUpdates) {
           if (r is Map<String, dynamic>) {
             final retId = r['id'] as String?;
+            if (retId == null || pendingShopIds.contains(retId)) {
+              // Never overwrite unsynced local shop mutations!
+              continue;
+            }
             final rawCredit = r['creditLimitPaise'];
             final credit = rawCredit != null ? (rawCredit as num).toInt() : null;
-            if (retId != null && apiService != null) {
+            if (apiService != null) {
               apiService!.updateRetailerFromServer(
                 id: retId,
                 creditLimitPaise: credit,
@@ -265,6 +326,84 @@ class SyncWorker extends ChangeNotifier {
             }
           }
         }
+
+        // 3. Process Products and Units
+        final rawUnits = delta['productUnits'] as List<dynamic>? ?? [];
+        final unitsByProd = <String, List<Map<String, dynamic>>>{};
+        for (final u in rawUnits) {
+          if (u is Map<String, dynamic>) {
+            final pId = u['productId'] as String?;
+            if (pId != null) {
+              unitsByProd.putIfAbsent(pId, () => []).add(u);
+            }
+          }
+        }
+
+        final rawProducts = delta['products'] as List<dynamic>? ?? [];
+        for (final p in rawProducts) {
+          if (p is Map<String, dynamic>) {
+            final pId = p['id'] as String?;
+            if (pId == null || pendingProductIds.contains(pId)) {
+              // Never overwrite unsynced local product modifications!
+              continue;
+            }
+
+            final name = p['name'] as String? ?? 'Product';
+            final pricePaise = (p['price_paise'] as num?)?.toInt() ?? 0;
+            final stockPieces = (p['stock_quantity'] as num?)?.toInt() ?? 0;
+            final cat = p['category'] as String? ?? 'General';
+
+            final pUnits = unitsByProd[pId] ?? [];
+            final unitMultipliers = <String, int>{};
+            final unitPrices = <String, int>{};
+            for (final u in pUnits) {
+              final uName = (u['unitName'] as String? ?? '').toLowerCase().trim();
+              final mult = (u['multiplierToBase'] as num?)?.toInt() ?? 1;
+              final pr = (u['pricePaise'] as num?)?.toInt() ?? pricePaise;
+              if (uName.isNotEmpty) {
+                unitMultipliers[uName] = mult;
+                unitPrices[uName] = pr;
+              }
+            }
+
+            final prodItem = ProductItem(
+              id: pId,
+              name: name,
+              hindiName: p['hindi_name'] as String? ?? name,
+              category: cat,
+              mrpPaise: pricePaise,
+              mrpRupees: pricePaise / 100.0,
+              piecePricePaise: pricePaise,
+              stripQty: 10,
+              boxQty: 24,
+              gstRate: 5.0,
+              godownStockBoxes: stockPieces,
+              carStockBoxes: 0,
+              customUnitMultipliers: unitMultipliers.isNotEmpty ? unitMultipliers : null,
+              customUnitPricesPaise: unitPrices.isNotEmpty ? unitPrices : null,
+            );
+
+            if (apiService != null) {
+              apiService!.updateProductFromServer(prodItem);
+            }
+          }
+        }
+
+        // 4. Save metadata into database
+        await db.into(db.databaseMetadata).insertOnConflictUpdate(
+          DatabaseMetadataCompanion(
+            key: const drift.Value('last_server_sequence'),
+            value: drift.Value(latestSeq.toString()),
+            updatedAt: drift.Value(DateTime.now()),
+          ),
+        );
+        await db.into(db.databaseMetadata).insertOnConflictUpdate(
+          DatabaseMetadataCompanion(
+            key: const drift.Value('last_sync_timestamp'),
+            value: drift.Value(_lastSuccessfulSyncTime!.toIso8601String()),
+            updatedAt: drift.Value(DateTime.now()),
+          ),
+        );
 
         notifyListeners();
         return true;
@@ -381,6 +520,29 @@ class SyncWorker extends ChangeNotifier {
                 final provId = m.provisionalBusinessId;
                 if (provId != null) {
                   apiService?.releaseOrderReservation(provId, reason: errMsg);
+                }
+              } else if (m.mutationType == 'CREATE_RETAILER' && m.provisionalBusinessId != null) {
+                // Cascade rejection to any dependent order in this batch or outbox
+                final provShopId = m.provisionalBusinessId!;
+                for (final other in readyMutations) {
+                  if (other.mutationType == 'CREATE_ORDER') {
+                    try {
+                      final p = jsonDecode(other.payloadJson);
+                      final ordShopId = p['retailer']?['id'] ?? p['retailerId'];
+                      if (ordShopId == provShopId) {
+                        await db.outboxDao.markFailedPermanent(
+                          id: other.id,
+                          errorCode: 'DEPENDENT_SHOP_REJECTED',
+                        );
+                        if (other.provisionalBusinessId != null) {
+                          apiService?.releaseOrderReservation(
+                            other.provisionalBusinessId!,
+                            reason: 'Dependent shop $provShopId was rejected by server',
+                          );
+                        }
+                      }
+                    } catch (_) {}
+                  }
                 }
               }
             }

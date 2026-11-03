@@ -622,7 +622,7 @@ class AdminDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                          'Cloudflare Workers & D1 Edge Storage',
+                          'RouteFlow Office Cloud & Sync',
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
                         ),
                         SizedBox(height: 2),

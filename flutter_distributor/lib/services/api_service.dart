@@ -176,8 +176,11 @@ class ApiService extends ChangeNotifier {
     return _syncFromDatabase();
   }
 
-  // Cloudflare configuration
-  final String _cloudflareUrl = 'https://routeflow-api-staging.workers.dev';
+  // Server API endpoint configuration (configurable via --dart-define=ROUTEFLOW_API_URL=...)
+  final String _cloudflareUrl = const String.fromEnvironment(
+    'ROUTEFLOW_API_URL',
+    defaultValue: 'https://routeflow-api-staging.workers.dev',
+  );
   final bool _isOnline = false;
   final bool _isLoading = false;
 
@@ -2179,6 +2182,17 @@ class ApiService extends ChangeNotifier {
       if (classification != null) r.classType = classification;
       notifyListeners();
     }
+  }
+
+  /// Updates or inserts product catalog item upon authentic pull delta from office server.
+  void updateProductFromServer(ProductItem serverProduct) {
+    final idx = _products.indexWhere((p) => p.id == serverProduct.id);
+    if (idx != -1) {
+      _products[idx] = serverProduct;
+    } else {
+      _products.add(serverProduct);
+    }
+    notifyListeners();
   }
 
   /// Slice 6: Returns strictly honest, unambiguous labels for sync status.

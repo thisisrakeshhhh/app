@@ -32,6 +32,8 @@ class _PackagingUnitDraft {
   int multiplierToBase;
   bool isBaseUnit;
   bool allowLooseSale;
+  bool canBuy;
+  bool canSell;
   int wholesalePricePaise;
   int mrpPaise;
 
@@ -40,6 +42,8 @@ class _PackagingUnitDraft {
     required this.multiplierToBase,
     this.isBaseUnit = false,
     this.allowLooseSale = true,
+    this.canBuy = true,
+    this.canSell = true,
     required this.wholesalePricePaise,
     required this.mrpPaise,
   });
@@ -66,6 +70,8 @@ class _PackagingBuilderDialogState extends State<PackagingBuilderDialog> {
           multiplierToBase: mult,
           isBaseUnit: mult == 1,
           allowLooseSale: true,
+          canBuy: true,
+          canSell: true,
           wholesalePricePaise: price,
           mrpPaise: (p.mrpRupees * 100 * mult).round(),
         ));
@@ -193,6 +199,8 @@ class _PackagingBuilderDialogState extends State<PackagingBuilderDialog> {
           multiplierToBase: u.multiplierToBase,
           isBaseUnit: u.isBaseUnit,
           allowLooseSale: u.allowLooseSale,
+          canBuy: u.canBuy,
+          canSell: u.canSell,
           wholesalePricePaise: u.wholesalePricePaise,
           mrpPaise: u.mrpPaise,
         );
@@ -430,6 +438,34 @@ class _PackagingBuilderDialogState extends State<PackagingBuilderDialog> {
                                 },
                               ),
                               const Text('Loose sale allowed', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SwitchListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Can Sell (बिक्री)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                  value: item.canSell,
+                                  onChanged: (val) {
+                                    setState(() => item.canSell = val);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SwitchListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Can Buy / Inward (खरीद)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                  value: item.canBuy,
+                                  onChanged: (val) {
+                                    setState(() => item.canBuy = val);
+                                  },
+                                ),
+                              ),
                             ],
                           ),
                         ],

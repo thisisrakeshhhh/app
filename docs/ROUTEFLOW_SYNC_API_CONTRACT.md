@@ -210,15 +210,29 @@ Retrieves master data changes and server transactions that occurred since the cl
 
 ---
 
-## 4. Supported Outbox Mutation Types
+## 4. Supported Outbox Mutation Types & Honest Local Operations
 
-| Mutation Type | Triggering Screen / Flow | Invariants Enforced |
+### Supported Wire Mutation Types (Processed by `POST /sync/push`)
+| Mutation Type | Allowed Roles | Invariants & Handlers Enforced |
 |---|---|---|
-| `CREATE_RETAILER` | Add Shop Sheet (Pillar A) | Duplicate detection check, mandatory 10-digit mobile, default credit limit = 0 |
-| `CREATE_ORDER` | Checkout Review (Pillar B) | Stock piece availability verified, unit pricing from `unit_prices`, COD/Cash only for Class D & NEW |
-| `RECEIVE_GRN` | Receive Stock View (Pillar C2) | Damaged cartons quarantined, positive piece quantities, append-only ledger row |
-| `RECORD_VISIT` | Active Shop Visit (Pillar B) | Durable outcome (`STOCK_FULL`, `SHOP_CLOSED`), GPS timestamp recorded |
-| `UPDATE_CLASS_SETTINGS` | Owner Control Room (Pillar C) | Sovereign owner permission required, non-negative credit limits and days |
+| `CREATE_RETAILER` | `SALES`, `ADMIN`, `OWNER` | Sales restricted to `NEW` class & 0 credit. Server allocates `serverBusinessId` and rewrites client provisional ID. |
+| `CREATE_ORDER` | `SALES`, `ADMIN`, `OWNER` | Server recalculates GST & totals. Atomic overselling check: `totalPiecesRequired <= (stock_quantity - reserved_quantity)`. All-or-nothing rollback on any out-of-stock line. |
+| `CREATE_PRODUCT` | `OWNER`, `ADMIN` | Sales rejected with 403 `FORBIDDEN_ROLE_ACTION`. Registers base piece price and initial packaging unit rows. |
+| `UPDATE_PRODUCT_UNITS` | `OWNER`, `ADMIN` | Sales rejected with 403 `FORBIDDEN_ROLE_ACTION`. Replaces packaging tiers with verified `multiplier_to_base`, `can_buy`, `can_sell`. |
+| `STOCK_INWARD` | `WAREHOUSE`, `ADMIN`, `OWNER` | Increments `stock_quantity` in integer base pieces and appends to `stock_movements (INWARD_GRN)`. |
+| `STOCK_ADJUSTMENT` | `WAREHOUSE`, `ADMIN`, `OWNER` | Reverses GRN or adjusts stock in integer base pieces; appends to `stock_movements (GRN_REVERSAL / ADJUSTMENT)`. |
+| `UPDATE_CLASS_SETTINGS` | `OWNER`, `ADMIN` | Upserts default credit limit and terms per retailer classification. |
+| `APPROVE_RETAILER` | `OWNER`, `ADMIN` | Transitions shop classification and sets sovereign approved credit limit. |
+
+### Explicit Local-Only Ledger Operations (Never Enqueued to Sync Outbox)
+| Operation | Implementation | Honest Status Guarantee |
+|---|---|---|
+| **Shop Visits (`recordVisit`)** | Stored in SQLite `visits` table | Pure local rep audit history; never queues in outbox or fails with unsupported error. |
+| **Opening Balance (`recordOpeningBalanceDurable`)** | Appends `OPENING_BALANCE` movement to SQLite `inventory_movements` | Godown starting ledger entry on initial app setup; local-only record. |
+
+### Error Handling & Dependency Cascades
+- **Unsupported Mutation Types:** Any unknown mutation type returns HTTP 200 with `{ status: 'REJECTED', errorCode: 'UNSUPPORTED_MUTATION_TYPE' }`. Never silently committed.
+- **Permanent Failure Cascade:** When a shop mutation receives `REJECTED` or `FAILED_PERMANENT`, `SyncWorker` cascades rejection to all dependent order mutations referencing that provisional shop with `errorCode: 'DEPENDENT_SHOP_REJECTED'`, releasing local virtual reservations immediately.
 
 ---
 

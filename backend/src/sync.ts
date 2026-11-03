@@ -204,7 +204,7 @@ export function syncRouter(authMiddleware: any) {
           }, 403);
         }
 
-        let retailerId = payload?.retailerId;
+        let retailerId = payload?.retailerId || payload?.retailer?.id;
         if (provisionalToRealRetailerId.has(retailerId)) {
           retailerId = provisionalToRealRetailerId.get(retailerId);
         }
@@ -943,12 +943,17 @@ export function syncRouter(authMiddleware: any) {
       'SELECT id, name, contact_number as phone, address, credit_limit_paise as creditLimitPaise, outstanding_amount_paise as outstandingPaise, classification, is_active as isActive, latitude, longitude FROM retailers WHERE company_id = ? LIMIT ?'
     ).bind(tenantId, fetchLimit).all();
 
+    const productUnits = await c.env.DB.prepare(
+      'SELECT product_id as productId, unit_name as unitName, multiplier_to_base as multiplierToBase, price_paise as pricePaise, can_sell as canSell, can_buy as canBuy FROM product_units WHERE organization_id = ?'
+    ).bind(tenantId).all();
+
     return c.json({
       success: true,
       latestServerSequence,
       hasMore: false,
       delta: {
         products: products.results || [],
+        productUnits: productUnits.results || [],
         retailers: retailers.results || [],
         classSettings: classSettings.results || [],
         orderStatusUpdates: orderStatusUpdates.results || []
