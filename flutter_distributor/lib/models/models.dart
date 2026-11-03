@@ -170,7 +170,7 @@ class RetailerShop {
   final String phone;
   final String address;
   final String area;
-  final int creditLimitPaise;
+  int creditLimitPaise;
   int outstandingPaise;
   bool visitedToday;
   int todayOrderTotalPaise;
@@ -178,6 +178,8 @@ class RetailerShop {
   DateTime? currentVisitStartTime;
   DateTime? lastVisitEndTime;
   int visitCountToday;
+  final double? latitude;
+  final double? longitude;
 
   RetailerShop({
     required this.id,
@@ -194,6 +196,8 @@ class RetailerShop {
     this.currentVisitStartTime,
     this.lastVisitEndTime,
     this.visitCountToday = 0,
+    this.latitude,
+    this.longitude,
   });
 
   double get creditLimitRupees => creditLimitPaise / 100.0;
@@ -339,6 +343,8 @@ class DeliveryStop {
   bool isDelivered;
   bool cashCollected;
   DateTime? deliveredAt;
+  final double? latitude;
+  final double? longitude;
 
   DeliveryStop({
     required this.id,
@@ -354,7 +360,38 @@ class DeliveryStop {
     this.isDelivered = false,
     this.cashCollected = false,
     this.deliveredAt,
+    this.latitude,
+    this.longitude,
   });
 
   double get codAmountRupees => codAmountPaise / 100.0;
+}
+
+/// Physical Warehouse / Godown Depot hub model.
+class WarehouseHub {
+  final String id;
+  final String name;
+  final String code;
+  final String address;
+  final double? latitude;
+  final double? longitude;
+  final int capacityBoxes;
+  final int activeStaffCount;
+  int godownStockBoxes;
+  int carStockBoxes;
+
+  WarehouseHub({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.address,
+    this.latitude,
+    this.longitude,
+    this.capacityBoxes = 1000,
+    this.activeStaffCount = 4,
+    this.godownStockBoxes = 0,
+    this.carStockBoxes = 0,
+  });
+
+  int get totalStockBoxes => godownStockBoxes + carStockBoxes;
 }

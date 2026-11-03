@@ -244,6 +244,8 @@ class LocalRepository {
             visitedToday: r.visitedToday,
             totalTimeSpentSeconds: r.totalTimeSpentSeconds,
             visitCountToday: r.visitCountToday,
+            latitude: r.latitude,
+            longitude: r.longitude,
           ),
         )
         .toList();
@@ -263,6 +265,8 @@ class LocalRepository {
         visitedToday: Value(retailer.visitedToday),
         totalTimeSpentSeconds: Value(retailer.totalTimeSpentSeconds),
         visitCountToday: Value(retailer.visitCountToday),
+        latitude: Value(retailer.latitude),
+        longitude: Value(retailer.longitude),
         createdAt: Value(DateTime.now()),
       ),
     );
@@ -362,6 +366,8 @@ class LocalRepository {
             visitedToday: Value(r.visitedToday),
             totalTimeSpentSeconds: Value(r.totalTimeSpentSeconds),
             visitCountToday: Value(r.visitCountToday),
+            latitude: Value(r.latitude),
+            longitude: Value(r.longitude),
             createdAt: Value(DateTime.now()),
           ),
         );
@@ -374,6 +380,63 @@ class LocalRepository {
           updatedAt: Value(DateTime.now()),
         ),
       );
+    });
+  }
+
+  // Warehouse Hubs
+  Future<List<WarehouseHub>> getAllWarehouseHubs() async {
+    final rows = await db.select(db.warehouseHubs).get();
+    return rows
+        .map(
+          (w) => WarehouseHub(
+            id: w.id,
+            name: w.name,
+            code: w.code,
+            address: w.address,
+            latitude: w.latitude,
+            longitude: w.longitude,
+            capacityBoxes: w.capacityBoxes,
+            activeStaffCount: w.activeStaffCount,
+          ),
+        )
+        .toList();
+  }
+
+  Future<void> upsertWarehouseHub(WarehouseHub hub) async {
+    await db.into(db.warehouseHubs).insertOnConflictUpdate(
+      WarehouseHubsCompanion(
+        id: Value(hub.id),
+        name: Value(hub.name),
+        code: Value(hub.code),
+        address: Value(hub.address),
+        latitude: Value(hub.latitude),
+        longitude: Value(hub.longitude),
+        capacityBoxes: Value(hub.capacityBoxes),
+        activeStaffCount: Value(hub.activeStaffCount),
+        createdAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> seedWarehouseHubsIfEmpty(List<WarehouseHub> seedHubs) async {
+    final count = await db.select(db.warehouseHubs).get();
+    if (count.isNotEmpty) return;
+    await db.transaction(() async {
+      for (final h in seedHubs) {
+        await db.into(db.warehouseHubs).insert(
+          WarehouseHubsCompanion(
+            id: Value(h.id),
+            name: Value(h.name),
+            code: Value(h.code),
+            address: Value(h.address),
+            latitude: Value(h.latitude),
+            longitude: Value(h.longitude),
+            capacityBoxes: Value(h.capacityBoxes),
+            activeStaffCount: Value(h.activeStaffCount),
+            createdAt: Value(DateTime.now()),
+          ),
+        );
+      }
     });
   }
 }

@@ -26,6 +26,11 @@ class SessionRevokedException extends AuthException {
       : super(code: 'SESSION_REVOKED');
 }
 
+class UnauthenticatedException extends AuthException {
+  const UnauthenticatedException([super.message = 'No active user session found'])
+      : super(code: 'UNAUTHENTICATED');
+}
+
 class RefreshTokenReuseException extends AuthException {
   const RefreshTokenReuseException([super.message = 'Refresh token reuse detected. Session revoked for security.'])
       : super(code: 'TOKEN_REUSE_DETECTED');

@@ -875,6 +875,28 @@ class $RetailersTable extends Retailers
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -899,6 +921,8 @@ class $RetailersTable extends Retailers
     visitedToday,
     totalTimeSpentSeconds,
     visitCountToday,
+    latitude,
+    longitude,
     createdAt,
   ];
   @override
@@ -1007,6 +1031,18 @@ class $RetailersTable extends Retailers
         ),
       );
     }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1068,6 +1104,14 @@ class $RetailersTable extends Retailers
         DriftSqlType.int,
         data['${effectivePrefix}visit_count_today'],
       )!,
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1093,6 +1137,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
   final bool visitedToday;
   final int totalTimeSpentSeconds;
   final int visitCountToday;
+  final double? latitude;
+  final double? longitude;
   final DateTime createdAt;
   const RetailerEntry({
     required this.id,
@@ -1106,6 +1152,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
     required this.visitedToday,
     required this.totalTimeSpentSeconds,
     required this.visitCountToday,
+    this.latitude,
+    this.longitude,
     required this.createdAt,
   });
   @override
@@ -1122,6 +1170,12 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
     map['visited_today'] = Variable<bool>(visitedToday);
     map['total_time_spent_seconds'] = Variable<int>(totalTimeSpentSeconds);
     map['visit_count_today'] = Variable<int>(visitCountToday);
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -1139,6 +1193,12 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
       visitedToday: Value(visitedToday),
       totalTimeSpentSeconds: Value(totalTimeSpentSeconds),
       visitCountToday: Value(visitCountToday),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
       createdAt: Value(createdAt),
     );
   }
@@ -1162,6 +1222,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
         json['totalTimeSpentSeconds'],
       ),
       visitCountToday: serializer.fromJson<int>(json['visitCountToday']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1180,6 +1242,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
       'visitedToday': serializer.toJson<bool>(visitedToday),
       'totalTimeSpentSeconds': serializer.toJson<int>(totalTimeSpentSeconds),
       'visitCountToday': serializer.toJson<int>(visitCountToday),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1196,6 +1260,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
     bool? visitedToday,
     int? totalTimeSpentSeconds,
     int? visitCountToday,
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
     DateTime? createdAt,
   }) => RetailerEntry(
     id: id ?? this.id,
@@ -1209,6 +1275,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
     visitedToday: visitedToday ?? this.visitedToday,
     totalTimeSpentSeconds: totalTimeSpentSeconds ?? this.totalTimeSpentSeconds,
     visitCountToday: visitCountToday ?? this.visitCountToday,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
     createdAt: createdAt ?? this.createdAt,
   );
   RetailerEntry copyWithCompanion(RetailersCompanion data) {
@@ -1234,6 +1302,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
       visitCountToday: data.visitCountToday.present
           ? data.visitCountToday.value
           : this.visitCountToday,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1252,6 +1322,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
           ..write('visitedToday: $visitedToday, ')
           ..write('totalTimeSpentSeconds: $totalTimeSpentSeconds, ')
           ..write('visitCountToday: $visitCountToday, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -1270,6 +1342,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
     visitedToday,
     totalTimeSpentSeconds,
     visitCountToday,
+    latitude,
+    longitude,
     createdAt,
   );
   @override
@@ -1287,6 +1361,8 @@ class RetailerEntry extends DataClass implements Insertable<RetailerEntry> {
           other.visitedToday == this.visitedToday &&
           other.totalTimeSpentSeconds == this.totalTimeSpentSeconds &&
           other.visitCountToday == this.visitCountToday &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
           other.createdAt == this.createdAt);
 }
 
@@ -1302,6 +1378,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
   final Value<bool> visitedToday;
   final Value<int> totalTimeSpentSeconds;
   final Value<int> visitCountToday;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const RetailersCompanion({
@@ -1316,6 +1394,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
     this.visitedToday = const Value.absent(),
     this.totalTimeSpentSeconds = const Value.absent(),
     this.visitCountToday = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1331,6 +1411,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
     this.visitedToday = const Value.absent(),
     this.totalTimeSpentSeconds = const Value.absent(),
     this.visitCountToday = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
     required DateTime createdAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1354,6 +1436,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
     Expression<bool>? visitedToday,
     Expression<int>? totalTimeSpentSeconds,
     Expression<int>? visitCountToday,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -1370,6 +1454,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
       if (totalTimeSpentSeconds != null)
         'total_time_spent_seconds': totalTimeSpentSeconds,
       if (visitCountToday != null) 'visit_count_today': visitCountToday,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1387,6 +1473,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
     Value<bool>? visitedToday,
     Value<int>? totalTimeSpentSeconds,
     Value<int>? visitCountToday,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -1403,6 +1491,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
       totalTimeSpentSeconds:
           totalTimeSpentSeconds ?? this.totalTimeSpentSeconds,
       visitCountToday: visitCountToday ?? this.visitCountToday,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1446,6 +1536,12 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
     if (visitCountToday.present) {
       map['visit_count_today'] = Variable<int>(visitCountToday.value);
     }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1469,6 +1565,8 @@ class RetailersCompanion extends UpdateCompanion<RetailerEntry> {
           ..write('visitedToday: $visitedToday, ')
           ..write('totalTimeSpentSeconds: $totalTimeSpentSeconds, ')
           ..write('visitCountToday: $visitCountToday, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -2657,6 +2755,1602 @@ class DatabaseMetadataCompanion extends UpdateCompanion<DatabaseMetadataEntry> {
   }
 }
 
+class $OutboxMutationsTable extends OutboxMutations
+    with TableInfo<$OutboxMutationsTable, OutboxMutationEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OutboxMutationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _organizationIdMeta = const VerificationMeta(
+    'organizationId',
+  );
+  @override
+  late final GeneratedColumn<String> organizationId = GeneratedColumn<String>(
+    'organization_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idempotencyKeyMeta = const VerificationMeta(
+    'idempotencyKey',
+  );
+  @override
+  late final GeneratedColumn<String> idempotencyKey = GeneratedColumn<String>(
+    'idempotency_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _mutationTypeMeta = const VerificationMeta(
+    'mutationType',
+  );
+  @override
+  late final GeneratedColumn<String> mutationType = GeneratedColumn<String>(
+    'mutation_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sequenceOrderMeta = const VerificationMeta(
+    'sequenceOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sequenceOrder = GeneratedColumn<int>(
+    'sequence_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('PENDING'),
+  );
+  static const VerificationMeta _provisionalBusinessIdMeta =
+      const VerificationMeta('provisionalBusinessId');
+  @override
+  late final GeneratedColumn<String> provisionalBusinessId =
+      GeneratedColumn<String>(
+        'provisional_business_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _leaseTokenMeta = const VerificationMeta(
+    'leaseToken',
+  );
+  @override
+  late final GeneratedColumn<String> leaseToken = GeneratedColumn<String>(
+    'lease_token',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _leaseGenerationMeta = const VerificationMeta(
+    'leaseGeneration',
+  );
+  @override
+  late final GeneratedColumn<int> leaseGeneration = GeneratedColumn<int>(
+    'lease_generation',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _leaseExpiresAtMsMeta = const VerificationMeta(
+    'leaseExpiresAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> leaseExpiresAtMs = GeneratedColumn<int>(
+    'lease_expires_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attemptCountMeta = const VerificationMeta(
+    'attemptCount',
+  );
+  @override
+  late final GeneratedColumn<int> attemptCount = GeneratedColumn<int>(
+    'attempt_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorCodeMeta = const VerificationMeta(
+    'lastErrorCode',
+  );
+  @override
+  late final GeneratedColumn<String> lastErrorCode = GeneratedColumn<String>(
+    'last_error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextRetryAtMsMeta = const VerificationMeta(
+    'nextRetryAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> nextRetryAtMs = GeneratedColumn<int>(
+    'next_retry_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtEpochMsMeta = const VerificationMeta(
+    'createdAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtEpochMs = GeneratedColumn<int>(
+    'created_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedAtEpochMsMeta = const VerificationMeta(
+    'syncedAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtEpochMs = GeneratedColumn<int>(
+    'synced_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    organizationId,
+    userId,
+    idempotencyKey,
+    mutationType,
+    payloadJson,
+    sequenceOrder,
+    syncStatus,
+    provisionalBusinessId,
+    leaseToken,
+    leaseGeneration,
+    leaseExpiresAtMs,
+    attemptCount,
+    lastErrorCode,
+    nextRetryAtMs,
+    createdAtEpochMs,
+    syncedAtEpochMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'outbox_mutations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OutboxMutationEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('organization_id')) {
+      context.handle(
+        _organizationIdMeta,
+        organizationId.isAcceptableOrUnknown(
+          data['organization_id']!,
+          _organizationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_organizationIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('idempotency_key')) {
+      context.handle(
+        _idempotencyKeyMeta,
+        idempotencyKey.isAcceptableOrUnknown(
+          data['idempotency_key']!,
+          _idempotencyKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_idempotencyKeyMeta);
+    }
+    if (data.containsKey('mutation_type')) {
+      context.handle(
+        _mutationTypeMeta,
+        mutationType.isAcceptableOrUnknown(
+          data['mutation_type']!,
+          _mutationTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_mutationTypeMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('sequence_order')) {
+      context.handle(
+        _sequenceOrderMeta,
+        sequenceOrder.isAcceptableOrUnknown(
+          data['sequence_order']!,
+          _sequenceOrderMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sequenceOrderMeta);
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('provisional_business_id')) {
+      context.handle(
+        _provisionalBusinessIdMeta,
+        provisionalBusinessId.isAcceptableOrUnknown(
+          data['provisional_business_id']!,
+          _provisionalBusinessIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lease_token')) {
+      context.handle(
+        _leaseTokenMeta,
+        leaseToken.isAcceptableOrUnknown(data['lease_token']!, _leaseTokenMeta),
+      );
+    }
+    if (data.containsKey('lease_generation')) {
+      context.handle(
+        _leaseGenerationMeta,
+        leaseGeneration.isAcceptableOrUnknown(
+          data['lease_generation']!,
+          _leaseGenerationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lease_expires_at_ms')) {
+      context.handle(
+        _leaseExpiresAtMsMeta,
+        leaseExpiresAtMs.isAcceptableOrUnknown(
+          data['lease_expires_at_ms']!,
+          _leaseExpiresAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attempt_count')) {
+      context.handle(
+        _attemptCountMeta,
+        attemptCount.isAcceptableOrUnknown(
+          data['attempt_count']!,
+          _attemptCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error_code')) {
+      context.handle(
+        _lastErrorCodeMeta,
+        lastErrorCode.isAcceptableOrUnknown(
+          data['last_error_code']!,
+          _lastErrorCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_retry_at_ms')) {
+      context.handle(
+        _nextRetryAtMsMeta,
+        nextRetryAtMs.isAcceptableOrUnknown(
+          data['next_retry_at_ms']!,
+          _nextRetryAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_epoch_ms')) {
+      context.handle(
+        _createdAtEpochMsMeta,
+        createdAtEpochMs.isAcceptableOrUnknown(
+          data['created_at_epoch_ms']!,
+          _createdAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtEpochMsMeta);
+    }
+    if (data.containsKey('synced_at_epoch_ms')) {
+      context.handle(
+        _syncedAtEpochMsMeta,
+        syncedAtEpochMs.isAcceptableOrUnknown(
+          data['synced_at_epoch_ms']!,
+          _syncedAtEpochMsMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OutboxMutationEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OutboxMutationEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      organizationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}organization_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      idempotencyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}idempotency_key'],
+      )!,
+      mutationType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mutation_type'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      sequenceOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sequence_order'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+      provisionalBusinessId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provisional_business_id'],
+      ),
+      leaseToken: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lease_token'],
+      ),
+      leaseGeneration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lease_generation'],
+      )!,
+      leaseExpiresAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lease_expires_at_ms'],
+      ),
+      attemptCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempt_count'],
+      )!,
+      lastErrorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error_code'],
+      ),
+      nextRetryAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}next_retry_at_ms'],
+      ),
+      createdAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_epoch_ms'],
+      )!,
+      syncedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_epoch_ms'],
+      ),
+    );
+  }
+
+  @override
+  $OutboxMutationsTable createAlias(String alias) {
+    return $OutboxMutationsTable(attachedDatabase, alias);
+  }
+}
+
+class OutboxMutationEntry extends DataClass
+    implements Insertable<OutboxMutationEntry> {
+  final String id;
+  final String organizationId;
+  final String userId;
+  final String idempotencyKey;
+  final String mutationType;
+  final String payloadJson;
+  final int sequenceOrder;
+  final String syncStatus;
+  final String? provisionalBusinessId;
+  final String? leaseToken;
+  final int leaseGeneration;
+  final int? leaseExpiresAtMs;
+  final int attemptCount;
+  final String? lastErrorCode;
+  final int? nextRetryAtMs;
+  final int createdAtEpochMs;
+  final int? syncedAtEpochMs;
+  const OutboxMutationEntry({
+    required this.id,
+    required this.organizationId,
+    required this.userId,
+    required this.idempotencyKey,
+    required this.mutationType,
+    required this.payloadJson,
+    required this.sequenceOrder,
+    required this.syncStatus,
+    this.provisionalBusinessId,
+    this.leaseToken,
+    required this.leaseGeneration,
+    this.leaseExpiresAtMs,
+    required this.attemptCount,
+    this.lastErrorCode,
+    this.nextRetryAtMs,
+    required this.createdAtEpochMs,
+    this.syncedAtEpochMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['organization_id'] = Variable<String>(organizationId);
+    map['user_id'] = Variable<String>(userId);
+    map['idempotency_key'] = Variable<String>(idempotencyKey);
+    map['mutation_type'] = Variable<String>(mutationType);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['sequence_order'] = Variable<int>(sequenceOrder);
+    map['sync_status'] = Variable<String>(syncStatus);
+    if (!nullToAbsent || provisionalBusinessId != null) {
+      map['provisional_business_id'] = Variable<String>(provisionalBusinessId);
+    }
+    if (!nullToAbsent || leaseToken != null) {
+      map['lease_token'] = Variable<String>(leaseToken);
+    }
+    map['lease_generation'] = Variable<int>(leaseGeneration);
+    if (!nullToAbsent || leaseExpiresAtMs != null) {
+      map['lease_expires_at_ms'] = Variable<int>(leaseExpiresAtMs);
+    }
+    map['attempt_count'] = Variable<int>(attemptCount);
+    if (!nullToAbsent || lastErrorCode != null) {
+      map['last_error_code'] = Variable<String>(lastErrorCode);
+    }
+    if (!nullToAbsent || nextRetryAtMs != null) {
+      map['next_retry_at_ms'] = Variable<int>(nextRetryAtMs);
+    }
+    map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs);
+    if (!nullToAbsent || syncedAtEpochMs != null) {
+      map['synced_at_epoch_ms'] = Variable<int>(syncedAtEpochMs);
+    }
+    return map;
+  }
+
+  OutboxMutationsCompanion toCompanion(bool nullToAbsent) {
+    return OutboxMutationsCompanion(
+      id: Value(id),
+      organizationId: Value(organizationId),
+      userId: Value(userId),
+      idempotencyKey: Value(idempotencyKey),
+      mutationType: Value(mutationType),
+      payloadJson: Value(payloadJson),
+      sequenceOrder: Value(sequenceOrder),
+      syncStatus: Value(syncStatus),
+      provisionalBusinessId: provisionalBusinessId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(provisionalBusinessId),
+      leaseToken: leaseToken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(leaseToken),
+      leaseGeneration: Value(leaseGeneration),
+      leaseExpiresAtMs: leaseExpiresAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(leaseExpiresAtMs),
+      attemptCount: Value(attemptCount),
+      lastErrorCode: lastErrorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastErrorCode),
+      nextRetryAtMs: nextRetryAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextRetryAtMs),
+      createdAtEpochMs: Value(createdAtEpochMs),
+      syncedAtEpochMs: syncedAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtEpochMs),
+    );
+  }
+
+  factory OutboxMutationEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OutboxMutationEntry(
+      id: serializer.fromJson<String>(json['id']),
+      organizationId: serializer.fromJson<String>(json['organizationId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      idempotencyKey: serializer.fromJson<String>(json['idempotencyKey']),
+      mutationType: serializer.fromJson<String>(json['mutationType']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      sequenceOrder: serializer.fromJson<int>(json['sequenceOrder']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+      provisionalBusinessId: serializer.fromJson<String?>(
+        json['provisionalBusinessId'],
+      ),
+      leaseToken: serializer.fromJson<String?>(json['leaseToken']),
+      leaseGeneration: serializer.fromJson<int>(json['leaseGeneration']),
+      leaseExpiresAtMs: serializer.fromJson<int?>(json['leaseExpiresAtMs']),
+      attemptCount: serializer.fromJson<int>(json['attemptCount']),
+      lastErrorCode: serializer.fromJson<String?>(json['lastErrorCode']),
+      nextRetryAtMs: serializer.fromJson<int?>(json['nextRetryAtMs']),
+      createdAtEpochMs: serializer.fromJson<int>(json['createdAtEpochMs']),
+      syncedAtEpochMs: serializer.fromJson<int?>(json['syncedAtEpochMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'organizationId': serializer.toJson<String>(organizationId),
+      'userId': serializer.toJson<String>(userId),
+      'idempotencyKey': serializer.toJson<String>(idempotencyKey),
+      'mutationType': serializer.toJson<String>(mutationType),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'sequenceOrder': serializer.toJson<int>(sequenceOrder),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+      'provisionalBusinessId': serializer.toJson<String?>(
+        provisionalBusinessId,
+      ),
+      'leaseToken': serializer.toJson<String?>(leaseToken),
+      'leaseGeneration': serializer.toJson<int>(leaseGeneration),
+      'leaseExpiresAtMs': serializer.toJson<int?>(leaseExpiresAtMs),
+      'attemptCount': serializer.toJson<int>(attemptCount),
+      'lastErrorCode': serializer.toJson<String?>(lastErrorCode),
+      'nextRetryAtMs': serializer.toJson<int?>(nextRetryAtMs),
+      'createdAtEpochMs': serializer.toJson<int>(createdAtEpochMs),
+      'syncedAtEpochMs': serializer.toJson<int?>(syncedAtEpochMs),
+    };
+  }
+
+  OutboxMutationEntry copyWith({
+    String? id,
+    String? organizationId,
+    String? userId,
+    String? idempotencyKey,
+    String? mutationType,
+    String? payloadJson,
+    int? sequenceOrder,
+    String? syncStatus,
+    Value<String?> provisionalBusinessId = const Value.absent(),
+    Value<String?> leaseToken = const Value.absent(),
+    int? leaseGeneration,
+    Value<int?> leaseExpiresAtMs = const Value.absent(),
+    int? attemptCount,
+    Value<String?> lastErrorCode = const Value.absent(),
+    Value<int?> nextRetryAtMs = const Value.absent(),
+    int? createdAtEpochMs,
+    Value<int?> syncedAtEpochMs = const Value.absent(),
+  }) => OutboxMutationEntry(
+    id: id ?? this.id,
+    organizationId: organizationId ?? this.organizationId,
+    userId: userId ?? this.userId,
+    idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+    mutationType: mutationType ?? this.mutationType,
+    payloadJson: payloadJson ?? this.payloadJson,
+    sequenceOrder: sequenceOrder ?? this.sequenceOrder,
+    syncStatus: syncStatus ?? this.syncStatus,
+    provisionalBusinessId: provisionalBusinessId.present
+        ? provisionalBusinessId.value
+        : this.provisionalBusinessId,
+    leaseToken: leaseToken.present ? leaseToken.value : this.leaseToken,
+    leaseGeneration: leaseGeneration ?? this.leaseGeneration,
+    leaseExpiresAtMs: leaseExpiresAtMs.present
+        ? leaseExpiresAtMs.value
+        : this.leaseExpiresAtMs,
+    attemptCount: attemptCount ?? this.attemptCount,
+    lastErrorCode: lastErrorCode.present
+        ? lastErrorCode.value
+        : this.lastErrorCode,
+    nextRetryAtMs: nextRetryAtMs.present
+        ? nextRetryAtMs.value
+        : this.nextRetryAtMs,
+    createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+    syncedAtEpochMs: syncedAtEpochMs.present
+        ? syncedAtEpochMs.value
+        : this.syncedAtEpochMs,
+  );
+  OutboxMutationEntry copyWithCompanion(OutboxMutationsCompanion data) {
+    return OutboxMutationEntry(
+      id: data.id.present ? data.id.value : this.id,
+      organizationId: data.organizationId.present
+          ? data.organizationId.value
+          : this.organizationId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      idempotencyKey: data.idempotencyKey.present
+          ? data.idempotencyKey.value
+          : this.idempotencyKey,
+      mutationType: data.mutationType.present
+          ? data.mutationType.value
+          : this.mutationType,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      sequenceOrder: data.sequenceOrder.present
+          ? data.sequenceOrder.value
+          : this.sequenceOrder,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+      provisionalBusinessId: data.provisionalBusinessId.present
+          ? data.provisionalBusinessId.value
+          : this.provisionalBusinessId,
+      leaseToken: data.leaseToken.present
+          ? data.leaseToken.value
+          : this.leaseToken,
+      leaseGeneration: data.leaseGeneration.present
+          ? data.leaseGeneration.value
+          : this.leaseGeneration,
+      leaseExpiresAtMs: data.leaseExpiresAtMs.present
+          ? data.leaseExpiresAtMs.value
+          : this.leaseExpiresAtMs,
+      attemptCount: data.attemptCount.present
+          ? data.attemptCount.value
+          : this.attemptCount,
+      lastErrorCode: data.lastErrorCode.present
+          ? data.lastErrorCode.value
+          : this.lastErrorCode,
+      nextRetryAtMs: data.nextRetryAtMs.present
+          ? data.nextRetryAtMs.value
+          : this.nextRetryAtMs,
+      createdAtEpochMs: data.createdAtEpochMs.present
+          ? data.createdAtEpochMs.value
+          : this.createdAtEpochMs,
+      syncedAtEpochMs: data.syncedAtEpochMs.present
+          ? data.syncedAtEpochMs.value
+          : this.syncedAtEpochMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutboxMutationEntry(')
+          ..write('id: $id, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('userId: $userId, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('mutationType: $mutationType, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('sequenceOrder: $sequenceOrder, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('provisionalBusinessId: $provisionalBusinessId, ')
+          ..write('leaseToken: $leaseToken, ')
+          ..write('leaseGeneration: $leaseGeneration, ')
+          ..write('leaseExpiresAtMs: $leaseExpiresAtMs, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('lastErrorCode: $lastErrorCode, ')
+          ..write('nextRetryAtMs: $nextRetryAtMs, ')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('syncedAtEpochMs: $syncedAtEpochMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    organizationId,
+    userId,
+    idempotencyKey,
+    mutationType,
+    payloadJson,
+    sequenceOrder,
+    syncStatus,
+    provisionalBusinessId,
+    leaseToken,
+    leaseGeneration,
+    leaseExpiresAtMs,
+    attemptCount,
+    lastErrorCode,
+    nextRetryAtMs,
+    createdAtEpochMs,
+    syncedAtEpochMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OutboxMutationEntry &&
+          other.id == this.id &&
+          other.organizationId == this.organizationId &&
+          other.userId == this.userId &&
+          other.idempotencyKey == this.idempotencyKey &&
+          other.mutationType == this.mutationType &&
+          other.payloadJson == this.payloadJson &&
+          other.sequenceOrder == this.sequenceOrder &&
+          other.syncStatus == this.syncStatus &&
+          other.provisionalBusinessId == this.provisionalBusinessId &&
+          other.leaseToken == this.leaseToken &&
+          other.leaseGeneration == this.leaseGeneration &&
+          other.leaseExpiresAtMs == this.leaseExpiresAtMs &&
+          other.attemptCount == this.attemptCount &&
+          other.lastErrorCode == this.lastErrorCode &&
+          other.nextRetryAtMs == this.nextRetryAtMs &&
+          other.createdAtEpochMs == this.createdAtEpochMs &&
+          other.syncedAtEpochMs == this.syncedAtEpochMs);
+}
+
+class OutboxMutationsCompanion extends UpdateCompanion<OutboxMutationEntry> {
+  final Value<String> id;
+  final Value<String> organizationId;
+  final Value<String> userId;
+  final Value<String> idempotencyKey;
+  final Value<String> mutationType;
+  final Value<String> payloadJson;
+  final Value<int> sequenceOrder;
+  final Value<String> syncStatus;
+  final Value<String?> provisionalBusinessId;
+  final Value<String?> leaseToken;
+  final Value<int> leaseGeneration;
+  final Value<int?> leaseExpiresAtMs;
+  final Value<int> attemptCount;
+  final Value<String?> lastErrorCode;
+  final Value<int?> nextRetryAtMs;
+  final Value<int> createdAtEpochMs;
+  final Value<int?> syncedAtEpochMs;
+  final Value<int> rowid;
+  const OutboxMutationsCompanion({
+    this.id = const Value.absent(),
+    this.organizationId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.idempotencyKey = const Value.absent(),
+    this.mutationType = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.sequenceOrder = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.provisionalBusinessId = const Value.absent(),
+    this.leaseToken = const Value.absent(),
+    this.leaseGeneration = const Value.absent(),
+    this.leaseExpiresAtMs = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.lastErrorCode = const Value.absent(),
+    this.nextRetryAtMs = const Value.absent(),
+    this.createdAtEpochMs = const Value.absent(),
+    this.syncedAtEpochMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OutboxMutationsCompanion.insert({
+    required String id,
+    required String organizationId,
+    required String userId,
+    required String idempotencyKey,
+    required String mutationType,
+    required String payloadJson,
+    required int sequenceOrder,
+    this.syncStatus = const Value.absent(),
+    this.provisionalBusinessId = const Value.absent(),
+    this.leaseToken = const Value.absent(),
+    this.leaseGeneration = const Value.absent(),
+    this.leaseExpiresAtMs = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.lastErrorCode = const Value.absent(),
+    this.nextRetryAtMs = const Value.absent(),
+    required int createdAtEpochMs,
+    this.syncedAtEpochMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       organizationId = Value(organizationId),
+       userId = Value(userId),
+       idempotencyKey = Value(idempotencyKey),
+       mutationType = Value(mutationType),
+       payloadJson = Value(payloadJson),
+       sequenceOrder = Value(sequenceOrder),
+       createdAtEpochMs = Value(createdAtEpochMs);
+  static Insertable<OutboxMutationEntry> custom({
+    Expression<String>? id,
+    Expression<String>? organizationId,
+    Expression<String>? userId,
+    Expression<String>? idempotencyKey,
+    Expression<String>? mutationType,
+    Expression<String>? payloadJson,
+    Expression<int>? sequenceOrder,
+    Expression<String>? syncStatus,
+    Expression<String>? provisionalBusinessId,
+    Expression<String>? leaseToken,
+    Expression<int>? leaseGeneration,
+    Expression<int>? leaseExpiresAtMs,
+    Expression<int>? attemptCount,
+    Expression<String>? lastErrorCode,
+    Expression<int>? nextRetryAtMs,
+    Expression<int>? createdAtEpochMs,
+    Expression<int>? syncedAtEpochMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (organizationId != null) 'organization_id': organizationId,
+      if (userId != null) 'user_id': userId,
+      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
+      if (mutationType != null) 'mutation_type': mutationType,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (sequenceOrder != null) 'sequence_order': sequenceOrder,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (provisionalBusinessId != null)
+        'provisional_business_id': provisionalBusinessId,
+      if (leaseToken != null) 'lease_token': leaseToken,
+      if (leaseGeneration != null) 'lease_generation': leaseGeneration,
+      if (leaseExpiresAtMs != null) 'lease_expires_at_ms': leaseExpiresAtMs,
+      if (attemptCount != null) 'attempt_count': attemptCount,
+      if (lastErrorCode != null) 'last_error_code': lastErrorCode,
+      if (nextRetryAtMs != null) 'next_retry_at_ms': nextRetryAtMs,
+      if (createdAtEpochMs != null) 'created_at_epoch_ms': createdAtEpochMs,
+      if (syncedAtEpochMs != null) 'synced_at_epoch_ms': syncedAtEpochMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OutboxMutationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? organizationId,
+    Value<String>? userId,
+    Value<String>? idempotencyKey,
+    Value<String>? mutationType,
+    Value<String>? payloadJson,
+    Value<int>? sequenceOrder,
+    Value<String>? syncStatus,
+    Value<String?>? provisionalBusinessId,
+    Value<String?>? leaseToken,
+    Value<int>? leaseGeneration,
+    Value<int?>? leaseExpiresAtMs,
+    Value<int>? attemptCount,
+    Value<String?>? lastErrorCode,
+    Value<int?>? nextRetryAtMs,
+    Value<int>? createdAtEpochMs,
+    Value<int?>? syncedAtEpochMs,
+    Value<int>? rowid,
+  }) {
+    return OutboxMutationsCompanion(
+      id: id ?? this.id,
+      organizationId: organizationId ?? this.organizationId,
+      userId: userId ?? this.userId,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+      mutationType: mutationType ?? this.mutationType,
+      payloadJson: payloadJson ?? this.payloadJson,
+      sequenceOrder: sequenceOrder ?? this.sequenceOrder,
+      syncStatus: syncStatus ?? this.syncStatus,
+      provisionalBusinessId:
+          provisionalBusinessId ?? this.provisionalBusinessId,
+      leaseToken: leaseToken ?? this.leaseToken,
+      leaseGeneration: leaseGeneration ?? this.leaseGeneration,
+      leaseExpiresAtMs: leaseExpiresAtMs ?? this.leaseExpiresAtMs,
+      attemptCount: attemptCount ?? this.attemptCount,
+      lastErrorCode: lastErrorCode ?? this.lastErrorCode,
+      nextRetryAtMs: nextRetryAtMs ?? this.nextRetryAtMs,
+      createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+      syncedAtEpochMs: syncedAtEpochMs ?? this.syncedAtEpochMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (organizationId.present) {
+      map['organization_id'] = Variable<String>(organizationId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (idempotencyKey.present) {
+      map['idempotency_key'] = Variable<String>(idempotencyKey.value);
+    }
+    if (mutationType.present) {
+      map['mutation_type'] = Variable<String>(mutationType.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (sequenceOrder.present) {
+      map['sequence_order'] = Variable<int>(sequenceOrder.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (provisionalBusinessId.present) {
+      map['provisional_business_id'] = Variable<String>(
+        provisionalBusinessId.value,
+      );
+    }
+    if (leaseToken.present) {
+      map['lease_token'] = Variable<String>(leaseToken.value);
+    }
+    if (leaseGeneration.present) {
+      map['lease_generation'] = Variable<int>(leaseGeneration.value);
+    }
+    if (leaseExpiresAtMs.present) {
+      map['lease_expires_at_ms'] = Variable<int>(leaseExpiresAtMs.value);
+    }
+    if (attemptCount.present) {
+      map['attempt_count'] = Variable<int>(attemptCount.value);
+    }
+    if (lastErrorCode.present) {
+      map['last_error_code'] = Variable<String>(lastErrorCode.value);
+    }
+    if (nextRetryAtMs.present) {
+      map['next_retry_at_ms'] = Variable<int>(nextRetryAtMs.value);
+    }
+    if (createdAtEpochMs.present) {
+      map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs.value);
+    }
+    if (syncedAtEpochMs.present) {
+      map['synced_at_epoch_ms'] = Variable<int>(syncedAtEpochMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutboxMutationsCompanion(')
+          ..write('id: $id, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('userId: $userId, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('mutationType: $mutationType, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('sequenceOrder: $sequenceOrder, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('provisionalBusinessId: $provisionalBusinessId, ')
+          ..write('leaseToken: $leaseToken, ')
+          ..write('leaseGeneration: $leaseGeneration, ')
+          ..write('leaseExpiresAtMs: $leaseExpiresAtMs, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('lastErrorCode: $lastErrorCode, ')
+          ..write('nextRetryAtMs: $nextRetryAtMs, ')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('syncedAtEpochMs: $syncedAtEpochMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WarehouseHubsTable extends WarehouseHubs
+    with TableInfo<$WarehouseHubsTable, WarehouseHubEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WarehouseHubsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _capacityBoxesMeta = const VerificationMeta(
+    'capacityBoxes',
+  );
+  @override
+  late final GeneratedColumn<int> capacityBoxes = GeneratedColumn<int>(
+    'capacity_boxes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _activeStaffCountMeta = const VerificationMeta(
+    'activeStaffCount',
+  );
+  @override
+  late final GeneratedColumn<int> activeStaffCount = GeneratedColumn<int>(
+    'active_staff_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    code,
+    address,
+    latitude,
+    longitude,
+    capacityBoxes,
+    activeStaffCount,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'warehouse_hubs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WarehouseHubEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_codeMeta);
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addressMeta);
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
+    if (data.containsKey('capacity_boxes')) {
+      context.handle(
+        _capacityBoxesMeta,
+        capacityBoxes.isAcceptableOrUnknown(
+          data['capacity_boxes']!,
+          _capacityBoxesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('active_staff_count')) {
+      context.handle(
+        _activeStaffCountMeta,
+        activeStaffCount.isAcceptableOrUnknown(
+          data['active_staff_count']!,
+          _activeStaffCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WarehouseHubEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WarehouseHubEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      )!,
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      )!,
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
+      capacityBoxes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}capacity_boxes'],
+      )!,
+      activeStaffCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}active_staff_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WarehouseHubsTable createAlias(String alias) {
+    return $WarehouseHubsTable(attachedDatabase, alias);
+  }
+}
+
+class WarehouseHubEntry extends DataClass
+    implements Insertable<WarehouseHubEntry> {
+  final String id;
+  final String name;
+  final String code;
+  final String address;
+  final double? latitude;
+  final double? longitude;
+  final int capacityBoxes;
+  final int activeStaffCount;
+  final DateTime createdAt;
+  const WarehouseHubEntry({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.address,
+    this.latitude,
+    this.longitude,
+    required this.capacityBoxes,
+    required this.activeStaffCount,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['code'] = Variable<String>(code);
+    map['address'] = Variable<String>(address);
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
+    map['capacity_boxes'] = Variable<int>(capacityBoxes);
+    map['active_staff_count'] = Variable<int>(activeStaffCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  WarehouseHubsCompanion toCompanion(bool nullToAbsent) {
+    return WarehouseHubsCompanion(
+      id: Value(id),
+      name: Value(name),
+      code: Value(code),
+      address: Value(address),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
+      capacityBoxes: Value(capacityBoxes),
+      activeStaffCount: Value(activeStaffCount),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory WarehouseHubEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WarehouseHubEntry(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      code: serializer.fromJson<String>(json['code']),
+      address: serializer.fromJson<String>(json['address']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
+      capacityBoxes: serializer.fromJson<int>(json['capacityBoxes']),
+      activeStaffCount: serializer.fromJson<int>(json['activeStaffCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'code': serializer.toJson<String>(code),
+      'address': serializer.toJson<String>(address),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
+      'capacityBoxes': serializer.toJson<int>(capacityBoxes),
+      'activeStaffCount': serializer.toJson<int>(activeStaffCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  WarehouseHubEntry copyWith({
+    String? id,
+    String? name,
+    String? code,
+    String? address,
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
+    int? capacityBoxes,
+    int? activeStaffCount,
+    DateTime? createdAt,
+  }) => WarehouseHubEntry(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    code: code ?? this.code,
+    address: address ?? this.address,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
+    capacityBoxes: capacityBoxes ?? this.capacityBoxes,
+    activeStaffCount: activeStaffCount ?? this.activeStaffCount,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  WarehouseHubEntry copyWithCompanion(WarehouseHubsCompanion data) {
+    return WarehouseHubEntry(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      code: data.code.present ? data.code.value : this.code,
+      address: data.address.present ? data.address.value : this.address,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      capacityBoxes: data.capacityBoxes.present
+          ? data.capacityBoxes.value
+          : this.capacityBoxes,
+      activeStaffCount: data.activeStaffCount.present
+          ? data.activeStaffCount.value
+          : this.activeStaffCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WarehouseHubEntry(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('code: $code, ')
+          ..write('address: $address, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('capacityBoxes: $capacityBoxes, ')
+          ..write('activeStaffCount: $activeStaffCount, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    code,
+    address,
+    latitude,
+    longitude,
+    capacityBoxes,
+    activeStaffCount,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WarehouseHubEntry &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.code == this.code &&
+          other.address == this.address &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.capacityBoxes == this.capacityBoxes &&
+          other.activeStaffCount == this.activeStaffCount &&
+          other.createdAt == this.createdAt);
+}
+
+class WarehouseHubsCompanion extends UpdateCompanion<WarehouseHubEntry> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> code;
+  final Value<String> address;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
+  final Value<int> capacityBoxes;
+  final Value<int> activeStaffCount;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const WarehouseHubsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.code = const Value.absent(),
+    this.address = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.capacityBoxes = const Value.absent(),
+    this.activeStaffCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WarehouseHubsCompanion.insert({
+    required String id,
+    required String name,
+    required String code,
+    required String address,
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.capacityBoxes = const Value.absent(),
+    this.activeStaffCount = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       code = Value(code),
+       address = Value(address),
+       createdAt = Value(createdAt);
+  static Insertable<WarehouseHubEntry> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? code,
+    Expression<String>? address,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<int>? capacityBoxes,
+    Expression<int>? activeStaffCount,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (code != null) 'code': code,
+      if (address != null) 'address': address,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (capacityBoxes != null) 'capacity_boxes': capacityBoxes,
+      if (activeStaffCount != null) 'active_staff_count': activeStaffCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WarehouseHubsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? code,
+    Value<String>? address,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
+    Value<int>? capacityBoxes,
+    Value<int>? activeStaffCount,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return WarehouseHubsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      code: code ?? this.code,
+      address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      capacityBoxes: capacityBoxes ?? this.capacityBoxes,
+      activeStaffCount: activeStaffCount ?? this.activeStaffCount,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (capacityBoxes.present) {
+      map['capacity_boxes'] = Variable<int>(capacityBoxes.value);
+    }
+    if (activeStaffCount.present) {
+      map['active_staff_count'] = Variable<int>(activeStaffCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WarehouseHubsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('code: $code, ')
+          ..write('address: $address, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('capacityBoxes: $capacityBoxes, ')
+          ..write('activeStaffCount: $activeStaffCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2669,6 +4363,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DatabaseMetadataTable databaseMetadata = $DatabaseMetadataTable(
     this,
   );
+  late final $OutboxMutationsTable outboxMutations = $OutboxMutationsTable(
+    this,
+  );
+  late final $WarehouseHubsTable warehouseHubs = $WarehouseHubsTable(this);
+  late final OutboxDao outboxDao = OutboxDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2679,6 +4378,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     inventorySnapshots,
     inventoryMovements,
     databaseMetadata,
+    outboxMutations,
+    warehouseHubs,
   ];
 }
 
@@ -3268,6 +4969,8 @@ typedef $$RetailersTableCreateCompanionBuilder =
       Value<bool> visitedToday,
       Value<int> totalTimeSpentSeconds,
       Value<int> visitCountToday,
+      Value<double?> latitude,
+      Value<double?> longitude,
       required DateTime createdAt,
       Value<int> rowid,
     });
@@ -3284,6 +4987,8 @@ typedef $$RetailersTableUpdateCompanionBuilder =
       Value<bool> visitedToday,
       Value<int> totalTimeSpentSeconds,
       Value<int> visitCountToday,
+      Value<double?> latitude,
+      Value<double?> longitude,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -3349,6 +5054,16 @@ class $$RetailersTableFilterComposer
 
   ColumnFilters<int> get visitCountToday => $composableBuilder(
     column: $table.visitCountToday,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3422,6 +5137,16 @@ class $$RetailersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -3480,6 +5205,12 @@ class $$RetailersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -3526,6 +5257,8 @@ class $$RetailersTableTableManager
                 Value<bool> visitedToday = const Value.absent(),
                 Value<int> totalTimeSpentSeconds = const Value.absent(),
                 Value<int> visitCountToday = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RetailersCompanion(
@@ -3540,6 +5273,8 @@ class $$RetailersTableTableManager
                 visitedToday: visitedToday,
                 totalTimeSpentSeconds: totalTimeSpentSeconds,
                 visitCountToday: visitCountToday,
+                latitude: latitude,
+                longitude: longitude,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -3556,6 +5291,8 @@ class $$RetailersTableTableManager
                 Value<bool> visitedToday = const Value.absent(),
                 Value<int> totalTimeSpentSeconds = const Value.absent(),
                 Value<int> visitCountToday = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
                 required DateTime createdAt,
                 Value<int> rowid = const Value.absent(),
               }) => RetailersCompanion.insert(
@@ -3570,6 +5307,8 @@ class $$RetailersTableTableManager
                 visitedToday: visitedToday,
                 totalTimeSpentSeconds: totalTimeSpentSeconds,
                 visitCountToday: visitCountToday,
+                latitude: latitude,
+                longitude: longitude,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -4531,6 +6270,778 @@ typedef $$DatabaseMetadataTableProcessedTableManager =
       DatabaseMetadataEntry,
       PrefetchHooks Function()
     >;
+typedef $$OutboxMutationsTableCreateCompanionBuilder =
+    OutboxMutationsCompanion Function({
+      required String id,
+      required String organizationId,
+      required String userId,
+      required String idempotencyKey,
+      required String mutationType,
+      required String payloadJson,
+      required int sequenceOrder,
+      Value<String> syncStatus,
+      Value<String?> provisionalBusinessId,
+      Value<String?> leaseToken,
+      Value<int> leaseGeneration,
+      Value<int?> leaseExpiresAtMs,
+      Value<int> attemptCount,
+      Value<String?> lastErrorCode,
+      Value<int?> nextRetryAtMs,
+      required int createdAtEpochMs,
+      Value<int?> syncedAtEpochMs,
+      Value<int> rowid,
+    });
+typedef $$OutboxMutationsTableUpdateCompanionBuilder =
+    OutboxMutationsCompanion Function({
+      Value<String> id,
+      Value<String> organizationId,
+      Value<String> userId,
+      Value<String> idempotencyKey,
+      Value<String> mutationType,
+      Value<String> payloadJson,
+      Value<int> sequenceOrder,
+      Value<String> syncStatus,
+      Value<String?> provisionalBusinessId,
+      Value<String?> leaseToken,
+      Value<int> leaseGeneration,
+      Value<int?> leaseExpiresAtMs,
+      Value<int> attemptCount,
+      Value<String?> lastErrorCode,
+      Value<int?> nextRetryAtMs,
+      Value<int> createdAtEpochMs,
+      Value<int?> syncedAtEpochMs,
+      Value<int> rowid,
+    });
+
+class $$OutboxMutationsTableFilterComposer
+    extends Composer<_$AppDatabase, $OutboxMutationsTable> {
+  $$OutboxMutationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get organizationId => $composableBuilder(
+    column: $table.organizationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mutationType => $composableBuilder(
+    column: $table.mutationType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sequenceOrder => $composableBuilder(
+    column: $table.sequenceOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get provisionalBusinessId => $composableBuilder(
+    column: $table.provisionalBusinessId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get leaseToken => $composableBuilder(
+    column: $table.leaseToken,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get leaseGeneration => $composableBuilder(
+    column: $table.leaseGeneration,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get leaseExpiresAtMs => $composableBuilder(
+    column: $table.leaseExpiresAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastErrorCode => $composableBuilder(
+    column: $table.lastErrorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nextRetryAtMs => $composableBuilder(
+    column: $table.nextRetryAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtEpochMs => $composableBuilder(
+    column: $table.createdAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtEpochMs => $composableBuilder(
+    column: $table.syncedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$OutboxMutationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OutboxMutationsTable> {
+  $$OutboxMutationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get organizationId => $composableBuilder(
+    column: $table.organizationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mutationType => $composableBuilder(
+    column: $table.mutationType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sequenceOrder => $composableBuilder(
+    column: $table.sequenceOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get provisionalBusinessId => $composableBuilder(
+    column: $table.provisionalBusinessId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get leaseToken => $composableBuilder(
+    column: $table.leaseToken,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get leaseGeneration => $composableBuilder(
+    column: $table.leaseGeneration,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get leaseExpiresAtMs => $composableBuilder(
+    column: $table.leaseExpiresAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastErrorCode => $composableBuilder(
+    column: $table.lastErrorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nextRetryAtMs => $composableBuilder(
+    column: $table.nextRetryAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtEpochMs => $composableBuilder(
+    column: $table.createdAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtEpochMs => $composableBuilder(
+    column: $table.syncedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$OutboxMutationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OutboxMutationsTable> {
+  $$OutboxMutationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get organizationId => $composableBuilder(
+    column: $table.organizationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mutationType => $composableBuilder(
+    column: $table.mutationType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sequenceOrder => $composableBuilder(
+    column: $table.sequenceOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get provisionalBusinessId => $composableBuilder(
+    column: $table.provisionalBusinessId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get leaseToken => $composableBuilder(
+    column: $table.leaseToken,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get leaseGeneration => $composableBuilder(
+    column: $table.leaseGeneration,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get leaseExpiresAtMs => $composableBuilder(
+    column: $table.leaseExpiresAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastErrorCode => $composableBuilder(
+    column: $table.lastErrorCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nextRetryAtMs => $composableBuilder(
+    column: $table.nextRetryAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtEpochMs => $composableBuilder(
+    column: $table.createdAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtEpochMs => $composableBuilder(
+    column: $table.syncedAtEpochMs,
+    builder: (column) => column,
+  );
+}
+
+class $$OutboxMutationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OutboxMutationsTable,
+          OutboxMutationEntry,
+          $$OutboxMutationsTableFilterComposer,
+          $$OutboxMutationsTableOrderingComposer,
+          $$OutboxMutationsTableAnnotationComposer,
+          $$OutboxMutationsTableCreateCompanionBuilder,
+          $$OutboxMutationsTableUpdateCompanionBuilder,
+          (
+            OutboxMutationEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $OutboxMutationsTable,
+              OutboxMutationEntry
+            >,
+          ),
+          OutboxMutationEntry,
+          PrefetchHooks Function()
+        > {
+  $$OutboxMutationsTableTableManager(
+    _$AppDatabase db,
+    $OutboxMutationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OutboxMutationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OutboxMutationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OutboxMutationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> organizationId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> idempotencyKey = const Value.absent(),
+                Value<String> mutationType = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<int> sequenceOrder = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<String?> provisionalBusinessId = const Value.absent(),
+                Value<String?> leaseToken = const Value.absent(),
+                Value<int> leaseGeneration = const Value.absent(),
+                Value<int?> leaseExpiresAtMs = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<String?> lastErrorCode = const Value.absent(),
+                Value<int?> nextRetryAtMs = const Value.absent(),
+                Value<int> createdAtEpochMs = const Value.absent(),
+                Value<int?> syncedAtEpochMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OutboxMutationsCompanion(
+                id: id,
+                organizationId: organizationId,
+                userId: userId,
+                idempotencyKey: idempotencyKey,
+                mutationType: mutationType,
+                payloadJson: payloadJson,
+                sequenceOrder: sequenceOrder,
+                syncStatus: syncStatus,
+                provisionalBusinessId: provisionalBusinessId,
+                leaseToken: leaseToken,
+                leaseGeneration: leaseGeneration,
+                leaseExpiresAtMs: leaseExpiresAtMs,
+                attemptCount: attemptCount,
+                lastErrorCode: lastErrorCode,
+                nextRetryAtMs: nextRetryAtMs,
+                createdAtEpochMs: createdAtEpochMs,
+                syncedAtEpochMs: syncedAtEpochMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String organizationId,
+                required String userId,
+                required String idempotencyKey,
+                required String mutationType,
+                required String payloadJson,
+                required int sequenceOrder,
+                Value<String> syncStatus = const Value.absent(),
+                Value<String?> provisionalBusinessId = const Value.absent(),
+                Value<String?> leaseToken = const Value.absent(),
+                Value<int> leaseGeneration = const Value.absent(),
+                Value<int?> leaseExpiresAtMs = const Value.absent(),
+                Value<int> attemptCount = const Value.absent(),
+                Value<String?> lastErrorCode = const Value.absent(),
+                Value<int?> nextRetryAtMs = const Value.absent(),
+                required int createdAtEpochMs,
+                Value<int?> syncedAtEpochMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OutboxMutationsCompanion.insert(
+                id: id,
+                organizationId: organizationId,
+                userId: userId,
+                idempotencyKey: idempotencyKey,
+                mutationType: mutationType,
+                payloadJson: payloadJson,
+                sequenceOrder: sequenceOrder,
+                syncStatus: syncStatus,
+                provisionalBusinessId: provisionalBusinessId,
+                leaseToken: leaseToken,
+                leaseGeneration: leaseGeneration,
+                leaseExpiresAtMs: leaseExpiresAtMs,
+                attemptCount: attemptCount,
+                lastErrorCode: lastErrorCode,
+                nextRetryAtMs: nextRetryAtMs,
+                createdAtEpochMs: createdAtEpochMs,
+                syncedAtEpochMs: syncedAtEpochMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$OutboxMutationsTable, OutboxMutationEntry>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $OutboxMutationsTable,
+                    OutboxMutationEntry
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$OutboxMutationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OutboxMutationsTable,
+      OutboxMutationEntry,
+      $$OutboxMutationsTableFilterComposer,
+      $$OutboxMutationsTableOrderingComposer,
+      $$OutboxMutationsTableAnnotationComposer,
+      $$OutboxMutationsTableCreateCompanionBuilder,
+      $$OutboxMutationsTableUpdateCompanionBuilder,
+      (
+        OutboxMutationEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $OutboxMutationsTable,
+          OutboxMutationEntry
+        >,
+      ),
+      OutboxMutationEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$WarehouseHubsTableCreateCompanionBuilder =
+    WarehouseHubsCompanion Function({
+      required String id,
+      required String name,
+      required String code,
+      required String address,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<int> capacityBoxes,
+      Value<int> activeStaffCount,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$WarehouseHubsTableUpdateCompanionBuilder =
+    WarehouseHubsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> code,
+      Value<String> address,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<int> capacityBoxes,
+      Value<int> activeStaffCount,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$WarehouseHubsTableFilterComposer
+    extends Composer<_$AppDatabase, $WarehouseHubsTable> {
+  $$WarehouseHubsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get capacityBoxes => $composableBuilder(
+    column: $table.capacityBoxes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activeStaffCount => $composableBuilder(
+    column: $table.activeStaffCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WarehouseHubsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WarehouseHubsTable> {
+  $$WarehouseHubsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get capacityBoxes => $composableBuilder(
+    column: $table.capacityBoxes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activeStaffCount => $composableBuilder(
+    column: $table.activeStaffCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WarehouseHubsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WarehouseHubsTable> {
+  $$WarehouseHubsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<int> get capacityBoxes => $composableBuilder(
+    column: $table.capacityBoxes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activeStaffCount => $composableBuilder(
+    column: $table.activeStaffCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$WarehouseHubsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WarehouseHubsTable,
+          WarehouseHubEntry,
+          $$WarehouseHubsTableFilterComposer,
+          $$WarehouseHubsTableOrderingComposer,
+          $$WarehouseHubsTableAnnotationComposer,
+          $$WarehouseHubsTableCreateCompanionBuilder,
+          $$WarehouseHubsTableUpdateCompanionBuilder,
+          (
+            WarehouseHubEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $WarehouseHubsTable,
+              WarehouseHubEntry
+            >,
+          ),
+          WarehouseHubEntry,
+          PrefetchHooks Function()
+        > {
+  $$WarehouseHubsTableTableManager(_$AppDatabase db, $WarehouseHubsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WarehouseHubsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WarehouseHubsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WarehouseHubsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> code = const Value.absent(),
+                Value<String> address = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<int> capacityBoxes = const Value.absent(),
+                Value<int> activeStaffCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WarehouseHubsCompanion(
+                id: id,
+                name: name,
+                code: code,
+                address: address,
+                latitude: latitude,
+                longitude: longitude,
+                capacityBoxes: capacityBoxes,
+                activeStaffCount: activeStaffCount,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String code,
+                required String address,
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<int> capacityBoxes = const Value.absent(),
+                Value<int> activeStaffCount = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => WarehouseHubsCompanion.insert(
+                id: id,
+                name: name,
+                code: code,
+                address: address,
+                latitude: latitude,
+                longitude: longitude,
+                capacityBoxes: capacityBoxes,
+                activeStaffCount: activeStaffCount,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WarehouseHubsTable, WarehouseHubEntry>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $WarehouseHubsTable,
+                    WarehouseHubEntry
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WarehouseHubsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WarehouseHubsTable,
+      WarehouseHubEntry,
+      $$WarehouseHubsTableFilterComposer,
+      $$WarehouseHubsTableOrderingComposer,
+      $$WarehouseHubsTableAnnotationComposer,
+      $$WarehouseHubsTableCreateCompanionBuilder,
+      $$WarehouseHubsTableUpdateCompanionBuilder,
+      (
+        WarehouseHubEntry,
+        BaseReferences<_$AppDatabase, $WarehouseHubsTable, WarehouseHubEntry>,
+      ),
+      WarehouseHubEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4545,4 +7056,8 @@ class $AppDatabaseManager {
       $$InventoryMovementsTableTableManager(_db, _db.inventoryMovements);
   $$DatabaseMetadataTableTableManager get databaseMetadata =>
       $$DatabaseMetadataTableTableManager(_db, _db.databaseMetadata);
+  $$OutboxMutationsTableTableManager get outboxMutations =>
+      $$OutboxMutationsTableTableManager(_db, _db.outboxMutations);
+  $$WarehouseHubsTableTableManager get warehouseHubs =>
+      $$WarehouseHubsTableTableManager(_db, _db.warehouseHubs);
 }

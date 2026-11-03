@@ -83,9 +83,9 @@ class _LogisticsViewState extends State<LogisticsView> with SingleTickerProvider
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: const [
-            Icon(Icons.verified_user, color: AirbnbTheme.success),
+            Icon(Icons.science_outlined, color: Color(0xFFF57F17)),
             SizedBox(width: 8),
-            Text('Server OTP Verification', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            Text('[DEMO ONLY] OTP Simulation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           ],
         ),
         content: Column(
@@ -100,15 +100,18 @@ class _LogisticsViewState extends State<LogisticsView> with SingleTickerProvider
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
+                color: const Color(0xFFFFF8E1),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFECB3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: AirbnbTheme.success),
+                  const Icon(Icons.info_outline, size: 16, color: Color(0xFFF57F17)),
                   const SizedBox(width: 6),
-                  Text('SMS Sent to Retailer. Demo OTP: ${stop.serverOtp}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.success)),
+                  Expanded(
+                    child: Text('[DEMO / TEST ONLY] Offline Demo Code: ${stop.serverOtp}\n(Backend SMS gateway is not connected in this client pilot)',
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFFF57F17))),
+                  ),
                 ],
               ),
             ),
@@ -135,7 +138,7 @@ class _LogisticsViewState extends State<LogisticsView> with SingleTickerProvider
               if (ok) {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Delivery confirmed! Cash recorded in Van custody.')),
+                  const SnackBar(content: Text('[DEMO TEST] Local delivery recorded. Not verified by backend SMS gateway.')),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(

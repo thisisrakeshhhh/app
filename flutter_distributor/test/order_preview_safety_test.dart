@@ -135,5 +135,56 @@ void main() {
       // No fake SALE movement was inserted into SQLite
       expect(movementsAfter.length, equals(movementsBefore.length));
     });
+
+    test(
+        '5. Vehicle stock (prod.carStockBoxes and totalCarBoxes) is NOT decremented by booking orders',
+        () async {
+      final prod = api.products.firstWhere((p) => p.id == 'KURK-01');
+      final initialCarStock = prod.carStockBoxes;
+      final initialTotalCarBoxes = api.totalCarBoxes;
+
+      // Place booking order of 3 boxes
+      api.addToCart(prod, OrderUnit.box, 3);
+      api.placeOrder(shopId: api.retailers.first.id, paymentMode: 'COD');
+
+      // Vehicle stock remains 100% unchanged
+      expect(prod.carStockBoxes, equals(initialCarStock),
+          reason: 'Vehicle stock must not be decremented during order booking');
+      expect(api.totalCarBoxes, equals(initialTotalCarBoxes));
+    });
+
+    test(
+        '6. Overbooking beyond available stock is strictly rejected with StateError',
+        () async {
+      final prod = api.products.firstWhere((p) => p.id == 'KURK-01');
+      final availablePieces = api.availableGodownPieces(prod.id);
+      final boxesToOverbook = (availablePieces ~/ prod.boxQty) + 10;
+
+      api.addToCart(prod, OrderUnit.box, boxesToOverbook);
+
+      expect(
+        () => api.placeOrder(shopId: api.retailers.first.id, paymentMode: 'Credit'),
+        throwsA(isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('exceeds available stock'),
+        )),
+        reason: 'Overbooking must fail closed before creating an order',
+      );
+    });
+
+    test(
+        '7. Multi-unit mixed lines calculate exact integer base pieces without floating-point penalty',
+        () async {
+      final prod = api.products.firstWhere((p) => p.id == 'KURK-01');
+      // Box = 48 pieces, Strip = 12 pieces (hypothetical), 1 Piece = 1
+      final initialPendingPieces = api.pendingBookingPieces(prod.id);
+
+      api.addToCart(prod, OrderUnit.box, 1);
+      final order = api.placeOrder(shopId: api.retailers.first.id, paymentMode: 'COD');
+
+      expect(order.items.first.totalPieces, equals(prod.boxQty));
+      expect(api.pendingBookingPieces(prod.id), equals(initialPendingPieces + prod.boxQty));
+    });
   });
 }

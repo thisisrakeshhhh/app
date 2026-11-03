@@ -1,172 +1,71 @@
 import 'package:flutter/material.dart';
+import '../domain/auth/role_routing.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/airbnb_theme.dart';
-import 'sales_view.dart';
-import 'inventory_view.dart';
-import 'logistics_view.dart';
+import 'dashboards/admin_dashboard.dart';
+import 'dashboards/delivery_dashboard.dart';
+import 'dashboards/role_blocked_view.dart';
+import 'dashboards/sales_dashboard.dart';
+import 'dashboards/warehouse_dashboard.dart';
 import 'organization_select_view.dart';
+import 'views/admin_subviews.dart';
+import 'views/delivery_subviews.dart';
+import 'views/sales_subviews.dart';
+import 'views/warehouse_subviews.dart';
 
+/// Server-Authoritative Role-Based Shell.
+/// Inspects the authenticated user session, resolves the canonical role,
+/// mounts the role-specific landing dashboard, and renders role-specific navigation tabs.
+/// Fails closed (mounts RoleBlockedView) for unknown or unsupported roles.
 class RoleShell extends StatefulWidget {
   final ApiService api;
   final AuthService? authService;
-  const RoleShell({super.key, required this.api, this.authService});
+
+  const RoleShell({
+    super.key,
+    required this.api,
+    this.authService,
+  });
 
   @override
   State<RoleShell> createState() => _RoleShellState();
 }
 
 class _RoleShellState extends State<RoleShell> {
+  int _currentTabIndex = 0;
+  CanonicalRole? _lastRole;
+
   @override
   void initState() {
     super.initState();
-    final roleStr = widget.authService?.session?.activeRole.toUpperCase();
-    if (roleStr == 'WAREHOUSE' || roleStr == 'INVENTORY') {
+    _syncRole();
+  }
+
+  @override
+  void didUpdateWidget(covariant RoleShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncRole();
+  }
+
+  void _syncRole() {
+    final roleStr = widget.authService?.session?.activeRole;
+    final canonicalRole = CanonicalRole.fromString(roleStr);
+
+    if (canonicalRole != _lastRole) {
+      _lastRole = canonicalRole;
+      _currentTabIndex = 0; // Reset to landing dashboard on role change
+    }
+
+    // Synchronize legacy AppRole in ApiService for backward compatibility
+    if (canonicalRole == CanonicalRole.warehouse) {
       widget.api.switchRole(AppRole.inventory);
-    } else if (roleStr == 'DELIVERY' || roleStr == 'LOGISTICS' || roleStr == 'DELIVERY_EXECUTIVE') {
+    } else if (canonicalRole == CanonicalRole.delivery) {
       widget.api.switchRole(AppRole.logistics);
-    } else if (roleStr == 'SALES' || roleStr == 'SALESPERSON') {
+    } else if (canonicalRole == CanonicalRole.sales) {
       widget.api.switchRole(AppRole.sales);
     }
-  }
-
-  void _openRolePicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AirbnbTheme.border,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Switch Routidrow Role',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AirbnbTheme.dark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Switch between Salesman, Kirana Retailer, and Van Logistics',
-                style: TextStyle(fontSize: 12, color: AirbnbTheme.grey),
-              ),
-              const SizedBox(height: 16),
-              _buildRoleTile(
-                role: AppRole.sales,
-                title: 'Salesman (Field Beat & Kurkure Booking)',
-                subtitle: 'Vikram Rathore • Jodhpur Central Beat',
-                icon: Icons.navigation_outlined,
-                color: AirbnbTheme.coral,
-              ),
-              const SizedBox(height: 10),
-              _buildRoleTile(
-                role: AppRole.inventory,
-                title: 'Godown Inventory (Stock Intake & SKUs)',
-                subtitle: 'Central Warehouse • Basni Industrial Area',
-                icon: Icons.warehouse_outlined,
-                color: AirbnbTheme.jodhpurBlue,
-              ),
-              const SizedBox(height: 10),
-              _buildRoleTile(
-                role: AppRole.logistics,
-                title: 'Logistics (Godown & Car Stock Transfer)',
-                subtitle: 'Suresh Yadav • Car: ${widget.api.carNumber}',
-                icon: Icons.local_shipping_outlined,
-                color: AirbnbTheme.success,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRoleTile({
-    required AppRole role,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    final isSelected = widget.api.currentRole == role;
-
-    return InkWell(
-      onTap: () {
-        widget.api.switchRole(role);
-        Navigator.pop(context);
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.08) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? color : AirbnbTheme.border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isSelected ? color : AirbnbTheme.lightGrey,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : AirbnbTheme.dark,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? color : AirbnbTheme.dark,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: color, size: 20),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showAccountantSheet() {
@@ -212,11 +111,11 @@ class _RoleShellState extends State<RoleShell> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                          'Accountant & GST Portal',
+                          'Accountant & GST Summary',
                           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
                         ),
                         Text(
-                          'Server-Verified FMCG Ledger & Tax Invoices',
+                          'Estimated FMCG Ledger & Tax Invoices (Illustrative Only)',
                           style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
                         ),
                       ],
@@ -225,10 +124,10 @@ class _RoleShellState extends State<RoleShell> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AirbnbTheme.success.withValues(alpha: 0.1),
+                      color: const Color(0xFFFFF3CD),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('CBIC GST OK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.success)),
+                    child: const Text('ESTIMATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF856404))),
                   ),
                 ],
               ),
@@ -328,38 +227,6 @@ class _RoleShellState extends State<RoleShell> {
                 ],
               ),
 
-              const SizedBox(height: 14),
-
-              // Godown vs Car boxes
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AirbnbTheme.cardBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AirbnbTheme.border),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Column(
-                      children: [
-                        const Text('Godown Stock', style: TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                        const SizedBox(height: 2),
-                        Text('${widget.api.totalGodownBoxes} Boxes', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
-                      ],
-                    ),
-                    Container(width: 1, height: 28, color: AirbnbTheme.border),
-                    Column(
-                      children: [
-                        Text('Car (${widget.api.carNumber})', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                        const SizedBox(height: 2),
-                        Text('${widget.api.totalCarBoxes} Boxes', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.jodhpurBlue)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
@@ -398,22 +265,13 @@ class _RoleShellState extends State<RoleShell> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Backend: Cloudflare Workers + D1 Database',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            ),
+            const Text('Backend: Cloudflare Workers + D1 Database', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 6),
-            Text(
-              'Edge Endpoint: ${widget.api.cloudflareUrl}',
-              style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
-            ),
+            Text('Edge Endpoint: ${widget.api.cloudflareUrl}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AirbnbTheme.lightGrey,
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: BoxDecoration(color: AirbnbTheme.lightGrey, borderRadius: BorderRadius.circular(10)),
               child: const Text(
                 '⚡ Sub-50ms latency edge routing\n🔒 Tamper-proof 6-digit delivery OTP\n📦 Atomic D1 stock & car reservations\n📊 Live GST invoice breakdown',
                 style: TextStyle(fontSize: 12, height: 1.5),
@@ -433,93 +291,148 @@ class _RoleShellState extends State<RoleShell> {
 
   @override
   Widget build(BuildContext context) {
-    final role = widget.api.currentRole;
+    final roleStr = widget.authService?.session?.activeRole;
+    final canonicalRole = CanonicalRole.fromString(roleStr);
+
+    // 1. FAIL-CLOSED BARRIER FOR UNKNOWN OR UNSUPPORTED ROLES
+    if (canonicalRole == null) {
+      return RoleBlockedView(
+        attemptedRole: roleStr,
+        authService: widget.authService,
+      );
+    }
+
+    final roleColor = switch (canonicalRole) {
+      CanonicalRole.owner => const Color(0xFFD97706),
+      CanonicalRole.sales => AirbnbTheme.coral,
+      CanonicalRole.warehouse => AirbnbTheme.jodhpurBlue,
+      CanonicalRole.delivery => AirbnbTheme.success,
+      CanonicalRole.admin => const Color(0xFF6C5CE7),
+    };
+
+    final userName = widget.authService?.session?.name ?? canonicalRole.displayName;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        titleSpacing: 14,
+        titleSpacing: 10,
+        toolbarHeight: 64,
+        elevation: 0,
+        backgroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'ROUTIDROW',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.3,
-                    color: AirbnbTheme.dark,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'JODHPUR',
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'ROUTIDROW',
                     style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      color: AirbnbTheme.jodhpurBlue,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                      color: AirbnbTheme.dark,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: roleColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      canonicalRole.badgeLabel,
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: roleColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Text(
-              role.personaName,
-              style: const TextStyle(
-                fontSize: 10.5,
-                color: AirbnbTheme.grey,
-                fontWeight: FontWeight.w500,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                userName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AirbnbTheme.grey,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
         actions: [
+          // Active Organization Selector Chip
           if (widget.authService != null && widget.authService!.session != null) ...[
             GestureDetector(
               onTap: () => OrganizationSelectSheet.show(context, widget.authService!),
               child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                margin: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: AirbnbTheme.lightGrey,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AirbnbTheme.border),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.business, size: 14, color: AirbnbTheme.dark),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.business, size: 13, color: AirbnbTheme.dark),
+                    const SizedBox(width: 3),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 80),
+                      constraints: const BoxConstraints(maxWidth: 68),
                       child: Text(
                         widget.authService!.session?.activeMembership?.name ??
                             widget.authService!.session?.activeOrganizationId ??
-                            'Org',
+                            'Depot',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: AirbnbTheme.dark,
-                        ),
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down, size: 14, color: AirbnbTheme.grey),
+                    const Icon(Icons.arrow_drop_down, size: 13, color: AirbnbTheme.grey),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 2),
           ],
+
+          // Cloudflare Edge status indicator
+          GestureDetector(
+            onTap: _showCloudflareInfo,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFFB74D), width: 0.6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.cloud, size: 10, color: Color(0xFFF57C00)),
+                  SizedBox(width: 2),
+                  Text('Edge D1', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
+                ],
+              ),
+            ),
+          ),
+
+          // Accountant / GST button (available for all roles for inspection)
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -527,131 +440,203 @@ class _RoleShellState extends State<RoleShell> {
             icon: const Icon(Icons.receipt_long_outlined, color: Color(0xFF6C5CE7), size: 21),
             tooltip: 'Accountant & GST Summary',
           ),
-          GestureDetector(
-            onTap: _showCloudflareInfo,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 14),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFB74D), width: 0.6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.cloud, size: 11, color: Color(0xFFF57C00)),
-                  SizedBox(width: 3),
-                  Text(
-                    'Edge D1',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFE65100),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+
+          // Sign Out / Logout Button
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            onPressed: _openRolePicker,
+            onPressed: () async {
+              if (widget.authService != null) {
+                await widget.authService!.logout();
+              }
+            },
             icon: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: AirbnbTheme.lightGrey,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.swap_horiz, size: 16, color: AirbnbTheme.dark),
+              child: const Icon(Icons.logout, size: 16, color: AirbnbTheme.coral),
             ),
+            tooltip: 'Sign Out',
           ),
           const SizedBox(width: 6),
         ],
       ),
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: _buildRoleView(role),
+        duration: const Duration(milliseconds: 200),
+        child: _buildRoleView(canonicalRole),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: AirbnbTheme.border, width: 0.8)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              offset: const Offset(0, -3),
-              blurRadius: 10,
+      bottomNavigationBar: _buildRoleNavigationBar(canonicalRole, roleColor),
+    );
+  }
+
+  /// Builds the active view depending on the selected role and active tab index.
+  Widget _buildRoleView(CanonicalRole role) {
+    switch (role) {
+      case CanonicalRole.sales:
+        return switch (_currentTabIndex) {
+          0 => SalesDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
             ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  role: AppRole.sales,
-                  label: 'Salesman',
-                  icon: Icons.navigation,
-                  unselectedIcon: Icons.navigation_outlined,
-                ),
-                _buildNavItem(
-                  role: AppRole.inventory,
-                  label: 'Inventory',
-                  icon: Icons.warehouse,
-                  unselectedIcon: Icons.warehouse_outlined,
-                ),
-                _buildNavItem(
-                  role: AppRole.logistics,
-                  label: 'Logistics',
-                  icon: Icons.local_shipping,
-                  unselectedIcon: Icons.local_shipping_outlined,
-                ),
-              ],
+          1 => SalesOrderBookingView(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
             ),
+          2 => SalesRetailersView(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+          3 => SalesProductsView(api: widget.api),
+          4 => SalesVisitsView(api: widget.api),
+          _ => SalesDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+        };
+
+      case CanonicalRole.warehouse:
+        return switch (_currentTabIndex) {
+          0 => WarehouseDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+          1 => WarehouseStockView(api: widget.api),
+          2 => WarehouseInwardView(api: widget.api),
+          3 => WarehousePickingView(api: widget.api),
+          4 => WarehouseLoadingView(api: widget.api),
+          _ => WarehouseDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+        };
+
+      case CanonicalRole.delivery:
+        return switch (_currentTabIndex) {
+          0 => DeliveryDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+          1 => DeliveryTripsView(api: widget.api),
+          2 => DeliveryStopsView(api: widget.api),
+          3 => DeliveryCollectionsView(api: widget.api),
+          4 => DeliveryHandoverView(api: widget.api),
+          _ => DeliveryDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+        };
+
+      case CanonicalRole.owner:
+      case CanonicalRole.admin:
+        return switch (_currentTabIndex) {
+          0 => AdminDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+          1 => AdminOrdersView(api: widget.api),
+          2 => AdminProductsView(api: widget.api),
+          3 => AdminRetailersView(api: widget.api),
+          4 => AdminEmployeesView(api: widget.api),
+          5 => AdminInventoryView(api: widget.api),
+          6 => AdminReportsView(api: widget.api),
+          _ => AdminDashboard(
+              api: widget.api,
+              onNavigateTab: (t) => setState(() => _currentTabIndex = t),
+            ),
+        };
+    }
+  }
+
+  /// Builds the role-specific bottom navigation bar.
+  Widget _buildRoleNavigationBar(CanonicalRole role, Color roleColor) {
+    final navItems = switch (role) {
+      CanonicalRole.sales => const [
+          _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),
+          _RoleNavItem(label: 'New Order', icon: Icons.add_shopping_cart, unselectedIcon: Icons.add_shopping_cart_outlined),
+          _RoleNavItem(label: 'Retailers', icon: Icons.store, unselectedIcon: Icons.store_outlined),
+          _RoleNavItem(label: 'Products', icon: Icons.menu_book, unselectedIcon: Icons.menu_book_outlined),
+          _RoleNavItem(label: 'My Visits', icon: Icons.timer, unselectedIcon: Icons.timer_outlined),
+        ],
+      CanonicalRole.warehouse => const [
+          _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),
+          _RoleNavItem(label: 'Godown Stock', icon: Icons.inventory_2, unselectedIcon: Icons.inventory_2_outlined),
+          _RoleNavItem(label: 'Inward', icon: Icons.input_rounded, unselectedIcon: Icons.input_outlined),
+          _RoleNavItem(label: 'Pick & Pack', icon: Icons.checklist, unselectedIcon: Icons.checklist_outlined),
+          _RoleNavItem(label: 'Load Van', icon: Icons.local_shipping, unselectedIcon: Icons.local_shipping_outlined),
+        ],
+      CanonicalRole.delivery => const [
+          _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),
+          _RoleNavItem(label: 'My Trips', icon: Icons.map, unselectedIcon: Icons.map_outlined),
+          _RoleNavItem(label: 'Stops', icon: Icons.pin_drop, unselectedIcon: Icons.pin_drop_outlined),
+          _RoleNavItem(label: 'Collections', icon: Icons.payments, unselectedIcon: Icons.payments_outlined),
+          _RoleNavItem(label: 'Handover', icon: Icons.assignment_turned_in, unselectedIcon: Icons.assignment_turned_in_outlined),
+        ],
+      CanonicalRole.owner || CanonicalRole.admin => const [
+          _RoleNavItem(label: 'Overview', icon: Icons.dashboard, unselectedIcon: Icons.dashboard_outlined),
+          _RoleNavItem(label: 'Orders', icon: Icons.receipt_long, unselectedIcon: Icons.receipt_long_outlined),
+          _RoleNavItem(label: 'Products', icon: Icons.inventory_2, unselectedIcon: Icons.inventory_2_outlined),
+          _RoleNavItem(label: 'Retailers', icon: Icons.store, unselectedIcon: Icons.store_outlined),
+          _RoleNavItem(label: 'Staff', icon: Icons.people, unselectedIcon: Icons.people_outline),
+          _RoleNavItem(label: 'Inventory', icon: Icons.warehouse, unselectedIcon: Icons.warehouse_outlined),
+          _RoleNavItem(label: 'Reports', icon: Icons.assessment, unselectedIcon: Icons.assessment_outlined),
+        ],
+    };
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AirbnbTheme.border, width: 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            offset: const Offset(0, -3),
+            blurRadius: 10,
           ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: (role == CanonicalRole.admin || role == CanonicalRole.owner)
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: navItems.asMap().entries.map((entry) {
+                      return _buildNavItem(entry.key, entry.value, roleColor);
+                    }).toList(),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: navItems.asMap().entries.map((entry) {
+                    return _buildNavItem(entry.key, entry.value, roleColor);
+                  }).toList(),
+                ),
         ),
       ),
     );
   }
 
-  Widget _buildRoleView(AppRole role) {
-    switch (role) {
-      case AppRole.sales:
-        return SalesView(api: widget.api);
-      case AppRole.inventory:
-        return InventoryView(api: widget.api);
-      case AppRole.logistics:
-        return LogisticsView(api: widget.api);
-    }
-  }
-
-  Widget _buildNavItem({
-    required AppRole role,
-    required String label,
-    required IconData icon,
-    required IconData unselectedIcon,
-  }) {
-    final isSelected = widget.api.currentRole == role;
-    final color = isSelected ? AirbnbTheme.coral : AirbnbTheme.grey;
+  Widget _buildNavItem(int index, _RoleNavItem item, Color roleColor) {
+    final isSelected = _currentTabIndex == index;
+    final color = isSelected ? roleColor : AirbnbTheme.grey;
 
     return InkWell(
-      onTap: () => widget.api.switchRole(role),
+      onTap: () => setState(() => _currentTabIndex = index),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isSelected ? icon : unselectedIcon, color: color, size: 22),
+            Icon(isSelected ? item.icon : item.unselectedIcon, color: color, size: 22),
             const SizedBox(height: 3),
             Text(
-              label,
+              item.label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
                 color: color,
               ),
@@ -661,4 +646,16 @@ class _RoleShellState extends State<RoleShell> {
       ),
     );
   }
+}
+
+class _RoleNavItem {
+  final String label;
+  final IconData icon;
+  final IconData unselectedIcon;
+
+  const _RoleNavItem({
+    required this.label,
+    required this.icon,
+    required this.unselectedIcon,
+  });
 }

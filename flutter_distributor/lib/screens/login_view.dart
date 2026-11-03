@@ -332,6 +332,17 @@ class _LoginViewState extends State<LoginView> {
                               });
                             },
                           ),
+                          ActionChip(
+                            avatar: const Icon(Icons.shield_outlined, size: 14, color: Color(0xFFD97706)),
+                            label: const Text('Distributor Owner', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            onPressed: () {
+                              setState(() {
+                                _usernameController.text = 'dist_owner';
+                                _passwordController.text = 'RouteFlow@2026!';
+                                _errorMessage = null;
+                              });
+                            },
+                          ),
                         ],
                       ),
                     ],

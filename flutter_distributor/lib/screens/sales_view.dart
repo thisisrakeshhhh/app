@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../domain/outbox/outbox_models.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/airbnb_theme.dart';
@@ -387,6 +388,9 @@ class _SalesViewState extends State<SalesView> {
   }
 
   void _showCartSheet() {
+    final checkoutIdempotencyKey = generateUuidV4();
+    bool isSubmitting = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -567,16 +571,30 @@ class _SalesViewState extends State<SalesView> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: cartItems.isEmpty ? null : () {
+                          onPressed: (cartItems.isEmpty || isSubmitting) ? null : () async {
                             if (_activeShop != null) {
-                              final o = widget.api.placeOrder(
-                                shopId: _activeShop!.id,
-                                paymentMode: 'Credit',
-                              );
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Order ${o.orderNumber} booked on Kirana Khata!')),
-                              );
+                              setSheetState(() => isSubmitting = true);
+                              try {
+                                final o = await widget.api.confirmOrderDurable(
+                                  shopId: _activeShop!.id,
+                                  paymentMode: 'Credit',
+                                  checkoutIdempotencyKey: checkoutIdempotencyKey,
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (mounted) {
+                                  setState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('[LOCAL OUTBOX] Order ${o.orderNumber} booked on Kirana Khata')),
+                                  );
+                                }
+                              } catch (e) {
+                                setSheetState(() => isSubmitting = false);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Order failed: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
                             }
                           },
                           style: OutlinedButton.styleFrom(
@@ -584,22 +602,38 @@ class _SalesViewState extends State<SalesView> {
                             side: const BorderSide(color: AirbnbTheme.jodhpurBlue),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text('Book on Khata', style: TextStyle(color: AirbnbTheme.jodhpurBlue, fontWeight: FontWeight.w700)),
+                          child: isSubmitting
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Book on Khata (Credit)', style: TextStyle(color: AirbnbTheme.jodhpurBlue, fontWeight: FontWeight.w700)),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: cartItems.isEmpty ? null : () {
+                          onPressed: (cartItems.isEmpty || isSubmitting) ? null : () async {
                             if (_activeShop != null) {
-                              final o = widget.api.placeOrder(
-                                shopId: _activeShop!.id,
-                                paymentMode: 'COD',
-                              );
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Order ${o.orderNumber} booked for Cash on Delivery!')),
-                              );
+                              setSheetState(() => isSubmitting = true);
+                              try {
+                                final o = await widget.api.confirmOrderDurable(
+                                  shopId: _activeShop!.id,
+                                  paymentMode: 'COD',
+                                  checkoutIdempotencyKey: checkoutIdempotencyKey,
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (mounted) {
+                                  setState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('[LOCAL OUTBOX] Order ${o.orderNumber} booked for COD')),
+                                  );
+                                }
+                              } catch (e) {
+                                setSheetState(() => isSubmitting = false);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Order failed: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -608,7 +642,9 @@ class _SalesViewState extends State<SalesView> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text('Confirm COD', style: TextStyle(fontWeight: FontWeight.w700)),
+                          child: isSubmitting
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Text('Confirm COD', style: TextStyle(fontWeight: FontWeight.w700)),
                         ),
                       ),
                     ],

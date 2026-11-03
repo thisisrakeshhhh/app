@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/airbnb_theme.dart';
+import 'role_shell.dart';
 
 /// Screen rendered when an authenticated user session is quarantined
 /// because the local device contains unassigned legacy B1 business records.
@@ -164,7 +167,41 @@ class TenantBoundaryBlockedView extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
+                if (kDebugMode) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RoleShell(
+                              api: ApiService(),
+                              authService: authService,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.storefront, size: 18, color: Colors.white),
+                      label: const Text(
+                        'Continue to Sales Pilot (Demo)',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AirbnbTheme.coral,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
 
                 // Sign Out Action
                 SizedBox(

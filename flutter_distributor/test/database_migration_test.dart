@@ -93,11 +93,11 @@ void main() {
         VALUES ('mov_v1_transfer', 'prod_v1_kurkure', 'TRANSFER_TO_CAR', 15, 0, 'Loaded van', 1700000500);
       ''');
 
-      // 3. Open this existing v1 database with Drift AppDatabase (target schemaVersion = 2)
+      // 3. Open this existing v1 database with Drift AppDatabase (target schemaVersion = 4)
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
       final repo = LocalRepository(upgradedDb);
 
-      expect(upgradedDb.schemaVersion, equals(2));
+      expect(upgradedDb.schemaVersion, equals(4));
 
       // Requirement 1: Products preserved and new isArchived column defaulted to false
       final products = await repo.getAllProducts();
@@ -150,8 +150,8 @@ void main() {
       await db.close();
     });
 
-    test('Fresh install initializes schema version 2 correctly', () async {
-      expect(db.schemaVersion, equals(2));
+    test('Fresh install initializes schema version 4 correctly', () async {
+      expect(db.schemaVersion, equals(4));
       expect(await repository.getMetadata('schema_initialized'), isNull);
       expect(await db.select(db.products).get(), isEmpty);
       expect(await db.select(db.inventoryMovements).get(), isEmpty);

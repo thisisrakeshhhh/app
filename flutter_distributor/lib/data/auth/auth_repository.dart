@@ -354,18 +354,22 @@ class HttpAuthRepository implements AuthRepository {
         u == 'delivery_driver' ||
         u == 'delivery' ||
         u == 'dist_admin' ||
-        u == 'admin';
+        u == 'admin' ||
+        u == 'dist_owner' ||
+        u == 'owner';
   }
 
   static AuthLoginResponse _buildDebugDemoResponse(String username) {
     final cleanUser = username.trim().toLowerCase();
     final role = switch (cleanUser) {
+      'dist_owner' || 'owner' => 'OWNER',
       'delivery_driver' || 'delivery' => 'DELIVERY',
       'inventory_mgr' || 'inventory' => 'WAREHOUSE',
       'dist_admin' || 'admin' => 'ADMIN',
       _ => 'SALES',
     };
     final displayName = switch (cleanUser) {
+      'dist_owner' || 'owner' => 'Rakesh Agarwal (Owner)',
       'delivery_driver' || 'delivery' => 'Suresh Yadav (Delivery)',
       'inventory_mgr' || 'inventory' => 'Mukesh Godown (Inventory)',
       'dist_admin' || 'admin' => 'Rajesh Sharma (Admin)',

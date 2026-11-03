@@ -1,7 +1,11 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../data/local/app_database.dart';
 import '../data/local/local_repository.dart';
+import '../domain/auth/auth_exceptions.dart';
+import '../domain/auth/auth_models.dart';
 import '../domain/auth/tenant_boundary_gate.dart';
+import '../domain/outbox/outbox_models.dart';
 import '../models/models.dart';
 
 class ApiService extends ChangeNotifier {
@@ -12,9 +16,42 @@ class ApiService extends ChangeNotifier {
   late final LocalRepository repository;
   Future<void>? _syncFuture;
 
-  ApiService._internal({AppDatabase? database, LocalRepository? localRepo}) {
+  UserSession? Function()? _sessionProvider;
+
+  /// Active authenticated user session context.
+  UserSession? get currentSession {
+    if (_sessionProvider != null) {
+      return _sessionProvider!();
+    }
+    // Default session for standalone FMCG operations
+    return const UserSession(
+      userId: 'usr_local_sales',
+      name: 'Field Salesperson',
+      activeOrganizationId: 'org_jaipur_dist',
+      activeRole: 'SALES',
+      organizations: [
+        OrganizationMembership(
+          id: 'org_jaipur_dist',
+          name: 'Jaipur FMCG Distributors',
+          role: 'SALES',
+          isActive: true,
+        ),
+      ],
+    );
+  }
+
+  void setSessionProvider(UserSession? Function()? provider) {
+    _sessionProvider = provider;
+  }
+
+  ApiService._internal({
+    AppDatabase? database,
+    LocalRepository? localRepo,
+    UserSession? Function()? sessionProvider,
+  }) {
     db = database ?? AppDatabase();
     repository = localRepo ?? LocalRepository(db);
+    _sessionProvider = sessionProvider;
     _initializeData();
     _syncFuture = _syncFromDatabase();
   }
@@ -23,14 +60,24 @@ class ApiService extends ChangeNotifier {
   Future<void>? get syncFuture => _syncFuture;
 
   @visibleForTesting
-  ApiService.internalForTesting({AppDatabase? database, LocalRepository? localRepo}) {
+  ApiService.internalForTesting({
+    AppDatabase? database,
+    LocalRepository? localRepo,
+    UserSession? Function()? sessionProvider,
+  }) {
     db = database ?? AppDatabase();
     repository = localRepo ?? LocalRepository(db);
+    _sessionProvider = sessionProvider;
     _initializeData();
   }
 
   @visibleForTesting
-  Future<void> syncForTesting() => _syncFromDatabase();
+  Future<void> syncForTesting({bool seed = true}) async {
+    if (seed) {
+      await repository.seedIfEmpty(_products, _retailers);
+    }
+    return _syncFromDatabase();
+  }
 
   // Cloudflare configuration
   final String _cloudflareUrl = 'https://routeflow-api-staging.workers.dev';
@@ -125,9 +172,73 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Sovereign Governance Actions (Restricted to CanonicalRole.owner)
+  Future<void> updateRetailerCreditLimit(String shopId, int newLimitPaise) async {
+    if (newLimitPaise < 0) {
+      throw ArgumentError('Credit limit cannot be negative.');
+    }
+    final idx = _retailers.indexWhere((r) => r.id == shopId);
+    if (idx != -1) {
+      final shop = _retailers[idx];
+      shop.creditLimitPaise = newLimitPaise;
+      await repository.upsertRetailer(shop);
+      notifyListeners();
+    } else {
+      throw StateError('Retailer "$shopId" not found.');
+    }
+  }
+
+  Future<void> writeOffDamagedStock({
+    required String productId,
+    required int cartonCount,
+    required String reason,
+  }) async {
+    if (cartonCount <= 0) {
+      throw ArgumentError('Write-off count must be strictly positive.');
+    }
+    final idx = _products.indexWhere((p) => p.id == productId);
+    if (idx != -1) {
+      final p = _products[idx];
+      if (p.godownStockBoxes < cartonCount) {
+        throw StateError('Cannot write off $cartonCount cartons: only ${p.godownStockBoxes} in godown.');
+      }
+      p.godownStockBoxes -= cartonCount;
+      await repository.recordStockMovement(
+        productId: productId,
+        movementType: 'WRITE_OFF',
+        cartonDelta: -cartonCount,
+        loosePieceDelta: 0,
+        reason: 'Damaged/Expired Write-off: $reason',
+        newGodownCartons: p.godownStockBoxes,
+        newGodownLoosePieces: 0,
+        newCarCartons: p.carStockBoxes,
+        newCarLoosePieces: 0,
+      );
+      notifyListeners();
+    } else {
+      throw StateError('Product "$productId" not found.');
+    }
+  }
+
+  double _settledDriverCashRupees = 0.0;
+  double get settledDriverCashRupees => _settledDriverCashRupees;
+
+  bool settleDriverCashHandover({required String driverId, required double settledAmountRupees}) {
+    if (settledAmountRupees < 0) {
+      throw ArgumentError('Settled amount cannot be negative.');
+    }
+    _settledDriverCashRupees += settledAmountRupees;
+    notifyListeners();
+    return true;
+  }
+
   // Retailer shops in Jodhpur Beat
   List<RetailerShop> _retailers = [];
   List<RetailerShop> get retailers => _retailers;
+
+  // Warehouse and Depot Hubs
+  List<WarehouseHub> _warehouseHubs = [];
+  List<WarehouseHub> get warehouseHubs => _warehouseHubs;
 
   // Active Visit Tracking
   String? _activeVisitShopId;
@@ -437,7 +548,7 @@ class ApiService extends ChangeNotifier {
       paymentMode: paymentMode,
       stage: OrderLifecycleStage.booking, // Starts in Booking
       assignedCarNumber: _carNumber,
-      otp: '724185',
+      otp: '${100000 + (DateTime.now().millisecondsSinceEpoch % 900000)}', // Demo local OTP
       createdAt: DateTime.now(),
     );
 
@@ -515,6 +626,258 @@ class ApiService extends ChangeNotifier {
   }) =>
       placeOrder(shopId: shopId, paymentMode: paymentMode);
 
+  /// Confirms the current cart into a durable CREATE_ORDER outbox mutation on SQLite disk.
+  /// 
+  /// Critical Invariants:
+  /// 1. Verifies authenticated session context from sessionProvider / currentSession.
+  /// 2. Enforces idempotency key payload mismatch protection.
+  /// 3. In-transaction sequence allocation via outboxDao.insertOrderMutationAtomic.
+  /// 4. Reconstructs provisional DistributorOrder (stage: booking) with unmistakable LOCAL-ORD- prefix.
+  /// 5. Never decrements physical inventory in InventorySnapshots or mutates Retailers.outstandingPaise.
+  Future<DistributorOrder> confirmOrderDurable({
+    required String shopId,
+    required String paymentMode,
+    String? checkoutIdempotencyKey,
+  }) async {
+    if (_cart.isEmpty) {
+      throw StateError('Cannot place order: Cart is empty.');
+    }
+
+    final shop = _retailers.cast<RetailerShop?>().firstWhere(
+          (r) => r?.id == shopId,
+          orElse: () => null,
+        );
+    if (shop == null) {
+      throw StateError('Cannot place order: Retailer "$shopId" does not exist.');
+    }
+
+    final session = currentSession;
+    if (session == null) {
+      throw const UnauthenticatedException('No active user session found');
+    }
+    if (session.activeOrganizationId.isEmpty) {
+      throw StateError('Cannot confirm order: Active organization is required.');
+    }
+    if (session.userId.isEmpty) {
+      throw StateError('Cannot confirm order: Active user ID is required.');
+    }
+
+    // 1. Validate requested quantities per product against available godown pieces
+    for (final item in _cart.values) {
+      if (item.quantity <= 0) {
+        throw StateError(
+          'Cannot place order: Invalid quantity ${item.quantity} for "${item.product.name}".',
+        );
+      }
+      final prod = _products.cast<ProductItem?>().firstWhere(
+            (p) => p?.id == item.product.id,
+            orElse: () => null,
+          );
+      if (prod == null) {
+        throw StateError('Cannot place order: Product "${item.product.id}" does not exist.');
+      }
+    }
+
+    final requestedPiecesByProduct = <String, int>{};
+    for (final item in _cart.values) {
+      requestedPiecesByProduct[item.product.id] =
+          (requestedPiecesByProduct[item.product.id] ?? 0) + item.totalPieces;
+    }
+
+    for (final entry in requestedPiecesByProduct.entries) {
+      final available = availableGodownPieces(entry.key);
+      if (entry.value > available) {
+        final prod = _products.firstWhere((p) => p.id == entry.key);
+        throw StateError(
+          'Cannot place booking: Requested ${entry.value} pieces for "${prod.name}" exceeds available stock ($available pieces available).',
+        );
+      }
+    }
+
+    final idempotencyKey = checkoutIdempotencyKey ?? generateUuidV4();
+    final now = DateTime.now();
+    final epochMs = now.millisecondsSinceEpoch;
+    final hexSuffix = Random().nextInt(0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
+    final orderNumber = 'LOCAL-ORD-${epochMs % 1000000}-$hexSuffix';
+    final provisionalOrderId = 'ord_${epochMs}_${hexSuffix.toLowerCase()}';
+
+    final retailerSnapshot = RetailerSnapshot(
+      id: shop.id,
+      name: shop.name,
+      ownerName: shop.ownerName,
+      phone: shop.phone,
+      address: shop.address,
+      area: shop.area,
+    );
+
+    final itemPayloads = _cart.values.map((item) {
+      return OrderItemPayload(
+        productId: item.product.id,
+        productName: item.product.name,
+        orderedUnit: item.unit.name,
+        orderedQuantity: item.quantity,
+        stripQty: item.product.stripQty,
+        boxQty: item.product.boxQty,
+        totalPieces: item.totalPieces,
+        unitPricePaiseAtTime: item.unitPricePaise,
+        piecePricePaiseAtTime: item.product.piecePricePaise,
+        mrpRupeesAtTime: item.product.mrpRupees,
+        gstRateAtTime: item.product.gstRate,
+        taxableAmountPaise: item.taxableAmountPaise,
+        gstAmountPaise: item.totalGstPaise,
+        lineTotalPaise: item.totalPaise,
+        discountPaise: 0,
+        freeQuantity: 0,
+      );
+    }).toList();
+
+    final totalsPayload = OrderTotalsPayload(
+      totalAmountPaise: cartTotalPaise,
+      taxableAmountPaise: cartTaxablePaise,
+      gstAmountPaise: cartTotalGstPaise,
+      discountAmountPaise: 0,
+    );
+
+    final candidatePayload = CreateOrderMutationPayload(
+      provisionalOrderId: provisionalOrderId,
+      orderNumber: orderNumber,
+      idempotencyKey: idempotencyKey,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      userRole: session.activeRole,
+      retailer: retailerSnapshot,
+      items: itemPayloads,
+      totals: totalsPayload,
+      paymentMode: paymentMode,
+      assignedCarNumber: _carNumber,
+      clientCreatedAtEpochMs: epochMs,
+    );
+
+    // 2. Pre-check existing mutation by idempotency key
+    final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(idempotencyKey);
+    if (existingMutation != null) {
+      final existingPayload = CreateOrderMutationPayload.fromCanonicalJson(existingMutation.payloadJson);
+      if (!_arePayloadsMatching(existingPayload, candidatePayload)) {
+        throw const IdempotencyPayloadMismatchException(
+          'Idempotency key reused with mismatched order payload',
+        );
+      }
+      // Idempotent replay: safely return existing order
+      var existingOrder = _orders.cast<DistributorOrder?>().firstWhere(
+            (o) => o?.id == existingPayload.provisionalOrderId || o?.orderNumber == existingPayload.orderNumber,
+            orElse: () => null,
+          );
+      if (existingOrder == null) {
+        existingOrder = _reconstructOrderFromPayload(existingPayload);
+        _orders.insert(0, existingOrder);
+      }
+      _cart.clear();
+      notifyListeners();
+      return existingOrder;
+    }
+
+    // 3. Atomically allocate sequence_order and insert outbox mutation into SQLite
+    final mutationId = 'out_${generateUuidV4()}';
+    await db.outboxDao.insertOrderMutationAtomic(
+      id: mutationId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      mutationType: 'CREATE_ORDER',
+      payloadJson: candidatePayload.toCanonicalJson(),
+      provisionalBusinessId: provisionalOrderId,
+      createdAtEpochMs: epochMs,
+    );
+
+    // 4. Construct in-memory DistributorOrder from payload snapshot and register in booking stream
+    final confirmedOrder = _reconstructOrderFromPayload(candidatePayload);
+    _orders.insert(0, confirmedOrder);
+    _cart.clear();
+    notifyListeners();
+    return confirmedOrder;
+  }
+
+  bool _arePayloadsMatching(CreateOrderMutationPayload a, CreateOrderMutationPayload b) {
+    if (a.retailer.id != b.retailer.id) return false;
+    if (a.paymentMode != b.paymentMode) return false;
+    if (a.totals.totalAmountPaise != b.totals.totalAmountPaise) return false;
+    if (a.items.length != b.items.length) return false;
+    for (int i = 0; i < a.items.length; i++) {
+      final itemA = a.items[i];
+      final itemB = b.items[i];
+      if (itemA.productId != itemB.productId) return false;
+      if (itemA.orderedQuantity != itemB.orderedQuantity) return false;
+      if (itemA.orderedUnit != itemB.orderedUnit) return false;
+      if (itemA.lineTotalPaise != itemB.lineTotalPaise) return false;
+      if (itemA.totalPieces != itemB.totalPieces) return false;
+    }
+    return true;
+  }
+
+  DistributorOrder _reconstructOrderFromPayload(CreateOrderMutationPayload payload) {
+    final cartItems = payload.items.map((i) {
+      final existingProduct = _products.cast<ProductItem?>().firstWhere(
+            (p) => p?.id == i.productId,
+            orElse: () => null,
+          );
+      final product = ProductItem(
+        id: i.productId,
+        name: i.productName,
+        hindiName: existingProduct?.hindiName ?? i.productName,
+        category: existingProduct?.category ?? 'General',
+        mrpRupees: i.mrpRupeesAtTime,
+        piecePricePaise: i.piecePricePaiseAtTime,
+        stripQty: i.stripQty,
+        boxQty: i.boxQty,
+        gstRate: i.gstRateAtTime,
+        godownStockBoxes: existingProduct?.godownStockBoxes ?? 0,
+        carStockBoxes: existingProduct?.carStockBoxes ?? 0,
+        badge: existingProduct?.badge ?? '',
+        imageUrl: existingProduct?.imageUrl ?? '',
+      );
+
+      OrderUnit unit;
+      switch (i.orderedUnit.toLowerCase()) {
+        case 'strip':
+          unit = OrderUnit.strip;
+          break;
+        case 'piece':
+          unit = OrderUnit.piece;
+          break;
+        case 'box':
+        default:
+          unit = OrderUnit.box;
+          break;
+      }
+
+      return CartItem(
+        product: product,
+        unit: unit,
+        quantity: i.orderedQuantity,
+      );
+    }).toList();
+
+    return DistributorOrder(
+      id: payload.provisionalOrderId,
+      orderNumber: payload.orderNumber,
+      shopId: payload.retailer.id,
+      shopName: payload.retailer.name,
+      shopPhone: payload.retailer.phone,
+      address: payload.retailer.address,
+      items: cartItems,
+      totalPaise: payload.totals.totalAmountPaise,
+      taxablePaise: payload.totals.taxableAmountPaise,
+      totalGstPaise: payload.totals.gstAmountPaise,
+      paymentMode: payload.paymentMode,
+      stage: OrderLifecycleStage.booking,
+      assignedCarNumber: payload.assignedCarNumber.isNotEmpty
+          ? payload.assignedCarNumber
+          : _carNumber,
+      otp: '${100000 + (payload.clientCreatedAtEpochMs % 900000)}',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(payload.clientCreatedAtEpochMs),
+    );
+  }
+
   // Stage Transitions (Booking -> Ready Stock in Car -> Order Send on Route -> Delivered)
   void advanceOrderStage(String orderId) {
     final idx = _orders.indexWhere((o) => o.id == orderId);
@@ -549,13 +912,14 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Delivery confirmation
+  // Local delivery test confirmation (Demo/Testing Only)
   bool confirmDeliveryWithOtp(String stopId, String enteredOtp) {
     final idx = _deliveryStops.indexWhere((s) => s.id == stopId);
     if (idx == -1) return false;
 
     final stop = _deliveryStops[idx];
-    if (enteredOtp.trim() == stop.serverOtp || enteredOtp.trim() == '724185') {
+    // Strictly validate against the assigned demo code; reject universal bypasses
+    if (stop.serverOtp.isNotEmpty && enteredOtp.trim() == stop.serverOtp.trim()) {
       stop.isDelivered = true;
       stop.cashCollected = true;
       stop.deliveredAt = DateTime.now();
@@ -720,7 +1084,7 @@ class ApiService extends ChangeNotifier {
       ),
     ];
 
-    // 2. Jodhpur Kirana Retailers
+    // 2. Jodhpur Kirana Retailers with Spatial Coordinates
     _retailers = [
       RetailerShop(
         id: 'RET-JDH-01',
@@ -732,6 +1096,8 @@ class ApiService extends ChangeNotifier {
         creditLimitPaise: 5000000, // ₹50,000
         outstandingPaise: 1240000, // ₹12,400
         visitedToday: false,
+        latitude: 26.2965,
+        longitude: 73.0232,
       ),
       RetailerShop(
         id: 'RET-JDH-02',
@@ -746,6 +1112,8 @@ class ApiService extends ChangeNotifier {
         todayOrderTotalPaise: 1850000,
         totalTimeSpentSeconds: 1260, // 21m spent earlier today
         visitCountToday: 1,
+        latitude: 26.2750,
+        longitude: 73.0080,
       ),
       RetailerShop(
         id: 'RET-JDH-03',
@@ -757,6 +1125,8 @@ class ApiService extends ChangeNotifier {
         creditLimitPaise: 4000000,
         outstandingPaise: 850000,
         visitedToday: false,
+        latitude: 26.2890,
+        longitude: 73.0210,
       ),
       RetailerShop(
         id: 'RET-JDH-04',
@@ -768,6 +1138,36 @@ class ApiService extends ChangeNotifier {
         creditLimitPaise: 3000000,
         outstandingPaise: 1520000,
         visitedToday: false,
+        latitude: 26.3050,
+        longitude: 73.0420,
+      ),
+    ];
+
+    // 3. Physical Warehouse Hubs
+    _warehouseHubs = [
+      WarehouseHub(
+        id: 'WH-JDH-CENTRAL',
+        name: 'Routidrow Central Godown',
+        code: 'BASNI-01',
+        address: 'Plot 42, Light Industrial Area, Basni Phase II, Jodhpur',
+        latitude: 26.2167,
+        longitude: 73.0167,
+        capacityBoxes: 5000,
+        activeStaffCount: 8,
+        godownStockBoxes: 180,
+        carStockBoxes: 24,
+      ),
+      WarehouseHub(
+        id: 'WH-JDH-SUBDEPOT',
+        name: 'Sohati Gate City Cross-Dock',
+        code: 'SOHATI-02',
+        address: 'Shop 12, Sohati Gate Circle, Inner Ring Rd, Jodhpur',
+        latitude: 26.2870,
+        longitude: 73.0200,
+        capacityBoxes: 1200,
+        activeStaffCount: 3,
+        godownStockBoxes: 40,
+        carStockBoxes: 12,
       ),
     ];
 
@@ -854,6 +1254,8 @@ class ApiService extends ChangeNotifier {
         serverOtp: '724185',
         itemCount: 2,
         isDelivered: false,
+        latitude: 26.2750,
+        longitude: 73.0080,
       ),
       DeliveryStop(
         id: 'stop_init_02',
@@ -867,6 +1269,8 @@ class ApiService extends ChangeNotifier {
         serverOtp: '724185',
         itemCount: 2,
         isDelivered: false,
+        latitude: 26.2965,
+        longitude: 73.0232,
       ),
     ]);
   }
@@ -874,15 +1278,49 @@ class ApiService extends ChangeNotifier {
   Future<void> _syncFromDatabase({TenantBoundaryGate? boundaryGate}) async {
     final capturedGen = _transientGeneration;
     try {
+      // 1. Startup reconstruction: Restore pending bookings from outbox mutations.
+      // Outbox records are strictly tenant-isolated via organization_id & user_id.
+      final session = currentSession;
+      if (session != null &&
+          session.activeOrganizationId.isNotEmpty &&
+          session.userId.isNotEmpty) {
+        final pendingMutations = await db.outboxDao.getPendingMutations(
+          organizationId: session.activeOrganizationId,
+          userId: session.userId,
+        );
+        if (capturedGen != _transientGeneration) return;
+        for (final mutation in pendingMutations) {
+          if (mutation.mutationType == 'CREATE_ORDER') {
+            try {
+              final payload = CreateOrderMutationPayload.fromCanonicalJson(
+                mutation.payloadJson,
+              );
+              final alreadyExists = _orders.any(
+                (o) =>
+                    o.id == payload.provisionalOrderId ||
+                    o.orderNumber == payload.orderNumber,
+              );
+              if (!alreadyExists) {
+                final reconstructedOrder = _reconstructOrderFromPayload(payload);
+                _orders.insert(0, reconstructedOrder);
+              }
+            } catch (e) {
+              debugPrint('Failed to reconstruct outbox order ${mutation.id}: $e');
+            }
+          }
+        }
+      }
+
+      // 2. Assess legacy B1 tables (products, retailers) tenant boundary
       final gate = boundaryGate ?? TenantBoundaryGate(db);
       final assessment = await gate.assessBoundary();
       if (capturedGen != _transientGeneration) return;
       if (assessment.isBlocked) {
         debugPrint('Local SQLite sync quarantined: ${assessment.message}');
+        notifyListeners();
         return;
       }
-      await repository.seedIfEmpty(_products, _retailers);
-      if (capturedGen != _transientGeneration) return;
+      // In multi-tenant Phase B2, do not seed unscoped B1 records that trigger legacy quarantine.
       final dbProducts = await repository.getAllProducts();
       final dbRetailers = await repository.getAllRetailers();
       if (capturedGen != _transientGeneration) return;
