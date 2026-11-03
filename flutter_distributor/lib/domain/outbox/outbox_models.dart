@@ -680,3 +680,77 @@ class CreateProductPayload {
   factory CreateProductPayload.fromCanonicalJson(String jsonStr) =>
       CreateProductPayload.fromMap(jsonDecode(jsonStr) as Map<String, dynamic>);
 }
+
+/// Outbox mutation payload for receiving stock in warehouse (Goods Received Note - GRN).
+class StockInwardMutationPayload {
+  final String provisionalGrnId;
+  final String organizationId;
+  final String userId;
+  final String idempotencyKey;
+  final String productId;
+  final String supplierName;
+  final String invoiceNumber;
+  final String batchNumber;
+  final int receivedCartons;
+  final int receivedLoosePieces;
+  final int damagedCartons;
+  final int damagedLoosePieces;
+  final String notes;
+  final int clientCreatedAtEpochMs;
+
+  const StockInwardMutationPayload({
+    required this.provisionalGrnId,
+    required this.organizationId,
+    required this.userId,
+    required this.idempotencyKey,
+    required this.productId,
+    required this.supplierName,
+    required this.invoiceNumber,
+    required this.batchNumber,
+    required this.receivedCartons,
+    required this.receivedLoosePieces,
+    required this.damagedCartons,
+    required this.damagedLoosePieces,
+    required this.notes,
+    required this.clientCreatedAtEpochMs,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'provisionalGrnId': provisionalGrnId,
+    'organizationId': organizationId,
+    'userId': userId,
+    'idempotencyKey': idempotencyKey,
+    'productId': productId,
+    'supplierName': supplierName,
+    'invoiceNumber': invoiceNumber,
+    'batchNumber': batchNumber,
+    'receivedCartons': receivedCartons,
+    'receivedLoosePieces': receivedLoosePieces,
+    'damagedCartons': damagedCartons,
+    'damagedLoosePieces': damagedLoosePieces,
+    'notes': notes,
+    'clientCreatedAtEpochMs': clientCreatedAtEpochMs,
+  };
+
+  factory StockInwardMutationPayload.fromMap(Map<String, dynamic> map) =>
+      StockInwardMutationPayload(
+        provisionalGrnId: map['provisionalGrnId'] as String,
+        organizationId: map['organizationId'] as String,
+        userId: map['userId'] as String,
+        idempotencyKey: map['idempotencyKey'] as String,
+        productId: map['productId'] as String,
+        supplierName: map['supplierName'] as String,
+        invoiceNumber: map['invoiceNumber'] as String,
+        batchNumber: map['batchNumber'] as String,
+        receivedCartons: (map['receivedCartons'] as num).toInt(),
+        receivedLoosePieces: (map['receivedLoosePieces'] as num).toInt(),
+        damagedCartons: (map['damagedCartons'] as num).toInt(),
+        damagedLoosePieces: (map['damagedLoosePieces'] as num).toInt(),
+        notes: (map['notes'] as String?) ?? '',
+        clientCreatedAtEpochMs: (map['clientCreatedAtEpochMs'] as num).toInt(),
+      );
+
+  String toCanonicalJson() => jsonEncode(toMap());
+  factory StockInwardMutationPayload.fromCanonicalJson(String jsonStr) =>
+      StockInwardMutationPayload.fromMap(jsonDecode(jsonStr) as Map<String, dynamic>);
+}

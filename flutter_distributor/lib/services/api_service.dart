@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../data/local/app_database.dart';
@@ -644,6 +645,151 @@ class ApiService extends ChangeNotifier {
 
     _products.add(newProduct);
     notifyListeners();
+  }
+
+  Future<void> receiveStockGrnDurable({
+    required String productId,
+    required String supplierName,
+    required String invoiceNumber,
+    required String batchNumber,
+    required int cartonsReceived,
+    required int loosePiecesReceived,
+    required int damagedCartons,
+    required int damagedLoosePieces,
+    required String notes,
+    required String idempotencyKey,
+  }) async {
+    final session = currentSession;
+    if (session == null ||
+        session.activeOrganizationId.isEmpty ||
+        session.userId.isEmpty) {
+      throw StateError('Cannot receive stock without an active authenticated session');
+    }
+
+    final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(idempotencyKey);
+    if (existingMutation != null) {
+      debugPrint('Idempotent receiveStockGrn detected for key $idempotencyKey');
+      return;
+    }
+
+    final epochMs = DateTime.now().millisecondsSinceEpoch;
+    final provisionalGrnId = 'grn_${generateUuidV4()}';
+
+    final payload = StockInwardMutationPayload(
+      provisionalGrnId: provisionalGrnId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      productId: productId,
+      supplierName: supplierName,
+      invoiceNumber: invoiceNumber,
+      batchNumber: batchNumber,
+      receivedCartons: cartonsReceived,
+      receivedLoosePieces: loosePiecesReceived,
+      damagedCartons: damagedCartons,
+      damagedLoosePieces: damagedLoosePieces,
+      notes: notes,
+      clientCreatedAtEpochMs: epochMs,
+    );
+
+    final mutationId = 'out_${generateUuidV4()}';
+    await db.outboxDao.insertOrderMutationAtomic(
+      id: mutationId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      mutationType: 'STOCK_INWARD',
+      payloadJson: payload.toCanonicalJson(),
+      provisionalBusinessId: provisionalGrnId,
+      createdAtEpochMs: epochMs,
+      businessOperation: () async {
+        await repository.recordGrnReceipt(
+          productId: productId,
+          supplierName: supplierName,
+          invoiceNumber: invoiceNumber,
+          batchNumber: batchNumber,
+          cartonsReceived: cartonsReceived,
+          loosePiecesReceived: loosePiecesReceived,
+          damagedCartons: damagedCartons,
+          damagedLoosePieces: damagedLoosePieces,
+          notes: notes,
+          idempotencyKey: idempotencyKey,
+        );
+      },
+    );
+
+    final idx = _products.indexWhere((p) => p.id == productId);
+    if (idx != -1) {
+      _products[idx].godownStockBoxes += cartonsReceived;
+      notifyListeners();
+    }
+  }
+
+  Future<void> reverseGrnMovementDurable({
+    required String movementId,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    final session = currentSession;
+    if (session == null ||
+        session.activeOrganizationId.isEmpty ||
+        session.userId.isEmpty) {
+      throw StateError('Cannot reverse GRN without an active authenticated session');
+    }
+
+    final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(idempotencyKey);
+    if (existingMutation != null) {
+      debugPrint('Idempotent reverseGrn detected for key $idempotencyKey');
+      return;
+    }
+
+    final epochMs = DateTime.now().millisecondsSinceEpoch;
+    final reversalId = 'rev_${generateUuidV4()}';
+
+    final original = await (db.select(db.inventoryMovements)
+          ..where((tbl) => tbl.id.equals(movementId)))
+        .getSingleOrNull();
+    if (original == null) {
+      throw StateError('Movement $movementId not found for reversal');
+    }
+
+    final payloadMap = {
+      'reversalId': reversalId,
+      'originalMovementId': movementId,
+      'productId': original.productId,
+      'reason': reason,
+      'cartonDelta': -original.cartonDelta,
+      'loosePieceDelta': -original.loosePieceDelta,
+      'organizationId': session.activeOrganizationId,
+      'userId': session.userId,
+      'idempotencyKey': idempotencyKey,
+      'clientCreatedAtEpochMs': epochMs,
+    };
+
+    final mutationId = 'out_${generateUuidV4()}';
+    await db.outboxDao.insertOrderMutationAtomic(
+      id: mutationId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      mutationType: 'STOCK_ADJUSTMENT',
+      payloadJson: jsonEncode(payloadMap),
+      provisionalBusinessId: reversalId,
+      createdAtEpochMs: epochMs,
+      businessOperation: () async {
+        await repository.reverseGrnMovement(
+          movementId: movementId,
+          reason: reason,
+          idempotencyKey: idempotencyKey,
+        );
+      },
+    );
+
+    final idx = _products.indexWhere((p) => p.id == original.productId);
+    if (idx != -1) {
+      _products[idx].godownStockBoxes -= original.cartonDelta;
+      notifyListeners();
+    }
   }
 
   // Warehouse and Depot Hubs

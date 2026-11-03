@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import 'receive_stock_grn_view.dart';
 
 /// 1. Warehouse Stock View: Live Godown inventory with search, adjust stock, add SKU.
 class WarehouseStockView extends StatefulWidget {
@@ -263,7 +264,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
     super.dispose();
   }
 
-  void _postInwardReceipt() {
+  void _postInwardReceipt() async {
     if (_selectedProduct == null) return;
     final boxes = int.tryParse(_boxesCtrl.text) ?? 0;
     if (boxes <= 0) {
@@ -273,15 +274,29 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
       return;
     }
 
-    widget.api.restockProduct(_selectedProduct!.id, boxes);
+    final key = 'grn_quick_${_selectedProduct!.id}_${DateTime.now().millisecondsSinceEpoch}';
+    await widget.api.receiveStockGrnDurable(
+      productId: _selectedProduct!.id,
+      supplierName: _supplierCtrl.text.trim().isEmpty ? 'Depot Supplier' : _supplierCtrl.text.trim(),
+      invoiceNumber: _challanCtrl.text.trim().isEmpty ? 'CH-${DateTime.now().millisecondsSinceEpoch}' : _challanCtrl.text.trim(),
+      batchNumber: _batchCtrl.text.trim().isEmpty ? 'B-DEFAULT' : _batchCtrl.text.trim(),
+      cartonsReceived: boxes,
+      loosePiecesReceived: 0,
+      damagedCartons: 0,
+      damagedLoosePieces: 0,
+      notes: 'Vehicle: ${_vehicleCtrl.text.trim()}',
+      idempotencyKey: key,
+    );
     setState(() {});
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✓ Inward Received: $boxes boxes of ${_selectedProduct!.name} posted to Godown!'),
-        backgroundColor: AirbnbTheme.success,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Inward Received: $boxes boxes of ${_selectedProduct!.name} posted to Godown!'),
+          backgroundColor: AirbnbTheme.success,
+        ),
+      );
+    }
   }
 
   @override
@@ -291,6 +306,41 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Detailed GRN Banner Button
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => ReceiveStockGrnView(api: widget.api),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E3A8A),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.receipt_long, color: Colors.white, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Open Full GRN Entry Sheet (आवक रसीद)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text('Record damaged goods, batch numbers & challans', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

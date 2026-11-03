@@ -397,6 +397,164 @@ class LocalRepository {
     });
   }
 
+  /// Records a Goods Received Note (GRN) inward receipt, updating live inventory
+  /// and posting immutable double-entry movement rows.
+  Future<void> recordGrnReceipt({
+    required String productId,
+    required String supplierName,
+    required String invoiceNumber,
+    required String batchNumber,
+    required int cartonsReceived,
+    required int loosePiecesReceived,
+    required int damagedCartons,
+    required int damagedLoosePieces,
+    required String notes,
+    String? idempotencyKey,
+  }) async {
+    final product = await (db.select(db.products)
+          ..where((tbl) => tbl.id.equals(productId)))
+        .getSingleOrNull();
+    if (product == null) {
+      throw StateError('Cannot record GRN receipt: Product $productId does not exist');
+    }
+    if (product.isArchived) {
+      throw StateError(
+          'Cannot record GRN receipt: Product $productId is archived. Restore before receiving stock.');
+    }
+
+    await db.transaction(() async {
+      final current = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .getSingleOrNull();
+
+      final currentGodownCartons = current?.godownCartons ?? 0;
+      final currentGodownLoose = current?.godownLoosePieces ?? 0;
+      final currentCarCartons = current?.carCartons ?? 0;
+      final currentCarLoose = current?.carLoosePieces ?? 0;
+      final currentDamagedCartons = current?.damagedCartons ?? 0;
+      final currentDamagedLoose = current?.damagedLoosePieces ?? 0;
+
+      final updatedGodownCartons = currentGodownCartons + cartonsReceived;
+      final updatedGodownLoose = currentGodownLoose + loosePiecesReceived;
+      final updatedDamagedCartons = currentDamagedCartons + damagedCartons;
+      final updatedDamagedLoose = currentDamagedLoose + damagedLoosePieces;
+
+      await db.into(db.inventorySnapshots).insertOnConflictUpdate(
+        InventorySnapshotsCompanion(
+          productId: Value(productId),
+          godownCartons: Value(updatedGodownCartons),
+          godownLoosePieces: Value(updatedGodownLoose),
+          carCartons: Value(currentCarCartons),
+          carLoosePieces: Value(currentCarLoose),
+          damagedCartons: Value(updatedDamagedCartons),
+          damagedLoosePieces: Value(updatedDamagedLoose),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      final now = DateTime.now();
+      // 1. Post inward movement for received sellable stock
+      final movementId = 'mov_grn_${now.microsecondsSinceEpoch}_$productId';
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value(movementId),
+          productId: Value(productId),
+          movementType: const Value('INWARD'),
+          cartonDelta: Value(cartonsReceived),
+          loosePieceDelta: Value(loosePiecesReceived),
+          reason: Value(notes.isEmpty ? 'Inward GRN receipt' : notes),
+          supplierName: Value(supplierName),
+          invoiceNumber: Value(invoiceNumber),
+          batchNumber: Value(batchNumber),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+
+      // 2. If damaged stock arrived, post audit entry
+      if (damagedCartons > 0 || damagedLoosePieces > 0) {
+        final damagedMovementId = 'mov_dmg_${now.microsecondsSinceEpoch}_$productId';
+        await db.into(db.inventoryMovements).insert(
+          InventoryMovementsCompanion(
+            id: Value(damagedMovementId),
+            productId: Value(productId),
+            movementType: const Value('DAMAGED_INWARD'),
+            cartonDelta: Value(damagedCartons),
+            loosePieceDelta: Value(damagedLoosePieces),
+            reason: Value('Damaged stock reported during inward GRN: $notes'),
+            supplierName: Value(supplierName),
+            invoiceNumber: Value(invoiceNumber),
+            batchNumber: Value(batchNumber),
+            idempotencyKey: Value(idempotencyKey != null ? '${idempotencyKey}_dmg' : null),
+            createdAt: Value(now),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Offsets a previous inward GRN movement via an immutable INWARD_REVERSAL row,
+  /// preserving historical records for complete ledger auditability.
+  Future<void> reverseGrnMovement({
+    required String movementId,
+    required String reason,
+    String? idempotencyKey,
+  }) async {
+    final original = await (db.select(db.inventoryMovements)
+          ..where((tbl) => tbl.id.equals(movementId)))
+        .getSingleOrNull();
+    if (original == null) {
+      throw StateError('Cannot reverse movement: Movement $movementId not found');
+    }
+
+    await db.transaction(() async {
+      final current = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(original.productId)))
+          .getSingleOrNull();
+
+      final currentGodownCartons = current?.godownCartons ?? 0;
+      final currentGodownLoose = current?.godownLoosePieces ?? 0;
+      final currentCarCartons = current?.carCartons ?? 0;
+      final currentCarLoose = current?.carLoosePieces ?? 0;
+      final currentDamagedCartons = current?.damagedCartons ?? 0;
+      final currentDamagedLoose = current?.damagedLoosePieces ?? 0;
+
+      final updatedGodownCartons = currentGodownCartons - original.cartonDelta;
+      final updatedGodownLoose = currentGodownLoose - original.loosePieceDelta;
+
+      await db.into(db.inventorySnapshots).insertOnConflictUpdate(
+        InventorySnapshotsCompanion(
+          productId: Value(original.productId),
+          godownCartons: Value(updatedGodownCartons),
+          godownLoosePieces: Value(updatedGodownLoose),
+          carCartons: Value(currentCarCartons),
+          carLoosePieces: Value(currentCarLoose),
+          damagedCartons: Value(currentDamagedCartons),
+          damagedLoosePieces: Value(currentDamagedLoose),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      final now = DateTime.now();
+      final reversalId = 'mov_rev_${now.microsecondsSinceEpoch}_${original.productId}';
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value(reversalId),
+          productId: Value(original.productId),
+          movementType: const Value('INWARD_REVERSAL'),
+          cartonDelta: Value(-original.cartonDelta),
+          loosePieceDelta: Value(-original.loosePieceDelta),
+          reason: Value('Reversal of movement $movementId: $reason'),
+          supplierName: Value(original.supplierName),
+          invoiceNumber: Value(original.invoiceNumber),
+          batchNumber: Value(original.batchNumber),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+    });
+  }
+
   // Retailers
   Future<List<RetailerShop>> getAllRetailers() async {
     final rows = await db.select(db.retailers).get();

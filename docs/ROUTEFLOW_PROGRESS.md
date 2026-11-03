@@ -18,6 +18,7 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 | `test/auth_ui_test.dart` | 4 | Login View UI rendering & validation | **PASS** |
 | `test/database_migration_test.dart` | 7 | Drift migrations v1 through v5 | **PASS** |
 | `test/delivery_safety_test.dart` | 3 | Delivery OTP & Cash custody | **PASS** |
+| `test/godown_grn_ledger_test.dart` | 4 | Inward GRN receipt, damaged stock & reversals | **PASS** |
 | `test/hardcore_four_role_crud_test.dart` | 25 | All 5 canonical roles CRUD & sovereign actions | **PASS** |
 | `test/inventory_math_test.dart` | 8 | Integer carton/loose math (InventoryStock) | **PASS** |
 | `test/mixed_unit_cart_test.dart` | 5 | Mixed-unit cart & integer base conversions | **PASS** |
@@ -34,7 +35,7 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 | `test/tenant_boundary_containment_test.dart` | 13 | Cross-tenant SQLite quarantine & boundary checks | **PASS** |
 | `test/token_refresh_coordinator_test.dart` | 7 | Concurrency mutex & refresh error handling | **PASS** |
 | `test/widget_test.dart` | 1 | Root App widget smoke test | **PASS** |
-| **Total Test Suite** | **174** | **22 test files** | **100% PASS** |
+| **Total Test Suite** | **178** | **23 test files** | **100% PASS** |
 
 ---
 
@@ -44,8 +45,8 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 |---|---|:---:|:---:|:---:|:---:|
 | **Slice 0** | Mixed-Unit Cart Fix | **COMPLETED** | `cb540d2` | +5 (`mixed_unit_cart_test.dart`) | **PASS (164/164)** |
 | **Slice 1** | Add Shop (Pillar A) | **COMPLETED** | `8948126` | +6 (`add_shop_outbox_test.dart` + migration) | **PASS (170/170)** |
-| **Slice 2** | Packaging Builder & Prices (Pillar C1) | **COMPLETED** | Pending Commit | +4 (`product_packaging_builder_test.dart`) | **PASS (174/174)** |
-| **Slice 3** | Receive Stock GRN & Ledger (Pillar C2) | Pending | — | +4 planned | Pending |
+| **Slice 2** | Packaging Builder & Prices (Pillar C1) | **COMPLETED** | `7fbf3aa` | +4 (`product_packaging_builder_test.dart`) | **PASS (174/174)** |
+| **Slice 3** | Receive Stock GRN & Ledger (Pillar C2) | **COMPLETED** | Pending Commit | +4 (`godown_grn_ledger_test.dart`) | **PASS (178/178)** |
 | **Slice 4** | Sales UX Upgrade (Pillar B) | Pending | — | +5 planned | Pending |
 | **Slice 5** | Owner Control Room Essentials | Pending | — | +4 planned | Pending |
 | **Slice 6** | Honest Sync Status & Timelines | Pending | — | +2 planned | Pending |
