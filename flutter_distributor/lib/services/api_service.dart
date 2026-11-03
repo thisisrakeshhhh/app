@@ -111,6 +111,9 @@ class ApiService extends ChangeNotifier {
     _sessionProvider = provider;
   }
 
+  bool _isDemoModeLoaded = false;
+  bool get isDemoModeLoaded => _isDemoModeLoaded;
+
   ApiService._internal({
     AppDatabase? database,
     LocalRepository? localRepo,
@@ -119,7 +122,6 @@ class ApiService extends ChangeNotifier {
     db = database ?? AppDatabase();
     repository = localRepo ?? LocalRepository(db);
     _sessionProvider = sessionProvider;
-    _initializeData();
     _syncFuture = _syncFromDatabase();
   }
 
@@ -131,17 +133,42 @@ class ApiService extends ChangeNotifier {
     AppDatabase? database,
     LocalRepository? localRepo,
     UserSession? Function()? sessionProvider,
+    bool seed = true,
   }) {
     db = database ?? AppDatabase();
     repository = localRepo ?? LocalRepository(db);
     _sessionProvider = sessionProvider;
+    if (seed) {
+      _initializeData();
+      _isDemoModeLoaded = true;
+    }
+  }
+
+  /// Explicit sync from database for testing and fresh-install initialization
+  Future<void> syncFromDatabaseDirect() async {
+    final meta = await repository.getMetadata('demo_mode_loaded');
+    if (meta == 'true') {
+      _isDemoModeLoaded = true;
+    }
+    await _syncFromDatabase();
+  }
+
+  /// Populates demo FMCG catalog, sample retailers, and initial inventory behind explicit user opt-in
+  Future<void> loadDemoData() async {
     _initializeData();
+    _isDemoModeLoaded = true;
+    await repository.setMetadata('demo_mode_loaded', 'true');
+    await repository.seedIfEmpty(_products, _retailers);
+    await repository.backfillLegacyProductUnitsAndPrices();
+    await _syncFromDatabase();
+    notifyListeners();
   }
 
   @visibleForTesting
   Future<void> syncForTesting({bool seed = true}) async {
     if (seed) {
       await repository.seedIfEmpty(_products, _retailers);
+      _isDemoModeLoaded = true;
     }
     return _syncFromDatabase();
   }

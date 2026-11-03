@@ -34,6 +34,47 @@ class AdminDashboard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (api.retailers.isEmpty && api.products.isEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.storefront, color: Color(0xFF1E40AF)),
+                      SizedBox(width: 8),
+                      Text(
+                        'Fresh Installation — Database Empty',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E40AF), fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'No products or retailers loaded yet. You can start adding real shops and inward stock, or load sample FMCG demonstration data.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => api.loadDemoData(),
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text('Load Demo Shops & Products'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E40AF),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // 1. ADMIN EXECUTIVE BANNER
           Container(
             padding: const EdgeInsets.all(16),
