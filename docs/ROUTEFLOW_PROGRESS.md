@@ -52,8 +52,8 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 | **Slice 4** | Sales UX Upgrade (Pillar B) | **COMPLETED** | `8f6e968` | +5 (`sales_high_velocity_ux_test.dart`) | **PASS (183/183)** |
 | **Slice 5** | Owner Control Room Essentials | **COMPLETED** | `04a04ed` | +4 (`owner_control_room_test.dart`) | **PASS (187/187)** |
 | **Slice 6** | Honest Sync Status & Timelines | **COMPLETED** | `bcb7d0c` | +2 (`sync_status_honesty_test.dart`) | **PASS (189/189)** |
-| **Slice 7** | Polish, Hindi Strings & Benchmarks | **COMPLETED** | pending | +2 (`localization_and_performance_test.dart`) | **PASS (191/191)** |
-| **Slice 8** | Backend Discovery & Sync Integration | In Progress | — | TBD | Pending |
+| **Slice 7** | Polish, Hindi Strings & Benchmarks | **COMPLETED** | `d2c830f` | +2 (`localization_and_performance_test.dart`) | **PASS (191/191)** |
+| **Slice 8** | Backend Discovery & Sync Integration | **COMPLETED** | pending | D1 Migration 0024 & Sync API Contract | **PASS (64/64 Backend + 191/191 Flutter)** |
 
 ---
 
