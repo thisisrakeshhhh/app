@@ -100,6 +100,29 @@ class FourPartStockStatus {
   }
 }
 
+class SalespersonPerformance {
+  final String name;
+  final String beat;
+  final int visitedShops;
+  final int totalShops;
+  final int ordersBooked;
+  final int totalOrderValuePaise;
+  final int cashCollectedPaise;
+
+  const SalespersonPerformance({
+    required this.name,
+    required this.beat,
+    required this.visitedShops,
+    required this.totalShops,
+    required this.ordersBooked,
+    required this.totalOrderValuePaise,
+    required this.cashCollectedPaise,
+  });
+
+  double get totalOrderValueRupees => totalOrderValuePaise / 100.0;
+  double get cashCollectedRupees => cashCollectedPaise / 100.0;
+}
+
 class ProductPackagingUnit {
   final String id;
   final String productId;

@@ -334,7 +334,204 @@ class AdminDashboard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // 4.1 OWNER APPROVALS INBOX
+          Container(
+            key: const ValueKey('owner_approvals_inbox'),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AirbnbTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.verified_user_outlined, color: Color(0xFF6C5CE7), size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Approvals Inbox (${api.pendingShopApprovals.length})',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    if (api.pendingShopApprovals.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(6)),
+                        child: Text(
+                          'Action Required',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (api.pendingShopApprovals.isEmpty)
+                  const Text('All shops, credit limits, and discounts are approved.', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey))
+                else
+                  ...api.pendingShopApprovals.map((shop) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AirbnbTheme.lightGrey,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              Text('${shop.ownerName} • ${shop.area} • Class: ${shop.classType}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => api.approveNewShop(
+                            retailerId: shop.id,
+                            approvedClass: 'B',
+                            approvedCreditLimitPaise: 2000000,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AirbnbTheme.coral,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            minimumSize: const Size(60, 28),
+                          ),
+                          child: const Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  )),
+              ],
+            ),
+          ),
+
+          // 4.2 FIELD SALESPERSON PERFORMANCE CARDS
+          Container(
+            key: const ValueKey('owner_salesperson_cards'),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AirbnbTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Salesperson Live Beat Performance',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+                const SizedBox(height: 10),
+                ...api.getSalespersonPerformances().map((sp) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AirbnbTheme.lightGrey,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Color(0xFFE0E7FF),
+                        child: Icon(Icons.person, size: 18, color: Color(0xFF3730A3)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(sp.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                            Text(sp.beat, style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('₹${sp.totalOrderValueRupees.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AirbnbTheme.coral)),
+                          Text('${sp.visitedShops}/${sp.totalShops} shops', style: const TextStyle(fontSize: 10, color: AirbnbTheme.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
+                )),
+              ],
+            ),
+          ),
+
+          // 4.3 INACTIVE SHOPS ALERT (>15 Days No Order)
+          Container(
+            key: const ValueKey('owner_inactive_shops_alert'),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AirbnbTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_missed, color: Colors.orange, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Inactive Shops (${api.getInactiveShops(daysThreshold: 15).length})',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'No order > 15 days',
+                      style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...api.getInactiveShops(daysThreshold: 15).take(3).map((s) => Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text('${s.name} (${s.ownerName})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                        icon: const Icon(Icons.call, size: 16, color: Colors.green),
+                        onPressed: () {},
+                        tooltip: 'Call Shop',
+                      ),
+                    ],
+                  ),
+                )),
+              ],
+            ),
+          ),
 
           // 5. QUICK ADMIN NAVIGATION SHORTCUTS
           const Text(

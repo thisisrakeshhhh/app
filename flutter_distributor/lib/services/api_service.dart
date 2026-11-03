@@ -724,6 +724,47 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  /// Retailers awaiting sovereign owner approval (status == PENDING_APPROVAL or classType == NEW)
+  List<RetailerShop> get pendingShopApprovals =>
+      _retailers.where((r) => r.status == 'PENDING_APPROVAL' || r.classType == 'NEW').toList();
+
+  /// Identifies inactive shops that haven't ordered in [daysThreshold] days for follow-up
+  List<RetailerShop> getInactiveShops({int daysThreshold = 15}) {
+    final cutoff = DateTime.now().subtract(Duration(days: daysThreshold));
+    return _retailers.where((r) {
+      final shopOrders = _orders.where((o) => o.shopId == r.id).toList();
+      final lastOrderDate = shopOrders.isNotEmpty ? shopOrders.first.createdAt : null;
+      if (lastOrderDate == null) return true;
+      return lastOrderDate.isBefore(cutoff);
+    }).toList();
+  }
+
+  /// Aggregated salesperson performance across beats, coverage, and cash
+  List<SalespersonPerformance> getSalespersonPerformances() {
+    final visited = _retailers.where((r) => r.visitedToday || r.isCheckedIn).length;
+    final totalOrderValue = _orders.fold<int>(0, (sum, o) => sum + o.totalPaise);
+    return [
+      SalespersonPerformance(
+        name: 'Imran Khan',
+        beat: 'Sojati Gate & Station Road (SOJ-01)',
+        visitedShops: visited,
+        totalShops: _retailers.length,
+        ordersBooked: _orders.length,
+        totalOrderValuePaise: totalOrderValue,
+        cashCollectedPaise: driverCashCustodyPaise,
+      ),
+      SalespersonPerformance(
+        name: 'Vikram Rathore',
+        beat: 'Sardarpura C Road Beat (SAR-02)',
+        visitedShops: 12,
+        totalShops: 18,
+        ordersBooked: 8,
+        totalOrderValuePaise: 4200000,
+        cashCollectedPaise: 1850000,
+      ),
+    ];
+  }
+
   Future<void> updateClassSetting({
     required String className,
     required int defaultCreditLimitPaise,
