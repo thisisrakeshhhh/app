@@ -25,6 +25,8 @@ class DuplicateCheckResult {
   });
 
   bool get hasDuplicate => type != DuplicateType.none;
+  bool get requiresStrictConfirmation =>
+      type == DuplicateType.exactMobile || type == DuplicateType.exactGstin;
 }
 
 class StalePriceWarning {
@@ -122,6 +124,7 @@ class ApiService extends ChangeNotifier {
     db = database ?? AppDatabase();
     repository = localRepo ?? LocalRepository(db);
     _sessionProvider = sessionProvider;
+    _initializeData();
     _syncFuture = _syncFromDatabase();
   }
 
@@ -422,6 +425,121 @@ class ApiService extends ChangeNotifier {
     }
 
     return const DuplicateCheckResult(type: DuplicateType.none);
+  }
+
+  Future<DuplicateCheckResult> checkShopDuplicates({
+    required String phone,
+    String? gstin,
+    String? name,
+    String? area,
+    double? latitude,
+    double? longitude,
+  }) async {
+    return checkDuplicateRetailer(
+      phone: phone,
+      name: name ?? '',
+      area: area ?? '',
+      gstin: gstin,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
+
+  Future<List<RouteEntry>> getAvailableRoutes() async {
+    final list = await repository.getAllRoutes();
+    if (list.isNotEmpty) return list;
+    return [
+      RouteEntry(
+        id: 'route_sojati_01',
+        name: 'Sojati Gate & Station Road Beat',
+        code: 'SOJ-01',
+        dayOfWeek: 'Monday',
+        isActive: true,
+        createdAt: DateTime.now(),
+      ),
+      RouteEntry(
+        id: 'route_sardarpura_02',
+        name: 'Sardarpura C Road Beat',
+        code: 'SAR-02',
+        dayOfWeek: 'Tuesday',
+        isActive: true,
+        createdAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  Future<RouteEntry?> getDefaultRouteForUser(String userId) async {
+    final routes = await getAvailableRoutes();
+    for (final r in routes) {
+      if (r.id.contains('sojati') || r.code == 'SOJ-01') return r;
+    }
+    return routes.isNotEmpty ? routes.first : null;
+  }
+
+  Future<RouteEntry?> suggestNearbyRoute({
+    required double latitude,
+    required double longitude,
+    String? currentRouteId,
+  }) async {
+    final routes = await getAvailableRoutes();
+    RouteEntry? bestRoute;
+    double minDistance = double.infinity;
+
+    for (final route in routes) {
+      final routeShops = _retailers.where((r) => r.routeId == route.id && r.latitude != null && r.longitude != null);
+      if (routeShops.isNotEmpty) {
+        for (final shop in routeShops) {
+          final dist = calculateDistanceMeters(latitude, longitude, shop.latitude!, shop.longitude!);
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestRoute = route;
+          }
+        }
+      } else {
+        double rLat = 26.2915;
+        double rLng = 73.0185;
+        if (route.id.contains('sardarpura') || route.code.contains('SAR')) {
+          rLat = 26.2800;
+          rLng = 73.0100;
+        }
+        final dist = calculateDistanceMeters(latitude, longitude, rLat, rLng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          bestRoute = route;
+        }
+      }
+    }
+
+    if (bestRoute != null && bestRoute.id != currentRouteId && minDistance < 2000) {
+      return bestRoute;
+    }
+    return null;
+  }
+
+  Future<RetailerShop> quickAddShop({
+    required String shopName,
+    required String ownerName,
+    required String phone,
+    String? routeId,
+    String? area,
+    double? latitude,
+    double? longitude,
+    double? locationAccuracyMeters,
+  }) async {
+    final rId = routeId ?? 'route_sojati_01';
+    final shop = await createRetailerDurable(
+      name: shopName,
+      ownerName: ownerName,
+      phone: phone,
+      address: area ?? 'Jodhpur Market',
+      area: area ?? 'Jodhpur Central',
+      routeId: rId,
+      latitude: latitude,
+      longitude: longitude,
+      locationAccuracyMeters: locationAccuracyMeters,
+    );
+    await repository.addRouteStop(routeId: rId, retailerId: shop.id);
+    return shop;
   }
 
   Future<RetailerShop> createRetailerDurable({

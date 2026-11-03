@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import 'add_shop_sheet.dart';
 
 /// 1. Admin Orders View: Master orders overview and approval actions.
 class AdminOrdersView extends StatelessWidget {
@@ -120,35 +121,77 @@ class AdminRetailersView extends StatelessWidget {
   Widget build(BuildContext context) {
     final retailers = api.retailers;
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: retailers.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (ctx, idx) {
-        final r = retailers[idx];
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AirbnbTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Colors.white,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(r.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                  Text('Khata: ₹${r.outstandingRupees.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AirbnbTheme.coral)),
-                ],
+              Text(
+                'Retailers (${retailers.length})',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
               ),
-              const SizedBox(height: 4),
-              Text('Proprietor: ${r.ownerName} • Ph: ${r.phone}\n${r.address}, ${r.area}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, height: 1.3)),
+              ElevatedButton.icon(
+                key: const ValueKey('admin_add_retailer_btn'),
+                onPressed: () async {
+                  await AddShopSheet.show(context, api: api);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AirbnbTheme.coral,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('+ Add Retailer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
             ],
           ),
-        );
-      },
+        ),
+        const Divider(height: 1, color: AirbnbTheme.border),
+        Expanded(
+          child: retailers.isEmpty
+              ? const Center(
+                  child: Text('No retailers registered yet.', style: TextStyle(color: AirbnbTheme.grey)),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  itemCount: retailers.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (ctx, idx) {
+                    final r = retailers[idx];
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AirbnbTheme.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(r.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                              Text('Khata: ₹${r.outstandingRupees.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w800, fontSize: 13, color: AirbnbTheme.coral)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text('Proprietor: ${r.ownerName} • Ph: ${r.phone}\n${r.address}, ${r.area}',
+                              style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, height: 1.3)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

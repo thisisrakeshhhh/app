@@ -715,6 +715,36 @@ class LocalRepository {
         .write(companion);
   }
 
+  // Routes & Route Stops
+  Future<void> insertRoute(RouteEntry entry) async {
+    await db.into(db.routes).insertOnConflictUpdate(entry);
+  }
+
+  Future<List<RouteEntry>> getAllRoutes() async {
+    return (db.select(db.routes)..where((tbl) => tbl.isActive.equals(true))).get();
+  }
+
+  Future<List<RouteStopEntry>> getRouteStops(String routeId) async {
+    return (db.select(db.routeStops)
+          ..where((tbl) => tbl.routeId.equals(routeId))
+          ..orderBy([(tbl) => OrderingTerm(expression: tbl.stopSequence)]))
+        .get();
+  }
+
+  Future<void> addRouteStop({required String routeId, required String retailerId}) async {
+    final existingStops = await getRouteStops(routeId);
+    final nextSeq = existingStops.isEmpty ? 1 : (existingStops.last.stopSequence + 1);
+    await db.into(db.routeStops).insertOnConflictUpdate(
+      RouteStopEntry(
+        id: 'stop_${DateTime.now().millisecondsSinceEpoch}_$nextSeq',
+        routeId: routeId,
+        retailerId: retailerId,
+        stopSequence: nextSeq,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
   // Class Settings
   Future<List<ClassSettingEntry>> getAllClassSettings() async {
     return db.select(db.classSettings).get();

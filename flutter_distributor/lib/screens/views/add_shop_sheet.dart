@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../data/local/app_database.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -49,7 +50,9 @@ class _AddShopSheetState extends State<AddShopSheet> {
   final _pincodeCtrl = TextEditingController();
   final _gstinCtrl = TextEditingController();
 
-  late final String _selectedRouteId;
+  String? _selectedRouteId;
+  List<RouteEntry> _availableRoutes = [];
+  RouteEntry? _suggestedNearbyRoute;
   String _selectedShopType = 'KIRANA';
   final String _suggestedClass = 'NEW';
   bool _showMoreDetails = false;
@@ -74,7 +77,18 @@ class _AddShopSheetState extends State<AddShopSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedRouteId = widget.defaultRouteId ?? 'route_sardarpura_01';
+    _selectedRouteId = widget.defaultRouteId;
+    _loadRoutes();
+  }
+
+  Future<void> _loadRoutes() async {
+    final routes = await widget.api.getAvailableRoutes();
+    if (mounted) {
+      setState(() {
+        _availableRoutes = routes;
+        _selectedRouteId ??= routes.isNotEmpty ? routes.first.id : 'route_sojati_01';
+      });
+    }
   }
 
   @override
@@ -90,22 +104,35 @@ class _AddShopSheetState extends State<AddShopSheet> {
     super.dispose();
   }
 
-  void _simulateLocationCapture() {
+  void _simulateLocationCapture() async {
     // Captures realistic coordinates with accuracy
-    setState(() {
-      _latitude = 26.2850 + (DateTime.now().millisecond % 100) * 0.0001;
-      _longitude = 73.0180 + (DateTime.now().millisecond % 100) * 0.0001;
-      _accuracyMeters = 8.0 + (DateTime.now().second % 10);
-      _gpsCaptured = true;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '📍 ${AppStrings.locationAccuracy(_accuracyMeters!)}',
-        ),
-        backgroundColor: AirbnbTheme.dark,
-      ),
+    final lat = 26.2850 + (DateTime.now().millisecond % 100) * 0.0001;
+    final lng = 73.0180 + (DateTime.now().millisecond % 100) * 0.0001;
+    final acc = 8.0 + (DateTime.now().second % 10);
+
+    final suggested = await widget.api.suggestNearbyRoute(
+      latitude: lat,
+      longitude: lng,
+      currentRouteId: _selectedRouteId,
     );
+
+    if (mounted) {
+      setState(() {
+        _latitude = lat;
+        _longitude = lng;
+        _accuracyMeters = acc;
+        _gpsCaptured = true;
+        _suggestedNearbyRoute = suggested;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '📍 ${AppStrings.locationAccuracy(_accuracyMeters!)}',
+          ),
+          backgroundColor: AirbnbTheme.dark,
+        ),
+      );
+    }
   }
 
   Future<void> _handleSave() async {
@@ -186,18 +213,28 @@ class _AddShopSheetState extends State<AddShopSheet> {
   }
 
   Future<bool> _showDuplicateWarning(DuplicateCheckResult dup) async {
+    final isStrict = dup.requiresStrictConfirmation;
     final res = await showDialog<bool>(
       context: context,
+      barrierDismissible: !isStrict,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            Icon(
+              isStrict ? Icons.error_outline : Icons.warning_amber_rounded,
+              color: isStrict ? Colors.red.shade700 : Colors.orange,
+              size: 28,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                AppStrings.duplicateWarningTitle,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                isStrict ? 'Exact Match Detected' : AppStrings.duplicateWarningTitle,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: isStrict ? Colors.red.shade800 : AirbnbTheme.dark,
+                ),
               ),
             ),
           ],
@@ -206,6 +243,28 @@ class _AddShopSheetState extends State<AddShopSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isStrict)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.gpp_bad, color: Colors.red.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Exact match on Mobile or GSTIN. Proceeding will create a duplicate ledger entry.',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.red.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Text(dup.message ?? '', style: const TextStyle(fontSize: 13, height: 1.4)),
             const SizedBox(height: 12),
             if (dup.matchedShop != null)
@@ -237,21 +296,27 @@ class _AddShopSheetState extends State<AddShopSheet> {
           ],
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx, false);
               // Pop the sheet and select existing shop
               Navigator.pop(context, dup.matchedShop);
             },
-            child: Text(AppStrings.openExistingShop, style: const TextStyle(color: AirbnbTheme.coral, fontWeight: FontWeight.w700)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AirbnbTheme.dark,
+              backgroundColor: AirbnbTheme.coral,
               foregroundColor: Colors.white,
             ),
-            child: Text(AppStrings.differentShopConfirm, style: const TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(AppStrings.openExistingShop, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: isStrict ? Colors.red.shade700 : AirbnbTheme.grey,
+            ),
+            child: Text(
+              isStrict ? 'I Confirm Separate Shop' : AppStrings.differentShopConfirm,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -393,6 +458,64 @@ class _AddShopSheetState extends State<AddShopSheet> {
               ),
             ),
             const SizedBox(height: 10),
+
+            // Route / Beat Picker
+            if (_availableRoutes.isNotEmpty) ...[
+              DropdownButtonFormField<String>(
+                initialValue: _selectedRouteId,
+                decoration: InputDecoration(
+                  labelText: AppStrings.routeLabel,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                items: _availableRoutes.map((r) {
+                  return DropdownMenuItem<String>(
+                    value: r.id,
+                    child: Text('${r.name} (${r.code})', style: const TextStyle(fontSize: 13)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedRouteId = val);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Nearby Beat Suggestion Pill (Non-intrusive suggestion only)
+            if (_suggestedNearbyRoute != null && _suggestedNearbyRoute!.id != _selectedRouteId) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.near_me, size: 16, color: Colors.amber.shade900),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Nearby beat suggestion: ${_suggestedNearbyRoute!.name}',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        setState(() => _selectedRouteId = _suggestedNearbyRoute!.id);
+                      },
+                      child: const Text('Switch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
 
             // Collapsible More Details
             InkWell(
