@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/airbnb_theme.dart';
+import 'views/packaging_builder_dialog.dart';
 
 class InventoryView extends StatefulWidget {
   final ApiService api;
@@ -854,6 +855,19 @@ class _InventoryViewState extends State<InventoryView> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  // Packaging Hierarchy & Multi-Tier Pricing Button
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                    icon: const Icon(Icons.layers_outlined, size: 16, color: Color(0xFF1E3A8A)),
+                                    tooltip: 'Packaging & Unit Pricing',
+                                    onPressed: () => PackagingBuilderDialog.show(
+                                      context,
+                                      api: widget.api,
+                                      product: p,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
                                   // Quick Restock Button
                                   OutlinedButton.icon(
                                     onPressed: () => _showRestockDialog(p),

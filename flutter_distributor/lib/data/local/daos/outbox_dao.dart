@@ -124,6 +124,19 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
     return query.getSingleOrNull();
   }
 
+  /// Retrieves all pending mutations in the outbox.
+  Future<List<OutboxMutationEntry>> getPendingQueue() async {
+    final query = select(db.outboxMutations)
+      ..where((tbl) =>
+          tbl.syncStatus.equals('PENDING') |
+          tbl.syncStatus.equals('RETRYABLE_FAILURE'))
+      ..orderBy([
+        (tbl) => OrderingTerm.asc(tbl.sequenceOrder),
+        (tbl) => OrderingTerm.asc(tbl.createdAtEpochMs),
+      ]);
+    return query.get();
+  }
+
   /// Counts pending mutations strictly scoped to [organizationId] and [userId].
   Future<int> countPending({
     required String organizationId,

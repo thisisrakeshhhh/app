@@ -33,8 +33,20 @@ class LocalRepository {
     }
     final products = await query.get();
     final snapshots = await db.select(db.inventorySnapshots).get();
+    final allUnits = await db.select(db.productUnits).get();
+    final allPrices = await db.select(db.unitPrices).get();
 
     final snapshotMap = {for (var s in snapshots) s.productId: s};
+
+    final unitsByProd = <String, Map<String, int>>{};
+    for (var u in allUnits) {
+      unitsByProd.putIfAbsent(u.productId, () => {})[u.unitName.toLowerCase()] = u.multiplierToBase;
+    }
+
+    final pricesByProd = <String, Map<String, int>>{};
+    for (var pr in allPrices) {
+      pricesByProd.putIfAbsent(pr.productId, () => {})[pr.unitName.toLowerCase()] = pr.wholesalePricePaise;
+    }
 
     return products.map((p) {
       final snap = snapshotMap[p.id];
@@ -52,8 +64,160 @@ class LocalRepository {
         carStockBoxes: snap?.carCartons ?? 0,
         badge: p.badge,
         imageUrl: p.imageUrl,
+        customUnitMultipliers: unitsByProd[p.id],
+        customUnitPricesPaise: pricesByProd[p.id],
       );
     }).toList();
+  }
+
+  /// Backfills data-driven packaging units and wholesale prices for legacy products
+  /// so that starting pricing matches existing formulas exactly down to the paise.
+  Future<void> backfillLegacyProductUnitsAndPrices() async {
+    final products = await db.select(db.products).get();
+    final existingUnits = await db.select(db.productUnits).get();
+    final prodsWithUnits = existingUnits.map((u) => u.productId).toSet();
+
+    await db.transaction(() async {
+      for (final p in products) {
+        if (!prodsWithUnits.contains(p.id)) {
+          final now = DateTime.now();
+          // 1. Piece
+          await db.into(db.productUnits).insertOnConflictUpdate(
+            ProductUnitsCompanion(
+              id: Value('unit_pcs_${p.id}'),
+              productId: Value(p.id),
+              unitName: const Value('piece'),
+              multiplierToBase: const Value(1),
+              isBaseUnit: const Value(true),
+              allowLooseSale: const Value(true),
+              createdAt: Value(now),
+            ),
+          );
+          await db.into(db.unitPrices).insertOnConflictUpdate(
+            UnitPricesCompanion(
+              id: Value('price_pcs_${p.id}'),
+              productId: Value(p.id),
+              unitName: const Value('piece'),
+              wholesalePricePaise: Value(p.piecePricePaise),
+              mrpPaise: Value((p.mrpRupees * 100).round()),
+              minOrderQty: const Value(1),
+              updatedAt: Value(now),
+            ),
+          );
+
+          // 2. Strip
+          final stripMultiplier = p.stripQty > 0 ? p.stripQty : 1;
+          final stripPrice = (p.piecePricePaise * stripMultiplier * 0.98).round();
+          await db.into(db.productUnits).insertOnConflictUpdate(
+            ProductUnitsCompanion(
+              id: Value('unit_strip_${p.id}'),
+              productId: Value(p.id),
+              unitName: const Value('strip'),
+              multiplierToBase: Value(stripMultiplier),
+              isBaseUnit: const Value(false),
+              allowLooseSale: const Value(true),
+              createdAt: Value(now),
+            ),
+          );
+          await db.into(db.unitPrices).insertOnConflictUpdate(
+            UnitPricesCompanion(
+              id: Value('price_strip_${p.id}'),
+              productId: Value(p.id),
+              unitName: const Value('strip'),
+              wholesalePricePaise: Value(stripPrice),
+              mrpPaise: Value(((p.mrpRupees * 100) * stripMultiplier).round()),
+              minOrderQty: const Value(1),
+              updatedAt: Value(now),
+            ),
+          );
+
+          // 3. Box
+          final boxMultiplier = p.boxQty > 0 ? p.boxQty : 1;
+          final boxPrice = (p.piecePricePaise * boxMultiplier * 0.95).round();
+          await db.into(db.productUnits).insertOnConflictUpdate(
+            ProductUnitsCompanion(
+              id: Value('unit_box_${p.id}'),
+              productId: Value(p.id),
+              unitName: const Value('box'),
+              multiplierToBase: Value(boxMultiplier),
+              isBaseUnit: const Value(false),
+              allowLooseSale: const Value(true),
+              createdAt: Value(now),
+            ),
+          );
+          await db.into(db.unitPrices).insertOnConflictUpdate(
+            UnitPricesCompanion(
+              id: Value('price_box_${p.id}'),
+              productId: Value(p.id),
+              unitName: const Value('box'),
+              wholesalePricePaise: Value(boxPrice),
+              mrpPaise: Value(((p.mrpRupees * 100) * boxMultiplier).round()),
+              minOrderQty: const Value(1),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> saveProductUnits(String productId, List<ProductPackagingUnit> units) async {
+    await db.transaction(() async {
+      await (db.delete(db.productUnits)..where((tbl) => tbl.productId.equals(productId))).go();
+      await (db.delete(db.unitPrices)..where((tbl) => tbl.productId.equals(productId))).go();
+
+      final now = DateTime.now();
+      for (final u in units) {
+        await db.into(db.productUnits).insert(
+          ProductUnitsCompanion(
+            id: Value(u.id),
+            productId: Value(productId),
+            unitName: Value(u.unitName),
+            multiplierToBase: Value(u.multiplierToBase),
+            isBaseUnit: Value(u.isBaseUnit),
+            allowLooseSale: Value(u.allowLooseSale),
+            createdAt: Value(now),
+          ),
+        );
+        await db.into(db.unitPrices).insert(
+          UnitPricesCompanion(
+            id: Value('price_${u.id}'),
+            productId: Value(productId),
+            unitName: Value(u.unitName),
+            wholesalePricePaise: Value(u.wholesalePricePaise),
+            mrpPaise: Value(u.mrpPaise),
+            minOrderQty: Value(u.minOrderQty),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<List<ProductPackagingUnit>> getProductUnits(String productId) async {
+    final units = await (db.select(db.productUnits)..where((tbl) => tbl.productId.equals(productId))).get();
+    final prices = await (db.select(db.unitPrices)..where((tbl) => tbl.productId.equals(productId))).get();
+    final priceMap = {for (var p in prices) p.unitName.toLowerCase(): p};
+
+    return units.map((u) {
+      final pr = priceMap[u.unitName.toLowerCase()];
+      return ProductPackagingUnit(
+        id: u.id,
+        productId: u.productId,
+        unitName: u.unitName,
+        multiplierToBase: u.multiplierToBase,
+        isBaseUnit: u.isBaseUnit,
+        allowLooseSale: u.allowLooseSale,
+        wholesalePricePaise: pr?.wholesalePricePaise ?? 0,
+        mrpPaise: pr?.mrpPaise ?? 0,
+        minOrderQty: pr?.minOrderQty ?? 1,
+      );
+    }).toList();
+  }
+
+  Future<Map<String, int>> getUnitPrices(String productId) async {
+    final prices = await (db.select(db.unitPrices)..where((tbl) => tbl.productId.equals(productId))).get();
+    return {for (var p in prices) p.unitName.toLowerCase(): p.wholesalePricePaise};
   }
 
   Future<void> upsertProduct(ProductItem item) async {
@@ -149,6 +313,12 @@ class LocalRepository {
     }
 
     await db.transaction(() async {
+      await (db.delete(db.productUnits)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .go();
+      await (db.delete(db.unitPrices)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .go();
       await (db.delete(
         db.inventorySnapshots,
       )..where((tbl) => tbl.productId.equals(productId))).go();

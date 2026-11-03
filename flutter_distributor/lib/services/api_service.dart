@@ -472,6 +472,180 @@ class ApiService extends ChangeNotifier {
     return newShop;
   }
 
+  Future<void> updateProductUnitsDurable({
+    required String productId,
+    required List<ProductPackagingUnit> units,
+    required String idempotencyKey,
+  }) async {
+    final session = currentSession;
+    if (session == null ||
+        session.activeOrganizationId.isEmpty ||
+        session.userId.isEmpty) {
+      throw StateError('Cannot update product units without an active authenticated session');
+    }
+
+    final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(idempotencyKey);
+    if (existingMutation != null) {
+      debugPrint('Idempotent updateProductUnits detected for key $idempotencyKey');
+      return;
+    }
+
+    final epochMs = DateTime.now().millisecondsSinceEpoch;
+    final payload = UpdateProductUnitsPayload(
+      productId: productId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      units: units
+          .map((u) => ProductPackagingUnitPayloadItem(
+                id: u.id,
+                unitName: u.unitName,
+                multiplierToBase: u.multiplierToBase,
+                isBaseUnit: u.isBaseUnit,
+                allowLooseSale: u.allowLooseSale,
+                wholesalePricePaise: u.wholesalePricePaise,
+                mrpPaise: u.mrpPaise,
+                minOrderQty: u.minOrderQty,
+              ))
+          .toList(),
+      clientCreatedAtEpochMs: epochMs,
+    );
+
+    final mutationId = 'out_${generateUuidV4()}';
+    await db.outboxDao.insertOrderMutationAtomic(
+      id: mutationId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      mutationType: 'UPDATE_PRODUCT_UNITS',
+      payloadJson: payload.toCanonicalJson(),
+      provisionalBusinessId: productId,
+      createdAtEpochMs: epochMs,
+      businessOperation: () async {
+        await repository.saveProductUnits(productId, units);
+      },
+    );
+
+    final idx = _products.indexWhere((p) => p.id == productId);
+    if (idx != -1) {
+      final old = _products[idx];
+      final unitMap = {for (var u in units) u.unitName.toLowerCase(): u.multiplierToBase};
+      final priceMap = {for (var u in units) u.unitName.toLowerCase(): u.wholesalePricePaise};
+      _products[idx] = ProductItem(
+        id: old.id,
+        name: old.name,
+        hindiName: old.hindiName,
+        category: old.category,
+        mrpRupees: old.mrpRupees,
+        piecePricePaise: old.piecePricePaise,
+        stripQty: old.stripQty,
+        boxQty: old.boxQty,
+        gstRate: old.gstRate,
+        godownStockBoxes: old.godownStockBoxes,
+        carStockBoxes: old.carStockBoxes,
+        badge: old.badge,
+        imageUrl: old.imageUrl,
+        customUnitMultipliers: unitMap,
+        customUnitPricesPaise: priceMap,
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<void> createProductDurable({
+    required String id,
+    required String name,
+    required String hindiName,
+    required String category,
+    required double mrpRupees,
+    required int piecePricePaise,
+    required int stripQty,
+    required int boxQty,
+    double gstRate = 18.0,
+    required List<ProductPackagingUnit> units,
+    required String idempotencyKey,
+  }) async {
+    final session = currentSession;
+    if (session == null ||
+        session.activeOrganizationId.isEmpty ||
+        session.userId.isEmpty) {
+      throw StateError('Cannot create product without an active authenticated session');
+    }
+
+    final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(idempotencyKey);
+    if (existingMutation != null) {
+      debugPrint('Idempotent createProduct detected for key $idempotencyKey');
+      return;
+    }
+
+    final epochMs = DateTime.now().millisecondsSinceEpoch;
+    final payload = CreateProductPayload(
+      id: id,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      name: name,
+      hindiName: hindiName,
+      category: category,
+      mrpRupees: mrpRupees,
+      piecePricePaise: piecePricePaise,
+      stripQty: stripQty,
+      boxQty: boxQty,
+      gstRate: gstRate,
+      units: units
+          .map((u) => ProductPackagingUnitPayloadItem(
+                id: u.id,
+                unitName: u.unitName,
+                multiplierToBase: u.multiplierToBase,
+                isBaseUnit: u.isBaseUnit,
+                allowLooseSale: u.allowLooseSale,
+                wholesalePricePaise: u.wholesalePricePaise,
+                mrpPaise: u.mrpPaise,
+                minOrderQty: u.minOrderQty,
+              ))
+          .toList(),
+      clientCreatedAtEpochMs: epochMs,
+    );
+
+    final unitMap = {for (var u in units) u.unitName.toLowerCase(): u.multiplierToBase};
+    final priceMap = {for (var u in units) u.unitName.toLowerCase(): u.wholesalePricePaise};
+
+    final newProduct = ProductItem(
+      id: id,
+      name: name,
+      hindiName: hindiName,
+      category: category,
+      mrpRupees: mrpRupees,
+      piecePricePaise: piecePricePaise,
+      stripQty: stripQty,
+      boxQty: boxQty,
+      gstRate: gstRate,
+      godownStockBoxes: 0,
+      carStockBoxes: 0,
+      customUnitMultipliers: unitMap,
+      customUnitPricesPaise: priceMap,
+    );
+
+    final mutationId = 'out_${generateUuidV4()}';
+    await db.outboxDao.insertOrderMutationAtomic(
+      id: mutationId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: idempotencyKey,
+      mutationType: 'CREATE_PRODUCT',
+      payloadJson: payload.toCanonicalJson(),
+      provisionalBusinessId: id,
+      createdAtEpochMs: epochMs,
+      businessOperation: () async {
+        await repository.upsertProduct(newProduct);
+        await repository.saveProductUnits(id, units);
+      },
+    );
+
+    _products.add(newProduct);
+    notifyListeners();
+  }
+
   // Warehouse and Depot Hubs
   List<WarehouseHub> _warehouseHubs = [];
   List<WarehouseHub> get warehouseHubs => _warehouseHubs;
@@ -1605,6 +1779,39 @@ class ApiService extends ChangeNotifier {
             } catch (e) {
               debugPrint('Failed to reconstruct outbox order ${mutation.id}: $e');
             }
+          } else if (mutation.mutationType == 'CREATE_PRODUCT') {
+            try {
+              final payload = CreateProductPayload.fromCanonicalJson(
+                mutation.payloadJson,
+              );
+              if (!_products.any((p) => p.id == payload.id)) {
+                final unitMap = {
+                  for (var u in payload.units)
+                    u.unitName.toLowerCase(): u.multiplierToBase
+                };
+                final priceMap = {
+                  for (var u in payload.units)
+                    u.unitName.toLowerCase(): u.wholesalePricePaise
+                };
+                _products.add(ProductItem(
+                  id: payload.id,
+                  name: payload.name,
+                  hindiName: payload.hindiName,
+                  category: payload.category,
+                  mrpRupees: payload.mrpRupees,
+                  piecePricePaise: payload.piecePricePaise,
+                  stripQty: payload.stripQty,
+                  boxQty: payload.boxQty,
+                  gstRate: payload.gstRate,
+                  godownStockBoxes: 0,
+                  carStockBoxes: 0,
+                  customUnitMultipliers: unitMap,
+                  customUnitPricesPaise: priceMap,
+                ));
+              }
+            } catch (e) {
+              debugPrint('Failed to reconstruct outbox product ${mutation.id}: $e');
+            }
           }
         }
       }
@@ -1619,6 +1826,7 @@ class ApiService extends ChangeNotifier {
         return;
       }
       // In multi-tenant Phase B2, do not seed unscoped B1 records that trigger legacy quarantine.
+      await repository.backfillLegacyProductUnitsAndPrices();
       final dbProducts = await repository.getAllProducts();
       final dbRetailers = await repository.getAllRetailers();
       if (capturedGen != _transientGeneration) return;

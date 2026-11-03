@@ -69,6 +69,55 @@ extension OrderUnitExt on OrderUnit {
   }
 }
 
+class ProductPackagingUnit {
+  final String id;
+  final String productId;
+  final String unitName;
+  final int multiplierToBase;
+  final bool isBaseUnit;
+  final bool allowLooseSale;
+  final int wholesalePricePaise;
+  final int mrpPaise;
+  final int minOrderQty;
+
+  const ProductPackagingUnit({
+    required this.id,
+    required this.productId,
+    required this.unitName,
+    required this.multiplierToBase,
+    this.isBaseUnit = false,
+    this.allowLooseSale = true,
+    required this.wholesalePricePaise,
+    this.mrpPaise = 0,
+    this.minOrderQty = 1,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'productId': productId,
+    'unitName': unitName,
+    'multiplierToBase': multiplierToBase,
+    'isBaseUnit': isBaseUnit,
+    'allowLooseSale': allowLooseSale,
+    'wholesalePricePaise': wholesalePricePaise,
+    'mrpPaise': mrpPaise,
+    'minOrderQty': minOrderQty,
+  };
+
+  factory ProductPackagingUnit.fromMap(Map<String, dynamic> map) =>
+      ProductPackagingUnit(
+        id: map['id'] as String,
+        productId: map['productId'] as String,
+        unitName: map['unitName'] as String,
+        multiplierToBase: (map['multiplierToBase'] as num).toInt(),
+        isBaseUnit: (map['isBaseUnit'] as bool?) ?? false,
+        allowLooseSale: (map['allowLooseSale'] as bool?) ?? true,
+        wholesalePricePaise: (map['wholesalePricePaise'] as num).toInt(),
+        mrpPaise: (map['mrpPaise'] as num?)?.toInt() ?? 0,
+        minOrderQty: (map['minOrderQty'] as num?)?.toInt() ?? 1,
+      );
+}
+
 class ProductItem {
   final String id;
   final String name;
@@ -83,6 +132,8 @@ class ProductItem {
   int carStockBoxes; // Live stock loaded in Delivery Car / Van
   final String badge;
   final String imageUrl;
+  final Map<String, int>? customUnitMultipliers; // unitName -> multiplierToBase
+  final Map<String, int>? customUnitPricesPaise; // unitName -> wholesalePricePaise
 
   ProductItem({
     required this.id,
@@ -98,25 +149,27 @@ class ProductItem {
     this.carStockBoxes = 0,
     this.badge = '',
     this.imageUrl = '',
+    this.customUnitMultipliers,
+    this.customUnitPricesPaise,
   });
 
-  // Wholesale pricing with bulk slab discount
+  // Wholesale pricing: data-driven from unit_prices, with base piece fallback
   int priceForUnit(OrderUnit unit) {
-    switch (unit) {
-      case OrderUnit.piece:
-        return piecePricePaise;
-      case OrderUnit.strip:
-        // Slight strip wholesale incentive
-        return (piecePricePaise * stripQty * 0.98).round();
-      case OrderUnit.box:
-        // 5% carton bulk discount for kirana retail
-        return (piecePricePaise * boxQty * 0.95).round();
+    final key = unit.name.toLowerCase();
+    if (customUnitPricesPaise != null && customUnitPricesPaise!.containsKey(key)) {
+      return customUnitPricesPaise![key]!;
     }
+    // Fallback if not configured: piece price * multiplier
+    return piecePricePaise * piecesForUnit(unit);
   }
 
   double priceRupeesForUnit(OrderUnit unit) => priceForUnit(unit) / 100.0;
 
   int piecesForUnit(OrderUnit unit) {
+    final key = unit.name.toLowerCase();
+    if (customUnitMultipliers != null && customUnitMultipliers!.containsKey(key)) {
+      return customUnitMultipliers![key]!;
+    }
     switch (unit) {
       case OrderUnit.piece:
         return 1;
@@ -125,6 +178,25 @@ class ProductItem {
       case OrderUnit.box:
         return boxQty;
     }
+  }
+
+  int priceForUnitName(String unitName) {
+    final key = unitName.toLowerCase();
+    if (customUnitPricesPaise != null && customUnitPricesPaise!.containsKey(key)) {
+      return customUnitPricesPaise![key]!;
+    }
+    return piecePricePaise * piecesForUnitName(unitName);
+  }
+
+  int piecesForUnitName(String unitName) {
+    final key = unitName.toLowerCase();
+    if (customUnitMultipliers != null && customUnitMultipliers!.containsKey(key)) {
+      return customUnitMultipliers![key]!;
+    }
+    if (key == 'piece') return 1;
+    if (key == 'strip') return stripQty;
+    if (key == 'box') return boxQty;
+    return 1;
   }
 
   int get totalStockBoxes => godownStockBoxes + carStockBoxes;

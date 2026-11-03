@@ -5,6 +5,8 @@ import 'dart:math';
 enum MutationType {
   createOrder,
   createRetailer,
+  createProduct,
+  updateProductUnits,
   recordCollection,
   cashHandover,
   stockInward,
@@ -19,6 +21,10 @@ extension MutationTypeExtension on MutationType {
         return 'CREATE_ORDER';
       case MutationType.createRetailer:
         return 'CREATE_RETAILER';
+      case MutationType.createProduct:
+        return 'CREATE_PRODUCT';
+      case MutationType.updateProductUnits:
+        return 'UPDATE_PRODUCT_UNITS';
       case MutationType.recordCollection:
         return 'RECORD_COLLECTION';
       case MutationType.cashHandover:
@@ -38,6 +44,10 @@ extension MutationTypeExtension on MutationType {
         return MutationType.createOrder;
       case 'CREATE_RETAILER':
         return MutationType.createRetailer;
+      case 'CREATE_PRODUCT':
+        return MutationType.createProduct;
+      case 'UPDATE_PRODUCT_UNITS':
+        return MutationType.updateProductUnits;
       case 'RECORD_COLLECTION':
         return MutationType.recordCollection;
       case 'CASH_HANDOVER':
@@ -503,4 +513,170 @@ class CreateRetailerMutationPayload {
   String toCanonicalJson() => jsonEncode(toMap());
   factory CreateRetailerMutationPayload.fromCanonicalJson(String jsonStr) =>
       CreateRetailerMutationPayload.fromMap(jsonDecode(jsonStr) as Map<String, dynamic>);
+}
+
+/// Serialized packaging unit within a product mutation.
+class ProductPackagingUnitPayloadItem {
+  final String id;
+  final String unitName;
+  final int multiplierToBase;
+  final bool isBaseUnit;
+  final bool allowLooseSale;
+  final int wholesalePricePaise;
+  final int mrpPaise;
+  final int minOrderQty;
+
+  const ProductPackagingUnitPayloadItem({
+    required this.id,
+    required this.unitName,
+    required this.multiplierToBase,
+    this.isBaseUnit = false,
+    this.allowLooseSale = true,
+    required this.wholesalePricePaise,
+    this.mrpPaise = 0,
+    this.minOrderQty = 1,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'unitName': unitName,
+    'multiplierToBase': multiplierToBase,
+    'isBaseUnit': isBaseUnit,
+    'allowLooseSale': allowLooseSale,
+    'wholesalePricePaise': wholesalePricePaise,
+    'mrpPaise': mrpPaise,
+    'minOrderQty': minOrderQty,
+  };
+
+  factory ProductPackagingUnitPayloadItem.fromMap(Map<String, dynamic> map) =>
+      ProductPackagingUnitPayloadItem(
+        id: map['id'] as String,
+        unitName: map['unitName'] as String,
+        multiplierToBase: (map['multiplierToBase'] as num).toInt(),
+        isBaseUnit: (map['isBaseUnit'] as bool?) ?? false,
+        allowLooseSale: (map['allowLooseSale'] as bool?) ?? true,
+        wholesalePricePaise: (map['wholesalePricePaise'] as num).toInt(),
+        mrpPaise: (map['mrpPaise'] as num?)?.toInt() ?? 0,
+        minOrderQty: (map['minOrderQty'] as num?)?.toInt() ?? 1,
+      );
+}
+
+/// Outbox mutation payload for updating product units/packaging.
+class UpdateProductUnitsPayload {
+  final String productId;
+  final String organizationId;
+  final String userId;
+  final String idempotencyKey;
+  final List<ProductPackagingUnitPayloadItem> units;
+  final int clientCreatedAtEpochMs;
+
+  const UpdateProductUnitsPayload({
+    required this.productId,
+    required this.organizationId,
+    required this.userId,
+    required this.idempotencyKey,
+    required this.units,
+    required this.clientCreatedAtEpochMs,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'productId': productId,
+    'organizationId': organizationId,
+    'userId': userId,
+    'idempotencyKey': idempotencyKey,
+    'units': units.map((u) => u.toMap()).toList(),
+    'clientCreatedAtEpochMs': clientCreatedAtEpochMs,
+  };
+
+  factory UpdateProductUnitsPayload.fromMap(Map<String, dynamic> map) =>
+      UpdateProductUnitsPayload(
+        productId: map['productId'] as String,
+        organizationId: map['organizationId'] as String,
+        userId: map['userId'] as String,
+        idempotencyKey: map['idempotencyKey'] as String,
+        units: (map['units'] as List)
+            .map((u) => ProductPackagingUnitPayloadItem.fromMap(u as Map<String, dynamic>))
+            .toList(),
+        clientCreatedAtEpochMs: (map['clientCreatedAtEpochMs'] as num).toInt(),
+      );
+
+  String toCanonicalJson() => jsonEncode(toMap());
+  factory UpdateProductUnitsPayload.fromCanonicalJson(String jsonStr) =>
+      UpdateProductUnitsPayload.fromMap(jsonDecode(jsonStr) as Map<String, dynamic>);
+}
+
+/// Outbox mutation payload for creating a new product.
+class CreateProductPayload {
+  final String id;
+  final String organizationId;
+  final String userId;
+  final String idempotencyKey;
+  final String name;
+  final String hindiName;
+  final String category;
+  final double mrpRupees;
+  final int piecePricePaise;
+  final int stripQty;
+  final int boxQty;
+  final double gstRate;
+  final List<ProductPackagingUnitPayloadItem> units;
+  final int clientCreatedAtEpochMs;
+
+  const CreateProductPayload({
+    required this.id,
+    required this.organizationId,
+    required this.userId,
+    required this.idempotencyKey,
+    required this.name,
+    required this.hindiName,
+    required this.category,
+    required this.mrpRupees,
+    required this.piecePricePaise,
+    required this.stripQty,
+    required this.boxQty,
+    this.gstRate = 18.0,
+    required this.units,
+    required this.clientCreatedAtEpochMs,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'organizationId': organizationId,
+    'userId': userId,
+    'idempotencyKey': idempotencyKey,
+    'name': name,
+    'hindiName': hindiName,
+    'category': category,
+    'mrpRupees': mrpRupees,
+    'piecePricePaise': piecePricePaise,
+    'stripQty': stripQty,
+    'boxQty': boxQty,
+    'gstRate': gstRate,
+    'units': units.map((u) => u.toMap()).toList(),
+    'clientCreatedAtEpochMs': clientCreatedAtEpochMs,
+  };
+
+  factory CreateProductPayload.fromMap(Map<String, dynamic> map) =>
+      CreateProductPayload(
+        id: map['id'] as String,
+        organizationId: map['organizationId'] as String,
+        userId: map['userId'] as String,
+        idempotencyKey: map['idempotencyKey'] as String,
+        name: map['name'] as String,
+        hindiName: map['hindiName'] as String,
+        category: map['category'] as String,
+        mrpRupees: (map['mrpRupees'] as num).toDouble(),
+        piecePricePaise: (map['piecePricePaise'] as num).toInt(),
+        stripQty: (map['stripQty'] as num).toInt(),
+        boxQty: (map['boxQty'] as num).toInt(),
+        gstRate: (map['gstRate'] as num?)?.toDouble() ?? 18.0,
+        units: (map['units'] as List)
+            .map((u) => ProductPackagingUnitPayloadItem.fromMap(u as Map<String, dynamic>))
+            .toList(),
+        clientCreatedAtEpochMs: (map['clientCreatedAtEpochMs'] as num).toInt(),
+      );
+
+  String toCanonicalJson() => jsonEncode(toMap());
+  factory CreateProductPayload.fromCanonicalJson(String jsonStr) =>
+      CreateProductPayload.fromMap(jsonDecode(jsonStr) as Map<String, dynamic>);
 }
