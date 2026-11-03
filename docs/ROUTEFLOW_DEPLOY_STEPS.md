@@ -70,22 +70,34 @@ adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
 ## 3. Cloudflare D1 Backend Migration Deployment
 
-### Step 1: Run Staging Migrations
-Apply migration `0024_offline_sync_outbox_support.sql` to the Cloudflare D1 staging database:
+### Step 1: Create Staging D1 Database & Bindings
+If the staging database is not yet initialized in your Cloudflare account:
 ```powershell
 cd d:\app\backend
-npx wrangler d1 migrations apply routeflow-db --env staging
+npx wrangler d1 create routeflow-d1-staging
+```
+Set production / staging JWT secret:
+```powershell
+npx wrangler secret put JWT_SECRET
 ```
 
-### Step 2: Deploy Cloudflare Worker API
+### Step 2: Run Staging Migrations
+Apply migrations including `0024_offline_sync_outbox_support.sql` to the Cloudflare D1 staging database:
+```powershell
+cd d:\app\backend
+npx wrangler d1 migrations apply routeflow-d1-staging --remote
+```
+
+### Step 3: Deploy Cloudflare Worker API
 Deploy edge worker endpoints:
 ```powershell
 npx wrangler deploy --env staging
 ```
 
-### Step 3: Verify Health Check
+### Step 4: Verify Health Check & Sync Endpoints
 ```powershell
 curl -I https://staging-api.routeflow.in/health
+curl -I https://staging-api.routeflow.in/sync/push
 ```
 
 ---

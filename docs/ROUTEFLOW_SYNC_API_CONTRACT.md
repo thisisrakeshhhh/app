@@ -42,7 +42,7 @@ RouteFlow operates under an **offline-first, zero-data-loss architecture** tailo
 
 ## 2. Core Integrity Invariants
 
-1. **Integer Arithmetic Everywhere:** All monetary figures are unsigned 64-bit integers in **paise** (₹1.00 = 100 paise). All quantities are integers in **base pieces** (loose units). Floats are strictly prohibited in wire payloads and storage schemas.
+1. **Integer Arithmetic Everywhere:** All monetary figures are signed 64-bit integers in **paise** (₹1.00 = 100 paise, corresponding to Dart `int` and SQLite integer). All quantities are integers in **base pieces** (loose units). Floats are strictly prohibited in wire payloads and storage schemas.
 2. **Offline Outbox Honesty:** Mutations are marked `PENDING` ("Saved on this phone") until the server explicitly acknowledges successful commit with HTTP 200. The client UI **never** reports "Synced to Cloud" prematurely.
 3. **Strict FIFO Dependency Ordering:** All mutations for an organization are processed in the strict order of their client-allocated `sequence_order`. If mutation `N` (`CREATE_ORDER`) depends on mutation `N-1` (`CREATE_RETAILER`), `N-1` is processed and committed first.
 4. **Zero Duplicate Effects (Idempotency):** Each mutation carries a persistent UUID v4 `idempotency_key`. A retry with the exact same payload returns HTTP 200 with the previously committed result. A retry with the same key but different payload fails closed with HTTP 409 Conflict.
