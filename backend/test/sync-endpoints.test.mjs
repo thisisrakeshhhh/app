@@ -553,4 +553,116 @@ describe('RouteFlow Phase C: Real Cloudflare D1 Sync Endpoints & Integrity Suite
     const failedJson = await failedRes.json();
     assert.equal(failedJson.error, 'INSUFFICIENT_STOCK');
   });
+
+  test('11. Falsified Multiplier Rejected: Client cannot claim Box has multiplier 1', async () => {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_tampered_mult',
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: 'mut_tampered_mult',
+            sequenceOrder: 201,
+            idempotencyKey: `idem_tamper_mult_${Date.now()}`,
+            mutationType: 'CREATE_ORDER',
+            payload: {
+              retailerId: 'ret_1',
+              items: [
+                {
+                  productId: 'prod_1',
+                  orderedUnit: 'box',
+                  multiplierToBaseAtTime: 1 // Attempt to claim Box = 1 piece instead of 20
+                }
+              ]
+            }
+          }
+        ]
+      })
+    });
+    assert.equal(res.status, 400, 'Must reject falsified multiplier with 400');
+    const json = await res.json();
+    assert.equal(json.error, 'INVALID_UNIT_MULTIPLIER');
+  });
+
+  test('12. Custom Packaging Order: Crate = 24 bottles correctly verified and reserves 24 pieces', async () => {
+    // Check initial reserved_quantity for prod_1
+    const pull1 = await fetch(`${BASE_URL}/sync/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({ organizationId: 'comp_1', limit: 50 })
+    });
+    const pull1Json = await pull1.json();
+    const prod1Initial = pull1Json.delta.products.find(p => p.id === 'prod_1');
+    const resBefore = prod1Initial.reserved_quantity;
+
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_crate_order',
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: 'mut_crate_order',
+            sequenceOrder: 202,
+            idempotencyKey: `idem_crate_order_${Date.now()}`,
+            mutationType: 'CREATE_ORDER',
+            payload: {
+              retailerId: 'ret_1',
+              items: [
+                {
+                  productId: 'prod_1',
+                  orderedQuantity: 1,
+                  orderedUnit: 'crate',
+                  multiplierToBaseAtTime: 24 // Valid Crate = 24
+                }
+              ]
+            }
+          }
+        ]
+      })
+    });
+    assert.equal(res.status, 200, 'Must accept valid crate order');
+    const json = await res.json();
+    assert.equal(json.results[0].status, 'COMMITTED');
+
+    // Verify 24 base pieces were reserved in products table
+    const pull2 = await fetch(`${BASE_URL}/sync/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({ organizationId: 'comp_1', limit: 50 })
+    });
+    const pull2Json = await pull2.json();
+    const prod1After = pull2Json.delta.products.find(p => p.id === 'prod_1');
+    assert.equal(prod1After.reserved_quantity, resBefore + 24, 'Exactly 24 pieces must be reserved for 1 Crate');
+  });
+
+  test('13. Legacy Shop Route: Salesperson cannot set non-zero credit on POST /retailers', async () => {
+    // Attempt with non-zero credit
+    const resIllegal = await fetch(`${BASE_URL}/retailers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        name: 'Legacy Rogue Shop',
+        contactNumber: '9829099887',
+        creditLimitPaise: 500000
+      })
+    });
+    assert.equal(resIllegal.status, 403, 'Must reject salesperson credit on legacy route');
+
+    // Creation without credit -> default to 0 paise
+    const resOk = await fetch(`${BASE_URL}/retailers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        name: 'Legacy Clean Shop',
+        contactNumber: '9829099886'
+      })
+    });
+    assert.equal(resOk.status, 200);
+    const jsonOk = await resOk.json();
+    assert.equal(jsonOk.retailer.creditLimitPaise, 0, 'Salesperson shop must have 0 credit limit on legacy route');
+  });
 });

@@ -247,9 +247,51 @@ export function syncRouter(authMiddleware: any) {
             }, 400);
           }
 
+          const unitName = (item.orderedUnit || item.unit || 'piece').toLowerCase().trim();
+          const unitDef = await c.env.DB.prepare(
+            'SELECT multiplier_to_base, price_paise, can_sell FROM product_units WHERE organization_id = ? AND product_id = ? AND unit_name = ?'
+          ).bind(tenantId, prod.id, unitName).first<{ multiplier_to_base: number; price_paise: number; can_sell: number }>();
+
+          let effectiveMultiplier: number;
+          let unitPricePaise = prod.price_paise;
+
+          if (unitDef) {
+            if (unitDef.can_sell === 0) {
+              return c.json({
+                success: false,
+                error: 'UNIT_NOT_SALEABLE',
+                message: `Unit '${unitName}' for product '${prod.name}' is not allowed for sale`
+              }, 400);
+            }
+            effectiveMultiplier = unitDef.multiplier_to_base;
+            if (unitDef.price_paise > 0) {
+              unitPricePaise = unitDef.price_paise;
+            }
+            // Strict verification against client tampering
+            if (item.multiplierToBaseAtTime !== undefined && Number(item.multiplierToBaseAtTime) !== effectiveMultiplier) {
+              return c.json({
+                success: false,
+                error: 'INVALID_UNIT_MULTIPLIER',
+                message: `Unit multiplier mismatch: client claims ${item.multiplierToBaseAtTime} for '${unitName}', but server master defines ${effectiveMultiplier}`
+              }, 400);
+            }
+          } else {
+            if (unitName === 'box' || unitName === 'crate') {
+              if (!item.multiplierToBaseAtTime || Number(item.multiplierToBaseAtTime) <= 1) {
+                return c.json({
+                  success: false,
+                  error: 'INVALID_UNIT_MULTIPLIER',
+                  message: `Unit '${unitName}' requires server packaging definition and cannot have multiplier <= 1`
+                }, 400);
+              }
+              effectiveMultiplier = Number(item.multiplierToBaseAtTime);
+            } else {
+              effectiveMultiplier = 1;
+            }
+          }
+
           const availablePieces = prod.stock_quantity - prod.reserved_quantity;
-          const piecesMultiplier = Number(item.multiplierToBaseAtTime || item.multiplier || 1);
-          const totalPiecesRequired = Number(item.totalPieces || (Number(item.orderedQuantity) * piecesMultiplier));
+          const totalPiecesRequired = Number(item.orderedQuantity) * effectiveMultiplier;
 
           // Overselling Protection Invariant
           if (totalPiecesRequired > availablePieces) {
@@ -261,7 +303,6 @@ export function syncRouter(authMiddleware: any) {
           }
 
           // Data-driven price from master or verified line unit price
-          const unitPricePaise = prod.price_paise;
           const lineTotalPaise = Number(item.orderedQuantity) * unitPricePaise;
           const gstRate = Number(item.gstRate ?? 5.0);
           const taxablePaise = Math.round((lineTotalPaise * 10000) / (10000 + Math.round(gstRate * 100)));

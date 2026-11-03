@@ -2260,7 +2260,13 @@ app.post('/retailers', authMiddleware, async (c) => {
 
   const address = body.address?.trim() || '';
   const contactNumber = body.contactNumber || body.contact_number || '';
-  const creditLimitPaise = body.creditLimitPaise ?? body.credit_limit_paise ?? (user.role === 'SALESPERSON' ? 500000 : 0);
+  const rawCredit = body.creditLimitPaise ?? body.credit_limit_paise;
+  if (user.role === 'SALESPERSON' || user.role === 'SALES') {
+    if (rawCredit !== undefined && Number(rawCredit) > 0) {
+      return c.json({ error: 'Forbidden: Salesperson cannot set non-zero credit limit' }, 403);
+    }
+  }
+  const creditLimitPaise = (user.role === 'SALESPERSON' || user.role === 'SALES') ? 0 : Number(rawCredit || 0);
   const paymentTermsDays = body.paymentTermsDays ?? body.payment_terms_days ?? 7;
   const latitude = typeof body.latitude === 'number' ? body.latitude : (body.latitude ? parseFloat(body.latitude) : null);
   const longitude = typeof body.longitude === 'number' ? body.longitude : (body.longitude ? parseFloat(body.longitude) : null);
