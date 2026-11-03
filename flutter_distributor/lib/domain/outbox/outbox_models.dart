@@ -154,6 +154,7 @@ class OrderItemPayload {
   final int orderedQuantity;
   final int stripQty;
   final int boxQty;
+  final int? multiplierToBaseAtTime;
   final int totalPieces; // Base integer pieces
   final int unitPricePaiseAtTime;
   final int piecePricePaiseAtTime;
@@ -173,6 +174,7 @@ class OrderItemPayload {
     int? quantity,
     this.stripQty = 10,
     this.boxQty = 50,
+    this.multiplierToBaseAtTime,
     int? totalPieces,
     int? unitPricePaiseAtTime,
     int? piecePricePaiseAtTime,
@@ -187,7 +189,8 @@ class OrderItemPayload {
   })  : orderedQuantity = orderedQuantity ?? quantity ?? 1,
         unitPricePaiseAtTime = unitPricePaiseAtTime ?? pricePaiseAtTime ?? 0,
         piecePricePaiseAtTime = piecePricePaiseAtTime ?? pricePaiseAtTime ?? 0,
-        totalPieces = totalPieces ?? ((orderedQuantity ?? quantity ?? 1) * 50),
+        totalPieces = totalPieces ??
+            ((orderedQuantity ?? quantity ?? 1) * (multiplierToBaseAtTime ?? boxQty)),
         lineTotalPaise = lineTotalPaise ??
             ((orderedQuantity ?? quantity ?? 1) *
                 (unitPricePaiseAtTime ?? pricePaiseAtTime ?? 0));
@@ -199,6 +202,8 @@ class OrderItemPayload {
         'orderedQuantity': orderedQuantity,
         'stripQty': stripQty,
         'boxQty': boxQty,
+        'multiplierToBaseAtTime': multiplierToBaseAtTime ??
+            (orderedUnit == 'box' ? boxQty : (orderedUnit == 'strip' ? stripQty : 1)),
         'totalPieces': totalPieces,
         'unitPricePaiseAtTime': unitPricePaiseAtTime,
         'piecePricePaiseAtTime': piecePricePaiseAtTime,
@@ -219,6 +224,8 @@ class OrderItemPayload {
         orderedQuantity: (json['orderedQuantity'] as num?)?.toInt() ?? 1,
         stripQty: (json['stripQty'] as num?)?.toInt() ?? 10,
         boxQty: (json['boxQty'] as num?)?.toInt() ?? 50,
+        multiplierToBaseAtTime:
+            (json['multiplierToBaseAtTime'] as num?)?.toInt(),
         totalPieces: (json['totalPieces'] as num?)?.toInt() ??
             ((json['orderedQuantity'] as num?)?.toInt() ?? 1) * 50,
         unitPricePaiseAtTime:
@@ -697,6 +704,10 @@ class StockInwardMutationPayload {
   final int damagedLoosePieces;
   final String notes;
   final int clientCreatedAtEpochMs;
+  final int? basePiecesPerCartonSnapshot;
+
+  int get totalBasePiecesInward =>
+      (receivedCartons * (basePiecesPerCartonSnapshot ?? 1)) + receivedLoosePieces;
 
   const StockInwardMutationPayload({
     required this.provisionalGrnId,
@@ -713,6 +724,7 @@ class StockInwardMutationPayload {
     required this.damagedLoosePieces,
     required this.notes,
     required this.clientCreatedAtEpochMs,
+    this.basePiecesPerCartonSnapshot,
   });
 
   Map<String, dynamic> toMap() => {
@@ -730,6 +742,7 @@ class StockInwardMutationPayload {
     'damagedLoosePieces': damagedLoosePieces,
     'notes': notes,
     'clientCreatedAtEpochMs': clientCreatedAtEpochMs,
+    'basePiecesPerCartonSnapshot': basePiecesPerCartonSnapshot,
   };
 
   factory StockInwardMutationPayload.fromMap(Map<String, dynamic> map) =>
@@ -748,6 +761,7 @@ class StockInwardMutationPayload {
         damagedLoosePieces: (map['damagedLoosePieces'] as num).toInt(),
         notes: (map['notes'] as String?) ?? '',
         clientCreatedAtEpochMs: (map['clientCreatedAtEpochMs'] as num).toInt(),
+        basePiecesPerCartonSnapshot: (map['basePiecesPerCartonSnapshot'] as num?)?.toInt(),
       );
 
   String toCanonicalJson() => jsonEncode(toMap());

@@ -76,9 +76,13 @@ class ProductPackagingUnit {
   final int multiplierToBase;
   final bool isBaseUnit;
   final bool allowLooseSale;
+  final bool canBuy;
+  final bool canSell;
   final int wholesalePricePaise;
   final int mrpPaise;
   final int minOrderQty;
+
+  bool get looseSale => allowLooseSale;
 
   const ProductPackagingUnit({
     required this.id,
@@ -87,6 +91,8 @@ class ProductPackagingUnit {
     required this.multiplierToBase,
     this.isBaseUnit = false,
     this.allowLooseSale = true,
+    this.canBuy = true,
+    this.canSell = true,
     required this.wholesalePricePaise,
     this.mrpPaise = 0,
     this.minOrderQty = 1,
@@ -99,6 +105,8 @@ class ProductPackagingUnit {
     'multiplierToBase': multiplierToBase,
     'isBaseUnit': isBaseUnit,
     'allowLooseSale': allowLooseSale,
+    'canBuy': canBuy,
+    'canSell': canSell,
     'wholesalePricePaise': wholesalePricePaise,
     'mrpPaise': mrpPaise,
     'minOrderQty': minOrderQty,
@@ -111,7 +119,9 @@ class ProductPackagingUnit {
         unitName: map['unitName'] as String,
         multiplierToBase: (map['multiplierToBase'] as num).toInt(),
         isBaseUnit: (map['isBaseUnit'] as bool?) ?? false,
-        allowLooseSale: (map['allowLooseSale'] as bool?) ?? true,
+        allowLooseSale: (map['allowLooseSale'] as bool?) ?? (map['loose_sale'] as bool?) ?? true,
+        canBuy: (map['canBuy'] as bool?) ?? (map['can_buy'] as bool?) ?? true,
+        canSell: (map['canSell'] as bool?) ?? (map['can_sell'] as bool?) ?? true,
         wholesalePricePaise: (map['wholesalePricePaise'] as num).toInt(),
         mrpPaise: (map['mrpPaise'] as num?)?.toInt() ?? 0,
         minOrderQty: (map['minOrderQty'] as num?)?.toInt() ?? 1,

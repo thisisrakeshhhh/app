@@ -971,6 +971,8 @@ class ApiService extends ChangeNotifier {
 
     final epochMs = DateTime.now().millisecondsSinceEpoch;
     final provisionalGrnId = 'grn_${generateUuidV4()}';
+    final productEntry = _products.where((p) => p.id == productId).firstOrNull;
+    final piecesPerCarton = productEntry?.boxQty ?? 50;
 
     final payload = StockInwardMutationPayload(
       provisionalGrnId: provisionalGrnId,
@@ -987,6 +989,7 @@ class ApiService extends ChangeNotifier {
       damagedLoosePieces: damagedLoosePieces,
       notes: notes,
       clientCreatedAtEpochMs: epochMs,
+      basePiecesPerCartonSnapshot: piecesPerCarton,
     );
 
     final mutationId = 'out_${generateUuidV4()}';
@@ -1780,6 +1783,7 @@ class ApiService extends ChangeNotifier {
     );
 
     final itemPayloads = _cart.values.map((item) {
+      final mult = item.product.piecesForUnit(item.unit);
       return OrderItemPayload(
         productId: item.product.id,
         productName: item.product.name,
@@ -1787,6 +1791,7 @@ class ApiService extends ChangeNotifier {
         orderedQuantity: item.quantity,
         stripQty: item.product.stripQty,
         boxQty: item.product.boxQty,
+        multiplierToBaseAtTime: mult,
         totalPieces: item.totalPieces,
         unitPricePaiseAtTime: item.unitPricePaise,
         piecePricePaiseAtTime: item.product.piecePricePaise,
