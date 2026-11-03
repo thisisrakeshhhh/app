@@ -555,6 +555,61 @@ class LocalRepository {
     });
   }
 
+  // Cart Drafts Persistence
+  Future<void> saveCartDraft(String retailerId, String itemsJson) async {
+    await db.into(db.cartDrafts).insertOnConflictUpdate(
+      CartDraftsCompanion(
+        retailerId: Value(retailerId),
+        itemsJson: Value(itemsJson),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<String?> getCartDraft(String retailerId) async {
+    final row = await (db.select(db.cartDrafts)
+          ..where((tbl) => tbl.retailerId.equals(retailerId)))
+        .getSingleOrNull();
+    return row?.itemsJson;
+  }
+
+  Future<void> deleteCartDraft(String retailerId) async {
+    await (db.delete(db.cartDrafts)
+          ..where((tbl) => tbl.retailerId.equals(retailerId)))
+        .go();
+  }
+
+  // Field Visits
+  Future<void> recordVisit({
+    required String id,
+    required String retailerId,
+    required String userId,
+    required String outcome,
+    required String notes,
+    required DateTime startTime,
+    DateTime? endTime,
+  }) async {
+    await db.into(db.visits).insert(
+      VisitsCompanion(
+        id: Value(id),
+        retailerId: Value(retailerId),
+        userId: Value(userId),
+        startTime: Value(startTime),
+        endTime: Value(endTime ?? DateTime.now()),
+        outcome: Value(outcome),
+        notes: Value(notes),
+        createdAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<List<VisitEntry>> getVisitsForRetailer(String retailerId) async {
+    final query = db.select(db.visits)
+      ..where((tbl) => tbl.retailerId.equals(retailerId))
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]);
+    return query.get();
+  }
+
   // Retailers
   Future<List<RetailerShop>> getAllRetailers() async {
     final rows = await db.select(db.retailers).get();

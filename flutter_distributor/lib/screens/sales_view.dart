@@ -59,10 +59,110 @@ class _SalesViewState extends State<SalesView> {
   OrderUnit _getUnit(ProductItem p) => _selectedUnits[p.id] ?? OrderUnit.box;
   int _getQty(ProductItem p) => _selectedQuantities[p.id] ?? 1;
 
-  void _selectShop(RetailerShop shop) {
+  void _selectShop(RetailerShop shop) async {
+    if (_activeShop != null && widget.api.cart.isNotEmpty) {
+      await widget.api.saveCurrentCartDraft(_activeShop!.id);
+    }
     setState(() {
       _activeShop = shop;
     });
+    widget.api.selectShop(shop);
+    await widget.api.loadCartDraftForRetailer(shop.id);
+    final stale = await widget.api.checkCartStalePrices(shop.id);
+    if (stale.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ Price changed for ${stale.length} items since cart draft was saved!'),
+          backgroundColor: Colors.amber.shade900,
+        ),
+      );
+    }
+  }
+
+  void _showNoOrderVisitDialog(RetailerShop shop) {
+    String selectedOutcome = 'STOCK_FULL';
+    final notesCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('No Order Visit Outcome', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Why was no order taken at ${shop.name}?', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 12),
+              _buildOutcomeTile('Stock Full (दुकान में स्टॉक पूरा है)', 'STOCK_FULL', selectedOutcome, (v) => setDlgState(() => selectedOutcome = v)),
+              _buildOutcomeTile('Shop Closed (दुकान बंद मिली)', 'SHOP_CLOSED', selectedOutcome, (v) => setDlgState(() => selectedOutcome = v)),
+              _buildOutcomeTile('Owner Not Present (मालिक नहीं मिला)', 'OWNER_ABSENT', selectedOutcome, (v) => setDlgState(() => selectedOutcome = v)),
+              _buildOutcomeTile('Payment Issue / Overdue (पुराना बकाया)', 'PAYMENT_ISSUE', selectedOutcome, (v) => setDlgState(() => selectedOutcome = v)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: notesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Optional Notes (टिप्पणी)',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await widget.api.recordNoOrderVisit(
+                  retailerId: shop.id,
+                  outcome: selectedOutcome,
+                  notes: notesCtrl.text.trim(),
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+                _completeVisit(shop);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AirbnbTheme.dark),
+              child: const Text('Log Visit & Finish', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutcomeTile(String label, String value, String current, void Function(String) onSelect) {
+    final isSel = value == current;
+    return InkWell(
+      onTap: () => onSelect(value),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(
+              isSel ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 18,
+              color: isSel ? AirbnbTheme.coral : Colors.grey,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                  color: isSel ? AirbnbTheme.dark : Colors.grey.shade800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _startVisit(RetailerShop shop) {
@@ -441,6 +541,7 @@ class _SalesViewState extends State<SalesView> {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             final cartItems = widget.api.cart.values.toList();
+            final canUseKhata = _activeShop != null && widget.api.canUseCreditOrKhata(_activeShop!);
 
             return Container(
               decoration: const BoxDecoration(
@@ -609,11 +710,34 @@ class _SalesViewState extends State<SalesView> {
                   ),
 
                   const SizedBox(height: 16),
+                  if (!canUseKhata) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 14, color: Colors.amber.shade900),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Cash on delivery only for Class ${_activeShop?.classType ?? "NEW"} / New Shops (Khata Disabled)',
+                              style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: (cartItems.isEmpty || isSubmitting) ? null : () async {
+                          onPressed: (cartItems.isEmpty || isSubmitting || !canUseKhata) ? null : () async {
                             if (_activeShop != null) {
                               setSheetState(() => isSubmitting = true);
                               try {
@@ -641,12 +765,18 @@ class _SalesViewState extends State<SalesView> {
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: AirbnbTheme.jodhpurBlue),
+                            side: BorderSide(color: canUseKhata ? AirbnbTheme.jodhpurBlue : Colors.grey.shade400),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           child: isSubmitting
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('Book on Khata (Credit)', style: TextStyle(color: AirbnbTheme.jodhpurBlue, fontWeight: FontWeight.w700)),
+                              : Text(
+                                  canUseKhata ? 'Book on Khata (Credit)' : 'Khata Blocked',
+                                  style: TextStyle(
+                                    color: canUseKhata ? AirbnbTheme.jodhpurBlue : Colors.grey,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1078,7 +1208,30 @@ class _SalesViewState extends State<SalesView> {
                       ),
                     ),
                     if (shop != null) ...[
-                      if (!isCheckedIn)
+                      if (!isCheckedIn) ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.replay_rounded, size: 12),
+                          label: const Text('Repeat', style: TextStyle(fontSize: 10)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white54),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            minimumSize: const Size(60, 30),
+                          ),
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final success = await widget.api.repeatLastOrder(shop.id);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(success
+                                    ? '✓ Re-added items from last order for ${shop.name}!'
+                                    : 'No previous orders found for ${shop.name}.'),
+                                backgroundColor: success ? AirbnbTheme.success : AirbnbTheme.grey,
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 6),
                         ElevatedButton.icon(
                           onPressed: () => _startVisit(shop),
                           icon: const Icon(Icons.play_arrow, size: 14),
@@ -1090,8 +1243,20 @@ class _SalesViewState extends State<SalesView> {
                             minimumSize: const Size(80, 30),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        )
-                      else ...[
+                        ),
+                      ] else ...[
+                        OutlinedButton(
+                          onPressed: () => _showNoOrderVisitDialog(shop),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.amber.shade300,
+                            side: BorderSide(color: Colors.amber.shade300, width: 1),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            minimumSize: const Size(64, 28),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('No Order', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700)),
+                        ),
+                        const SizedBox(width: 4),
                         OutlinedButton(
                           onPressed: () => _completeVisit(shop),
                           style: OutlinedButton.styleFrom(
@@ -1362,6 +1527,38 @@ class _SalesViewState extends State<SalesView> {
                       ),
                     ),
 
+                    const SizedBox(height: 8),
+
+                    // Quick Quantity Preset Chips: [ 1 ] [ 5 ] [ 10 ] [ 25 ]
+                    Row(
+                      children: [
+                        const Text('Qty: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+                        const SizedBox(width: 4),
+                        for (final step in [1, 5, 10, 25]) ...[
+                          InkWell(
+                            onTap: () => setState(() => _selectedQuantities[p.id] = step),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: qty == step ? AirbnbTheme.dark : AirbnbTheme.lightGrey,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '$step',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: qty == step ? Colors.white : AirbnbTheme.dark,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                      ],
+                    ),
+
                     const SizedBox(height: 10),
 
                     // Price & Stepper + Add to Cart Button
@@ -1431,6 +1628,7 @@ class _SalesViewState extends State<SalesView> {
                               ? null
                               : () {
                                   widget.api.addToCart(p, unit, qty);
+                                  widget.api.saveCurrentCartDraft();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Added $qty ${unit.shortCode} of ${p.name}'),

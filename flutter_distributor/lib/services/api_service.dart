@@ -26,6 +26,22 @@ class DuplicateCheckResult {
   bool get hasDuplicate => type != DuplicateType.none;
 }
 
+class StalePriceWarning {
+  final String productId;
+  final String productName;
+  final String unitName;
+  final int oldPricePaise;
+  final int newPricePaise;
+
+  const StalePriceWarning({
+    required this.productId,
+    required this.productName,
+    required this.unitName,
+    required this.oldPricePaise,
+    required this.newPricePaise,
+  });
+}
+
 class ApiService extends ChangeNotifier {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -1037,6 +1053,194 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
+  RetailerShop? _selectedShop;
+  RetailerShop? get selectedShop =>
+      _selectedShop ?? activeVisitShop ?? (_retailers.isNotEmpty ? _retailers.first : null);
+
+  void selectShop(RetailerShop shop) {
+    _selectedShop = shop;
+    clearCart();
+    notifyListeners();
+  }
+
+  Future<void> saveCurrentCartDraft([String? retailerId]) async {
+    final targetId = retailerId ?? selectedShop?.id;
+    if (targetId == null || _cart.isEmpty) return;
+
+    final serialized = _cart._inner.values.map((item) {
+      return {
+        'productId': item.product.id,
+        'unit': item.unit.name,
+        'quantity': item.quantity,
+        'unitPricePaise': item.unitPricePaise,
+      };
+    }).toList();
+
+    await repository.saveCartDraft(targetId, jsonEncode(serialized));
+  }
+
+  Future<void> loadCartDraftForRetailer(String retailerId) async {
+    final raw = await repository.getCartDraft(retailerId);
+    _cart.clear();
+    if (raw != null) {
+      try {
+        final list = jsonDecode(raw) as List;
+        for (final item in list) {
+          final m = item as Map<String, dynamic>;
+          final prodId = m['productId'] as String;
+          final unitName = m['unit'] as String;
+          final qty = (m['quantity'] as num).toInt();
+          final prod = _products.cast<ProductItem?>().firstWhere(
+            (p) => p?.id == prodId,
+            orElse: () => null,
+          );
+          if (prod != null) {
+            final orderUnit = OrderUnit.values.firstWhere(
+              (u) => u.name == unitName,
+              orElse: () => OrderUnit.box,
+            );
+            final key = CartItem.makeCartKey(prod.id, orderUnit);
+            _cart[key] = CartItem(
+              product: prod,
+              unit: orderUnit,
+              quantity: qty,
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to decode cart draft for $retailerId: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<List<StalePriceWarning>> checkCartStalePrices(String retailerId) async {
+    final raw = await repository.getCartDraft(retailerId);
+    if (raw == null) return const [];
+
+    final warnings = <StalePriceWarning>[];
+    try {
+      final list = jsonDecode(raw) as List;
+      for (final item in list) {
+        final m = item as Map<String, dynamic>;
+        final prodId = m['productId'] as String;
+        final unitName = m['unit'] as String;
+        final oldPrice = (m['unitPricePaise'] as num).toInt();
+        final prod = _products.cast<ProductItem?>().firstWhere(
+          (p) => p?.id == prodId,
+          orElse: () => null,
+        );
+        if (prod != null) {
+          final orderUnit = OrderUnit.values.firstWhere(
+            (u) => u.name == unitName,
+            orElse: () => OrderUnit.box,
+          );
+          final currentPrice = prod.priceForUnit(orderUnit);
+          if (currentPrice != oldPrice) {
+            warnings.add(StalePriceWarning(
+              productId: prod.id,
+              productName: prod.name,
+              unitName: unitName,
+              oldPricePaise: oldPrice,
+              newPricePaise: currentPrice,
+            ));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking stale prices: $e');
+    }
+    return warnings;
+  }
+
+  Future<bool> repeatLastOrder(String retailerId) async {
+    final pastOrders = _orders.where(
+      (o) => o.shopId == retailerId || _retailers.any((r) => r.id == retailerId && r.name == o.shopName),
+    ).toList();
+
+    if (pastOrders.isEmpty) return false;
+
+    final latest = pastOrders.first;
+    _cart.clear();
+
+    for (final item in latest.items) {
+      final prod = _products.cast<ProductItem?>().firstWhere(
+        (p) => p?.id == item.product.id,
+        orElse: () => null,
+      );
+      if (prod != null) {
+        final key = CartItem.makeCartKey(prod.id, item.unit);
+        _cart[key] = CartItem(
+          product: prod,
+          unit: item.unit,
+          quantity: item.quantity,
+        );
+      }
+    }
+    notifyListeners();
+    return true;
+  }
+
+  bool canUseCreditOrKhata(RetailerShop shop) {
+    final c = shop.classType.toUpperCase();
+    if (c == 'D' || c == 'NEW') {
+      return false;
+    }
+    return shop.creditLimitPaise > 0;
+  }
+
+  Future<void> recordNoOrderVisit({
+    required String retailerId,
+    required String outcome,
+    required String notes,
+  }) async {
+    final session = currentSession;
+    final userId = session?.userId ?? 'usr_current';
+    final now = DateTime.now();
+    final visitId = 'vis_${now.millisecondsSinceEpoch}_$retailerId';
+
+    await repository.recordVisit(
+      id: visitId,
+      retailerId: retailerId,
+      userId: userId,
+      outcome: outcome,
+      notes: notes,
+      startTime: now.subtract(const Duration(minutes: 5)),
+      endTime: now,
+    );
+
+    final shop = _retailers.cast<RetailerShop?>().firstWhere(
+      (r) => r?.id == retailerId,
+      orElse: () => null,
+    );
+    if (shop != null) {
+      shop.visitedToday = true;
+      shop.visitCountToday += 1;
+      notifyListeners();
+    }
+  }
+
+  String buildWhatsAppOrderReceipt(DistributorOrder order) {
+    final buf = StringBuffer();
+    buf.writeln('📦 *RouteFlow Order Summary*');
+    buf.writeln('Shop: ${order.shopName}');
+    buf.writeln('Order Ref: ${order.orderNumber}');
+    buf.writeln('Date: ${order.createdAt.day}/${order.createdAt.month}/${order.createdAt.year}');
+    buf.writeln('--------------------------------');
+    for (var i = 0; i < order.items.length; i++) {
+      final item = order.items[i];
+      buf.writeln('${i + 1}. ${item.product.name} (${item.quantity} ${item.unit.shortCode}) - ₹${item.totalRupees.toStringAsFixed(2)}');
+    }
+    buf.writeln('--------------------------------');
+    buf.writeln('Taxable: ₹${order.taxableRupees.toStringAsFixed(2)}');
+    buf.writeln('GST (Intra-state): ₹${order.gstRupees.toStringAsFixed(2)}');
+    buf.writeln('*Grand Total: ₹${order.totalRupees.toStringAsFixed(2)}*');
+    buf.writeln('Payment Mode: ${order.paymentMode}');
+    buf.writeln('--------------------------------');
+    buf.writeln('Status: Provisional (Recorded on phone)');
+    return buf.toString();
+  }
+
   int get cartTotalPaise {
     return _cart.values.fold(0, (sum, item) => sum + item.totalPaise);
   }
@@ -1377,6 +1581,7 @@ class ApiService extends ChangeNotifier {
     final confirmedOrder = _reconstructOrderFromPayload(candidatePayload);
     _orders.insert(0, confirmedOrder);
     _cart.clear();
+    await repository.deleteCartDraft(shop.id);
     notifyListeners();
     return confirmedOrder;
   }
