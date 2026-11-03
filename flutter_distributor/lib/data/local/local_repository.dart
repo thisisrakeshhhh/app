@@ -693,6 +693,85 @@ class LocalRepository {
         );
   }
 
+  Future<RetailerEntry?> getRetailerById(String id) async {
+    return (db.select(db.retailers)..where((tbl) => tbl.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  Future<void> updateRetailerClassAndLimit(
+    String retailerId, {
+    required String newClass,
+    required int creditLimitPaise,
+    String? status,
+  }) async {
+    final companion = RetailersCompanion(
+      classType: Value(newClass),
+      creditLimitPaise: Value(creditLimitPaise),
+      status: status != null ? Value(status) : const Value.absent(),
+    );
+    await (db.update(db.retailers)..where((tbl) => tbl.id.equals(retailerId)))
+        .write(companion);
+  }
+
+  // Class Settings
+  Future<List<ClassSettingEntry>> getAllClassSettings() async {
+    return db.select(db.classSettings).get();
+  }
+
+  Future<void> saveClassSetting(ClassSettingsCompanion companion) async {
+    await db.into(db.classSettings).insertOnConflictUpdate(companion);
+  }
+
+  Future<void> seedDefaultClassSettingsIfEmpty() async {
+    final existing = await db.select(db.classSettings).get();
+    if (existing.isNotEmpty) return;
+
+    final now = DateTime.now();
+    await db.transaction(() async {
+      final defaults = [
+        ClassSettingsCompanion(
+          className: const Value('A'),
+          defaultCreditLimitPaise: const Value(5000000), // ₹50,000
+          creditDays: const Value(14),
+          visitFrequencyDays: const Value(1),
+          updatedAt: Value(now),
+        ),
+        ClassSettingsCompanion(
+          className: const Value('B'),
+          defaultCreditLimitPaise: const Value(2500000), // ₹25,000
+          creditDays: const Value(7),
+          visitFrequencyDays: const Value(2),
+          updatedAt: Value(now),
+        ),
+        ClassSettingsCompanion(
+          className: const Value('C'),
+          defaultCreditLimitPaise: const Value(1000000), // ₹10,000
+          creditDays: const Value(3),
+          visitFrequencyDays: const Value(3),
+          updatedAt: Value(now),
+        ),
+        ClassSettingsCompanion(
+          className: const Value('D'),
+          defaultCreditLimitPaise: const Value(0),
+          creditDays: const Value(0),
+          visitFrequencyDays: const Value(7),
+          updatedAt: Value(now),
+        ),
+        ClassSettingsCompanion(
+          className: const Value('NEW'),
+          defaultCreditLimitPaise: const Value(0),
+          creditDays: const Value(0),
+          visitFrequencyDays: const Value(1),
+          updatedAt: Value(now),
+        ),
+      ];
+
+      for (var d in defaults) {
+        await db.into(db.classSettings).insertOnConflictUpdate(d);
+      }
+    });
+  }
+
   // Pre-seed data on initial installation
   Future<void> seedIfEmpty(
     List<ProductItem> seedProducts,

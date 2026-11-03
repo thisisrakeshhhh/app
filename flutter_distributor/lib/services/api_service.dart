@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import '../data/local/app_database.dart';
 import '../data/local/local_repository.dart';
@@ -40,6 +41,24 @@ class StalePriceWarning {
     required this.oldPricePaise,
     required this.newPricePaise,
   });
+}
+
+class OwnerMetrics {
+  final int todayBookingsPaise;
+  final int todayOrdersCount;
+  final int pendingOutboxCount;
+  final int lowStockCount;
+  final int activeShopsCount;
+
+  const OwnerMetrics({
+    required this.todayBookingsPaise,
+    required this.todayOrdersCount,
+    required this.pendingOutboxCount,
+    required this.lowStockCount,
+    required this.activeShopsCount,
+  });
+
+  double get todayBookingsRupees => todayBookingsPaise / 100.0;
 }
 
 class ApiService extends ChangeNotifier {
@@ -487,6 +506,85 @@ class ApiService extends ChangeNotifier {
     _retailers.insert(0, newShop);
     notifyListeners();
     return newShop;
+  }
+
+  Future<void> approveNewShop({
+    required String retailerId,
+    required String approvedClass,
+    required int approvedCreditLimitPaise,
+  }) async {
+    await repository.updateRetailerClassAndLimit(
+      retailerId,
+      newClass: approvedClass,
+      creditLimitPaise: approvedCreditLimitPaise,
+      status: 'ACTIVE',
+    );
+
+    final idx = _retailers.indexWhere((r) => r.id == retailerId);
+    if (idx != -1) {
+      _retailers[idx].classType = approvedClass;
+      _retailers[idx].creditLimitPaise = approvedCreditLimitPaise;
+      _retailers[idx].status = 'ACTIVE';
+      notifyListeners();
+    }
+  }
+
+  Future<void> rejectNewShop({
+    required String retailerId,
+    required String rejectionReason,
+  }) async {
+    await repository.updateRetailerClassAndLimit(
+      retailerId,
+      newClass: 'NEW',
+      creditLimitPaise: 0,
+      status: 'REJECTED',
+    );
+
+    final idx = _retailers.indexWhere((r) => r.id == retailerId);
+    if (idx != -1) {
+      _retailers[idx].status = 'REJECTED';
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateClassSetting({
+    required String className,
+    required int defaultCreditLimitPaise,
+    required int creditDays,
+    required int visitFrequencyDays,
+  }) async {
+    await repository.saveClassSetting(
+      ClassSettingsCompanion(
+        className: Value(className),
+        defaultCreditLimitPaise: Value(defaultCreditLimitPaise),
+        creditDays: Value(creditDays),
+        visitFrequencyDays: Value(visitFrequencyDays),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    notifyListeners();
+  }
+
+  Future<OwnerMetrics> getOwnerMetrics() async {
+    final now = DateTime.now();
+    final todayOrders = _orders.where((o) =>
+      o.createdAt.year == now.year &&
+      o.createdAt.month == now.month &&
+      o.createdAt.day == now.day,
+    ).toList();
+
+    final todayPaise = todayOrders.fold(0, (sum, o) => sum + o.totalPaise);
+    final pendingCount = (await db.outboxDao.getPendingQueue()).length;
+    final lowStock = _products.where((p) => availableGodownBoxes(p.id) <= 5).length;
+    final activeShops = _retailers.where((r) => r.visitedToday).length;
+
+    return OwnerMetrics(
+      todayBookingsPaise: todayPaise,
+      todayOrdersCount: todayOrders.length,
+      pendingOutboxCount: pendingCount,
+      lowStockCount: lowStock,
+      activeShopsCount: activeShops,
+    );
   }
 
   Future<void> updateProductUnitsDurable({
