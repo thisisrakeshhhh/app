@@ -1,0 +1,64 @@
+class AppStrings {
+  // English / Hindi bilingual dictionary
+  static bool isHindi = false;
+
+  // General Actions
+  static String get save => isHindi ? 'सुरक्षित करें' : 'Save';
+  static String get cancel => isHindi ? 'रद्द करें' : 'Cancel';
+  static String get close => isHindi ? 'बंद करें' : 'Close';
+  static String get retry => isHindi ? 'पुनः प्रयास करें' : 'Retry';
+  static String get continueLabel => isHindi ? 'आगे बढ़ें' : 'Continue';
+
+  // Pillar A: Add Shop
+  static String get addShopTitle => isHindi ? 'नई दुकान जोड़ें' : 'Add New Shop';
+  static String get quickAddSubtitle => isHindi ? 'तुरंत दुकान जोड़ें (20 सेकंड)' : 'Quick-Add Shop (under 20s)';
+  static String get shopNameLabel => isHindi ? 'दुकान का नाम' : 'Shop Name';
+  static String get shopNameHint => isHindi ? 'उदा. महालक्ष्मी किराना' : 'e.g. Mahalaxmi Kirana';
+  static String get ownerNameLabel => isHindi ? 'मालिक का नाम' : 'Owner Name';
+  static String get ownerNameHint => isHindi ? 'उदा. सुरेश कुमार' : 'e.g. Suresh Kumar';
+  static String get mobileLabel => isHindi ? 'मोबाइल नंबर (10 अंक)' : 'Mobile Number (10 digits)';
+  static String get mobileHint => isHindi ? '98290XXXXX' : '98290XXXXX';
+  static String get routeLabel => isHindi ? 'बीट / रूट' : 'Beat / Route';
+  static String get captureGpsButton => isHindi ? '📍 जीपीएस लोकेशन लें' : '📍 Capture Current Location';
+  static String get locationNotCaptured => isHindi ? 'लोकेशन दर्ज नहीं की गई' : 'Location not captured';
+  static String locationAccuracy(double m) => isHindi ? 'सटीकता: ±${m.toStringAsFixed(0)} मीटर' : 'Location accuracy: ±${m.toStringAsFixed(0)} m';
+  
+  // Optional Shop Details
+  static String get moreDetails => isHindi ? '+ अन्य विवरण (वैकल्पिक)' : '+ Add More Details (Optional)';
+  static String get addressLabel => isHindi ? 'दुकान का पता' : 'Shop Address';
+  static String get landmarkLabel => isHindi ? 'लैंडमार्क / पहचान' : 'Landmark';
+  static String get pincodeLabel => isHindi ? 'पिन कोड' : 'PIN Code';
+  static String get gstinLabel => isHindi ? 'जीएसटी नंबर (GSTIN)' : 'GSTIN';
+  static String get saveShopButton => isHindi ? 'दुकान सुरक्षित करें' : 'Save Shop';
+  
+  // Classification
+  static String get classNew => isHindi ? 'नई दुकान' : 'New';
+  static String get classA => isHindi ? 'श्रेणी A' : 'Class A';
+  static String get classB => isHindi ? 'श्रेणी B' : 'Class B';
+  static String get classC => isHindi ? 'श्रेणी C' : 'Class C';
+  static String get classD => isHindi ? 'श्रेणी D (नकद)' : 'Class D (Cash Only)';
+  static String get cashOnlyWarning => isHindi ? 'यह दुकान केवल नकद/सीओडी पर है।' : 'This shop is cash/COD only.';
+
+  // Duplicate Detection
+  static String get duplicateWarningTitle => isHindi ? 'क्या यह वही दुकान है?' : 'Is this the same shop?';
+  static String get openExistingShop => isHindi ? 'हाँ, यही दुकान खोलें' : 'Yes, open that shop';
+  static String get differentShopConfirm => isHindi ? 'नहीं, यह अलग दुकान है' : 'No, this is a different shop';
+
+  // Sync & Storage Honesty
+  static String get savedOnPhone => isHindi ? 'फोन पर सुरक्षित (लोकल)' : 'Saved on this phone';
+  static String get waitingToSync => isHindi ? 'सिंक की प्रतीक्षा में' : 'Waiting to sync';
+  static String get localOnlyMode => isHindi ? 'लोकल आउटबॉक्स मोड' : 'Local Outbox Mode';
+
+  // Pillar C: Inventory & GRN
+  static String get receiveStock => isHindi ? 'स्टॉक आवक (GRN)' : 'Receive Stock (GRN)';
+  static String get godownCartons => isHindi ? 'गोदाम पेटियां' : 'Godown Cartons';
+  static String get loosePieces => isHindi ? 'खुले पीस' : 'Loose Pieces';
+  static String get damagedStock => isHindi ? 'खराब / क्षतिग्रस्त' : 'Damaged / Quarantine';
+  static String get invoiceNumber => isHindi ? 'चालान / बिल नंबर' : 'Invoice / GRN No.';
+  static String get supplierName => isHindi ? 'सप्लायर / कंपनी' : 'Supplier Name';
+
+  // Validation Errors
+  static String get shopNameRequired => isHindi ? 'कृपया दुकान का नाम लिखें' : 'Shop name is required';
+  static String get ownerNameRequired => isHindi ? 'कृपया मालिक का नाम लिखें' : 'Owner name is required';
+  static String get validMobileRequired => isHindi ? 'कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें' : 'Please enter a valid 10-digit mobile number';
+}

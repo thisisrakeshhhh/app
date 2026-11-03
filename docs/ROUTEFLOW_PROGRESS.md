@@ -12,13 +12,15 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 
 | Test File | Tests | Focus Area | Status |
 |---|:---:|---|:---:|
+| `test/add_shop_outbox_test.dart` | 5 | Quick-add shop, duplicate detection & outbox | **PASS** |
 | `test/auth_repository_test.dart` | 11 | HTTP Auth & Token Refresh | **PASS** |
 | `test/auth_service_test.dart` | 10 | Session isolation & Token lifecycle | **PASS** |
 | `test/auth_ui_test.dart` | 4 | Login View UI rendering & validation | **PASS** |
-| `test/database_migration_test.dart` | 6 | Drift migrations v1 through v4 | **PASS** |
+| `test/database_migration_test.dart` | 7 | Drift migrations v1 through v5 | **PASS** |
 | `test/delivery_safety_test.dart` | 3 | Delivery OTP & Cash custody | **PASS** |
 | `test/hardcore_four_role_crud_test.dart` | 25 | All 5 canonical roles CRUD & sovereign actions | **PASS** |
 | `test/inventory_math_test.dart` | 8 | Integer carton/loose math (InventoryStock) | **PASS** |
+| `test/mixed_unit_cart_test.dart` | 5 | Mixed-unit cart & integer base conversions | **PASS** |
 | `test/order_confirmation_durability_test.dart` | 12 | Atomic outbox, idempotency, virtual stock | **PASS** |
 | `test/order_preview_safety_test.dart` | 7 | Cart calculations & credit limits | **PASS** |
 | `test/outbox_persistence_test.dart` | 8 | Monotonic sequences & queue queries | **PASS** |
@@ -31,7 +33,7 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 | `test/tenant_boundary_containment_test.dart` | 13 | Cross-tenant SQLite quarantine & boundary checks | **PASS** |
 | `test/token_refresh_coordinator_test.dart` | 7 | Concurrency mutex & refresh error handling | **PASS** |
 | `test/widget_test.dart` | 1 | Root App widget smoke test | **PASS** |
-| **Total Baseline** | **159** | **19 test files** | **100% PASS** |
+| **Total Test Suite** | **170** | **21 test files** | **100% PASS** |
 
 ---
 
@@ -39,8 +41,8 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 
 | Slice | Title | Status | Commit Hash | Tests Added | Gate Status |
 |---|---|:---:|:---:|:---:|:---:|
-| **Slice 0** | Mixed-Unit Cart Fix | In Progress | Pending | +5 planned | In Progress |
-| **Slice 1** | Add Shop (Pillar A) | Pending | — | +5 planned | Pending |
+| **Slice 0** | Mixed-Unit Cart Fix | **COMPLETED** | `cb540d2` | +5 (`mixed_unit_cart_test.dart`) | **PASS (164/164)** |
+| **Slice 1** | Add Shop (Pillar A) | **COMPLETED** | Pending Commit | +6 (`add_shop_outbox_test.dart` + migration) | **PASS (170/170)** |
 | **Slice 2** | Packaging Builder & Prices (Pillar C1) | Pending | — | +4 planned | Pending |
 | **Slice 3** | Receive Stock GRN & Ledger (Pillar C2) | Pending | — | +4 planned | Pending |
 | **Slice 4** | Sales UX Upgrade (Pillar B) | Pending | — | +5 planned | Pending |
@@ -58,4 +60,4 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 ---
 
 ## 4. NEXT STEP
-Execute Slice 0: Mixed-unit cart fix with failing test first.
+Execute Slice 1: Add Shop (Pillar A) with schema migration v4 -> v5, quick-add form, GPS geotag with accuracy, duplicate detection, and CREATE_RETAILER outbox mutation.

@@ -4,6 +4,8 @@ import '../domain/outbox/outbox_models.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/airbnb_theme.dart';
+import 'views/add_shop_sheet.dart';
+import 'views/shop_profile_screen.dart';
 
 class SalesView extends StatefulWidget {
   final ApiService api;
@@ -134,9 +136,21 @@ class _SalesViewState extends State<SalesView> {
                     'Select Kirana Store to Visit',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
                   ),
-                  Text(
-                    '${widget.api.retailers.length} Shops',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      final newShop = await AddShopSheet.show(context, api: widget.api);
+                      if (newShop != null) {
+                        _selectShop(newShop);
+                      }
+                    },
+                    icon: const Icon(Icons.add, size: 16, color: AirbnbTheme.coral),
+                    label: const Text('Add Shop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AirbnbTheme.coral),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
                   ),
                 ],
               ),
@@ -246,6 +260,20 @@ class _SalesViewState extends State<SalesView> {
                   ),
                 );
               }),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final newShop = await AddShopSheet.show(context, api: widget.api);
+                    if (newShop != null) {
+                      _selectShop(newShop);
+                    }
+                  },
+                  icon: const Icon(Icons.add_business, size: 18, color: AirbnbTheme.coral),
+                  label: const Text('Shop not found? + Add it', style: TextStyle(fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
+                ),
+              ),
             ],
           ),
         );
@@ -380,6 +408,20 @@ class _SalesViewState extends State<SalesView> {
                   ),
                 );
               }),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final newShop = await AddShopSheet.show(context, api: widget.api);
+                    if (newShop != null) {
+                      _selectShop(newShop);
+                    }
+                  },
+                  icon: const Icon(Icons.add_business, size: 18, color: AirbnbTheme.coral),
+                  label: const Text('Shop not found? + Add it', style: TextStyle(fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
+                ),
+              ),
             ],
           ),
         );
@@ -678,8 +720,25 @@ class _SalesViewState extends State<SalesView> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 14),
-            itemCount: widget.api.retailers.length,
+            itemCount: widget.api.retailers.length + 1,
             itemBuilder: (ctx, idx) {
+              if (idx == widget.api.retailers.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    avatar: const Icon(Icons.add, size: 14, color: AirbnbTheme.coral),
+                    label: const Text('Add Shop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
+                    backgroundColor: AirbnbTheme.coral.withValues(alpha: 0.1),
+                    side: const BorderSide(color: AirbnbTheme.coral),
+                    onPressed: () async {
+                      final newShop = await AddShopSheet.show(context, api: widget.api);
+                      if (newShop != null) {
+                        _selectShop(newShop);
+                      }
+                    },
+                  ),
+                );
+              }
               final r = widget.api.retailers[idx];
               final isCurrent = r.id == shop?.id;
               final isShopCheckedIn = r.isCheckedIn;
@@ -847,20 +906,56 @@ class _SalesViewState extends State<SalesView> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          shop?.name ?? 'Select Kirana Store',
-                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          'Owner: ${shop?.ownerName ?? "Proprietor"} • ${shop?.phone ?? ""}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 10.5),
-                        ),
-                      ],
+                    child: InkWell(
+                      onTap: shop != null
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ShopProfileScreen(
+                                    api: widget.api,
+                                    shop: shop,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  shop?.name ?? 'Select Kirana Store',
+                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (shop != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: (shop.classType == 'D' ? Colors.red : AirbnbTheme.coral).withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: (shop.classType == 'D' ? Colors.red : AirbnbTheme.coral), width: 0.8),
+                                  ),
+                                  child: Text(
+                                    shop.classType,
+                                    style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            'Owner: ${shop?.ownerName ?? "Proprietor"} • ${shop?.phone ?? ""} • Tap for profile ➔',
+                            style: const TextStyle(color: Colors.white70, fontSize: 10.5),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   Container(

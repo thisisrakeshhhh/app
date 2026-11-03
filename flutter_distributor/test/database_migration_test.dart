@@ -97,7 +97,7 @@ void main() {
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
       final repo = LocalRepository(upgradedDb);
 
-      expect(upgradedDb.schemaVersion, equals(4));
+      expect(upgradedDb.schemaVersion, equals(5));
 
       // Requirement 1: Products preserved and new isArchived column defaulted to false
       final products = await repo.getAllProducts();
@@ -150,8 +150,8 @@ void main() {
       await db.close();
     });
 
-    test('Fresh install initializes schema version 4 correctly', () async {
-      expect(db.schemaVersion, equals(4));
+    test('Fresh install initializes schema version 5 correctly', () async {
+      expect(db.schemaVersion, equals(5));
       expect(await repository.getMetadata('schema_initialized'), isNull);
       expect(await db.select(db.products).get(), isEmpty);
       expect(await db.select(db.inventoryMovements).get(), isEmpty);
@@ -374,6 +374,143 @@ void main() {
       final updatedSnap = await repository.getInventorySnapshot(product.id);
       expect(updatedSnap!.godownCartons, equals(8));
       expect(updatedSnap.godownLoosePieces, equals(46));
+    });
+
+    test('Drift Schema Version 4 -> Version 5 real migration adds retailer operational columns and new tables without data loss', () async {
+      final rawDb = sqlite3.openInMemory();
+
+      // Setup exact v4 schema
+      rawDb.execute('''
+        CREATE TABLE products (
+          id TEXT NOT NULL PRIMARY KEY,
+          name TEXT NOT NULL,
+          hindi_name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          mrp_rupees REAL NOT NULL,
+          piece_price_paise INTEGER NOT NULL,
+          strip_qty INTEGER NOT NULL,
+          box_qty INTEGER NOT NULL,
+          gst_rate REAL NOT NULL DEFAULT 18.0,
+          badge TEXT NOT NULL DEFAULT '',
+          image_url TEXT NOT NULL DEFAULT '',
+          is_archived INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE retailers (
+          id TEXT NOT NULL PRIMARY KEY,
+          name TEXT NOT NULL,
+          owner_name TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          address TEXT NOT NULL,
+          area TEXT NOT NULL,
+          credit_limit_paise INTEGER NOT NULL,
+          outstanding_paise INTEGER NOT NULL,
+          visited_today INTEGER NOT NULL DEFAULT 0,
+          total_time_spent_seconds INTEGER NOT NULL DEFAULT 0,
+          visit_count_today INTEGER NOT NULL DEFAULT 0,
+          latitude REAL,
+          longitude REAL,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE warehouse_hubs (
+          id TEXT NOT NULL PRIMARY KEY,
+          name TEXT NOT NULL,
+          code TEXT NOT NULL,
+          address TEXT NOT NULL,
+          latitude REAL,
+          longitude REAL,
+          capacity_boxes INTEGER NOT NULL DEFAULT 0,
+          active_staff_count INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE inventory_snapshots (
+          product_id TEXT NOT NULL PRIMARY KEY REFERENCES products (id),
+          godown_cartons INTEGER NOT NULL DEFAULT 0,
+          godown_loose_pieces INTEGER NOT NULL DEFAULT 0,
+          car_cartons INTEGER NOT NULL DEFAULT 0,
+          car_loose_pieces INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE inventory_movements (
+          id TEXT NOT NULL PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products (id),
+          movement_type TEXT NOT NULL,
+          carton_delta INTEGER NOT NULL,
+          loose_piece_delta INTEGER NOT NULL,
+          reason TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE outbox_mutations (
+          id TEXT NOT NULL PRIMARY KEY,
+          organization_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          idempotency_key TEXT NOT NULL UNIQUE,
+          mutation_type TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          sequence_order INTEGER NOT NULL,
+          sync_status TEXT NOT NULL DEFAULT 'PENDING',
+          provisional_business_id TEXT,
+          lease_token TEXT,
+          lease_generation INTEGER NOT NULL DEFAULT 0,
+          lease_expires_at_ms INTEGER,
+          attempt_count INTEGER NOT NULL DEFAULT 0,
+          last_error_code TEXT,
+          next_retry_at_ms INTEGER,
+          created_at_epoch_ms INTEGER NOT NULL,
+          synced_at_epoch_ms INTEGER
+        );
+
+        CREATE TABLE database_metadata (
+          key TEXT NOT NULL PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        PRAGMA user_version = 4;
+      ''');
+
+      // Insert real v4 records
+      rawDb.execute('''
+        INSERT INTO products (id, name, hindi_name, category, mrp_rupees, piece_price_paise, strip_qty, box_qty, created_at)
+        VALUES ('prod_v4_test', 'Kurkure Chutney', 'कुरकुरे चटनी', 'Snacks', 20.0, 1600, 12, 48, 1700000000);
+
+        INSERT INTO retailers (id, name, owner_name, phone, address, area, credit_limit_paise, outstanding_paise, latitude, longitude, created_at)
+        VALUES ('ret_v4_test', 'Shree Mahadev Store', 'Bhanwar Lal', '9829099887', '9th C Road', 'Sardarpura', 2000000, 500000, 26.2800, 73.0100, 1700000000);
+      ''');
+
+      // Open v4 database with AppDatabase target schemaVersion = 5
+      final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
+      expect(upgradedDb.schemaVersion, equals(5));
+
+      // Verify v4 data preserved
+      final repo = LocalRepository(upgradedDb);
+      final storedRetailers = await repo.getAllRetailers();
+      expect(storedRetailers.length, equals(1));
+      final r = storedRetailers.first;
+      expect(r.id, equals('ret_v4_test'));
+      expect(r.name, equals('Shree Mahadev Store'));
+      expect(r.latitude, equals(26.2800));
+      // Verify new v5 columns defaulted cleanly
+      expect(r.classType, equals('NEW'));
+      expect(r.status, equals('ACTIVE'));
+      expect(r.syncStatus, equals('PENDING'));
+
+      // Verify new v5 tables exist
+      final routesCount = await upgradedDb.customSelect("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='routes';").getSingle();
+      expect(routesCount.read<int>('cnt'), equals(1));
+
+      final routeStopsCount = await upgradedDb.customSelect("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='route_stops';").getSingle();
+      expect(routeStopsCount.read<int>('cnt'), equals(1));
+
+      final classSettingsCount = await upgradedDb.customSelect("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='class_settings';").getSingle();
+      expect(classSettingsCount.read<int>('cnt'), equals(1));
+
+      await upgradedDb.close();
     });
   });
 }

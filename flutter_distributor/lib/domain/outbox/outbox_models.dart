@@ -4,6 +4,7 @@ import 'dart:math';
 /// Mutation types supported by RouteFlow outbox.
 enum MutationType {
   createOrder,
+  createRetailer,
   recordCollection,
   cashHandover,
   stockInward,
@@ -16,6 +17,8 @@ extension MutationTypeExtension on MutationType {
     switch (this) {
       case MutationType.createOrder:
         return 'CREATE_ORDER';
+      case MutationType.createRetailer:
+        return 'CREATE_RETAILER';
       case MutationType.recordCollection:
         return 'RECORD_COLLECTION';
       case MutationType.cashHandover:
@@ -33,6 +36,8 @@ extension MutationTypeExtension on MutationType {
     switch (value.toUpperCase()) {
       case 'CREATE_ORDER':
         return MutationType.createOrder;
+      case 'CREATE_RETAILER':
+        return MutationType.createRetailer;
       case 'RECORD_COLLECTION':
         return MutationType.recordCollection;
       case 'CASH_HANDOVER':
@@ -397,4 +402,105 @@ String generateUuidV4() {
     bytes.sublist(8, 10).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
     bytes.sublist(10, 16).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
   ].join('-');
+}
+
+/// Immutable payload for CREATE_RETAILER outbox mutation.
+class CreateRetailerMutationPayload {
+  final String provisionalRetailerId;
+  final String organizationId;
+  final String userId;
+  final String idempotencyKey;
+  final String name;
+  final String ownerName;
+  final String phone;
+  final String address;
+  final String area;
+  final String? routeId;
+  final String classType;
+  final String classSource;
+  final String shopType;
+  final String? gstin;
+  final String? pincode;
+  final String? landmark;
+  final double? latitude;
+  final double? longitude;
+  final double? locationAccuracyMeters;
+  final int clientCreatedAtEpochMs;
+
+  const CreateRetailerMutationPayload({
+    required this.provisionalRetailerId,
+    required this.organizationId,
+    required this.userId,
+    required this.idempotencyKey,
+    required this.name,
+    required this.ownerName,
+    required this.phone,
+    required this.address,
+    required this.area,
+    this.routeId,
+    this.classType = 'NEW',
+    this.classSource = 'SALESPERSON_SUGGESTED',
+    this.shopType = 'KIRANA',
+    this.gstin,
+    this.pincode,
+    this.landmark,
+    this.latitude,
+    this.longitude,
+    this.locationAccuracyMeters,
+    required this.clientCreatedAtEpochMs,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'provisionalRetailerId': provisionalRetailerId,
+      'organizationId': organizationId,
+      'userId': userId,
+      'idempotencyKey': idempotencyKey,
+      'name': name,
+      'ownerName': ownerName,
+      'phone': phone,
+      'address': address,
+      'area': area,
+      'routeId': routeId,
+      'classType': classType,
+      'classSource': classSource,
+      'shopType': shopType,
+      'gstin': gstin,
+      'pincode': pincode,
+      'landmark': landmark,
+      'latitude': latitude,
+      'longitude': longitude,
+      'locationAccuracyMeters': locationAccuracyMeters,
+      'clientCreatedAtEpochMs': clientCreatedAtEpochMs,
+    };
+  }
+
+  factory CreateRetailerMutationPayload.fromMap(Map<String, dynamic> map) {
+    return CreateRetailerMutationPayload(
+      provisionalRetailerId: map['provisionalRetailerId'] as String,
+      organizationId: map['organizationId'] as String,
+      userId: map['userId'] as String,
+      idempotencyKey: map['idempotencyKey'] as String,
+      name: map['name'] as String,
+      ownerName: map['ownerName'] as String,
+      phone: map['phone'] as String,
+      address: map['address'] as String,
+      area: map['area'] as String,
+      routeId: map['routeId'] as String?,
+      classType: (map['classType'] as String?) ?? 'NEW',
+      classSource: (map['classSource'] as String?) ?? 'SALESPERSON_SUGGESTED',
+      shopType: (map['shopType'] as String?) ?? 'KIRANA',
+      gstin: map['gstin'] as String?,
+      pincode: map['pincode'] as String?,
+      landmark: map['landmark'] as String?,
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      locationAccuracyMeters: (map['locationAccuracyMeters'] as num?)?.toDouble(),
+      clientCreatedAtEpochMs: (map['clientCreatedAtEpochMs'] as num).toInt(),
+    );
+  }
+
+  String toCanonicalJson() => jsonEncode(toMap());
+  factory CreateRetailerMutationPayload.fromCanonicalJson(String jsonStr) =>
+      CreateRetailerMutationPayload.fromMap(jsonDecode(jsonStr) as Map<String, dynamic>);
 }

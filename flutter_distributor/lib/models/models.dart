@@ -183,6 +183,17 @@ class RetailerShop {
   int visitCountToday;
   final double? latitude;
   final double? longitude;
+  String classType;
+  String classSource;
+  String? routeId;
+  String shopType;
+  String? gstin;
+  String? pincode;
+  String? landmark;
+  String status;
+  String? createdByUserId;
+  double? locationAccuracyMeters;
+  String syncStatus;
 
   RetailerShop({
     required this.id,
@@ -201,6 +212,17 @@ class RetailerShop {
     this.visitCountToday = 0,
     this.latitude,
     this.longitude,
+    this.classType = 'NEW',
+    this.classSource = 'MANUAL',
+    this.routeId,
+    this.shopType = 'KIRANA',
+    this.gstin,
+    this.pincode,
+    this.landmark,
+    this.status = 'ACTIVE',
+    this.createdByUserId,
+    this.locationAccuracyMeters,
+    this.syncStatus = 'PENDING',
   });
 
   double get creditLimitRupees => creditLimitPaise / 100.0;

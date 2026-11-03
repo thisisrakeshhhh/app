@@ -43,6 +43,17 @@ class Retailers extends Table {
   IntColumn get visitCountToday => integer().withDefault(const Constant(0))();
   RealColumn get latitude => real().nullable()();
   RealColumn get longitude => real().nullable()();
+  TextColumn get classType => text().withDefault(const Constant('NEW'))();
+  TextColumn get classSource => text().withDefault(const Constant('MANUAL'))();
+  TextColumn get routeId => text().nullable()();
+  TextColumn get shopType => text().withDefault(const Constant('KIRANA'))();
+  TextColumn get gstin => text().nullable()();
+  TextColumn get pincode => text().nullable()();
+  TextColumn get landmark => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('ACTIVE'))();
+  TextColumn get createdByUserId => text().nullable()();
+  RealColumn get locationAccuracyMeters => real().nullable()();
+  TextColumn get syncStatus => text().withDefault(const Constant('PENDING'))();
   DateTimeColumn get createdAt => dateTime()();
 
   @override
@@ -56,6 +67,8 @@ class InventorySnapshots extends Table {
   IntColumn get godownLoosePieces => integer().withDefault(const Constant(0))();
   IntColumn get carCartons => integer().withDefault(const Constant(0))();
   IntColumn get carLoosePieces => integer().withDefault(const Constant(0))();
+  IntColumn get damagedCartons => integer().withDefault(const Constant(0))();
+  IntColumn get damagedLoosePieces => integer().withDefault(const Constant(0))();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
@@ -67,10 +80,15 @@ class InventoryMovements extends Table {
   TextColumn get id => text()();
   TextColumn get productId => text().references(Products, #id)();
   TextColumn get movementType =>
-      text()(); // INWARD, TRANSFER_TO_CAR, OPEN_CARTON, DISPATCH, SALE, ADJUSTMENT
+      text()(); // INWARD, TRANSFER_TO_CAR, OPEN_CARTON, DISPATCH, SALE, ADJUSTMENT, OPENING_BALANCE, WRITE_OFF, INWARD_REVERSAL
   IntColumn get cartonDelta => integer()();
   IntColumn get loosePieceDelta => integer()();
   TextColumn get reason => text().withDefault(const Constant(''))();
+  TextColumn get locationId => text().nullable()();
+  TextColumn get invoiceNumber => text().nullable()();
+  TextColumn get batchNumber => text().nullable()();
+  TextColumn get supplierName => text().nullable()();
+  TextColumn get idempotencyKey => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
   @override
@@ -130,6 +148,107 @@ class WarehouseHubs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('RouteEntry')
+class Routes extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get code => text()();
+  TextColumn get dayOfWeek => text()();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('RouteStopEntry')
+class RouteStops extends Table {
+  TextColumn get id => text()();
+  TextColumn get routeId => text().references(Routes, #id)();
+  TextColumn get retailerId => text().references(Retailers, #id)();
+  IntColumn get stopSequence => integer()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('ClassSettingEntry')
+class ClassSettings extends Table {
+  TextColumn get className => text()();
+  IntColumn get defaultCreditLimitPaise => integer()();
+  IntColumn get creditDays => integer()();
+  IntColumn get visitFrequencyDays => integer()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {className};
+}
+
+@DataClassName('ProductUnitEntry')
+class ProductUnits extends Table {
+  TextColumn get id => text()();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get unitName => text()();
+  IntColumn get multiplierToBase => integer()();
+  BoolColumn get isBaseUnit => boolean().withDefault(const Constant(false))();
+  BoolColumn get allowLooseSale => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('UnitPriceEntry')
+class UnitPrices extends Table {
+  TextColumn get id => text()();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get unitName => text()();
+  IntColumn get wholesalePricePaise => integer()();
+  IntColumn get mrpPaise => integer()();
+  IntColumn get minOrderQty => integer().withDefault(const Constant(1))();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('LocationEntry')
+class Locations extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get locationType => text()(); // GODOWN, VAN, DAMAGED_QUARANTINE
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('CartDraftEntry')
+class CartDrafts extends Table {
+  TextColumn get retailerId => text()();
+  TextColumn get itemsJson => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {retailerId};
+}
+
+@DataClassName('VisitEntry')
+class Visits extends Table {
+  TextColumn get id => text()();
+  TextColumn get retailerId => text().references(Retailers, #id)();
+  TextColumn get userId => text()();
+  DateTimeColumn get startTime => dateTime()();
+  DateTimeColumn get endTime => dateTime().nullable()();
+  TextColumn get outcome => text()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
@@ -147,6 +266,14 @@ LazyDatabase _openConnection() {
     DatabaseMetadata,
     OutboxMutations,
     WarehouseHubs,
+    Routes,
+    RouteStops,
+    ClassSettings,
+    ProductUnits,
+    UnitPrices,
+    Locations,
+    CartDrafts,
+    Visits,
   ],
   daos: [
     OutboxDao,
@@ -156,7 +283,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -166,6 +293,13 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE INDEX IF NOT EXISTS idx_outbox_queue ON outbox_mutations (organization_id, user_id, sync_status, next_retry_at_ms, sequence_order);',
         );
+        await customStatement('CREATE INDEX IF NOT EXISTS idx_retailers_phone ON retailers (phone);');
+        await customStatement('CREATE INDEX IF NOT EXISTS idx_retailers_gstin ON retailers (gstin);');
+        await customStatement('CREATE INDEX IF NOT EXISTS idx_retailers_route_status ON retailers (route_id, status);');
+        await customStatement('CREATE INDEX IF NOT EXISTS idx_products_cat_archived ON products (category, is_archived);');
+        await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_route_stops_route_retailer ON route_stops (route_id, retailer_id);');
+        await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_product_units_prod_unit ON product_units (product_id, unit_name);');
+        await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_unit_prices_prod_unit ON unit_prices (product_id, unit_name);');
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2 && to >= 2) {
@@ -184,6 +318,46 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(retailers, retailers.latitude);
           await m.addColumn(retailers, retailers.longitude);
           await m.createTable(warehouseHubs);
+        }
+        if (from < 5 && to >= 5) {
+          // Version 4 -> Version 5: Add retailer classification, routes, packaging units, prices, locations, visits, drafts
+          await m.addColumn(retailers, retailers.classType);
+          await m.addColumn(retailers, retailers.classSource);
+          await m.addColumn(retailers, retailers.routeId);
+          await m.addColumn(retailers, retailers.shopType);
+          await m.addColumn(retailers, retailers.gstin);
+          await m.addColumn(retailers, retailers.pincode);
+          await m.addColumn(retailers, retailers.landmark);
+          await m.addColumn(retailers, retailers.status);
+          await m.addColumn(retailers, retailers.createdByUserId);
+          await m.addColumn(retailers, retailers.locationAccuracyMeters);
+          await m.addColumn(retailers, retailers.syncStatus);
+
+          await m.addColumn(inventorySnapshots, inventorySnapshots.damagedCartons);
+          await m.addColumn(inventorySnapshots, inventorySnapshots.damagedLoosePieces);
+
+          await m.addColumn(inventoryMovements, inventoryMovements.locationId);
+          await m.addColumn(inventoryMovements, inventoryMovements.invoiceNumber);
+          await m.addColumn(inventoryMovements, inventoryMovements.batchNumber);
+          await m.addColumn(inventoryMovements, inventoryMovements.supplierName);
+          await m.addColumn(inventoryMovements, inventoryMovements.idempotencyKey);
+
+          await m.createTable(routes);
+          await m.createTable(routeStops);
+          await m.createTable(classSettings);
+          await m.createTable(productUnits);
+          await m.createTable(unitPrices);
+          await m.createTable(locations);
+          await m.createTable(cartDrafts);
+          await m.createTable(visits);
+
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_retailers_phone ON retailers (phone);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_retailers_gstin ON retailers (gstin);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_retailers_route_status ON retailers (route_id, status);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_products_cat_archived ON products (category, is_archived);');
+          await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_route_stops_route_retailer ON route_stops (route_id, retailer_id);');
+          await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_product_units_prod_unit ON product_units (product_id, unit_name);');
+          await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_unit_prices_prod_unit ON unit_prices (product_id, unit_name);');
         }
       },
       beforeOpen: (details) async {

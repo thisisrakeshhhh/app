@@ -9,6 +9,22 @@ import '../domain/auth/tenant_boundary_gate.dart';
 import '../domain/outbox/outbox_models.dart';
 import '../models/models.dart';
 
+enum DuplicateType { none, exactMobile, exactGstin, similarNameInArea, similarNameNearby }
+
+class DuplicateCheckResult {
+  final DuplicateType type;
+  final RetailerShop? matchedShop;
+  final String? message;
+
+  const DuplicateCheckResult({
+    required this.type,
+    this.matchedShop,
+    this.message,
+  });
+
+  bool get hasDuplicate => type != DuplicateType.none;
+}
+
 class ApiService extends ChangeNotifier {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -236,6 +252,225 @@ class ApiService extends ChangeNotifier {
   // Retailer shops in Jodhpur Beat
   List<RetailerShop> _retailers = [];
   List<RetailerShop> get retailers => _retailers;
+
+  static double calculateDistanceMeters(double lat1, double lon1, double lat2, double lon2) {
+    const double p = 0.017453292519943295; // Math.PI / 180
+    final double a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742000 * asin(sqrt(a)); // 2 * R * 1000 meters
+  }
+
+  DuplicateCheckResult checkDuplicateRetailer({
+    required String phone,
+    required String name,
+    required String area,
+    String? gstin,
+    double? latitude,
+    double? longitude,
+  }) {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final last10Phone = cleanPhone.length >= 10
+        ? cleanPhone.substring(cleanPhone.length - 10)
+        : cleanPhone;
+
+    final cleanGstin = gstin?.trim().toUpperCase();
+
+    String normalizeName(String raw) {
+      return raw
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '')
+          .replaceAll('kirana', '')
+          .replaceAll('store', '')
+          .replaceAll('general', '')
+          .replaceAll('supermarket', '')
+          .replaceAll('provision', '');
+    }
+
+    final normName = normalizeName(name);
+
+    for (final shop in _retailers) {
+      // 1. Exact mobile check
+      final shopPhone = shop.phone.replaceAll(RegExp(r'\D'), '');
+      final shopLast10 = shopPhone.length >= 10
+          ? shopPhone.substring(shopPhone.length - 10)
+          : shopPhone;
+      if (last10Phone.isNotEmpty && shopLast10 == last10Phone) {
+        return DuplicateCheckResult(
+          type: DuplicateType.exactMobile,
+          matchedShop: shop,
+          message: 'A shop with this mobile number already exists: "${shop.name}" (${shop.ownerName}, ${shop.area}).',
+        );
+      }
+
+      // 2. Exact GSTIN check
+      if (cleanGstin != null && cleanGstin.isNotEmpty && shop.gstin != null) {
+        if (shop.gstin!.trim().toUpperCase() == cleanGstin) {
+          return DuplicateCheckResult(
+            type: DuplicateType.exactGstin,
+            matchedShop: shop,
+            message: 'A shop with this GSTIN already exists: "${shop.name}".',
+          );
+        }
+      }
+
+      // 3. Similar name in same area
+      final shopNorm = normalizeName(shop.name);
+      final sameArea = shop.area.trim().toLowerCase() == area.trim().toLowerCase();
+      if (normName.isNotEmpty && shopNorm.isNotEmpty && normName == shopNorm && sameArea) {
+        return DuplicateCheckResult(
+          type: DuplicateType.similarNameInArea,
+          matchedShop: shop,
+          message: 'A similar shop name exists in the same area: "${shop.name}" in ${shop.area}.',
+        );
+      }
+
+      // 4. Similar name within ~150 meters (if coordinates present)
+      if (latitude != null && longitude != null && shop.latitude != null && shop.longitude != null) {
+        final distMeters = calculateDistanceMeters(latitude, longitude, shop.latitude!, shop.longitude!);
+        if (distMeters <= 150 && normName.isNotEmpty && shopNorm == normName) {
+          return DuplicateCheckResult(
+            type: DuplicateType.similarNameNearby,
+            matchedShop: shop,
+            message: 'A similar shop "${shop.name}" is located within ${distMeters.round()}m.',
+          );
+        }
+      }
+    }
+
+    return const DuplicateCheckResult(type: DuplicateType.none);
+  }
+
+  Future<RetailerShop> createRetailerDurable({
+    required String name,
+    required String ownerName,
+    required String phone,
+    required String address,
+    required String area,
+    String? routeId,
+    String shopType = 'KIRANA',
+    String? gstin,
+    String? pincode,
+    String? landmark,
+    double? latitude,
+    double? longitude,
+    double? locationAccuracyMeters,
+    String? suggestedClass,
+    String? idempotencyKey,
+  }) async {
+    final session = currentSession;
+    if (session == null) {
+      throw const UnauthenticatedException('No active user session found');
+    }
+    if (session.activeOrganizationId.isEmpty) {
+      throw StateError('Cannot create shop: Active organization is required.');
+    }
+    if (session.userId.isEmpty) {
+      throw StateError('Cannot create shop: Active user ID is required.');
+    }
+
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final cleanPhone = digits.length >= 10 ? digits.substring(digits.length - 10) : digits;
+    if (cleanPhone.length != 10) {
+      throw ArgumentError('Valid 10-digit mobile number required: $phone');
+    }
+    if (name.trim().isEmpty) {
+      throw ArgumentError('Shop name cannot be empty');
+    }
+    if (ownerName.trim().isEmpty) {
+      throw ArgumentError('Owner name cannot be empty');
+    }
+
+    final key = idempotencyKey ?? generateUuidV4();
+
+    // Idempotent retry check
+    final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(key);
+    if (existingMutation != null) {
+      final existingPayload = CreateRetailerMutationPayload.fromCanonicalJson(existingMutation.payloadJson);
+      final existingShop = _retailers.cast<RetailerShop?>().firstWhere(
+            (r) => r?.id == existingPayload.provisionalRetailerId,
+            orElse: () => null,
+          );
+      if (existingShop != null) {
+        return existingShop;
+      }
+    }
+
+    final now = DateTime.now();
+    final epochMs = now.millisecondsSinceEpoch;
+    final hexSuffix = Random().nextInt(0xFFFFFF).toRadixString(16).padLeft(6, '0').toLowerCase();
+    final provisionalRetailerId = 'ret_${epochMs}_$hexSuffix';
+
+    // Sales reps can only add shops with class = NEW, credit = 0 (Cash only)
+    final newShop = RetailerShop(
+      id: provisionalRetailerId,
+      name: name.trim(),
+      ownerName: ownerName.trim(),
+      phone: cleanPhone,
+      address: address.trim(),
+      area: area.trim(),
+      routeId: routeId,
+      creditLimitPaise: 0, // strictly 0 credit enforced in data layer
+      outstandingPaise: 0,
+      visitedToday: false,
+      totalTimeSpentSeconds: 0,
+      visitCountToday: 0,
+      latitude: latitude,
+      longitude: longitude,
+      locationAccuracyMeters: locationAccuracyMeters,
+      classType: 'NEW',
+      classSource: 'SALESPERSON_SUGGESTED',
+      shopType: shopType,
+      gstin: gstin?.trim().toUpperCase(),
+      pincode: pincode?.trim(),
+      landmark: landmark?.trim(),
+      status: 'ACTIVE',
+      createdByUserId: session.userId,
+      syncStatus: 'PENDING',
+    );
+
+    final payload = CreateRetailerMutationPayload(
+      provisionalRetailerId: provisionalRetailerId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: key,
+      name: newShop.name,
+      ownerName: newShop.ownerName,
+      phone: newShop.phone,
+      address: newShop.address,
+      area: newShop.area,
+      routeId: newShop.routeId,
+      classType: newShop.classType,
+      classSource: newShop.classSource,
+      shopType: newShop.shopType,
+      gstin: newShop.gstin,
+      pincode: newShop.pincode,
+      landmark: newShop.landmark,
+      latitude: newShop.latitude,
+      longitude: newShop.longitude,
+      locationAccuracyMeters: newShop.locationAccuracyMeters,
+      clientCreatedAtEpochMs: epochMs,
+    );
+
+    final mutationId = 'out_${generateUuidV4()}';
+    await db.outboxDao.insertOrderMutationAtomic(
+      id: mutationId,
+      organizationId: session.activeOrganizationId,
+      userId: session.userId,
+      idempotencyKey: key,
+      mutationType: 'CREATE_RETAILER',
+      payloadJson: payload.toCanonicalJson(),
+      provisionalBusinessId: provisionalRetailerId,
+      createdAtEpochMs: epochMs,
+      businessOperation: () async {
+        await repository.upsertRetailer(newShop);
+      },
+    );
+
+    _retailers.insert(0, newShop);
+    notifyListeners();
+    return newShop;
+  }
 
   // Warehouse and Depot Hubs
   List<WarehouseHub> _warehouseHubs = [];
@@ -1319,7 +1554,41 @@ class ApiService extends ChangeNotifier {
         );
         if (capturedGen != _transientGeneration) return;
         for (final mutation in pendingMutations) {
-          if (mutation.mutationType == 'CREATE_ORDER') {
+          if (mutation.mutationType == 'CREATE_RETAILER') {
+            try {
+              final payload = CreateRetailerMutationPayload.fromCanonicalJson(
+                mutation.payloadJson,
+              );
+              if (!_retailers.any((r) => r.id == payload.provisionalRetailerId)) {
+                final reconstructed = RetailerShop(
+                  id: payload.provisionalRetailerId,
+                  name: payload.name,
+                  ownerName: payload.ownerName,
+                  phone: payload.phone,
+                  address: payload.address,
+                  area: payload.area,
+                  routeId: payload.routeId,
+                  creditLimitPaise: 0,
+                  outstandingPaise: 0,
+                  latitude: payload.latitude,
+                  longitude: payload.longitude,
+                  locationAccuracyMeters: payload.locationAccuracyMeters,
+                  classType: payload.classType,
+                  classSource: payload.classSource,
+                  shopType: payload.shopType,
+                  gstin: payload.gstin,
+                  pincode: payload.pincode,
+                  landmark: payload.landmark,
+                  status: 'ACTIVE',
+                  createdByUserId: payload.userId,
+                  syncStatus: 'PENDING',
+                );
+                _retailers.insert(0, reconstructed);
+              }
+            } catch (e) {
+              debugPrint('Failed to reconstruct outbox retailer ${mutation.id}: $e');
+            }
+          } else if (mutation.mutationType == 'CREATE_ORDER') {
             try {
               final payload = CreateOrderMutationPayload.fromCanonicalJson(
                 mutation.payloadJson,
