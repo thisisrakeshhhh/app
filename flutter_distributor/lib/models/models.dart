@@ -142,6 +142,9 @@ class CartItem {
     this.quantity = 1,
   });
 
+  String get cartKey => makeCartKey(product.id, unit);
+  static String makeCartKey(String productId, OrderUnit unit) => '$productId::${unit.name}';
+
   int get totalPieces => quantity * product.piecesForUnit(unit);
   int get unitPricePaise => product.priceForUnit(unit);
   int get totalPaise => quantity * unitPricePaise;

@@ -492,7 +492,7 @@ class _SalesViewState extends State<SalesView> {
                                   IconButton(
                                     icon: const Icon(Icons.remove_circle_outline, size: 20),
                                     onPressed: () {
-                                      widget.api.updateCartQuantity(item.product.id, -1);
+                                      widget.api.updateCartQuantity(item.product.id, -1, item.unit);
                                       setSheetState(() {});
                                       setState(() {});
                                     },
@@ -501,7 +501,7 @@ class _SalesViewState extends State<SalesView> {
                                   IconButton(
                                     icon: const Icon(Icons.add_circle_outline, size: 20),
                                     onPressed: () {
-                                      widget.api.updateCartQuantity(item.product.id, 1);
+                                      widget.api.updateCartQuantity(item.product.id, 1, item.unit);
                                       setSheetState(() {});
                                       setState(() {});
                                     },

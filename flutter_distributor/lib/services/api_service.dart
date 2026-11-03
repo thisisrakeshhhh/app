@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../data/local/app_database.dart';
@@ -296,9 +297,9 @@ class ApiService extends ChangeNotifier {
   String get totalBeatTimeSpentFormatted =>
       RetailerShop.formatDuration(totalBeatTimeSpentSeconds);
 
-  // Active Cart (Product ID -> CartItem)
-  final Map<String, CartItem> _cart = {};
-  Map<String, CartItem> get cart => _cart;
+  // Active Cart (Compound Key: "productId::unit" -> CartItem)
+  final CompoundCartMap _cart = CompoundCartMap();
+  CompoundCartMap get cart => _cart;
 
   // Orders
   final List<DistributorOrder> _orders = [];
@@ -411,16 +412,11 @@ class ApiService extends ChangeNotifier {
 
   // Cart operations
   void addToCart(ProductItem product, OrderUnit unit, [int qty = 1]) {
-    if (_cart.containsKey(product.id)) {
-      final existing = _cart[product.id]!;
-      if (existing.unit == unit) {
-        existing.quantity += qty;
-      } else {
-        existing.unit = unit;
-        existing.quantity = qty;
-      }
+    final key = CartItem.makeCartKey(product.id, unit);
+    if (_cart._inner.containsKey(key)) {
+      _cart._inner[key]!.quantity += qty;
     } else {
-      _cart[product.id] = CartItem(
+      _cart[key] = CartItem(
         product: product,
         unit: unit,
         quantity: qty,
@@ -430,22 +426,55 @@ class ApiService extends ChangeNotifier {
   }
 
   void setCartUnit(String productId, OrderUnit unit) {
-    if (_cart.containsKey(productId)) {
-      _cart[productId]!.unit = unit;
+    final existingEntry = _cart._inner.entries.cast<MapEntry<String, CartItem>?>().firstWhere(
+      (e) => e?.value.product.id == productId,
+      orElse: () => null,
+    );
+    if (existingEntry != null) {
+      final oldItem = existingEntry.value;
+      _cart._inner.remove(existingEntry.key);
+      oldItem.unit = unit;
+      final newKey = CartItem.makeCartKey(productId, unit);
+      _cart._inner[newKey] = oldItem;
       notifyListeners();
     }
   }
 
-  void updateCartQuantity(String productId, int delta) {
-    if (!_cart.containsKey(productId)) return;
-    final item = _cart[productId]!;
-    final newQty = item.quantity + delta;
-    if (newQty <= 0) {
-      _cart.remove(productId);
+  void updateCartQuantity(String productIdOrKey, int delta, [OrderUnit? unit]) {
+    String? targetKey;
+    if (unit != null) {
+      targetKey = CartItem.makeCartKey(productIdOrKey, unit);
+    } else if (_cart._inner.containsKey(productIdOrKey)) {
+      targetKey = productIdOrKey;
     } else {
-      item.quantity = newQty;
+      for (final entry in _cart._inner.entries) {
+        if (entry.value.product.id == productIdOrKey) {
+          targetKey = entry.key;
+          break;
+        }
+      }
     }
-    notifyListeners();
+
+    if (targetKey != null && _cart._inner.containsKey(targetKey)) {
+      final item = _cart._inner[targetKey]!;
+      final newQty = item.quantity + delta;
+      if (newQty <= 0) {
+        _cart._inner.remove(targetKey);
+      } else {
+        item.quantity = newQty;
+      }
+      notifyListeners();
+    }
+  }
+
+  void removeCartLine(String cartKey) {
+    if (_cart._inner.containsKey(cartKey)) {
+      _cart._inner.remove(cartKey);
+      notifyListeners();
+    } else {
+      _cart.remove(cartKey);
+      notifyListeners();
+    }
   }
 
   void clearCart() {
@@ -1334,5 +1363,65 @@ class ApiService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Local SQLite sync error: $e');
     }
+  }
+}
+
+/// A compound map for cart items that supports both compound keys ("productId::unit")
+/// and backward-compatible single product lookups ("productId").
+class CompoundCartMap extends MapBase<String, CartItem> {
+  final Map<String, CartItem> _inner = {};
+
+  @override
+  CartItem? operator [](Object? key) {
+    if (key is! String) return null;
+    if (_inner.containsKey(key)) return _inner[key];
+    // Fallback: match by product.id for single-product lookups
+    for (final entry in _inner.entries) {
+      if (entry.value.product.id == key) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  @override
+  void operator []=(String key, CartItem value) {
+    _inner[key] = value;
+  }
+
+  @override
+  void clear() => _inner.clear();
+
+  @override
+  CartItem? remove(Object? key) {
+    if (key is! String) return null;
+    if (_inner.containsKey(key)) {
+      return _inner.remove(key);
+    }
+    // Fallback: remove first matching by product.id
+    String? matchKey;
+    for (final entry in _inner.entries) {
+      if (entry.value.product.id == key) {
+        matchKey = entry.key;
+        break;
+      }
+    }
+    if (matchKey != null) {
+      return _inner.remove(matchKey);
+    }
+    return null;
+  }
+
+  @override
+  Iterable<String> get keys => _inner.keys;
+
+  @override
+  bool containsKey(Object? key) {
+    if (key is! String) return false;
+    if (_inner.containsKey(key)) return true;
+    for (final it in _inner.values) {
+      if (it.product.id == key) return true;
+    }
+    return false;
   }
 }
