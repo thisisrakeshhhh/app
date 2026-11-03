@@ -241,6 +241,12 @@ class ApiService extends ChangeNotifier {
 
   // Sovereign Governance Actions (Restricted to CanonicalRole.owner)
   Future<void> updateRetailerCreditLimit(String shopId, int newLimitPaise) async {
+    final session = currentSession;
+    if (_sessionProvider != null) {
+      if (session == null || (session.activeRole != 'OWNER' && session.activeRole != 'ADMIN')) {
+        throw const UnauthorizedRoleException('Cannot modify credit limit: Caller is not OWNER or ADMIN.');
+      }
+    }
     if (newLimitPaise < 0) {
       throw ArgumentError('Credit limit cannot be negative.');
     }
@@ -527,6 +533,12 @@ class ApiService extends ChangeNotifier {
     required String approvedClass,
     required int approvedCreditLimitPaise,
   }) async {
+    final session = currentSession;
+    if (_sessionProvider != null) {
+      if (session == null || (session.activeRole != 'OWNER' && session.activeRole != 'ADMIN')) {
+        throw const UnauthorizedRoleException('Cannot approve shop: Caller is not OWNER or ADMIN.');
+      }
+    }
     await repository.updateRetailerClassAndLimit(
       retailerId,
       newClass: approvedClass,
@@ -547,6 +559,12 @@ class ApiService extends ChangeNotifier {
     required String retailerId,
     required String rejectionReason,
   }) async {
+    final session = currentSession;
+    if (_sessionProvider != null) {
+      if (session == null || (session.activeRole != 'OWNER' && session.activeRole != 'ADMIN')) {
+        throw const UnauthorizedRoleException('Cannot reject shop: Caller is not OWNER or ADMIN.');
+      }
+    }
     await repository.updateRetailerClassAndLimit(
       retailerId,
       newClass: 'NEW',
@@ -567,6 +585,12 @@ class ApiService extends ChangeNotifier {
     required int creditDays,
     required int visitFrequencyDays,
   }) async {
+    final session = currentSession;
+    if (_sessionProvider != null) {
+      if (session == null || (session.activeRole != 'OWNER' && session.activeRole != 'ADMIN')) {
+        throw const UnauthorizedRoleException('Cannot update class settings: Caller is not OWNER or ADMIN.');
+      }
+    }
     await repository.saveClassSetting(
       ClassSettingsCompanion(
         className: Value(className),

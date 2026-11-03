@@ -80,3 +80,8 @@ class TenantBoundaryException extends AuthException {
   const TenantBoundaryException([super.message = 'Access to local business data is blocked to prevent cross-tenant contamination. Unassigned legacy data present on device.'])
       : super(code: 'TENANT_BOUNDARY_BLOCKED');
 }
+
+class UnauthorizedRoleException extends AuthException {
+  const UnauthorizedRoleException([super.message = 'Action requires elevated OWNER or ADMIN permissions'])
+      : super(code: 'UNAUTHORIZED_ROLE');
+}

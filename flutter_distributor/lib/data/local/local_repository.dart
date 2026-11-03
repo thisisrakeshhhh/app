@@ -720,6 +720,10 @@ class LocalRepository {
     return db.select(db.classSettings).get();
   }
 
+  Future<ClassSettingEntry?> getClassSetting(String className) async {
+    return (db.select(db.classSettings)..where((tbl) => tbl.className.equals(className))).getSingleOrNull();
+  }
+
   Future<void> saveClassSetting(ClassSettingsCompanion companion) async {
     await db.into(db.classSettings).insertOnConflictUpdate(companion);
   }
