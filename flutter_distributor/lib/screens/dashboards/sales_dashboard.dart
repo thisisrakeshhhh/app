@@ -251,7 +251,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Performance Analytics',
+                'Performance (On this phone)',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -312,7 +312,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                 child: _buildKpiCard(
                   title: 'Booked Orders',
                   value: '$orderCount',
-                  subtitle: '₹${totalRevenueRupees.toStringAsFixed(0)} revenue',
+                  subtitle: '₹${totalRevenueRupees.toStringAsFixed(0)} booked',
                   icon: Icons.shopping_bag_outlined,
                   color: AirbnbTheme.coral,
                   onTap: () => widget.onNavigateTab(1),
@@ -474,11 +474,15 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            activeShop != null
-                                ? 'SCO ${activeShop.scoNo}, Gaali ${activeShop.gaaliNo} • ${activeShop.address}'
-                                : (retailers.isNotEmpty
-                                    ? 'SCO ${retailers.first.scoNo}, Gaali ${retailers.first.gaaliNo} • ${retailers.first.address}'
-                                    : 'Sardarpura, Jodhpur'),
+                            () {
+                              final s = activeShop ?? (retailers.isNotEmpty ? retailers.first : null);
+                              if (s == null) return 'Sardarpura, Jodhpur';
+                              final prefix = [s.scoNo, s.gaaliNo].whereType<String>().join(', ');
+                              if (prefix.isNotEmpty && s.address.isNotEmpty) {
+                                return '$prefix • ${s.address}';
+                              }
+                              return s.address.isNotEmpty ? s.address : 'Address not added';
+                            }(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),

@@ -368,40 +368,38 @@ class RetailerShop {
   double get availableCreditRupees =>
       (creditLimitPaise - outstandingPaise) / 100.0;
 
-  /// Zomato-style formatted SCO / Shop unit number
-  String get scoNo {
-    if (address.contains('SCO')) {
-      final match = RegExp(r'SCO\s*[:#-]?\s*([A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
-      if (match != null) return 'SCO ${match.group(1)}';
+  /// Formatted SCO / unit number if explicitly present in real address text, else null.
+  String? get scoNo {
+    if (address.contains('SCO') || address.contains('Shop') || address.contains('Plot')) {
+      final match = RegExp(r'(SCO|Shop|Plot)(\s*(No\.?|Number|#|:|-)?\s*[A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
+      if (match != null) return match.group(0)!.trim();
     }
-    final hashNum = (id.hashCode.abs() % 45) + 1;
-    return 'SCO #$hashNum-A';
+    return null;
   }
 
-  /// Zomato-style formatted Gaali / Street number
-  String get gaaliNo {
-    if (address.contains('Gali') || address.contains('Gaali') || address.contains('Road')) {
-      final match = RegExp(r'(Gali|Gaali|Road)\s*[:#-]?\s*([A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
-      if (match != null) return match.group(0)!;
+  /// Formatted Gaali / street name if explicitly present in real address text, else null.
+  String? get gaaliNo {
+    if (address.contains('Gali') || address.contains('Gaali') || address.contains('Road') || address.contains('Street') || address.contains('Lane')) {
+      final match = RegExp(r'(Gali|Gaali|Road|Street|Lane)(\s*(No\.?|Number|#)?\s*[A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
+      if (match != null) return match.group(0)!.trim();
     }
-    final hashGali = (id.hashCode.abs() % 12) + 1;
-    return 'Gali No. $hashGali';
+    return null;
   }
 
-  /// Clean display name for retailer classification
+  /// Canonical letter code: A, B, C, D, or NEW.
+  String get classCode {
+    final c = classType.toUpperCase();
+    if (c == 'CLASS_A' || c == 'A') return 'A';
+    if (c == 'CLASS_B' || c == 'B') return 'B';
+    if (c == 'CLASS_C' || c == 'C') return 'C';
+    if (c == 'CLASS_D' || c == 'D') return 'D';
+    return 'NEW';
+  }
+
+  /// Display name for retailer classification without invented marketing hype.
   String get classDisplayName {
-    switch (classType.toUpperCase()) {
-      case 'CLASS_A':
-        return 'Class A (5★ High Volume)';
-      case 'CLASS_B':
-        return 'Class B (Reliable)';
-      case 'CLASS_C':
-        return 'Class C (Standard)';
-      case 'CLASS_D':
-        return 'Class D (Restricted)';
-      default:
-        return 'Class NEW (New Retailer)';
-    }
+    final code = classCode;
+    return 'Class $code';
   }
 
   bool get isCheckedIn => currentVisitStartTime != null;

@@ -960,7 +960,6 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
             itemBuilder: (ctx, idx) {
               final shop = retailers[idx];
               final isCheckedIn = shop.isCheckedIn;
-              final isInRoute = widget.api.isShopInTodayRoute(shop.id);
 
               return Container(
                 padding: const EdgeInsets.all(14),
@@ -1029,29 +1028,33 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                     ),
                     const SizedBox(height: 6),
 
-                    // Zomato-style address chips (SCO No, Gaali No, Landmark)
+                    // Real address chips (SCO No, Gaali No if present in address text)
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: AirbnbTheme.lightGrey,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AirbnbTheme.border),
+                        if (shop.scoNo != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AirbnbTheme.lightGrey,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AirbnbTheme.border),
+                            ),
+                            child: Text(shop.scoNo!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
                           ),
-                          child: Text(shop.scoNo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: AirbnbTheme.lightGrey,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AirbnbTheme.border),
+                          const SizedBox(width: 6),
+                        ],
+                        if (shop.gaaliNo != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AirbnbTheme.lightGrey,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AirbnbTheme.border),
+                            ),
+                            child: Text(shop.gaaliNo!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
                           ),
-                          child: Text(shop.gaaliNo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
-                        ),
-                        const SizedBox(width: 8),
+                          const SizedBox(width: 6),
+                        ],
                         Expanded(
                           child: Text(
                             shop.ownerName,
@@ -1063,8 +1066,15 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${shop.address}, ${shop.area}',
-                      style: const TextStyle(fontSize: 11.5, color: AirbnbTheme.grey, height: 1.3),
+                      shop.address.trim().isNotEmpty
+                          ? (shop.area.isNotEmpty ? '${shop.address}, ${shop.area}' : shop.address)
+                          : 'Address not added',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AirbnbTheme.grey,
+                        height: 1.3,
+                        fontStyle: shop.address.trim().isNotEmpty ? FontStyle.normal : FontStyle.italic,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -1083,17 +1093,42 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                     const Divider(height: 18),
                     Row(
                       children: [
-                        // In Route toggle
-                        IconButton(
-                          icon: Icon(
-                            isInRoute ? Icons.check_circle : Icons.add_circle_outline,
-                            size: 20,
-                            color: isInRoute ? AirbnbTheme.success : AirbnbTheme.grey,
-                          ),
-                          tooltip: isInRoute ? 'In Beat Route' : 'Add to Beat Route',
-                          onPressed: () {
-                            widget.api.toggleShopInRoute(shop.id);
-                            setState(() {});
+                        // In Route / Extra visit toggle with permission check
+                        Builder(
+                          builder: (ctx) {
+                            final isAssigned = widget.api.isAssignedBeatShop(shop.id);
+                            final isExtra = widget.api.isExtraVisitToday(shop.id);
+                            if (isAssigned) {
+                              return IconButton(
+                                icon: const Icon(Icons.lock_outline, size: 18, color: AirbnbTheme.grey),
+                                tooltip: 'Assigned Beat Shop (Cannot remove)',
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Assigned beat shops cannot be removed by sales reps.')),
+                                  );
+                                },
+                              );
+                            }
+                            return IconButton(
+                              icon: Icon(
+                                isExtra ? Icons.check_circle : Icons.add_circle_outline,
+                                size: 20,
+                                color: isExtra ? AirbnbTheme.coral : AirbnbTheme.grey,
+                              ),
+                              tooltip: isExtra ? 'Extra Visit Added (Tap to remove)' : 'Add as Extra Visit Today',
+                              onPressed: () {
+                                widget.api.toggleShopInRoute(shop.id);
+                                setState(() {});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(isExtra
+                                        ? 'Removed extra visit for ${shop.name}'
+                                        : 'Added ${shop.name} as extra visit today (Session memory).'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            );
                           },
                         ),
                         Expanded(

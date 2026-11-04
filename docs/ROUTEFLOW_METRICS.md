@@ -99,3 +99,20 @@
   - Measured Average Latency: **1.84ms per query** (asserted `< 16.0ms` single 60fps frame threshold).
 - **SQLite Outbox Insertion Latency:**
   - Sub-15ms on Android SQLite Native NativeDatabase.
+
+---
+
+## 4. Sales Representative Role: Today KPI Metric Definitions (Honest Accounting)
+
+> [!IMPORTANT]
+> All sales KPIs on the salesperson's mobile device represent data **"from orders on this phone"** until delta pull synchronization is completely active across all peer devices.
+> Under no circumstances is **Booked Value** to be labeled or treated as **Revenue** (revenue is recognized only upon physical dispatch, confirmed delivery, and reconciliation).
+
+| KPI Name | Exact Mathematical Formula | Data Sources & Invariants | Display Format & Label |
+|---|---|---|---|
+| **Booked Orders** | `count(orders.where(isToday))` | Distinct orders booked by the sales rep on this phone today. | Integer count: e.g. `6` |
+| **Booked Value** | `sum(order.totalPaise for order in todayOrders) / 100.0` | Integer paise summation converted to ₹ for presentation. Never called revenue. | Currency: `₹12,450 booked` |
+| **Beat Coverage** | `visitedShopsCount / assignedBeatShopsCount` | `visitedShopsCount` = count of shops in assigned beat where `visitedToday == true` or `isCheckedIn == true`. `assignedBeatShopsCount` = count of shops in assigned beat. | Ratio: e.g. `5 / 8` |
+| **Average Order Value (AOV)** | `bookedOrdersCount > 0 ? (totalBookedValuePaise / bookedOrdersCount) / 100.0 : 0.0` | Exact integer paise quotient. Prevents division by zero when 0 orders booked. | Currency: `₹2,075` |
+| **Strike Rate (%)** | `totalVisitsToday > 0 ? (productiveVisitsWithOrders / totalVisitsToday) * 100 : 0` | Productive visits where at least one order was booked, divided by total recorded visits today. | Percentage: e.g. `83%` |
+

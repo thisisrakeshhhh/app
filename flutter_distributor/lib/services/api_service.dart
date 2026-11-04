@@ -1352,19 +1352,57 @@ class ApiService extends ChangeNotifier {
     if (pieces > 0) addToCart(product, OrderUnit.piece, pieces);
   }
 
-  // Today's Beat Route Assignment & Customization
-  final Set<String> _excludedRouteShopIds = {};
-  bool isShopInTodayRoute(String shopId) => !_excludedRouteShopIds.contains(shopId);
-  void toggleShopInRoute(String shopId) {
-    if (_excludedRouteShopIds.contains(shopId)) {
-      _excludedRouteShopIds.remove(shopId);
+  // Today's Beat Route Assignment & Extra Visits (Session Memory)
+  // Owner-assigned stops are fixed and protected. Reps can only add extra visits.
+  final Set<String> _extraVisitShopIds = {};
+  Set<String> _assignedBeatShopIds = {};
+
+  /// Checks if a shop is assigned to the current beat by owner/route manager.
+  bool isAssignedBeatShop(String shopId) {
+    if (_assignedBeatShopIds.isEmpty && _retailers.isNotEmpty) {
+      _assignedBeatShopIds = _retailers.map((r) => r.id).toSet();
+    }
+    final shop = _retailers.cast<RetailerShop?>().firstWhere((r) => r?.id == shopId, orElse: () => null);
+    if (shop != null && shop.routeId != null) return true;
+    return _assignedBeatShopIds.contains(shopId);
+  }
+
+  @visibleForTesting
+  void setAssignedBeatShopIds(Iterable<String> ids) {
+    _assignedBeatShopIds = ids.toSet();
+  }
+
+  /// Checks if a shop is in today's active route schedule (assigned or extra visit).
+  bool isShopInTodayRoute(String shopId) {
+    if (_extraVisitShopIds.contains(shopId)) return true;
+    return isAssignedBeatShop(shopId);
+  }
+
+  /// Whether this shop is an extra visit added by rep today (session memory only).
+  bool isExtraVisitToday(String shopId) => _extraVisitShopIds.contains(shopId);
+
+  /// Reps cannot remove owner-assigned beat shops. They can only toggle extra visits for other shops.
+  /// Returns true if toggled, false if rejected due to owner-assignment protection.
+  bool toggleShopInRoute(String shopId) {
+    if (isAssignedBeatShop(shopId)) {
+      // Reps cannot remove owner-assigned beat stops
+      return false;
+    }
+    if (_extraVisitShopIds.contains(shopId)) {
+      _extraVisitShopIds.remove(shopId);
     } else {
-      _excludedRouteShopIds.add(shopId);
+      _extraVisitShopIds.add(shopId);
     }
     notifyListeners();
+    return true;
   }
-  List<RetailerShop> get assignedRouteShops =>
-      _retailers.where((r) => isShopInTodayRoute(r.id)).toList();
+
+  /// All stops for today: Owner-assigned stops first in order, followed by extra visits appended at the end.
+  List<RetailerShop> get assignedRouteShops {
+    final assigned = _retailers.where((r) => isAssignedBeatShop(r.id)).toList();
+    final extras = _retailers.where((r) => _extraVisitShopIds.contains(r.id) && !assigned.contains(r)).toList();
+    return [...assigned, ...extras];
+  }
 
   void setCartUnit(String productId, OrderUnit unit) {
     final existingEntry = _cart._inner.entries.cast<MapEntry<String, CartItem>?>().firstWhere(
