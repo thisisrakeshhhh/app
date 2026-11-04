@@ -485,13 +485,8 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
               final currentUnit = _getUnit(p);
               final currentQty = _getQty(p);
 
-              // Calculate rate per unit
-              final pricePerPiece = p.piecePricePaise / 100.0;
-              final unitRate = switch (currentUnit) {
-                OrderUnit.piece => pricePerPiece,
-                OrderUnit.strip => pricePerPiece * p.stripQty,
-                OrderUnit.box => pricePerPiece * p.boxQty,
-              };
+              // Calculate rate per unit using data-driven wholesale pricing
+              final unitRate = p.priceRupeesForUnit(currentUnit);
               final lineTotal = unitRate * currentQty;
 
               return Container(

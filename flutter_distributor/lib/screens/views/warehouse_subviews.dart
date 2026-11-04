@@ -27,7 +27,16 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
   ];
 
   void _showAdjustStockSheet(ProductItem product) {
-    int addQty = 10;
+    int countedBoxes = product.godownStockBoxes;
+    String selectedReason = 'Physical stock audit (भौतिक स्टॉक ऑडिट)';
+    final reasons = [
+      'Physical stock audit (भौतिक स्टॉक ऑडिट)',
+      'Breakage / Damage (टूट-फूट/नुकसान)',
+      'Supplier Inward Variance (सप्लायर इनवर्ड अंतर)',
+      'Return to Vendor / Disposal (वापसी/निस्तारण)',
+      'Correction of Ledger Mismatch (खाता सुधार)'
+    ];
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -35,6 +44,10 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
+            final difference = countedBoxes - product.godownStockBoxes;
+            final isIncrease = difference > 0;
+            final isHighVariance = difference.abs() > 10;
+
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -53,46 +66,142 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Adjust Stock: ${product.name}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  Text('Physical Stock Audit: ${product.name}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
-                  Text('Current Godown: ${product.godownStockBoxes} Boxes (${product.boxQty} pcs/box)', style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+                  Text('Book Record: ${product.godownStockBoxes} Boxes (${product.boxQty} pcs/box)', style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        onPressed: addQty > 1 ? () => setSheetState(() => addQty--) : null,
-                        icon: const Icon(Icons.remove_circle_outline, size: 28),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('+$addQty Boxes', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AirbnbTheme.jodhpurBlue)),
-                      ),
-                      IconButton(
-                        onPressed: () => setSheetState(() => addQty++),
-                        icon: const Icon(Icons.add_circle_outline, size: 28, color: AirbnbTheme.jodhpurBlue),
-                      ),
-                    ],
+
+                  // Counted Quantity Stepper
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AirbnbTheme.lightGrey,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AirbnbTheme.border),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('Counted Physical Stock (वास्तविक गिना गया स्टॉक):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              onPressed: countedBoxes > 0 ? () => setSheetState(() => countedBoxes--) : null,
+                              icon: const Icon(Icons.remove_circle_outline, size: 28),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('$countedBoxes Boxes', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AirbnbTheme.jodhpurBlue)),
+                            ),
+                            IconButton(
+                              onPressed: () => setSheetState(() => countedBoxes++),
+                              icon: const Icon(Icons.add_circle_outline, size: 28, color: AirbnbTheme.jodhpurBlue),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Discrepancy (अंतर):', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+                            Text(
+                              difference == 0
+                                  ? '0 (Exact Match)'
+                                  : (isIncrease ? '+$difference Boxes (Surplus)' : '$difference Boxes (Shortage)'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: difference == 0
+                                    ? Colors.green
+                                    : (isIncrease ? Colors.orange.shade800 : Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+
+                  const SizedBox(height: 14),
+                  const Text('Mandatory Audit Reason (कारण दर्ज करें):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AirbnbTheme.border),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedReason,
+                        isExpanded: true,
+                        style: const TextStyle(fontSize: 12, color: AirbnbTheme.dark),
+                        items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                        onChanged: (val) {
+                          if (val != null) setSheetState(() => selectedReason = val);
+                        },
+                      ),
+                    ),
+                  ),
+
+                  if (isHighVariance) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFB74D)),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFE65100)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Variance > 10 boxes flags an audit investigation and requires Distributor Owner confirmation.',
+                              style: TextStyle(fontSize: 11, color: Color(0xFFE65100), fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        widget.api.restockProduct(product.id, addQty);
-                        Navigator.pop(ctx);
-                        setState(() {});
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Added $addQty boxes to ${product.name} in Godown!')),
-                        );
-                      },
+                      onPressed: difference == 0
+                          ? () => Navigator.pop(ctx)
+                          : () {
+                              if (difference > 0) {
+                                widget.api.restockProduct(product.id, difference);
+                              } else {
+                                widget.api.restockProduct(product.id, difference);
+                              }
+                              Navigator.pop(ctx);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Recorded physical count of $countedBoxes boxes (${difference >= 0 ? "+$difference" : "$difference"}). Reason: $selectedReason',
+                                  ),
+                                  backgroundColor: isIncrease ? AirbnbTheme.jodhpurBlue : Colors.red.shade700,
+                                ),
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AirbnbTheme.jodhpurBlue,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text('Confirm Stock Update', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: Text(
+                        difference == 0 ? 'Count Matches (No Adjustment)' : 'Confirm Count & Record Audit',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ],

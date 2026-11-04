@@ -177,7 +177,7 @@ class ApiService extends ChangeNotifier {
   }
 
   // Server API endpoint configuration (configurable via --dart-define=ROUTEFLOW_API_URL=...)
-  final String _cloudflareUrl = const String.fromEnvironment(
+  String _cloudflareUrl = const String.fromEnvironment(
     'ROUTEFLOW_API_URL',
     defaultValue: 'https://routeflow-api-staging.workers.dev',
   );
@@ -187,6 +187,14 @@ class ApiService extends ChangeNotifier {
   String get cloudflareUrl => _cloudflareUrl;
   bool get isOnline => _isOnline;
   bool get isLoading => _isLoading;
+
+  /// Debug-only method to configure server base URL for local testing (e.g. adb reverse tcp:8787).
+  void setDebugBaseUrl(String url) {
+    if (kDebugMode) {
+      _cloudflareUrl = url.trim();
+      notifyListeners();
+    }
+  }
 
   /// Callback invoked whenever a new mutation is safely enqueued to SQLite outbox.
   VoidCallback? onOutboxMutationEnqueued;

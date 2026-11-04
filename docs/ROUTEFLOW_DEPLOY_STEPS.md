@@ -88,7 +88,7 @@ cd d:\app\backend
 npx wrangler d1 migrations apply routeflow-d1-staging --remote
 ```
 
-### Local Isolated D1 Test Server
+### Local Isolated D1 Test Server & Emulation Limits Warning
 To run isolated, local-only end-to-end tests against real D1 without touching remote databases:
 ```powershell
 cd d:\app\backend
@@ -96,6 +96,13 @@ npm test
 # Or boot standalone runner for client HTTP testing:
 node test/run-isolated-server.mjs
 ```
+
+> [!WARNING]
+> **CRITICAL: In-Memory D1 Emulator Limits vs. Production Cloudflare D1**
+> The local test harness runs on an in-memory SQLite D1 emulator with all migrations `0001` through `0027` applied. While this verifies schema consistency, SQL trigger execution (`trg_prevent_oversell`), and transactional invariants:
+> 1. **Production Distributed D1 Multi-Writer Concurrency:** Cloudflare D1 in production uses distributed SQLite replication. Concurrency races, serialized lock acquisition, and distributed batch limits behave differently under high network contention compared to single-process in-memory SQLite.
+> 2. **Pre-Production Staging Requirement:** Before production deployment, the entire stress race suite (`stress-concurrency-sync.test.mjs` and `sync_e2e_real_wire_test.dart`) **MUST be re-run against a real Cloudflare D1 staging database** via `wrangler dev --remote` or deployed staging worker. Do not rely on local emulator results alone for production concurrency guarantees.
+> 3. **Migration 0026 Trigger Impact:** Migration `0026_products_oversell_guard_trigger.sql` defines `RAISE(ABORT, ...)` triggers directly on `products`. Any writer that attempts to modify `reserved_quantity > stock_quantity` will cause the entire transaction to abort. Verify that all legacy batch updates, inward GRNs, and adjustments observe this constraint.
 
 ### Step 3: Deploy Cloudflare Worker API
 Deploy edge worker endpoints:

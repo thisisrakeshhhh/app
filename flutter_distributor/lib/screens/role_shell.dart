@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../domain/auth/role_routing.dart';
 import '../models/models.dart';
@@ -44,6 +45,17 @@ class _RoleShellState extends State<RoleShell> {
   void initState() {
     super.initState();
     _syncRole();
+    widget.syncWorker?.addListener(_onSyncStateChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.syncWorker?.removeListener(_onSyncStateChanged);
+    super.dispose();
+  }
+
+  void _onSyncStateChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -252,42 +264,151 @@ class _RoleShellState extends State<RoleShell> {
     );
   }
 
-  void _showCloudflareInfo() {
+  void _showCloudflareInfo() async {
+    final pendingCount = (await widget.api.db.outboxDao.getPendingQueue()).length;
+    final failedCount = (await widget.api.db.outboxDao.getFailedMutations()).length;
+    final worker = widget.syncWorker;
+    final lastSync = worker?.lastSuccessfulSyncTime;
+    final lastSyncText = lastSync != null
+        ? '${lastSync.hour.toString().padLeft(2, '0')}:${lastSync.minute.toString().padLeft(2, '0')}:${lastSync.second.toString().padLeft(2, '0')}'
+        : 'Never (Local Mode)';
+
+    final urlController = TextEditingController(text: widget.api.cloudflareUrl);
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
-            Icon(Icons.cloud_done, color: Color(0xFFF38020)),
-            SizedBox(width: 10),
-            Text('RouteFlow Cloud Sync', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Backend: RouteFlow Central Office Database', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            const SizedBox(height: 6),
-            Text('Server: ${widget.api.cloudflareUrl}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AirbnbTheme.lightGrey, borderRadius: BorderRadius.circular(10)),
-              child: const Text(
-                '⚡ Sub-50ms latency cloud sync\n🔒 Tamper-proof 6-digit delivery OTP\n📦 Atomic stock & car reservations\n📊 Live GST invoice breakdown',
-                style: TextStyle(fontSize: 12, height: 1.5),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(
+                lastSync != null ? Icons.cloud_done : Icons.cloud_off,
+                color: lastSync != null ? const Color(0xFF2E7D32) : const Color(0xFFF57C00),
               ),
+              const SizedBox(width: 10),
+              const Text('RouteFlow Cloud Sync', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Backend: Central Office Cloudflare Worker', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 6),
+              Text('Server URL: ${widget.api.cloudflareUrl}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+              const SizedBox(height: 10),
+
+              // Real Sync Status Box
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AirbnbTheme.lightGrey,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AirbnbTheme.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Status: ${worker?.isSyncing == true ? "Syncing in progress..." : (lastSync != null ? "Online & Synced" : "Offline / Unsynchronized")}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: worker?.isSyncing == true
+                              ? Colors.blue
+                              : (lastSync != null ? Colors.green.shade800 : Colors.orange.shade800),
+                        )),
+                    const SizedBox(height: 4),
+                    Text('Last Successful Sync: $lastSyncText', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                    const SizedBox(height: 4),
+                    Text('Pending Outbox: $pendingCount mutations', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    if (failedCount > 0) ...[
+                      const SizedBox(height: 2),
+                      Text('Needs Attention: $failedCount mutations', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.red)),
+                    ],
+                    if (worker?.lastError != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Last Network Note: ${worker!.lastError}', style: const TextStyle(fontSize: 10, color: Colors.red)),
+                    ],
+                  ],
+                ),
+              ),
+
+              if (kDebugMode) ...[
+                const SizedBox(height: 12),
+                const Text('Debug Config: Server Base URL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: urlController,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. http://127.0.0.1:8787',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        widget.api.setDebugBaseUrl(urlController.text.trim());
+                        setDialogState(() {});
+                        setState(() {});
+                      },
+                      child: const Text('Apply Base URL', style: TextStyle(fontSize: 11)),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        urlController.text = 'http://127.0.0.1:8787';
+                        widget.api.setDebugBaseUrl('http://127.0.0.1:8787');
+                        setDialogState(() {});
+                        setState(() {});
+                      },
+                      child: const Text('Localhost (USB Reverse)', style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            if (worker != null)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.sync, size: 14),
+                label: const Text('Sync Now (सिंक करें)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AirbnbTheme.dark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final res = await worker.processPendingOutbox();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(res.success
+                            ? 'Sync completed! Processed ${res.syncedCount} mutations.'
+                            : 'Sync attempt: ${res.errorMessage ?? "Offline"}'),
+                        backgroundColor: res.success ? AirbnbTheme.dark : Colors.orange.shade800,
+                      ),
+                    );
+                    setState(() {});
+                  }
+                },
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
-          ),
-        ],
       ),
     );
   }
@@ -413,26 +534,60 @@ class _RoleShellState extends State<RoleShell> {
             const SizedBox(width: 2),
           ],
 
-          // Cloudflare Edge status indicator
-          GestureDetector(
-            onTap: _showCloudflareInfo,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFFFB74D), width: 0.6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.cloud, size: 10, color: Color(0xFFF57C00)),
-                  SizedBox(width: 2),
-                  Text('Sync Live', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFE65100))),
-                ],
-              ),
-            ),
+          // Dynamic honest sync status indicator derived from real SyncWorker state
+          Builder(
+            builder: (ctx) {
+              final worker = widget.syncWorker;
+              final isSyncing = worker?.isSyncing ?? false;
+              final lastSync = worker?.lastSuccessfulSyncTime;
+
+              final String label;
+              final Color bgColor;
+              final Color borderColor;
+              final Color textColor;
+              final IconData icon;
+
+              if (isSyncing) {
+                label = 'Syncing...';
+                bgColor = const Color(0xFFE3F2FD);
+                borderColor = const Color(0xFF90CAF9);
+                textColor = const Color(0xFF1976D2);
+                icon = Icons.sync;
+              } else if (lastSync != null) {
+                label = 'Synced';
+                bgColor = const Color(0xFFE8F5E9);
+                borderColor = const Color(0xFFA5D6A7);
+                textColor = const Color(0xFF2E7D32);
+                icon = Icons.cloud_done;
+              } else {
+                label = 'Offline';
+                bgColor = const Color(0xFFF5F5F5);
+                borderColor = const Color(0xFFE0E0E0);
+                textColor = const Color(0xFF757575);
+                icon = Icons.cloud_off;
+              }
+
+              return GestureDetector(
+                onTap: _showCloudflareInfo,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: borderColor, width: 0.6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 10, color: textColor),
+                      const SizedBox(width: 3),
+                      Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: textColor)),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
 
           // Accountant / GST button (available for all roles for inspection)
