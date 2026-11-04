@@ -12,6 +12,7 @@ import 'dashboards/role_blocked_view.dart';
 import 'dashboards/sales_dashboard.dart';
 import 'dashboards/warehouse_dashboard.dart';
 import 'organization_select_view.dart';
+import '../features/sales/widgets/sales_language_picker.dart';
 import 'views/admin_subviews.dart';
 import 'views/delivery_subviews.dart';
 import 'views/sales_subviews.dart';
@@ -602,6 +603,10 @@ class _RoleShellState extends State<RoleShell> {
               );
             },
           ),
+
+          // Language switch button for sales role
+          if (canonicalRole == CanonicalRole.sales)
+            const SalesLanguageSwitchAction(),
 
           // Accountant / GST button (available for owner, admin, warehouse, delivery; hidden for sales)
           if (canonicalRole != CanonicalRole.sales)

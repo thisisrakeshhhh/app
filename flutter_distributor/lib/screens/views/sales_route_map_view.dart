@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
@@ -46,6 +47,7 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final allShops = widget.api.retailers;
     final routeShops = widget.api.assignedRouteShops;
     final activeShop = widget.api.activeVisitShop;
@@ -55,6 +57,9 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
       if (_filter == 'Visited') return s.visitedToday;
       return true;
     }).toList();
+
+    final locatedShops = displayedShops.where((s) => s.latitude != null && s.longitude != null).toList();
+    final unlocatedShops = displayedShops.where((s) => s.latitude == null || s.longitude == null).toList();
 
     if (_selectedStopIndex >= displayedShops.length && displayedShops.isNotEmpty) {
       _selectedStopIndex = 0;
@@ -88,32 +93,41 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AirbnbTheme.coral.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AirbnbTheme.coral.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.alt_route_rounded, color: AirbnbTheme.coral, size: 18),
                           ),
-                          child: const Icon(Icons.alt_route_rounded, color: AirbnbTheme.coral, size: 18),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Sardarpura & Clock Tower Beat',
-                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AirbnbTheme.dark),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Sardarpura & Clock Tower Beat',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AirbnbTheme.dark),
+                                ),
+                                Text(
+                                  '${routeShops.length} Shops Assigned • ${routeShops.where((s) => s.visitedToday).length} Visited',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '${routeShops.length} Shops Assigned • ${routeShops.where((s) => s.visitedToday).length} Visited',
-                              style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -121,12 +135,12 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AirbnbTheme.border),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.alt_route, size: 12, color: AirbnbTheme.grey),
-                          SizedBox(width: 4),
-                          Text('Route sketch (not to scale)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+                          const Icon(Icons.alt_route, size: 12, color: AirbnbTheme.grey),
+                          const SizedBox(width: 4),
+                          Text(strings.t('route_sketch'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
                         ],
                       ),
                     ),
@@ -157,7 +171,7 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
             ),
           ),
 
-          // 2. INTERACTIVE ROUTE MAP CANVAS
+          // 2. INTERACTIVE ROUTE MAP CANVAS (Only plots shops with valid coordinates)
           Expanded(
             flex: 5,
             child: Stack(
@@ -166,37 +180,64 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                   child: CustomPaint(
                     size: Size.infinite,
                     painter: _ZomatoRouteMapPainter(
-                      shops: displayedShops,
-                      selectedIndex: _selectedStopIndex,
+                      shops: locatedShops,
+                      selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
                       activeShopId: activeShop?.id,
                     ),
                   ),
                 ),
 
-                // Floating Pin Badges for Direct Tap Selection
+                // Floating Pin Badges for Direct Tap Selection (Only for shops with valid coordinates)
                 LayoutBuilder(
                   builder: (ctx, constraints) {
                     final w = constraints.maxWidth;
                     final h = constraints.maxHeight;
-                    if (displayedShops.isEmpty) {
-                      return const Center(child: Text('No shops found for this filter.'));
+                    if (locatedShops.isEmpty) {
+                      return Center(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AirbnbTheme.border),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.location_off_outlined, color: Colors.orange, size: 36),
+                              const SizedBox(height: 8),
+                              Text(
+                                strings.t('location_not_added'),
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AirbnbTheme.dark),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${displayedShops.length} shop(s) on this route without coordinates. Listed below.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     }
 
                     return Stack(
-                      children: displayedShops.asMap().entries.map((entry) {
+                      children: locatedShops.asMap().entries.map((entry) {
                         final idx = entry.key;
                         final shop = entry.value;
-                        final isSelected = idx == _selectedStopIndex;
+                        final isSelected = shop.id == selectedShop?.id;
                         final isCheckedIn = shop.isCheckedIn;
                         final isVisited = shop.visitedToday;
 
-                        // Real GPS scaled position or deterministic route sketch position
+                        // Real GPS scaled position on canvas
                         final pos = computeShopCanvasPosition(
                           shop: shop,
                           index: idx,
-                          totalCount: displayedShops.length,
+                          totalCount: locatedShops.length,
                           canvasSize: Size(w, h),
-                          allShops: displayedShops,
+                          allShops: locatedShops,
                         );
                         final posX = pos.dx;
                         final posY = pos.dy;
@@ -206,7 +247,12 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                           left: posX - 24,
                           top: posY - 28,
                           child: GestureDetector(
-                            onTap: () => setState(() => _selectedStopIndex = idx),
+                            onTap: () {
+                              final originalIndex = displayedShops.indexOf(shop);
+                              if (originalIndex != -1) {
+                                setState(() => _selectedStopIndex = originalIndex);
+                              }
+                            },
                             child: AnimatedScale(
                               scale: isSelected ? 1.18 : 1.0,
                               duration: const Duration(milliseconds: 180),
@@ -307,6 +353,52 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
               ],
             ),
           ),
+
+          // Question 6: Dedicated "Location not added" list under map for shops lacking coordinates
+          if (unlocatedShops.isNotEmpty)
+            Container(
+              key: const Key('location_not_added_section'),
+              margin: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_off_outlined, size: 14, color: Colors.deepOrange),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${strings.t('location_not_added')}: ${unlocatedShops.map((s) => s.name).join(', ')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.deepOrange),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.add_location_alt_outlined, size: 13, color: AirbnbTheme.coral),
+                    label: Text(
+                      strings.t('add_location'),
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: AirbnbTheme.coral),
+                    ),
+                    onPressed: () {
+                      final target = unlocatedShops.first;
+                      final targetIdx = displayedShops.indexOf(target);
+                      if (targetIdx != -1) {
+                        setState(() => _selectedStopIndex = targetIdx);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
 
           // 3. ZOMATO-STYLE RETAILER DELIVERY CARD (Selected Stop Details)
           if (selectedShop != null)
@@ -440,10 +532,10 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (shop.scoNo != null || shop.gaaliNo != null) ...[
+                      if (shop.unitNo != null || shop.gaaliNo != null) ...[
                         Row(
                           children: [
-                            if (shop.scoNo != null)
+                            if (shop.unitNo != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                 decoration: BoxDecoration(
@@ -451,11 +543,11 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  shop.scoNo!,
+                                  shop.unitNo!,
                                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
                                 ),
                               ),
-                            if (shop.scoNo != null && shop.gaaliNo != null)
+                            if (shop.unitNo != null && shop.gaaliNo != null)
                               const SizedBox(width: 6),
                             if (shop.gaaliNo != null)
                               Container(
@@ -593,8 +685,8 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(isExtra
-                              ? 'Removed ${shop.name} from extra visits.'
-                              : 'Added ${shop.name} as extra visit today (Session memory).'),
+                              ? AppStrings.tr('extra_visit_removed', {'name': shop.name})
+                              : AppStrings.tr('extra_visit_added', {'name': shop.name})),
                           duration: const Duration(seconds: 2),
                         ),
                       );

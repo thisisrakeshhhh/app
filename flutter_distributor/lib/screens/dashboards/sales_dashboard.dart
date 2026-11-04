@@ -477,7 +477,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                             () {
                               final s = activeShop ?? (retailers.isNotEmpty ? retailers.first : null);
                               if (s == null) return 'Sardarpura, Jodhpur';
-                              final prefix = [s.scoNo, s.gaaliNo].whereType<String>().join(', ');
+                              final prefix = [s.unitNo, s.gaaliNo].whereType<String>().join(', ');
                               if (prefix.isNotEmpty && s.address.isNotEmpty) {
                                 return '$prefix • ${s.address}';
                               }

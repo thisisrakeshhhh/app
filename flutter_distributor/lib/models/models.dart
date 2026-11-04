@@ -368,14 +368,17 @@ class RetailerShop {
   double get availableCreditRupees =>
       (creditLimitPaise - outstandingPaise) / 100.0;
 
-  /// Formatted SCO / unit number if explicitly present in real address text, else null.
-  String? get scoNo {
+  /// Formatted unit number (e.g. "Shop 12", "Plot 5", "SCO 42") if explicitly present in real address text, else null.
+  String? get unitNo {
     if (address.contains('SCO') || address.contains('Shop') || address.contains('Plot')) {
       final match = RegExp(r'(SCO|Shop|Plot)(\s*(No\.?|Number|#|:|-)?\s*[A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
       if (match != null) return match.group(0)!.trim();
     }
     return null;
   }
+
+  /// Backward-compatible alias for unitNo.
+  String? get scoNo => unitNo;
 
   /// Formatted Gaali / street name if explicitly present in real address text, else null.
   String? get gaaliNo {

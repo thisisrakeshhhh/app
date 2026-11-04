@@ -1381,6 +1381,22 @@ class ApiService extends ChangeNotifier {
   /// Whether this shop is an extra visit added by rep today (session memory only).
   bool isExtraVisitToday(String shopId) => _extraVisitShopIds.contains(shopId);
 
+  /// Add shop as extra visit for today.
+  void addExtraVisitShop(String shopId) {
+    if (!isAssignedBeatShop(shopId)) {
+      _extraVisitShopIds.add(shopId);
+      notifyListeners();
+    }
+  }
+
+  /// Remove shop from today's extra visits.
+  void removeExtraVisitShop(String shopId) {
+    if (!isAssignedBeatShop(shopId)) {
+      _extraVisitShopIds.remove(shopId);
+      notifyListeners();
+    }
+  }
+
   /// Reps cannot remove owner-assigned beat shops. They can only toggle extra visits for other shops.
   /// Returns true if toggled, false if rejected due to owner-assignment protection.
   bool toggleShopInRoute(String shopId) {

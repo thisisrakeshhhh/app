@@ -57,13 +57,18 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 | **Slice 7** | Polish, Hindi Strings & Benchmarks | **COMPLETED** | `d2c830f` | +2 (`localization_and_performance_test.dart`) | **PASS (191/191)** |
 | **Slice 8** | Backend Discovery & Sync Integration | **COMPLETED** | `58b356f` | D1 Migration 0024 & Sync API Contract | **PASS (64/64 Backend + 191/191 Flutter)** |
 
+| **Step 0** | Sales Role Corrections after babdad1 | **COMPLETED** | `61023e2` | +6 (`sales_step0_corrections_test.dart`) | **PASS (255/255)** |
+| **Slice S1** | Language Foundation (en, hinglish, hi, gu) | **COMPLETED** | `8149995` | +10 (`sales_language_foundation_test.dart`) | **PASS (265/265)** |
+
 ---
 
 ## 3. UNVERIFIED Claims & Known Limitations (Honest Status)
+- **Assigned Beat Stops Live Origin:** `_assignedBeatShopIds` in local demo execution is seeded from `_retailers` in-memory demo dataset (if `route_id != null`). In production schema, beat stops are strictly determined by `retailers.route_id` / `route_assignments`. A rep is never told a stop is assigned unless backed by route assignment.
+- **Hindi & Gujarati Translations:** Tracked in `docs/ROUTEFLOW_TRANSLATION_REVIEW.md` with status `reviewed: false` pending formal native-speaker verification before production release.
 - **Server Sync Wire Sender:** The mobile client stores all mutations durably in SQLite with sequential allocation and idempotency keys. The backend D1 contract and migration `0024` are drafted and verified against existing D1 test suites. An active background sync HTTP worker daemon will be wired during production network deployment.
 - **Search Latency:** Verified via synthetic benchmark in `localization_and_performance_test.dart` — 2,000 FMCG products filter across 4 fields in under 2.5ms average (<16ms frame budget).
 
 ---
 
-## 4. STATUS: MASTER EXECUTION RUN COMPLETE
-All 9 slices (0 through 8) implemented, verified against strict gates, and committed with zero regressions.
+## 4. STATUS: SLICE S1 COMPLETE
+All 265 Flutter tests passed. 0 issues found in `flutter analyze`. Slices S2 and S4 require user approval before commencing.

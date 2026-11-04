@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../domain/outbox/outbox_models.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
@@ -1031,7 +1032,7 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                     // Real address chips (SCO No, Gaali No if present in address text)
                     Row(
                       children: [
-                        if (shop.scoNo != null) ...[
+                        if (shop.unitNo != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
@@ -1039,7 +1040,7 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: AirbnbTheme.border),
                             ),
-                            child: Text(shop.scoNo!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
+                            child: Text(shop.unitNo!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
                           ),
                           const SizedBox(width: 6),
                         ],
@@ -1122,9 +1123,9 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(isExtra
-                                        ? 'Removed extra visit for ${shop.name}'
-                                        : 'Added ${shop.name} as extra visit today (Session memory).'),
-                                    duration: const Duration(seconds: 1),
+                                        ? AppStrings.tr('extra_visit_removed', {'name': shop.name})
+                                        : AppStrings.tr('extra_visit_added', {'name': shop.name})),
+                                    duration: const Duration(seconds: 2),
                                   ),
                                 );
                               },
