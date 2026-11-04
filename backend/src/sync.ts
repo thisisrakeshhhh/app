@@ -158,30 +158,54 @@ export function syncRouter(authMiddleware: any) {
         currentSeq++;
 
         // Atomic insertion of retailer + audit log
-        await c.env.DB.batch([
-          c.env.DB.prepare(
-            `INSERT INTO retailers (id, company_id, name, beat_id, address, contact_number, latitude, longitude, credit_limit_paise, outstanding_amount_paise, is_active, payment_terms_days, classification, gstin, owner_name)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, ?)`
-          ).bind(serverId, tenantId, shopName, beatId, address, contactNumber, lat, lng, reqCreditLimit, reqClass, gstin, ownerName),
+        try {
+          await c.env.DB.batch([
+            c.env.DB.prepare(
+              `INSERT INTO retailers (id, company_id, name, beat_id, address, contact_number, latitude, longitude, credit_limit_paise, outstanding_amount_paise, is_active, payment_terms_days, classification, gstin, owner_name)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, ?, ?, ?)`
+            ).bind(serverId, tenantId, shopName, beatId, address, contactNumber, lat, lng, reqCreditLimit, reqClass, gstin, ownerName),
 
-          c.env.DB.prepare(
-            `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(
-            `audit_${nowMs}_${currentSeq}`,
-            tenantId,
-            user.sub,
-            idempotencyKey,
-            mutationType,
-            payloadHash,
-            payloadString,
-            provisionalBusinessId || null,
-            serverId,
-            sequenceOrder || 0,
-            currentSeq,
-            nowMs
-          )
-        ]);
+            c.env.DB.prepare(
+              `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
+              tenantId,
+              user.sub,
+              idempotencyKey,
+              mutationType,
+              payloadHash,
+              payloadString,
+              provisionalBusinessId || null,
+              serverId,
+              sequenceOrder || 0,
+              currentSeq,
+              nowMs
+            )
+          ]);
+        } catch (e: any) {
+          const msg = `${e?.message || ''} ${e?.cause?.message || ''} ${e?.cause || ''} ${String(e)}`;
+          if (msg.includes('UNIQUE constraint failed') && (msg.includes('idempotency_key') || msg.includes('server_outbox_audit'))) {
+            const concurrentAudit = await c.env.DB.prepare(
+              'SELECT * FROM server_outbox_audit WHERE organization_id = ? AND idempotency_key = ?'
+            ).bind(tenantId, idempotencyKey).first<any>();
+            if (concurrentAudit) {
+              results.push({
+                mutationId,
+                status: 'COMMITTED',
+                provisionalBusinessId: concurrentAudit.provisional_business_id,
+                serverBusinessId: concurrentAudit.server_business_id,
+                serverSequence: concurrentAudit.server_sequence_order,
+                cached: true
+              });
+              if (concurrentAudit.provisional_business_id && concurrentAudit.server_business_id) {
+                provisionalToRealRetailerId.set(concurrentAudit.provisional_business_id, concurrentAudit.server_business_id);
+              }
+              continue;
+            }
+          }
+          throw e;
+        }
 
         if (provisionalBusinessId) {
           provisionalToRealRetailerId.set(provisionalBusinessId, serverId);
@@ -247,6 +271,15 @@ export function syncRouter(authMiddleware: any) {
             }, 400);
           }
 
+          const qty = item.orderedQuantity !== undefined ? Number(item.orderedQuantity) : (item.quantity !== undefined ? Number(item.quantity) : 1);
+          if (!Number.isInteger(qty) || qty <= 0) {
+            return c.json({
+              success: false,
+              error: 'INVALID_ORDER_QUANTITY',
+              message: `Order item quantity must be a positive integer, got '${item.orderedQuantity ?? item.quantity}'`
+            }, 400);
+          }
+
           const unitName = (item.orderedUnit || item.unit || 'piece').toLowerCase().trim();
           const unitDef = await c.env.DB.prepare(
             'SELECT multiplier_to_base, price_paise, can_sell FROM product_units WHERE organization_id = ? AND product_id = ? AND unit_name = ?'
@@ -291,7 +324,7 @@ export function syncRouter(authMiddleware: any) {
           }
 
           const availablePieces = prod.stock_quantity - prod.reserved_quantity;
-          const totalPiecesRequired = Number(item.orderedQuantity) * effectiveMultiplier;
+          const totalPiecesRequired = qty * effectiveMultiplier;
 
           // Overselling Protection Invariant
           if (totalPiecesRequired > availablePieces) {
@@ -303,7 +336,7 @@ export function syncRouter(authMiddleware: any) {
           }
 
           // Data-driven price from master or verified line unit price
-          const lineTotalPaise = Number(item.orderedQuantity) * unitPricePaise;
+          const lineTotalPaise = qty * unitPricePaise;
           const gstRate = Number(item.gstRate ?? 5.0);
           const taxablePaise = Math.round((lineTotalPaise * 10000) / (10000 + Math.round(gstRate * 100)));
           const gstAmountPaise = lineTotalPaise - taxablePaise;
@@ -314,7 +347,7 @@ export function syncRouter(authMiddleware: any) {
 
           verifiedLines.push({
             productId: prod.id,
-            orderedQuantity: Number(item.orderedQuantity),
+            orderedQuantity: qty,
             unitPricePaise,
             lineTotalPaise,
             totalPiecesRequired
@@ -352,7 +385,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -370,13 +403,29 @@ export function syncRouter(authMiddleware: any) {
         try {
           await c.env.DB.batch(batchStatements);
         } catch (e: any) {
-          const msg = e?.message || String(e);
-          if (msg.includes('INSUFFICIENT_STOCK')) {
+          const msg = `${e?.message || ''} ${e?.cause?.message || ''} ${e?.cause || ''} ${String(e)}`;
+          if (msg.includes('INSUFFICIENT_STOCK') || msg.includes('cannot exceed stock_quantity') || msg.includes('trg_products_prevent_overselling')) {
             return c.json({
               success: false,
               error: 'INSUFFICIENT_STOCK',
               message: 'Overselling protection: insufficient available stock to satisfy order reservation across all lines'
             }, 400);
+          }
+          if (msg.includes('UNIQUE constraint failed') && (msg.includes('idempotency_key') || msg.includes('server_outbox_audit') || msg.includes('orders'))) {
+            const concurrentAudit = await c.env.DB.prepare(
+              'SELECT * FROM server_outbox_audit WHERE organization_id = ? AND idempotency_key = ?'
+            ).bind(tenantId, idempotencyKey).first<any>();
+            if (concurrentAudit) {
+              results.push({
+                mutationId,
+                status: 'COMMITTED',
+                provisionalBusinessId: concurrentAudit.provisional_business_id,
+                serverBusinessId: concurrentAudit.server_business_id,
+                serverSequence: concurrentAudit.server_sequence_order,
+                cached: true
+              });
+              continue;
+            }
           }
           throw e;
         }
@@ -451,7 +500,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -509,7 +558,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -554,11 +603,14 @@ export function syncRouter(authMiddleware: any) {
         const nowMs = Date.now();
         currentSeq++;
 
+        const initialStockPieces = Number(payload?.initialStockPieces || 0);
+        const sku = payload?.sku || null;
+
         const productStmts: D1PreparedStatement[] = [
           c.env.DB.prepare(
-            `INSERT INTO products (id, company_id, name, hindi_name, category, price_paise, mrp_paise, gst_rate, stock_quantity, reserved_quantity, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
-          ).bind(prodId, tenantId, name, hindiName, category, pricePaise, mrpPaise, gstRate, Math.floor(nowMs / 1000), Math.floor(nowMs / 1000)),
+            `INSERT INTO products (id, company_id, name, hindi_name, category, price_paise, mrp_paise, unit, stock_quantity, reserved_quantity, sku, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'piece', ?, 0, ?, 1)`
+          ).bind(prodId, tenantId, name, hindiName, category, pricePaise, mrpPaise, initialStockPieces, sku),
 
           ...units.map((u: any) =>
             c.env.DB.prepare(
@@ -584,7 +636,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -648,7 +700,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -724,7 +776,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -805,7 +857,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
@@ -851,7 +903,7 @@ export function syncRouter(authMiddleware: any) {
             `INSERT INTO server_outbox_audit (id, organization_id, user_id, idempotency_key, mutation_type, payload_hash, payload_json, provisional_business_id, server_business_id, client_sequence_order, server_sequence_order, processed_at_epoch_ms)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            `audit_${nowMs}_${currentSeq}`,
+            `audit_${nowMs}_${Math.random().toString(36).substring(2, 9)}_${currentSeq}`,
             tenantId,
             user.sub,
             idempotencyKey,
