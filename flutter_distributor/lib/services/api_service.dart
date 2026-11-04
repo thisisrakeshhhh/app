@@ -1340,6 +1340,32 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds a mixed combination of Boxes, Strips, and Loose Pieces in a single user action.
+  void addMixedUnitsToCart(
+    ProductItem product, {
+    int boxes = 0,
+    int strips = 0,
+    int pieces = 0,
+  }) {
+    if (boxes > 0) addToCart(product, OrderUnit.box, boxes);
+    if (strips > 0) addToCart(product, OrderUnit.strip, strips);
+    if (pieces > 0) addToCart(product, OrderUnit.piece, pieces);
+  }
+
+  // Today's Beat Route Assignment & Customization
+  final Set<String> _excludedRouteShopIds = {};
+  bool isShopInTodayRoute(String shopId) => !_excludedRouteShopIds.contains(shopId);
+  void toggleShopInRoute(String shopId) {
+    if (_excludedRouteShopIds.contains(shopId)) {
+      _excludedRouteShopIds.remove(shopId);
+    } else {
+      _excludedRouteShopIds.add(shopId);
+    }
+    notifyListeners();
+  }
+  List<RetailerShop> get assignedRouteShops =>
+      _retailers.where((r) => isShopInTodayRoute(r.id)).toList();
+
   void setCartUnit(String productId, OrderUnit unit) {
     final existingEntry = _cart._inner.entries.cast<MapEntry<String, CartItem>?>().firstWhere(
       (e) => e?.value.product.id == productId,

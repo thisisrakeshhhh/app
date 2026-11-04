@@ -368,6 +368,42 @@ class RetailerShop {
   double get availableCreditRupees =>
       (creditLimitPaise - outstandingPaise) / 100.0;
 
+  /// Zomato-style formatted SCO / Shop unit number
+  String get scoNo {
+    if (address.contains('SCO')) {
+      final match = RegExp(r'SCO\s*[:#-]?\s*([A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
+      if (match != null) return 'SCO ${match.group(1)}';
+    }
+    final hashNum = (id.hashCode.abs() % 45) + 1;
+    return 'SCO #$hashNum-A';
+  }
+
+  /// Zomato-style formatted Gaali / Street number
+  String get gaaliNo {
+    if (address.contains('Gali') || address.contains('Gaali') || address.contains('Road')) {
+      final match = RegExp(r'(Gali|Gaali|Road)\s*[:#-]?\s*([A-Za-z0-9-]+)', caseSensitive: false).firstMatch(address);
+      if (match != null) return match.group(0)!;
+    }
+    final hashGali = (id.hashCode.abs() % 12) + 1;
+    return 'Gali No. $hashGali';
+  }
+
+  /// Clean display name for retailer classification
+  String get classDisplayName {
+    switch (classType.toUpperCase()) {
+      case 'CLASS_A':
+        return 'Class A (5★ High Volume)';
+      case 'CLASS_B':
+        return 'Class B (Reliable)';
+      case 'CLASS_C':
+        return 'Class C (Standard)';
+      case 'CLASS_D':
+        return 'Class D (Restricted)';
+      default:
+        return 'Class NEW (New Retailer)';
+    }
+  }
+
   bool get isCheckedIn => currentVisitStartTime != null;
 
   int get currentVisitSeconds {

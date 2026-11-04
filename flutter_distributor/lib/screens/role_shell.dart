@@ -83,187 +83,6 @@ class _RoleShellState extends State<RoleShell> {
     }
   }
 
-  void _showAccountantSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AirbnbTheme.border,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6C5CE7).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.account_balance, color: Color(0xFF6C5CE7), size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Accountant & GST Summary',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                        ),
-                        Text(
-                          'Estimated FMCG Ledger & Tax Invoices (Illustrative Only)',
-                          style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3CD),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text('ESTIMATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF856404))),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // GST Breakdown Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AirbnbTheme.cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AirbnbTheme.border),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Delivered Sales Turnover', style: TextStyle(fontSize: 13, color: AirbnbTheme.grey)),
-                        Text('₹${widget.api.totalDeliveredSalesRupees.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
-                      ],
-                    ),
-                    const Divider(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Central GST (CGST @ 6-9%)', style: TextStyle(fontSize: 12, color: AirbnbTheme.dark)),
-                        Text('₹${(widget.api.totalGstCollectedRupees / 2).toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AirbnbTheme.dark)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('State GST (SGST @ 6-9%)', style: TextStyle(fontSize: 12, color: AirbnbTheme.dark)),
-                        Text('₹${(widget.api.totalGstCollectedRupees / 2).toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AirbnbTheme.dark)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total GST Collected', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF6C5CE7))),
-                        Text('₹${widget.api.totalGstCollectedRupees.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF6C5CE7))),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // Cash vs Udhaar Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AirbnbTheme.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Van Cash Custody', style: TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                          const SizedBox(height: 4),
-                          Text('₹${widget.api.driverCashCustodyRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AirbnbTheme.success)),
-                          const SizedBox(height: 2),
-                          const Text('Held by Driver', style: TextStyle(fontSize: 10, color: AirbnbTheme.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AirbnbTheme.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Retailer Udhaar', style: TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                          const SizedBox(height: 4),
-                          Text('₹${widget.api.totalUdhaarRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AirbnbTheme.coral)),
-                          const SizedBox(height: 2),
-                          const Text('Outstanding Khata', style: TextStyle(fontSize: 10, color: AirbnbTheme.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx),
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Back to Operations'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AirbnbTheme.dark,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _showCloudflareInfo() async {
     final pendingCount = (await widget.api.db.outboxDao.getPendingQueue()).length;
     final failedCount = (await widget.api.db.outboxDao.getFailedMutations()).length;
@@ -484,15 +303,28 @@ class _RoleShellState extends State<RoleShell> {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                userName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AirbnbTheme.grey,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    userName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AirbnbTheme.grey,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    ' (${canonicalRole.badgeLabel})',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: roleColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -590,35 +422,35 @@ class _RoleShellState extends State<RoleShell> {
             },
           ),
 
-          // Accountant / GST button (available for all roles for inspection)
+          // Modern Polished Logout Button with tooltip 'Sign Out'
           IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            onPressed: _showAccountantSheet,
-            icon: const Icon(Icons.receipt_long_outlined, color: Color(0xFF6C5CE7), size: 21),
-            tooltip: 'Accountant & GST Summary',
-          ),
-
-          // Sign Out / Logout Button
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Sign Out',
+            icon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: AirbnbTheme.coral.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AirbnbTheme.coral.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.logout, size: 14, color: AirbnbTheme.coral),
+                  SizedBox(width: 4),
+                  Text(
+                    'Exit',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AirbnbTheme.coral),
+                  ),
+                ],
+              ),
+            ),
             onPressed: () async {
               if (widget.authService != null) {
                 await widget.authService!.logout();
               }
             },
-            icon: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: AirbnbTheme.lightGrey,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.logout, size: 16, color: AirbnbTheme.coral),
-            ),
-            tooltip: 'Sign Out',
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
         ],
       ),
       body: AnimatedSwitcher(
