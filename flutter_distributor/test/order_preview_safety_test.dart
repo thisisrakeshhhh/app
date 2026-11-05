@@ -117,7 +117,7 @@ void main() {
     test(
         '4. Authoritative Drift SQLite database snapshots and movements are NOT modified by booking orders',
         () async {
-      final prod = api.products.firstWhere((p) => p.id == 'BALA-01');
+      final prod = api.products.firstWhere((p) => p.id == 'LAYS-02');
       final snapshotBefore = await repository.getInventorySnapshot(prod.id);
       final movementsBefore = await repository.getMovementsForProduct(prod.id);
 

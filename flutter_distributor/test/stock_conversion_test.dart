@@ -86,7 +86,7 @@ void main() {
     });
 
     test('4. A booking exceeding available-to-book stock is rejected', () async {
-      final prod = api.products.firstWhere((p) => p.id == 'BALA-01');
+      final prod = api.products.firstWhere((p) => p.id == 'LAYS-02');
       final availablePieces = api.availableGodownPieces(prod.id);
       final shop = api.retailers.first;
 
@@ -103,7 +103,7 @@ void main() {
     });
 
     test('5. Repeated confirmation does not reserve the same order twice and rejects empty cart', () async {
-      final prod = api.products.firstWhere((p) => p.id == 'HALD-01');
+      final prod = api.products.firstWhere((p) => p.id == 'PEPSI-500');
       final initialPending = api.pendingBookingPieces(prod.id);
       final shop = api.retailers.first;
 
@@ -177,7 +177,7 @@ void main() {
     });
 
     test('8. Pending bookings are temporary and do not survive process restart as persistent SQLite reservations', () async {
-      final prod = api.products.firstWhere((p) => p.id == 'LALA-M01');
+      final prod = api.products.firstWhere((p) => p.id == 'STING-250');
       final initialPhysical = prod.godownStockBoxes;
 
       // Place booking in session 1

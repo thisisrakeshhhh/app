@@ -7,6 +7,8 @@ import 'package:lala_distributor/data/auth/auth_repository.dart';
 import 'package:lala_distributor/data/auth/secure_token_storage.dart';
 import 'package:lala_distributor/domain/auth/role_routing.dart';
 import 'package:lala_distributor/domain/auth/tenant_boundary_gate.dart';
+import 'package:lala_distributor/l10n/app_language.dart';
+import 'package:lala_distributor/l10n/language_controller.dart';
 import 'package:lala_distributor/screens/dashboards/admin_dashboard.dart';
 import 'package:lala_distributor/screens/dashboards/delivery_dashboard.dart';
 import 'package:lala_distributor/screens/dashboards/role_blocked_view.dart';
@@ -126,6 +128,7 @@ void main() {
     late ApiService api;
 
     setUp(() {
+      LanguageController.instance.setLanguage(AppLanguage.en);
       api = ApiService();
     });
 

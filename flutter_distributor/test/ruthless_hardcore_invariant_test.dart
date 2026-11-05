@@ -159,7 +159,7 @@ void main() {
     });
 
     test('6. Conservation of Physical Stock Equation: physical == available + pending at all times', () {
-      final p = api.products.firstWhere((prod) => prod.id == 'BALA-01');
+      final p = api.products.firstWhere((prod) => prod.id == 'LAYS-02');
       final totalPhysicalPieces = p.godownStockBoxes * p.boxQty;
       final initialPhysicalBoxes = p.godownStockBoxes;
 

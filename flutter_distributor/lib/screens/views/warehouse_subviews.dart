@@ -19,11 +19,11 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
   final List<String> _categories = [
     'All',
-    'Snacks & Kurkure',
-    'Namkeen & Sweets',
-    'Spices & Mirchi',
-    'Ghee & Edible Oils',
-    'Biscuits & Bakery',
+    'Carbonated Drinks (CSD)',
+    'Energy & Hydration',
+    'Potato Chips (Lay\'s)',
+    'Extruded Snacks (Kurkure & Doritos)',
+    'Juices & Nutrition (Tropicana & Quaker)',
   ];
 
   void _showAdjustStockSheet(ProductItem product) {

@@ -43,22 +43,22 @@ VALUES
   ('R6', 'comp_1', 'Mahadev Departmental Store', 'BEAT-04', 'Central Path, Sector 6', '9829067890', 26.90, 75.81, 4000000, 670000),
   ('ret_comp2_1', 'comp_2', 'Company 2 Retail Store', 'BEAT-99', '99 Industrial Area', '9829099999', 28.50, 77.20, 2000000, 0);
 
--- 5. Products (Preserving prod_1, prod_2, adding P1-P10, plus comp_2 product)
+-- 5. Products (Authentic PepsiCo FMCG Portfolio organized by Category)
 INSERT OR REPLACE INTO products (id, company_id, name, category, price_paise, stock_quantity, reserved_quantity, unit, image_url)
 VALUES
-  ('prod_1', 'comp_1', 'Organic Tea', 'Beverages', 5000, 100, 0, 'Pack', NULL),
-  ('prod_2', 'comp_1', 'Whole Wheat Bread', 'Bakery', 3500, 50, 0, 'Loaf', NULL),
-  ('P1', 'comp_1', 'Premium Tea', 'Beverages', 45000, 100, 0, '1kg Pack', NULL),
-  ('P2', 'comp_1', 'Spices Pack', 'Groceries', 12000, 200, 0, '200g Pouch', NULL),
-  ('P3', 'comp_1', 'Basmati Rice 5kg', 'Groceries', 65000, 50, 0, 'Bag', NULL),
-  ('P4', 'comp_1', 'Cooking Oil 5L', 'Groceries', 85000, 80, 0, 'Can', NULL),
-  ('P5', 'comp_1', 'Soap Case (12 units)', 'Personal Care', 36000, 150, 0, 'Box', NULL),
-  ('P6', 'comp_1', 'Detergent Powder 2kg', 'Home Care', 28000, 120, 0, 'Pack', NULL),
-  ('P7', 'comp_1', 'Salt Pack', 'Groceries', 2500, 500, 0, '1kg Pouch', NULL),
-  ('P8', 'comp_1', 'Sugar 5kg', 'Groceries', 22000, 60, 0, 'Bag', NULL),
-  ('P9', 'comp_1', 'Pulse Mix 1kg', 'Groceries', 14000, 300, 0, 'Pack', NULL),
-  ('P10', 'comp_1', 'Biscuits Family Pack', 'Snacks', 8000, 400, 0, 'Pack', NULL),
-  ('prod_comp2_1', 'comp_2', 'Widget Comp2', 'Hardware', 10000, 50, 0, 'Unit', NULL);
+  ('prod_1', 'comp_1', 'Pepsi 500ml PET (Case of 24)', 'Carbonated Drinks (CSD)', 5000, 100, 0, 'Pack', NULL),
+  ('prod_2', 'comp_1', 'Lay''s India''s Magic Masala 50g', 'Potato Chips (Lay''s)', 3500, 50, 0, 'Pack', NULL),
+  ('P1', 'comp_1', 'Kurkure Masala Munch Master Crate (96 units)', 'Extruded Snacks (Kurkure & Doritos)', 45000, 100, 0, 'Master Box', NULL),
+  ('P2', 'comp_1', 'Mountain Dew 750ml PET (Shrink of 6)', 'Carbonated Drinks (CSD)', 12000, 200, 0, 'Shrink Pack', NULL),
+  ('P3', 'comp_1', 'Sting Energy Drink 250ml Can (Case of 24)', 'Energy & Hydration', 65000, 50, 0, 'Case', NULL),
+  ('P4', 'comp_1', 'Tropicana 100% Orange 1L (Carton of 12)', 'Juices & Nutrition (Tropicana & Quaker)', 85000, 80, 0, 'Carton', NULL),
+  ('P5', 'comp_1', '7UP Nimbooz 250ml (Tray of 24)', 'Carbonated Drinks (CSD)', 36000, 150, 0, 'Tray', NULL),
+  ('P6', 'comp_1', 'Mirinda Orange 500ml PET (Pack of 12)', 'Carbonated Drinks (CSD)', 28000, 120, 0, 'Shrink Pack', NULL),
+  ('P7', 'comp_1', 'Aquafina Packaged Water 1L (Single Bottle)', 'Energy & Hydration', 2500, 500, 0, '1L Bottle', NULL),
+  ('P8', 'comp_1', 'Doritos Nacho Cheese 150g (Carton of 20)', 'Extruded Snacks (Kurkure & Doritos)', 22000, 60, 0, 'Carton', NULL),
+  ('P9', 'comp_1', 'Lay''s American Style Cream & Onion 90g (Box of 24)', 'Potato Chips (Lay''s)', 14000, 300, 0, 'Box', NULL),
+  ('P10', 'comp_1', 'Quaker Rolled Oats 1kg Family Pack', 'Juices & Nutrition (Tropicana & Quaker)', 8000, 400, 0, '1kg Pack', NULL),
+  ('prod_comp2_1', 'comp_2', 'Pepsi Black 250ml Can Comp2', 'Carbonated Drinks (CSD)', 10000, 50, 0, 'Pack', NULL);
 
 -- 6. Promotions Rules
 INSERT OR REPLACE INTO promotions (id, company_id, product_id, min_quantity, free_quantity, is_active)

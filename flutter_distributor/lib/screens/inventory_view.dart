@@ -19,11 +19,11 @@ class _InventoryViewState extends State<InventoryView> {
 
   final List<String> _categories = [
     'All',
-    'Snacks & Kurkure',
-    'Namkeen & Sweets',
-    'Spices & Mirchi',
-    'Ghee & Edible Oils',
-    'Biscuits & Bakery',
+    'Carbonated Drinks (CSD)',
+    'Energy & Hydration',
+    'Potato Chips (Lay\'s)',
+    'Extruded Snacks (Kurkure & Doritos)',
+    'Juices & Nutrition (Tropicana & Quaker)',
   ];
 
   void _showAddProductSheet() {
@@ -35,7 +35,7 @@ class _InventoryViewState extends State<InventoryView> {
     final boxQtyCtrl = TextEditingController(text: '48');
     final stockBoxesCtrl = TextEditingController(text: '100');
     final badgeCtrl = TextEditingController(text: 'New Arrival');
-    String selectedCat = 'Snacks & Kurkure';
+    String selectedCat = 'Carbonated Drinks (CSD)';
     double selectedGst = 18.0;
 
     showModalBottomSheet(

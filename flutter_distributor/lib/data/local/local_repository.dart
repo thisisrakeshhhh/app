@@ -860,103 +860,122 @@ class LocalRepository {
     });
   }
 
+  /// Purges obsolete preloaded dummy products (Mathania Mirchi, Desi Ghee, Fortune Oil, Balaji, Haldiram)
+  Future<void> purgeLegacyDummyProducts() async {
+    const legacyIds = {'BALA-01', 'HALD-01', 'LALA-M01', 'LALA-G01', 'FORT-O01'};
+    await db.transaction(() async {
+      for (final id in legacyIds) {
+        await (db.delete(db.productUnits)..where((tbl) => tbl.productId.equals(id))).go();
+        await (db.delete(db.unitPrices)..where((tbl) => tbl.productId.equals(id))).go();
+        await (db.delete(db.inventorySnapshots)..where((tbl) => tbl.productId.equals(id))).go();
+        await (db.delete(db.inventoryMovements)..where((tbl) => tbl.productId.equals(id))).go();
+        await (db.delete(db.products)..where((tbl) => tbl.id.equals(id))).go();
+      }
+    });
+  }
+
   // Pre-seed data on initial installation
   Future<void> seedIfEmpty(
     List<ProductItem> seedProducts,
     List<RetailerShop> seedRetailers,
   ) async {
-    final productCount = await db.select(db.products).get();
-    if (productCount.isNotEmpty) return;
+    await purgeLegacyDummyProducts();
 
     await db.transaction(() async {
       for (final p in seedProducts) {
-        await db.into(db.products).insert(
-          ProductsCompanion(
-            id: Value(p.id),
-            name: Value(p.name),
-            hindiName: Value(p.hindiName),
-            category: Value(p.category),
-            mrpRupees: Value(p.mrpRupees),
-            piecePricePaise: Value(p.piecePricePaise),
-            stripQty: Value(p.stripQty),
-            boxQty: Value(p.boxQty),
-            gstRate: Value(p.gstRate),
-            badge: Value(p.badge),
-            imageUrl: Value(p.imageUrl),
-            isArchived: const Value(false),
-            createdAt: Value(DateTime.now()),
-          ),
-        );
-        await db.into(db.inventorySnapshots).insert(
-          InventorySnapshotsCompanion(
-            productId: Value(p.id),
-            godownCartons: Value(p.godownStockBoxes),
-            godownLoosePieces: const Value(0),
-            carCartons: Value(p.carStockBoxes),
-            carLoosePieces: const Value(0),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
+        final existing = await (db.select(db.products)..where((tbl) => tbl.id.equals(p.id))).getSingleOrNull();
+        if (existing == null) {
+          await db.into(db.products).insert(
+            ProductsCompanion(
+              id: Value(p.id),
+              name: Value(p.name),
+              hindiName: Value(p.hindiName),
+              category: Value(p.category),
+              mrpRupees: Value(p.mrpRupees),
+              piecePricePaise: Value(p.piecePricePaise),
+              stripQty: Value(p.stripQty),
+              boxQty: Value(p.boxQty),
+              gstRate: Value(p.gstRate),
+              badge: Value(p.badge),
+              imageUrl: Value(p.imageUrl),
+              isArchived: const Value(false),
+              createdAt: Value(DateTime.now()),
+            ),
+          );
+          await db.into(db.inventorySnapshots).insert(
+            InventorySnapshotsCompanion(
+              productId: Value(p.id),
+              godownCartons: Value(p.godownStockBoxes),
+              godownLoosePieces: const Value(0),
+              carCartons: Value(p.carStockBoxes),
+              carLoosePieces: const Value(0),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
 
-        // Record OPENING_BALANCE movement in the same atomic transaction
-        // Uses deterministic ID & checks existing to ensure complete idempotency
-        final totalOpeningCartons = p.godownStockBoxes + p.carStockBoxes;
-        if (totalOpeningCartons > 0) {
-          final existingOpening = await (db.select(db.inventoryMovements)
-                ..where((tbl) =>
-                    tbl.productId.equals(p.id) &
-                    tbl.movementType.equals('OPENING_BALANCE')))
-              .getSingleOrNull();
+          // Record OPENING_BALANCE movement in the same atomic transaction
+          // Uses deterministic ID & checks existing to ensure complete idempotency
+          final totalOpeningCartons = p.godownStockBoxes + p.carStockBoxes;
+          if (totalOpeningCartons > 0) {
+            final existingOpening = await (db.select(db.inventoryMovements)
+                  ..where((tbl) =>
+                      tbl.productId.equals(p.id) &
+                      tbl.movementType.equals('OPENING_BALANCE')))
+                .getSingleOrNull();
 
-          if (existingOpening == null) {
-            await db.into(db.inventoryMovements).insert(
-              InventoryMovementsCompanion(
-                id: Value('mov_opening_${p.id}'),
-                productId: Value(p.id),
-                movementType: const Value('OPENING_BALANCE'),
-                cartonDelta: Value(totalOpeningCartons),
-                loosePieceDelta: const Value(0),
-                reason: const Value('Initial opening inventory stock'),
-                createdAt: Value(DateTime.now()),
-              ),
-            );
+            if (existingOpening == null) {
+              await db.into(db.inventoryMovements).insert(
+                InventoryMovementsCompanion(
+                  id: Value('mov_opening_${p.id}'),
+                  productId: Value(p.id),
+                  movementType: const Value('OPENING_BALANCE'),
+                  cartonDelta: Value(totalOpeningCartons),
+                  loosePieceDelta: const Value(0),
+                  reason: const Value('Initial opening inventory stock'),
+                  createdAt: Value(DateTime.now()),
+                ),
+              );
+            }
           }
         }
       }
 
-      for (final r in seedRetailers) {
-        await db.into(db.retailers).insert(
-          RetailersCompanion(
-            id: Value(r.id),
-            name: Value(r.name),
-            ownerName: Value(r.ownerName),
-            phone: Value(r.phone),
-            address: Value(r.address),
-            area: Value(r.area),
-            creditLimitPaise: Value(r.creditLimitPaise),
-            outstandingPaise: Value(r.outstandingPaise),
-            visitedToday: Value(r.visitedToday),
-            totalTimeSpentSeconds: Value(r.totalTimeSpentSeconds),
-            visitCountToday: Value(r.visitCountToday),
-            latitude: Value(r.latitude),
-            longitude: Value(r.longitude),
-            classType: Value(r.classType),
-            classSource: Value(r.classSource),
-            routeId: Value(r.routeId),
-            shopType: Value(r.shopType),
-            gstin: Value(r.gstin),
-            pincode: Value(r.pincode),
-            landmark: Value(r.landmark),
-            status: Value(r.status),
-            createdByUserId: Value(r.createdByUserId),
-            locationAccuracyMeters: Value(r.locationAccuracyMeters),
-            syncStatus: Value(r.syncStatus),
-            createdAt: Value(DateTime.now()),
-          ),
-        );
+      final existingRetailers = await db.select(db.retailers).get();
+      if (existingRetailers.isEmpty) {
+        for (final r in seedRetailers) {
+          await db.into(db.retailers).insert(
+            RetailersCompanion(
+              id: Value(r.id),
+              name: Value(r.name),
+              ownerName: Value(r.ownerName),
+              phone: Value(r.phone),
+              address: Value(r.address),
+              area: Value(r.area),
+              creditLimitPaise: Value(r.creditLimitPaise),
+              outstandingPaise: Value(r.outstandingPaise),
+              visitedToday: Value(r.visitedToday),
+              totalTimeSpentSeconds: Value(r.totalTimeSpentSeconds),
+              visitCountToday: Value(r.visitCountToday),
+              latitude: Value(r.latitude),
+              longitude: Value(r.longitude),
+              classType: Value(r.classType),
+              classSource: Value(r.classSource),
+              routeId: Value(r.routeId),
+              shopType: Value(r.shopType),
+              gstin: Value(r.gstin),
+              pincode: Value(r.pincode),
+              landmark: Value(r.landmark),
+              status: Value(r.status),
+              createdByUserId: Value(r.createdByUserId),
+              locationAccuracyMeters: Value(r.locationAccuracyMeters),
+              syncStatus: Value(r.syncStatus),
+              createdAt: Value(DateTime.now()),
+            ),
+          );
+        }
       }
 
-      await db.into(db.databaseMetadata).insert(
+      await db.into(db.databaseMetadata).insertOnConflictUpdate(
         DatabaseMetadataCompanion(
           key: const Value('schema_initialized'),
           value: const Value('true'),
