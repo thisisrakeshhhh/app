@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -27,6 +28,9 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
   int _selectedStopIndex = 0;
   Timer? _visitTimer;
   String _filter = 'All'; // 'All', 'Pending', 'Visited'
+  bool _showGoogleMaps = false;
+  GoogleMapController? _googleMapController;
+  MapType _currentMapType = MapType.normal;
 
   @override
   void initState() {
@@ -137,21 +141,62 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AirbnbTheme.lightGrey,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AirbnbTheme.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.alt_route, size: 12, color: AirbnbTheme.grey),
-                          const SizedBox(width: 4),
-                          Text(strings.t('route_sketch'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-                        ],
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AirbnbTheme.lightGrey,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AirbnbTheme.border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.alt_route, size: 12, color: AirbnbTheme.grey),
+                              const SizedBox(width: 4),
+                              Text(strings.t('route_sketch'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _showGoogleMaps = !_showGoogleMaps;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _showGoogleMaps ? AirbnbTheme.jodhpurBlue : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AirbnbTheme.jodhpurBlue),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _showGoogleMaps ? Icons.layers_outlined : Icons.map_outlined,
+                                  size: 12,
+                                  color: _showGoogleMaps ? Colors.white : AirbnbTheme.jodhpurBlue,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _showGoogleMaps ? 'Canvas' : 'Google Map',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: _showGoogleMaps ? Colors.white : AirbnbTheme.jodhpurBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -185,16 +230,115 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
             flex: 5,
             child: Stack(
               children: [
-                GestureDetector(
-                  child: CustomPaint(
-                    size: Size.infinite,
-                    painter: _ZomatoRouteMapPainter(
-                      shops: locatedShops,
-                      selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
-                      activeShopId: activeShop?.id,
+                if (_showGoogleMaps && locatedShops.isNotEmpty) ...[
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(
+                        selectedShop?.latitude ?? locatedShops.first.latitude!,
+                        selectedShop?.longitude ?? locatedShops.first.longitude!,
+                      ),
+                      zoom: 14.5,
+                    ),
+                    mapType: _currentMapType,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    markers: locatedShops.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final s = entry.value;
+                      final isSel = s.id == selectedShop?.id;
+                      final isChecked = s.isCheckedIn;
+                      final letter = String.fromCharCode(65 + (idx % 26));
+
+                      return Marker(
+                        markerId: MarkerId(s.id),
+                        position: LatLng(s.latitude!, s.longitude!),
+                        icon: isChecked
+                            ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
+                            : isSel
+                                ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
+                                : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                        infoWindow: InfoWindow(
+                          title: '$letter. ${s.name}',
+                          snippet: '${s.area} • ${s.visitedToday ? "Visited" : "Pending"}',
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedStopIndex = displayedShops.indexOf(s);
+                          });
+                        },
+                      );
+                    }).toSet(),
+                    polylines: locatedShops.length >= 2
+                        ? {
+                            Polyline(
+                              polylineId: const PolylineId('assigned_route_line'),
+                              points: locatedShops
+                                  .map((s) => LatLng(s.latitude!, s.longitude!))
+                                  .toList(),
+                              color: AirbnbTheme.coral,
+                              width: 4,
+                            ),
+                          }
+                        : {},
+                    onMapCreated: (ctrl) {
+                      _googleMapController = ctrl;
+                    },
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 12,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FloatingActionButton.small(
+                          heroTag: 'map_type_toggle',
+                          backgroundColor: Colors.white,
+                          onPressed: () {
+                            setState(() {
+                              _currentMapType = _currentMapType == MapType.normal
+                                  ? MapType.hybrid
+                                  : MapType.normal;
+                            });
+                          },
+                          child: Icon(
+                            _currentMapType == MapType.normal ? Icons.satellite_alt : Icons.map,
+                            color: AirbnbTheme.dark,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (selectedShop?.latitude != null && selectedShop?.longitude != null)
+                          FloatingActionButton.small(
+                            heroTag: 'recenter_map',
+                            backgroundColor: Colors.white,
+                            onPressed: () {
+                              _googleMapController?.animateCamera(
+                                CameraUpdate.newLatLng(
+                                  LatLng(selectedShop!.latitude!, selectedShop.longitude!),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.my_location,
+                              color: AirbnbTheme.jodhpurBlue,
+                              size: 18,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                ),
+                ] else ...[
+                  GestureDetector(
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: _ZomatoRouteMapPainter(
+                        shops: locatedShops,
+                        selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
+                        activeShopId: activeShop?.id,
+                      ),
+                    ),
+                  ),
 
                 // Floating Pin Badges for Direct Tap Selection (Only for shops with valid coordinates)
                 LayoutBuilder(
@@ -359,6 +503,7 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                     ),
                   ),
                 ),
+                ],
               ],
             ),
           ),
