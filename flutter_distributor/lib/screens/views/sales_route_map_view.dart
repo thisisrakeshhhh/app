@@ -71,8 +71,9 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Column(
+          children: [
           // 1. TOP ROUTE CONTROL BAR
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -96,6 +97,14 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                     Expanded(
                       child: Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_rounded, color: AirbnbTheme.dark),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Back',
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
@@ -405,8 +414,9 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
             _buildZomatoShopCard(context, selectedShop, displayedShops),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildFilterChip(String key, String label) {
     final isSelected = _filter == key;

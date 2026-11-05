@@ -1,22 +1,28 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../domain/auth/auth_exceptions.dart';
+import '../../domain/auth/auth_models.dart';
 
 /// Secure token storage contract for RouteFlow.
 ///
 /// CRITICAL SECURITY REQUIREMENT:
 /// Short-lived access tokens MUST NOT be persisted to disk. They live strictly in RAM.
-/// Only the refresh token is stored securely via this abstraction.
+/// Only the refresh token and non-sensitive session claims are stored securely via this abstraction.
 /// Standard SharedPreferences and plain files must never be used for sensitive tokens.
 abstract class SecureTokenStorage {
   Future<void> saveRefreshToken(String token);
   Future<String?> getRefreshToken();
   Future<void> deleteRefreshToken();
+  Future<void> saveUserSession(UserSession session);
+  Future<UserSession?> getUserSession();
+  Future<void> deleteUserSession();
   Future<void> clearAll();
 }
 
 /// In-memory token storage for testing and memory-only environments.
 class InMemoryTokenStorage implements SecureTokenStorage {
   String? _refreshToken;
+  UserSession? _userSession;
 
   @override
   Future<void> saveRefreshToken(String token) async {
@@ -34,8 +40,24 @@ class InMemoryTokenStorage implements SecureTokenStorage {
   }
 
   @override
+  Future<void> saveUserSession(UserSession session) async {
+    _userSession = session;
+  }
+
+  @override
+  Future<UserSession?> getUserSession() async {
+    return _userSession;
+  }
+
+  @override
+  Future<void> deleteUserSession() async {
+    _userSession = null;
+  }
+
+  @override
   Future<void> clearAll() async {
     _refreshToken = null;
+    _userSession = null;
   }
 }
 
@@ -59,6 +81,7 @@ class EncryptedSecureTokenStorage implements SecureTokenStorage {
   final FlutterSecureStorage _storage;
 
   static const String _keyRefreshToken = 'routeflow_refresh_token_v2';
+  static const String _keyUserSession = 'routeflow_user_session_v2';
 
   EncryptedSecureTokenStorage({FlutterSecureStorage? storage})
       : _storage = storage ??
@@ -97,6 +120,38 @@ class EncryptedSecureTokenStorage implements SecureTokenStorage {
   Future<void> deleteRefreshToken() async {
     try {
       await _storage.delete(key: _keyRefreshToken);
+    } catch (_) {
+      // Best-effort deletion
+    }
+  }
+
+  @override
+  Future<void> saveUserSession(UserSession session) async {
+    try {
+      await _storage.write(
+        key: _keyUserSession,
+        value: jsonEncode(session.toJson()),
+      );
+    } catch (_) {
+      // Non-fatal session persistence
+    }
+  }
+
+  @override
+  Future<UserSession?> getUserSession() async {
+    try {
+      final raw = await _storage.read(key: _keyUserSession);
+      if (raw == null || raw.isEmpty) return null;
+      return UserSession.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> deleteUserSession() async {
+    try {
+      await _storage.delete(key: _keyUserSession);
     } catch (_) {
       // Best-effort deletion
     }

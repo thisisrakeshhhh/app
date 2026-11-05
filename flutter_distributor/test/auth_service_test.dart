@@ -461,6 +461,43 @@ void main() {
       expect(authService.coordinator.currentAccessToken, 'session_2_access_token');
       expect(await storage.getRefreshToken(), 'session_2_refresh_token');
     });
+
+    test('11. Offline session persistence: initialize restores authenticated session when network unavailable', () async {
+      final storage = InMemoryTokenStorage();
+      const initialSession = UserSession(
+        userId: 'usr_offline_sales',
+        name: 'Offline Sales Rep',
+        activeOrganizationId: 'comp_offline',
+        activeRole: 'SALES',
+        organizations: [
+          OrganizationMembership(id: 'comp_offline', name: 'Offline Org', role: 'SALES'),
+        ],
+      );
+      await storage.saveRefreshToken('valid_offline_refresh_token');
+      await storage.saveUserSession(initialSession);
+
+      final fakeRepo = _FakeAuthRepo(
+        onRefresh: () async => throw const NetworkUnavailableException('No network'),
+      );
+
+      final authService = AuthService(
+        repository: fakeRepo,
+        secureStorage: storage,
+        tenantBoundaryGate: TenantBoundaryGate.permissiveForTesting(),
+      );
+
+      await authService.initialize();
+
+      expect(authService.isAuthenticated, isTrue);
+      expect(authService.session?.userId, 'usr_offline_sales');
+      expect(authService.session?.activeRole, 'SALES');
+
+      // Logout clears both refresh token and stored session
+      await authService.logout();
+      expect(authService.isAuthenticated, isFalse);
+      expect(await storage.getRefreshToken(), isNull);
+      expect(await storage.getUserSession(), isNull);
+    });
   });
 }
 

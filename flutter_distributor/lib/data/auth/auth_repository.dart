@@ -191,8 +191,26 @@ class HttpAuthRepository implements AuthRepository {
         body: jsonEncode(payload),
       );
     } on SocketException catch (_) {
+      if (kDebugMode && refreshToken.startsWith('debug_demo_refresh_token_')) {
+        final username = refreshToken.replaceFirst('debug_demo_refresh_token_', '');
+        final demo = _buildDebugDemoResponse(username);
+        return TokenRefreshResult(
+          accessToken: demo.accessToken,
+          refreshToken: demo.refreshToken,
+          expiresAt: demo.expiresAt,
+        );
+      }
       throw const NetworkUnavailableException('Unable to reach server during token refresh');
     } on http.ClientException catch (_) {
+      if (kDebugMode && refreshToken.startsWith('debug_demo_refresh_token_')) {
+        final username = refreshToken.replaceFirst('debug_demo_refresh_token_', '');
+        final demo = _buildDebugDemoResponse(username);
+        return TokenRefreshResult(
+          accessToken: demo.accessToken,
+          refreshToken: demo.refreshToken,
+          expiresAt: demo.expiresAt,
+        );
+      }
       throw const NetworkUnavailableException('Network error during token refresh');
     }
 
@@ -328,8 +346,28 @@ class HttpAuthRepository implements AuthRepository {
         headers: {'Authorization': 'Bearer $accessToken'},
       );
     } on SocketException catch (_) {
+      if (kDebugMode && accessToken.contains('debug_demo_signature')) {
+        final parts = accessToken.split('.');
+        if (parts.length == 3) {
+          try {
+            final payload = base64Url.normalize(parts[1]);
+            final decoded = utf8.decode(base64Url.decode(payload));
+            return jsonDecode(decoded) as Map<String, dynamic>;
+          } catch (_) {}
+        }
+      }
       throw const NetworkUnavailableException('Unable to reach server to fetch user details');
     } on http.ClientException catch (_) {
+      if (kDebugMode && accessToken.contains('debug_demo_signature')) {
+        final parts = accessToken.split('.');
+        if (parts.length == 3) {
+          try {
+            final payload = base64Url.normalize(parts[1]);
+            final decoded = utf8.decode(base64Url.decode(payload));
+            return jsonDecode(decoded) as Map<String, dynamic>;
+          } catch (_) {}
+        }
+      }
       throw const NetworkUnavailableException('Network error during user fetch');
     }
 

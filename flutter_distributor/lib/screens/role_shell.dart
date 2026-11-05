@@ -437,8 +437,18 @@ class _RoleShellState extends State<RoleShell> {
 
     final userName = widget.authService?.session?.name ?? canonicalRole.displayName;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return PopScope(
+      canPop: _currentTabIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentTabIndex != 0) {
+          setState(() {
+            _currentTabIndex = 0;
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
       appBar: AppBar(
         titleSpacing: 10,
         toolbarHeight: 64,
@@ -652,8 +662,9 @@ class _RoleShellState extends State<RoleShell> {
         child: _buildRoleView(canonicalRole),
       ),
       bottomNavigationBar: _buildRoleNavigationBar(canonicalRole, roleColor),
-    );
-  }
+    ),
+  );
+}
 
   /// Builds the active view depending on the selected role and active tab index.
   Widget _buildRoleView(CanonicalRole role) {

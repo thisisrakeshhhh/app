@@ -106,6 +106,34 @@ class UserSession {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'name': name,
+        'activeOrganizationId': activeOrganizationId,
+        'activeRole': activeRole,
+        'organizations': organizations.map((o) => o.toJson()).toList(),
+        if (tokenExpiresAt != null) 'tokenExpiresAt': tokenExpiresAt!.toIso8601String(),
+      };
+
+  factory UserSession.fromJson(Map<String, dynamic> json) {
+    final orgsRaw = json['organizations'] as List<dynamic>? ?? [];
+    final orgs = orgsRaw
+        .map((e) => OrganizationMembership.fromJson(e as Map<String, dynamic>))
+        .toList();
+    DateTime? tokenExpiresAt;
+    if (json['tokenExpiresAt'] != null) {
+      tokenExpiresAt = DateTime.tryParse(json['tokenExpiresAt'] as String);
+    }
+    return UserSession(
+      userId: json['userId'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      activeOrganizationId: json['activeOrganizationId'] as String? ?? '',
+      activeRole: json['activeRole'] as String? ?? 'SALES',
+      organizations: orgs,
+      tokenExpiresAt: tokenExpiresAt,
+    );
+  }
+
   @override
   String toString() =>
       'UserSession(userId: $userId, name: $name, orgId: $activeOrganizationId, role: $activeRole)';

@@ -42,8 +42,10 @@ class AuthService extends ChangeNotifier {
   Future<void> initialize() async {
     final capturedGen = _sessionGeneration;
     final String? storedRefreshToken;
+    final UserSession? storedSession;
     try {
       storedRefreshToken = await secureStorage.getRefreshToken();
+      storedSession = await secureStorage.getUserSession();
     } on KeystoreInaccessibleException catch (e) {
       await _handleSessionRevocation(e.message, generation: capturedGen);
       return;
@@ -113,6 +115,8 @@ class AuthService extends ChangeNotifier {
         tokenExpiresAt: refreshResult.expiresAt,
       );
 
+      await secureStorage.saveUserSession(userSession);
+
       final assessment = await tenantBoundaryGate.assessBoundary();
       if (capturedGen != _sessionGeneration) return;
       if (assessment.isBlocked) {
@@ -129,7 +133,17 @@ class AuthService extends ChangeNotifier {
       await _handleSessionRevocation(e.message, generation: capturedGen);
     } on NetworkUnavailableException {
       if (capturedGen == _sessionGeneration) {
-        _state = AuthState.networkUnavailable(_state.session);
+        if (storedSession != null) {
+          final assessment = await tenantBoundaryGate.assessBoundary();
+          if (capturedGen != _sessionGeneration) return;
+          if (assessment.isBlocked) {
+            _state = AuthState.tenantBoundaryBlocked(storedSession, assessment.message);
+          } else {
+            _state = AuthState.authenticated(storedSession);
+          }
+        } else {
+          _state = AuthState.networkUnavailable(_state.session);
+        }
         notifyListeners();
       }
     } catch (e) {
@@ -175,6 +189,7 @@ class AuthService extends ChangeNotifier {
           'Account is not assigned to any distributor organization.',
         );
       } else {
+        await secureStorage.saveUserSession(session);
         final assessment = await tenantBoundaryGate.assessBoundary();
         if (capturedGen != _sessionGeneration) return;
         if (assessment.isBlocked) {
