@@ -11,6 +11,8 @@ import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/sync_worker.dart';
 import 'theme/airbnb_theme.dart';
+import 'l10n/app_language.dart';
+import 'l10n/language_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,8 +89,9 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
     _api.addListener(_onStateChanged);
     _auth.addListener(_onAuthStateChanged);
 
-    // Initialize session asynchronously
+    // Initialize session and saved language asynchronously
     _auth.initialize();
+    LanguageController.instance.loadSavedLanguage();
   }
 
   void _onStateChanged() {
@@ -129,11 +132,21 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
       );
     }
 
-    return MaterialApp(
-      title: 'Routidrow FMCG Logistics',
-      debugShowCheckedModeBanner: false,
-      theme: AirbnbTheme.lightTheme,
-      home: homeScreen,
+    return LanguageScope(
+      controller: LanguageController.instance,
+      child: ListenableBuilder(
+        listenable: LanguageController.instance,
+        builder: (context, _) {
+          final language = LanguageController.instance.currentLanguage;
+          return MaterialApp(
+            title: 'Routidrow FMCG Logistics',
+            debugShowCheckedModeBanner: false,
+            locale: language.locale,
+            theme: AirbnbTheme.lightTheme,
+            home: homeScreen,
+          );
+        },
+      ),
     );
   }
 }

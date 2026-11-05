@@ -13,6 +13,7 @@ import 'dashboards/sales_dashboard.dart';
 import 'dashboards/warehouse_dashboard.dart';
 import 'organization_select_view.dart';
 import '../features/sales/widgets/sales_language_picker.dart';
+import '../l10n/app_strings.dart';
 import 'views/admin_subviews.dart';
 import 'views/delivery_subviews.dart';
 import 'views/sales_subviews.dart';
@@ -748,13 +749,14 @@ class _RoleShellState extends State<RoleShell> {
 
   /// Builds the role-specific bottom navigation bar.
   Widget _buildRoleNavigationBar(CanonicalRole role, Color roleColor) {
+    final strings = AppStrings.of(context);
     final navItems = switch (role) {
-      CanonicalRole.sales => const [
-          _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),
-          _RoleNavItem(label: 'New Order', icon: Icons.add_shopping_cart, unselectedIcon: Icons.add_shopping_cart_outlined),
-          _RoleNavItem(label: 'Retailers', icon: Icons.store, unselectedIcon: Icons.store_outlined),
-          _RoleNavItem(label: 'Products', icon: Icons.menu_book, unselectedIcon: Icons.menu_book_outlined),
-          _RoleNavItem(label: 'My Visits', icon: Icons.timer, unselectedIcon: Icons.timer_outlined),
+      CanonicalRole.sales => [
+          _RoleNavItem(label: strings.t('nav_home'), icon: Icons.home, unselectedIcon: Icons.home_outlined),
+          _RoleNavItem(label: strings.t('nav_new_order'), icon: Icons.add_shopping_cart, unselectedIcon: Icons.add_shopping_cart_outlined),
+          _RoleNavItem(label: strings.t('nav_retailers'), icon: Icons.store, unselectedIcon: Icons.store_outlined),
+          _RoleNavItem(label: strings.t('nav_products'), icon: Icons.menu_book, unselectedIcon: Icons.menu_book_outlined),
+          _RoleNavItem(label: strings.t('nav_my_visits'), icon: Icons.timer, unselectedIcon: Icons.timer_outlined),
         ],
       CanonicalRole.warehouse => const [
           _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),

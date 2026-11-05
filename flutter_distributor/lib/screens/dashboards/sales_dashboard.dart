@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 import '../views/sales_route_map_view.dart';
 
 enum SalesAnalyticsTimeframe {
-  today('Today', 'आज'),
-  week('This Week', 'इस हफ्ते'),
-  month('This Month', 'इस महीने'),
-  year('This Year', 'इस साल'),
-  all('Till Join', 'शुरुआत से');
+  today('timeframe_today'),
+  week('timeframe_week'),
+  month('timeframe_month'),
+  year('timeframe_year'),
+  all('timeframe_all');
 
-  final String label;
-  final String hindi;
-  const SalesAnalyticsTimeframe(this.label, this.hindi);
+  final String key;
+  const SalesAnalyticsTimeframe(this.key);
 }
 
 /// Sales Representative Landing Dashboard.
@@ -41,6 +41,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final retailers = widget.api.retailers;
     final assignedShops = widget.api.assignedRouteShops;
     final visitedCount = retailers.where((r) => r.visitedToday || r.isCheckedIn).length;
@@ -141,12 +142,12 @@ class _SalesDashboardState extends State<SalesDashboard> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Flexible(
+                          Flexible(
                             child: Text(
-                              "TODAY'S ASSIGNED BEAT",
+                              strings.t('today_assigned_beat'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: AirbnbTheme.coral,
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w800,
@@ -170,7 +171,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           const Icon(Icons.location_on, color: Colors.white, size: 12),
                           const SizedBox(width: 4),
                           Text(
-                            '${assignedShops.length} Shops Assigned',
+                            strings.t('shops_assigned', {'count': assignedShops.length}),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10.5,
@@ -208,7 +209,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         key: const ValueKey('continue_route_btn'),
                         onPressed: () => widget.onNavigateTab(2),
                         icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                        label: const Text('Continue Route', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: Text(strings.t('continue_route'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AirbnbTheme.coral,
                           foregroundColor: Colors.white,
@@ -229,7 +230,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         );
                       },
                       icon: const Icon(Icons.map_rounded, size: 16),
-                      label: const Text('Route Map', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                      label: Text(strings.t('route_map'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.15),
                         foregroundColor: Colors.white,
@@ -250,16 +251,16 @@ class _SalesDashboardState extends State<SalesDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Performance (On this phone)',
-                style: TextStyle(
+              Text(
+                strings.t('performance_on_phone'),
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: AirbnbTheme.dark,
                 ),
               ),
               Text(
-                _selectedTimeframe.hindi,
+                strings.t(_selectedTimeframe.key),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -278,7 +279,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
                     label: Text(
-                      timeframe.label,
+                      strings.t(timeframe.key),
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -310,7 +311,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
             children: [
               Expanded(
                 child: _buildKpiCard(
-                  title: 'Booked Orders',
+                  title: strings.t('booked_orders'),
                   value: '$orderCount',
                   subtitle: '₹${totalRevenueRupees.toStringAsFixed(0)} booked',
                   icon: Icons.shopping_bag_outlined,
@@ -321,7 +322,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildKpiCard(
-                  title: 'Beat Coverage',
+                  title: strings.t('beat_coverage'),
                   value: coverageRatio,
                   subtitle: '$strikeRate% strike rate',
                   icon: Icons.storefront_outlined,
@@ -348,12 +349,19 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     children: [
                       const Icon(Icons.analytics_outlined, size: 16, color: Color(0xFF6C5CE7)),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Avg Order Value (AOV)', style: TextStyle(fontSize: 9.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600)),
-                          Text('₹${aovRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF6C5CE7))),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              strings.t('aov_title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 9, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
+                            ),
+                            Text('₹${aovRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF6C5CE7))),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -372,12 +380,19 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     children: [
                       const Icon(Icons.speed_rounded, size: 16, color: AirbnbTheme.success),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Efficiency Strike', style: TextStyle(fontSize: 9.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600)),
-                          Text('$strikeRate% Visited', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AirbnbTheme.success)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              strings.t('efficiency_strike'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 9, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
+                            ),
+                            Text('$strikeRate% Visited', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AirbnbTheme.success)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -433,7 +448,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           Row(
                             children: [
                               Text(
-                                activeShop != null ? 'ACTIVE VISIT CHECK-IN' : 'NEXT SCHEDULED VISIT',
+                                activeShop != null ? strings.t('active_visit') : strings.t('next_scheduled_visit'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
@@ -449,9 +464,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
                                     color: AirbnbTheme.coral,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text(
-                                    'LIVE TIMER',
-                                    style: TextStyle(
+                                  child: Text(
+                                    strings.t('live_timer'),
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 8.5,
                                       fontWeight: FontWeight.w900,
@@ -501,7 +516,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       child: Text(
-                        activeShop != null ? 'View' : 'Check In',
+                        activeShop != null ? 'View' : strings.t('check_in'),
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -517,7 +532,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           const Icon(Icons.av_timer_rounded, size: 16, color: AirbnbTheme.coral),
                           const SizedBox(width: 4),
                           Text(
-                            'Time Spent: ${activeShop.activeVisitFormatted}',
+                            '${strings.t('time_spent')}: ${activeShop.activeVisitFormatted}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,

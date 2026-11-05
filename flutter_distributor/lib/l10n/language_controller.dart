@@ -1,10 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'app_language.dart';
 
 /// Storage contract for persisting language preference per user and device.
 abstract class LanguageStorageAdapter {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
+}
+
+/// Persistent secure storage adapter for device and user language preference.
+class SecureStorageLanguageAdapter implements LanguageStorageAdapter {
+  final FlutterSecureStorage _storage;
+
+  SecureStorageLanguageAdapter([FlutterSecureStorage? storage])
+      : _storage = storage ?? const FlutterSecureStorage();
+
+  @override
+  Future<String?> read(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (_) {}
+  }
 }
 
 /// In-memory storage adapter for testing and default fallback.
@@ -23,7 +48,8 @@ class InMemoryLanguageStorage implements LanguageStorageAdapter {
 /// Controller managing active application language with instant reactive updates.
 class LanguageController extends ChangeNotifier {
   static LanguageController? _instance;
-  static LanguageController get instance => _instance ??= LanguageController();
+  static LanguageController get instance =>
+      _instance ??= LanguageController(storage: SecureStorageLanguageAdapter());
 
   final LanguageStorageAdapter _storage;
   AppLanguage _currentLanguage;
