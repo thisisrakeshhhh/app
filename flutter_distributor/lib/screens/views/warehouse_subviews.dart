@@ -2157,7 +2157,14 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                   children: const [
                     Icon(Icons.input_rounded, color: AirbnbTheme.jodhpurBlue, size: 20),
                     SizedBox(width: 8),
-                    Text('Record Inward Shipment (आवक स्टॉक)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    Expanded(
+                      child: Text(
+                        'Record Inward Shipment (आवक स्टॉक)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -2287,7 +2294,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                           onTap: () => setState(() => _manualSkuMode = true),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                             decoration: BoxDecoration(
                               color: _manualSkuMode ? Colors.white : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
@@ -2300,12 +2307,16 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                               children: [
                                 Icon(Icons.edit_note, size: 14, color: _manualSkuMode ? AirbnbTheme.jodhpurBlue : AirbnbTheme.grey),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'Manual SKU Entry (हाथ से दर्ज करें)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: _manualSkuMode ? FontWeight.w800 : FontWeight.w600,
-                                    color: _manualSkuMode ? AirbnbTheme.jodhpurBlue : const Color(0xFF64748B),
+                                Flexible(
+                                  child: Text(
+                                    'Manual SKU Entry',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: _manualSkuMode ? FontWeight.w800 : FontWeight.w600,
+                                      color: _manualSkuMode ? AirbnbTheme.jodhpurBlue : const Color(0xFF64748B),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2319,7 +2330,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                           onTap: () => setState(() => _manualSkuMode = false),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                             decoration: BoxDecoration(
                               color: !_manualSkuMode ? Colors.white : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
@@ -2332,12 +2343,16 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                               children: [
                                 Icon(Icons.list_alt, size: 14, color: !_manualSkuMode ? AirbnbTheme.jodhpurBlue : AirbnbTheme.grey),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'Select from Catalog',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: !_manualSkuMode ? FontWeight.w800 : FontWeight.w600,
-                                    color: !_manualSkuMode ? AirbnbTheme.jodhpurBlue : const Color(0xFF64748B),
+                                Flexible(
+                                  child: Text(
+                                    'Catalog Select',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: !_manualSkuMode ? FontWeight.w800 : FontWeight.w600,
+                                      color: !_manualSkuMode ? AirbnbTheme.jodhpurBlue : const Color(0xFF64748B),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2355,12 +2370,27 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Enter Product SKU / Item Code *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
+                      const Expanded(
+                        child: Text(
+                          'Enter Product SKU / Item Code *',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       if (matchedProduct != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
-                          child: Text('✓ ${matchedProduct.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.success)),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            margin: const EdgeInsets.only(left: 4),
+                            decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
+                            child: Text(
+                              '✓ ${matchedProduct.name}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.success),
+                            ),
+                          ),
                         ),
                     ],
                   ),
