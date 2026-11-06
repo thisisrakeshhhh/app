@@ -68,6 +68,60 @@ class _ReceiveStockGrnViewState extends State<ReceiveStockGrnView> {
       return;
     }
 
+    final currentBoxes = _selectedProduct!.godownStockBoxes;
+    final resultingBoxes = currentBoxes + _receivedCartons;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.verified, color: Color(0xFF2E7D32)),
+            SizedBox(width: 8),
+            Text('Reconfirm GRN Stock Intake', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Please verify the received SKU and count before posting to Godown:', style: TextStyle(fontSize: 12.5)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F8E9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFAED581)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_selectedProduct!.name} (${_selectedProduct!.id})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                  const SizedBox(height: 4),
+                  Text('Current Godown: $currentBoxes Boxes', style: const TextStyle(fontSize: 12)),
+                  Text('Inward Cartons: +$_receivedCartons Boxes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                  const SizedBox(height: 2),
+                  Text('New Total: $resultingBoxes Boxes', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back / Edit')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+            child: const Text('✓ Yes, Post to Godown'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;

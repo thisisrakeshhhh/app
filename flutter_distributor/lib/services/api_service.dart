@@ -255,6 +255,29 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  void addDeliveryTruck({
+    required String vehicleNumber,
+    required String vehicleModel,
+    required String driverName,
+    String driverPhone = '',
+    int capacityBoxes = 200,
+  }) {
+    final cleanNum = vehicleNumber.trim().toUpperCase();
+    final newId = 'truck-${DateTime.now().millisecondsSinceEpoch}';
+    final newTruck = DeliveryTruck(
+      id: newId,
+      vehicleNumber: cleanNum,
+      vehicleModel: vehicleModel.trim().isEmpty ? 'Delivery Van' : vehicleModel.trim(),
+      driverName: driverName.trim().isEmpty ? 'Assigned Driver' : driverName.trim(),
+      driverPhone: driverPhone.trim(),
+      capacityBoxes: capacityBoxes > 0 ? capacityBoxes : 200,
+    );
+    _deliveryTrucks.add(newTruck);
+    _selectedTruckId = newId;
+    _carNumber = cleanNum;
+    notifyListeners();
+  }
+
   void updateCarNumber(String newNum) {
     if (newNum.trim().isNotEmpty) {
       _carNumber = newNum.trim().toUpperCase();
