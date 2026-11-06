@@ -777,3 +777,67 @@ class WarehouseHub {
 
   int get totalStockBoxes => godownStockBoxes + carStockBoxes;
 }
+
+/// Delivery Truck / Mobile Fleet Stock Model.
+/// Supports multiple trucks in the warehouse loading fleet.
+class DeliveryTruck {
+  final String id;
+  final String vehicleNumber;
+  final String vehicleModel; // e.g. "Tata Ace Gold", "Mahindra Bolero Maxi", "Eicher Pro 2049"
+  final String driverName;
+  final String driverPhone;
+  final int capacityBoxes;
+  final Map<String, int> loadedStockBoxes; // productId -> boxes loaded on this specific truck
+
+  DeliveryTruck({
+    required this.id,
+    required this.vehicleNumber,
+    required this.vehicleModel,
+    required this.driverName,
+    required this.driverPhone,
+    this.capacityBoxes = 150,
+    Map<String, int>? loadedStockBoxes,
+  }) : loadedStockBoxes = loadedStockBoxes != null ? Map.from(loadedStockBoxes) : {};
+
+  int get totalLoadedBoxes => loadedStockBoxes.values.fold(0, (sum, b) => sum + b);
+
+  double get capacityUtilizationPercent =>
+      capacityBoxes > 0 ? (totalLoadedBoxes / capacityBoxes).clamp(0.0, 1.0) * 100 : 0.0;
+
+  int getStockForProduct(String productId) => loadedStockBoxes[productId] ?? 0;
+
+  void loadStock(String productId, int boxes) {
+    if (boxes <= 0) return;
+    loadedStockBoxes[productId] = (loadedStockBoxes[productId] ?? 0) + boxes;
+  }
+
+  void unloadStock(String productId, int boxes) {
+    if (boxes <= 0) return;
+    final current = loadedStockBoxes[productId] ?? 0;
+    if (boxes >= current) {
+      loadedStockBoxes.remove(productId);
+    } else {
+      loadedStockBoxes[productId] = current - boxes;
+    }
+  }
+
+  DeliveryTruck copyWith({
+    String? id,
+    String? vehicleNumber,
+    String? vehicleModel,
+    String? driverName,
+    String? driverPhone,
+    int? capacityBoxes,
+    Map<String, int>? loadedStockBoxes,
+  }) {
+    return DeliveryTruck(
+      id: id ?? this.id,
+      vehicleNumber: vehicleNumber ?? this.vehicleNumber,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      driverName: driverName ?? this.driverName,
+      driverPhone: driverPhone ?? this.driverPhone,
+      capacityBoxes: capacityBoxes ?? this.capacityBoxes,
+      loadedStockBoxes: loadedStockBoxes != null ? Map.from(loadedStockBoxes) : Map.from(this.loadedStockBoxes),
+    );
+  }
+}

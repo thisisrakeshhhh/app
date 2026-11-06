@@ -126,26 +126,41 @@ flutter build apk --debug
 
 ---
 
-### 2. Godown & Inventory Management Suite (गोदाम व इन्वेंट्री प्रबंधन)
-- **Manual In-App SKU Intake (`+ Add SKU`)**:
-  - Add new products and stock batches directly from the mobile app without needing desktop backoffice access.
-  - Form includes SKU code, English name, Hindi name, Category dropdown, and initial godown carton stock.
-- **Multi-Unit Pricing Breakdown (पीस, लड़ी, पेटी मूल्य)**:
-  - Explicit wholesale pricing per **Piece (प्रति पीस)**, **Strip (प्रति लड़ी)**, and **Box / Carton (प्रति पेटी)**.
-  - Integrated "Auto-Fill Units" calculator to instantly derive strip and box rates from base piece prices.
-  - GST rate selector (5%, 12%, 18%, 28%).
-- **Full In-App Inventory CRUD**:
-  - **Create**: Add new SKUs with batch numbers and expiry dates.
-  - **Read**: Filter by category pills, search by name/SKU/batch, and filter by stock health (`In Stock`, `Low Stock`, `Out of Stock`).
-  - **Update**: Edit product specifications, pricing tiers, and reorder alert levels.
-  - **Stock Audit (Adjust +)**: Physical stock count stepper with discrepancy detection and mandatory audit reasons (*Physical audit*, *Damage/Breakage*, *Supplier inward variance*, *Ledger correction*).
-  - **Delete**: Safely archive or permanently remove SKUs with confirmation safeguards.
-- **Automated Expiry Radar & Batches (एक्सपायरी ट्रैकर)**:
-  - Categorizes stock into `Expired`, `Expiring in <60 days`, and `Fresh / Safe`.
-  - Chronological batch timeline with prominent days-remaining countdowns (e.g. `22 days left`).
-  - Quick action to flag near-expiry batches for **Clearance Sales** or record disposal **Write-Offs**.
+### 2. Godown & Inventory Management Suite (गोदाम व इन्वेंट्री प्रबंधन - 1 Role, 3 Core Features)
+The Inventory role is architected around 3 essential operational features:
+
+#### Feature 1: Central Godown Inventory & Two-Stock Architecture (सेंट्रल गोदाम स्टॉक व टू-स्टॉक व्यू)
+- **Two-Stock Switcher (Two Stock View)**:
+  - **🏬 Central Godown Stock**: View and manage central warehouse depot inventory with full SKU catalog, valuation, and threshold alerts.
+  - **🚚 Truck Fleet Stock**: View loaded inventory across mobile delivery vehicles with vehicle fleet selector (`Tata Ace`, `Bolero Maxi`, `Eicher Pro`).
+- **Manual In-App SKU Intake & CRUD (`+ Add SKU`)**:
+  - Add new products and stock batches directly from the mobile app without requiring backoffice intervention.
+  - Multi-tier wholesale pricing inputs for **Piece (प्रति पीस)**, **Strip (प्रति लड़ी)**, and **Box / Carton (प्रति पेटी)** with instant Auto-Fill rate calculator.
+  - Batch number tagging, expiry datepicker with quick presets (`+3M`, `+6M`, `+1Y`), and reorder alert thresholds.
+  - Full CRUD: In-app Edit (pencil), Delete/Archive (trash with dialog), and Stock Audit (`Adjust Stock`) with variance reasons.
+- **Automated Expiry Radar (एक्सपायरी ट्रैकर)**:
+  - Categorizes batches into `Expired`, `Expiring in <60 days`, and `Fresh / Safe`.
+  - Prominent countdown badges (e.g. `22 days left`), clearance sale flagging, and expired stock disposal write-offs.
 - **Godown Financial Analytics (इन्वेंट्री एनालिटिक्स)**:
   - Live total stock valuation in ₹ and Lakhs.
   - Category-wise valuation distribution and carton volume breakdown.
-  - Automated reorder threshold warnings with suggested replenishment carton quantities.
+
+#### Feature 2: Sales Orders Pick & Dispatch Queue (बिक्री ऑर्डर पिकिंग व पैकिंग)
+- **Live Sales Order Intake**: Automatically streams in booked orders placed by field Sales Representatives (`stage: booking`).
+- **Shop & Order Detail Breakdown**: Retailer shop name, phone, beat route address, payment terms (COD / Credit), and order timestamp.
+- **Interactive Shelf-Picking Checklist**: Staff check off items line-by-line (`[x] 2 x Box Kurkure (192 pcs)`) as items are picked from godown racks.
+- **Stock Availability Verification**: Live pill indicator showing available Godown stock for each ordered SKU.
+- **Truck Assignment & Staging**: Select target delivery vehicle from the fleet and tap **"Mark Packed & Ready"** to move the order to the loading dock.
+
+#### Feature 3: Multi-Truck Fleet Stock & Loading Dock (ट्रक स्टॉक व मल्टी-ट्रक लोडिंग)
+- **Multi-Truck Fleet Management**: Supports multiple delivery vehicles in the warehouse fleet:
+  - `RJ-19-GB-4021`: Tata Ace Gold (Driver: Ramesh Choudhary)
+  - `RJ-19-GA-8822`: Mahindra Bolero Maxi (Driver: Suresh Gehlot)
+  - `RJ-19-GC-1104`: Eicher Pro 2049 (Driver: Vikas Bhati)
+- **Dynamic Stock Transfer Math**:
+  - **Load to Truck**: Loading $X$ boxes automatically **deducts from Godown stock** ($S_{godown} - X$) and **adds to Truck stock** ($S_{truck} + X$). Quick actions: `+1 Box`, `+5 Boxes`, `Custom Qty`.
+  - **Unload to Godown**: Unloading $X$ boxes returns stock back to Central Godown ($S_{truck} - X$, $S_{godown} + X$).
+  - Full audit trail recorded in local stock movement ledger.
+- **Truck Capacity Gauge**: Visual progress bar showing loaded boxes vs vehicle box limit with capacity percentage.
+- **Assigned Delivery Orders & Route Dispatch**: Displays all orders staged on the active truck with one-click **"Dispatch on Route"** to send the truck out for delivery.
 

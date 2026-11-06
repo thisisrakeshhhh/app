@@ -231,5 +231,111 @@ void main() {
       expect(mirinda.priceForUnit(OrderUnit.strip), equals(10200)); // 6 * 1700
       expect(mirinda.priceForUnit(OrderUnit.box), equals(40800)); // 24 * 1700
     });
+
+    testWidgets('6. Feature 1: Two-Stock Toggle (Central Godown vs Truck Fleet) and Manual CRUD actions in WarehouseStockView', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WarehouseStockView(api: api),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Check Two-Stock switcher
+      expect(find.textContaining('Central Godown'), findsOneWidget);
+      expect(find.textContaining('Truck Fleet'), findsOneWidget);
+
+      // Tap Truck Fleet stock tab
+      await tester.tap(find.textContaining('Truck Fleet'));
+      await tester.pumpAndSettle();
+
+      // Truck Fleet view displays fleet cards and truck selector
+      expect(find.textContaining('Tata Ace'), findsWidgets);
+      expect(find.textContaining('Loaded Inventory on Truck'), findsOneWidget);
+
+      // Switch back to Central Godown
+      await tester.tap(find.textContaining('Central Godown'));
+      await tester.pumpAndSettle();
+      expect(find.text('Catalog'), findsOneWidget);
+
+      // Manual CRUD: Tap Adjust Stock on first SKU
+      await tester.tap(find.text('Adjust Stock').first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Physical Stock Audit'), findsOneWidget);
+      // Close dialog
+      await tester.tap(find.text('Count Matches (No Adjustment)'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('7. Feature 2: Sales Orders Pick List (WarehousePickingView) lists incoming orders from sales reps, line items, and truck assignment', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WarehousePickingView(api: api),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Sales Orders Pick List'), findsOneWidget);
+      expect(find.textContaining('Incoming to Pick'), findsOneWidget);
+
+      if (api.bookingOrders.isNotEmpty) {
+        final firstBooking = api.bookingOrders.first;
+        expect(find.text('Order #${firstBooking.orderNumber}'), findsOneWidget);
+        expect(find.textContaining('Items to Pick from Godown Shelves:'), findsOneWidget);
+        expect(find.text('Mark Packed & Ready'), findsWidgets);
+
+        // Tap "Pick All" button
+        await tester.tap(find.text('Pick All').first);
+        await tester.pumpAndSettle();
+
+        // Tap "Mark Packed & Ready"
+        await tester.tap(find.text('Mark Packed & Ready').first);
+        await tester.pumpAndSettle();
+
+        // Order is now moved to readyStock stage
+        expect(api.orders.firstWhere((o) => o.id == firstBooking.id).stage, equals(OrderLifecycleStage.readyStock));
+      }
+    });
+
+    testWidgets('8. Feature 3: Multi-Truck Stock & Loading Transfer (WarehouseLoadingView) transfers stock (- Godown, + Truck)', (tester) async {
+      await repo.upsertProduct(api.products.first);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WarehouseLoadingView(api: api),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Vehicle Loading Dock'), findsOneWidget);
+      expect(find.text('Transfer Stock to Van'), findsOneWidget);
+      expect(find.textContaining('Boxes Loaded in Van'), findsOneWidget);
+
+      final testProduct = api.products.first;
+      final initialGodown = testProduct.godownStockBoxes;
+      final initialTruck = testProduct.carStockBoxes;
+
+      // Tap "+1 Box"
+      await tester.tap(find.text('+1 Box').first);
+      await tester.pumpAndSettle();
+
+      // Godown decreased by 1, Truck increased by 1
+      expect(testProduct.godownStockBoxes, equals(initialGodown - 1));
+      expect(testProduct.carStockBoxes, equals(initialTruck + 1));
+
+      // Tap "-1" to unload back to Godown
+      if (find.text('-1').evaluate().isNotEmpty) {
+        await tester.tap(find.text('-1').first);
+        await tester.pumpAndSettle();
+
+        expect(testProduct.godownStockBoxes, equals(initialGodown));
+        expect(testProduct.carStockBoxes, equals(initialTruck));
+      }
+    });
   });
 }

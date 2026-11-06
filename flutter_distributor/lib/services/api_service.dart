@@ -208,9 +208,52 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Active Vehicle / Car Logistics
+  // Active Vehicle / Car Logistics & Multi-Truck Fleet
   String _carNumber = 'RJ-19-GB-4021';
   String get carNumber => _carNumber;
+
+  final List<DeliveryTruck> _deliveryTrucks = [
+    DeliveryTruck(
+      id: 'truck-1',
+      vehicleNumber: 'RJ-19-GB-4021',
+      vehicleModel: 'Tata Ace Gold',
+      driverName: 'Ramesh Choudhary',
+      driverPhone: '+91 98290 12345',
+      capacityBoxes: 150,
+    ),
+    DeliveryTruck(
+      id: 'truck-2',
+      vehicleNumber: 'RJ-19-GA-8822',
+      vehicleModel: 'Mahindra Bolero Maxi Truck',
+      driverName: 'Suresh Gehlot',
+      driverPhone: '+91 98290 54321',
+      capacityBoxes: 250,
+    ),
+    DeliveryTruck(
+      id: 'truck-3',
+      vehicleNumber: 'RJ-19-GC-1104',
+      vehicleModel: 'Eicher Pro 2049',
+      driverName: 'Vikas Bhati',
+      driverPhone: '+91 94140 98765',
+      capacityBoxes: 400,
+    ),
+  ];
+
+  String _selectedTruckId = 'truck-1';
+  List<DeliveryTruck> get deliveryTrucks => List.unmodifiable(_deliveryTrucks);
+
+  DeliveryTruck get activeTruck => _deliveryTrucks.firstWhere(
+    (t) => t.id == _selectedTruckId,
+    orElse: () => _deliveryTrucks.first,
+  );
+
+  void selectTruck(String truckId) {
+    if (_deliveryTrucks.any((t) => t.id == truckId)) {
+      _selectedTruckId = truckId;
+      _carNumber = activeTruck.vehicleNumber;
+      notifyListeners();
+    }
+  }
 
   void updateCarNumber(String newNum) {
     if (newNum.trim().isNotEmpty) {
@@ -1263,21 +1306,27 @@ class ApiService extends ChangeNotifier {
       _orders.where((o) => o.stage == OrderLifecycleStage.delivered).toList();
 
   // Dynamic Car & Godown Stock Transfer
-  Future<bool> transferStockToCar(String productId, int boxDelta) async {
+  Future<bool> transferStockToCar(String productId, int boxDelta, {String? targetTruckId}) async {
     final capturedGen = _transientGeneration;
     final idx = _products.indexWhere((p) => p.id == productId);
     if (idx == -1) return false;
 
     final p = _products[idx];
+    final truck = targetTruckId != null
+        ? _deliveryTrucks.firstWhere((t) => t.id == targetTruckId, orElse: () => activeTruck)
+        : activeTruck;
+
     if (boxDelta > 0) {
       if (p.godownStockBoxes < boxDelta) return false;
       p.godownStockBoxes -= boxDelta;
       p.carStockBoxes += boxDelta;
+      truck.loadStock(productId, boxDelta);
     } else if (boxDelta < 0) {
       final absDelta = boxDelta.abs();
       if (p.carStockBoxes < absDelta) return false;
       p.carStockBoxes -= absDelta;
       p.godownStockBoxes += absDelta;
+      truck.unloadStock(productId, absDelta);
     } else {
       return true;
     }
@@ -1288,7 +1337,7 @@ class ApiService extends ChangeNotifier {
         movementType: 'TRANSFER_TO_CAR',
         cartonDelta: boxDelta,
         loosePieceDelta: 0,
-        reason: 'Stock transfer between Godown and Van ($_carNumber)',
+        reason: 'Stock transfer between Godown and Truck (${truck.vehicleNumber})',
         newGodownCartons: p.godownStockBoxes,
         newGodownLoosePieces: 0,
         newCarCartons: p.carStockBoxes,
@@ -1299,10 +1348,12 @@ class ApiService extends ChangeNotifier {
         if (boxDelta > 0) {
           p.godownStockBoxes += boxDelta;
           p.carStockBoxes -= boxDelta;
+          truck.unloadStock(productId, boxDelta);
         } else if (boxDelta < 0) {
           final absDelta = boxDelta.abs();
           p.carStockBoxes += absDelta;
           p.godownStockBoxes -= absDelta;
+          truck.loadStock(productId, absDelta);
         }
         return false;
       }
@@ -1313,16 +1364,40 @@ class ApiService extends ChangeNotifier {
       if (boxDelta > 0) {
         p.godownStockBoxes += boxDelta;
         p.carStockBoxes -= boxDelta;
+        truck.unloadStock(productId, boxDelta);
       } else if (boxDelta < 0) {
         final absDelta = boxDelta.abs();
         p.carStockBoxes += absDelta;
         p.godownStockBoxes -= absDelta;
+        truck.loadStock(productId, absDelta);
       }
       if (capturedGen == _transientGeneration) {
         notifyListeners();
       }
       rethrow;
     }
+  }
+
+  /// Automatically picks and loads all items of an order from Godown to the target Truck.
+  /// Deducts required stock from Godown and adds to Truck.
+  Future<bool> loadOrderToTruck(String orderId, {String? targetTruckId}) async {
+    final ordIdx = _orders.indexWhere((o) => o.id == orderId);
+    if (ordIdx == -1) return false;
+    final ord = _orders[ordIdx];
+    final truck = targetTruckId != null
+        ? _deliveryTrucks.firstWhere((t) => t.id == targetTruckId, orElse: () => activeTruck)
+        : activeTruck;
+
+    // Deduct each ordered product from Godown and load to Truck
+    for (final item in ord.items) {
+      final boxes = item.unit == OrderUnit.box ? item.quantity : 1;
+      await transferStockToCar(item.product.id, boxes, targetTruckId: truck.id);
+    }
+
+    ord.stage = OrderLifecycleStage.readyStock;
+    ord.assignedCarNumber = truck.vehicleNumber;
+    notifyListeners();
+    return true;
   }
 
   // Cart operations
@@ -2741,6 +2816,13 @@ class ApiService extends ChangeNotifier {
         reorderLevelBoxes: 20,
       ),
     ];
+
+    // Synchronize initial truck stock for primary vehicle
+    for (final p in _products) {
+      if (p.carStockBoxes > 0) {
+        _deliveryTrucks[0].loadStock(p.id, p.carStockBoxes);
+      }
+    }
 
     // 2. Jodhpur Kirana Retailers with Spatial Coordinates (Sardarpura & Nai Sadak Route)
     _retailers = [
