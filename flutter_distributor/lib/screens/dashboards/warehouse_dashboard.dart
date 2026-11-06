@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import '../views/add_edit_inventory_item_sheet.dart';
 
 /// Inventory & Warehouse Landing Dashboard.
 /// Displays Godown stock metrics, low-stock warnings, vehicle loading status,
@@ -21,6 +22,9 @@ class WarehouseDashboard extends StatelessWidget {
     final totalGodownBoxes = api.totalGodownBoxes;
     final totalCarBoxes = api.totalCarBoxes;
     final carNumber = api.carNumber;
+
+    final totalGodownValuationRupees = products.fold<double>(0.0, (sum, p) => sum + p.godownValuationRupees);
+    final nearExpiryProducts = products.where((p) => p.isExpiringSoon || p.isExpired).toList();
 
     // Filter products with low stock (less than 40 boxes in godown)
     final lowStockProducts = products.where((p) => p.godownStockBoxes < 40).toList();
@@ -87,20 +91,36 @@ class WarehouseDashboard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Live Stock Sync',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => AddEditInventoryItemSheet.show(context, api),
+                          icon: const Icon(Icons.add, size: 14),
+                          label: const Text('+ Add SKU', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AirbnbTheme.coral,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Live Stock Sync',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -128,7 +148,7 @@ class WarehouseDashboard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // 2. LIVE GODOWN KPI CARDS
+          // 2. LIVE GODOWN KPI CARDS (2x2 Grid: Stock, Value, Van, Expiry)
           Row(
             children: [
               Expanded(
@@ -144,12 +164,38 @@ class WarehouseDashboard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildKpiCard(
+                  title: 'Stock Valuation',
+                  value: '₹${(totalGodownValuationRupees / 100000).toStringAsFixed(2)}L',
+                  subtitle: 'Asset Value (Central)',
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: const Color(0xFF0284C7),
+                  onTap: () => onNavigateTab(1),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildKpiCard(
                   title: 'Loaded in Van',
                   value: '$totalCarBoxes',
                   subtitle: carNumber,
                   icon: Icons.local_shipping_outlined,
                   color: AirbnbTheme.success,
                   onTap: () => onNavigateTab(4),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildKpiCard(
+                  title: 'Expiry Radar',
+                  value: '${nearExpiryProducts.length}',
+                  subtitle: nearExpiryProducts.isNotEmpty ? 'Near Expiry (<60d)' : 'All Batches Fresh',
+                  icon: Icons.timelapse_outlined,
+                  color: nearExpiryProducts.isNotEmpty ? Colors.amber.shade800 : Colors.green,
+                  onTap: () => onNavigateTab(1),
                 ),
               ),
             ],

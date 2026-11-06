@@ -2524,6 +2524,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 180,
         carStockBoxes: 24,
         badge: 'High Demand',
+        batchNumber: 'LOT-2026-KM01',
+        expiryDate: DateTime(2027, 3, 15),
+        reorderLevelBoxes: 40,
       ),
       ProductItem(
         id: 'KURK-02',
@@ -2538,6 +2541,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 125,
         carStockBoxes: 16,
         badge: 'Spicy Hit',
+        batchNumber: 'LOT-2026-KC02',
+        expiryDate: DateTime(2026, 11, 28), // Near expiry (approx 22 days)
+        reorderLevelBoxes: 35,
       ),
       ProductItem(
         id: 'DORI-01',
@@ -2552,6 +2558,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 80,
         carStockBoxes: 10,
         badge: 'Crunch Hit',
+        batchNumber: 'LOT-2026-DN01',
+        expiryDate: DateTime(2027, 4, 10),
+        reorderLevelBoxes: 25,
       ),
 
       // Category: Potato Chips (Lay's)
@@ -2568,6 +2577,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 150,
         carStockBoxes: 20,
         badge: 'Top Seller',
+        batchNumber: 'LOT-2026-LM01',
+        expiryDate: DateTime(2027, 2, 20),
+        reorderLevelBoxes: 50,
       ),
       ProductItem(
         id: 'LAYS-02',
@@ -2582,6 +2594,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 110,
         carStockBoxes: 15,
         badge: 'Bestseller',
+        batchNumber: 'LOT-2026-LC02',
+        expiryDate: DateTime(2026, 12, 1), // Near expiry (approx 25 days)
+        reorderLevelBoxes: 40,
       ),
       ProductItem(
         id: 'LAYS-03',
@@ -2596,6 +2611,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 90,
         carStockBoxes: 12,
         badge: 'Family Pack',
+        batchNumber: 'LOT-2026-LT03',
+        expiryDate: DateTime(2027, 5, 5),
+        reorderLevelBoxes: 30,
       ),
 
       // Category: Carbonated Drinks (CSD)
@@ -2612,6 +2630,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 140,
         carStockBoxes: 18,
         badge: 'Chilled CSD',
+        batchNumber: 'LOT-2026-PP01',
+        expiryDate: DateTime(2027, 6, 30),
+        reorderLevelBoxes: 45,
       ),
       ProductItem(
         id: 'DEW-750',
@@ -2626,6 +2647,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 120,
         carStockBoxes: 15,
         badge: 'Summer Hit',
+        batchNumber: 'LOT-2026-MD01',
+        expiryDate: DateTime(2027, 7, 15),
+        reorderLevelBoxes: 40,
       ),
       ProductItem(
         id: '7UP-500',
@@ -2640,6 +2664,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 100,
         carStockBoxes: 12,
         badge: 'Refreshing',
+        batchNumber: 'LOT-2026-7U01',
+        expiryDate: DateTime(2027, 4, 25),
+        reorderLevelBoxes: 35,
       ),
 
       // Category: Energy & Hydration
@@ -2656,6 +2683,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 220,
         carStockBoxes: 30,
         badge: 'Super Hot',
+        batchNumber: 'LOT-2026-ST01',
+        expiryDate: DateTime(2027, 8, 20),
+        reorderLevelBoxes: 50,
       ),
       ProductItem(
         id: 'AQUA-1L',
@@ -2670,6 +2700,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 250,
         carStockBoxes: 40,
         badge: 'Essential',
+        batchNumber: 'LOT-2026-AQ01',
+        expiryDate: DateTime(2027, 10, 1),
+        reorderLevelBoxes: 60,
       ),
 
       // Category: Juices & Nutrition (Tropicana & Quaker)
@@ -2686,6 +2719,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 75,
         carStockBoxes: 8,
         badge: '100% Real Juice',
+        batchNumber: 'LOT-2026-TR01',
+        expiryDate: DateTime(2026, 12, 10), // Near expiry (approx 34 days)
+        reorderLevelBoxes: 25,
       ),
       ProductItem(
         id: 'QUAK-1KG',
@@ -2700,6 +2736,9 @@ class ApiService extends ChangeNotifier {
         godownStockBoxes: 60,
         carStockBoxes: 6,
         badge: 'Healthy Breakfast',
+        batchNumber: 'LOT-2026-QK01',
+        expiryDate: DateTime(2027, 9, 15),
+        reorderLevelBoxes: 20,
       ),
     ];
 

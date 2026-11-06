@@ -199,6 +199,11 @@ class ProductItem {
   final String imageUrl;
   final Map<String, int>? customUnitMultipliers; // unitName -> multiplierToBase
   final Map<String, int>? customUnitPricesPaise; // unitName -> wholesalePricePaise
+  final String batchNumber;
+  final DateTime? expiryDate;
+  final int reorderLevelBoxes;
+  final int costPricePaise;
+  final bool isArchived;
 
   ProductItem({
     required this.id,
@@ -217,7 +222,81 @@ class ProductItem {
     this.imageUrl = '',
     this.customUnitMultipliers,
     this.customUnitPricesPaise,
-  }) : mrpPaise = mrpPaise ?? (mrpRupees != null ? (mrpRupees * 100).round() : 0);
+    this.batchNumber = 'LOT-2026-A1',
+    this.expiryDate,
+    this.reorderLevelBoxes = 30,
+    int? costPricePaise,
+    this.isArchived = false,
+  })  : mrpPaise = mrpPaise ?? (mrpRupees != null ? (mrpRupees * 100).round() : 0),
+        costPricePaise = costPricePaise ?? (piecePricePaise * 85 ~/ 100);
+
+  bool get isLowStock => godownStockBoxes > 0 && godownStockBoxes <= reorderLevelBoxes;
+  bool get isOutOfStock => godownStockBoxes <= 0;
+
+  int? get daysUntilExpiry {
+    if (expiryDate == null) return null;
+    final now = DateTime.now();
+    return expiryDate!.difference(DateTime(now.year, now.month, now.day)).inDays;
+  }
+
+  bool get isExpired {
+    final d = daysUntilExpiry;
+    return d != null && d < 0;
+  }
+
+  bool get isExpiringSoon {
+    final d = daysUntilExpiry;
+    return d != null && d >= 0 && d <= 60;
+  }
+
+  int get godownValuationPaise => godownStockBoxes * boxQty * piecePricePaise;
+  double get godownValuationRupees => godownValuationPaise / 100.0;
+
+  ProductItem copyWith({
+    String? id,
+    String? name,
+    String? hindiName,
+    String? category,
+    int? mrpPaise,
+    int? piecePricePaise,
+    int? stripQty,
+    int? boxQty,
+    double? gstRate,
+    int? godownStockBoxes,
+    int? carStockBoxes,
+    String? badge,
+    String? imageUrl,
+    Map<String, int>? customUnitMultipliers,
+    Map<String, int>? customUnitPricesPaise,
+    String? batchNumber,
+    DateTime? expiryDate,
+    int? reorderLevelBoxes,
+    int? costPricePaise,
+    bool? isArchived,
+  }) {
+    return ProductItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      hindiName: hindiName ?? this.hindiName,
+      category: category ?? this.category,
+      mrpPaise: mrpPaise ?? this.mrpPaise,
+      piecePricePaise: piecePricePaise ?? this.piecePricePaise,
+      stripQty: stripQty ?? this.stripQty,
+      boxQty: boxQty ?? this.boxQty,
+      gstRate: gstRate ?? this.gstRate,
+      godownStockBoxes: godownStockBoxes ?? this.godownStockBoxes,
+      carStockBoxes: carStockBoxes ?? this.carStockBoxes,
+      badge: badge ?? this.badge,
+      imageUrl: imageUrl ?? this.imageUrl,
+      customUnitMultipliers: customUnitMultipliers ?? this.customUnitMultipliers,
+      customUnitPricesPaise: customUnitPricesPaise ?? this.customUnitPricesPaise,
+      batchNumber: batchNumber ?? this.batchNumber,
+      expiryDate: expiryDate ?? this.expiryDate,
+      reorderLevelBoxes: reorderLevelBoxes ?? this.reorderLevelBoxes,
+      costPricePaise: costPricePaise ?? this.costPricePaise,
+      isArchived: isArchived ?? this.isArchived,
+    );
+  }
 
   // Wholesale pricing: data-driven from unit_prices, with base piece fallback
   int priceForUnit(OrderUnit unit) {
