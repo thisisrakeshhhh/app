@@ -377,31 +377,44 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: AirbnbTheme.lightGrey,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AirbnbTheme.border),
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: InkWell(
                         onTap: () => setState(() => _stockLocation = 'godown'),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
                           decoration: BoxDecoration(
-                            color: _stockLocation == 'godown' ? AirbnbTheme.dark : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            color: _stockLocation == 'godown' ? const Color(0xFF0F172A) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _stockLocation == 'godown'
+                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))]
+                                : null,
                           ),
-                          child: Center(
-                            child: Text(
-                              '🏬 Central Godown (${widget.api.totalGodownBoxes} bxs)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: _stockLocation == 'godown' ? Colors.white : AirbnbTheme.dark,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.warehouse_rounded, size: 14, color: Colors.amber),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'Central Godown (${widget.api.totalGodownBoxes} bxs)',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: _stockLocation == 'godown' ? Colors.white : const Color(0xFF475569),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -410,22 +423,35 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                     Expanded(
                       child: InkWell(
                         onTap: () => setState(() => _stockLocation = 'truck'),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
                           decoration: BoxDecoration(
-                            color: _stockLocation == 'truck' ? AirbnbTheme.dark : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            color: _stockLocation == 'truck' ? const Color(0xFF0F172A) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _stockLocation == 'truck'
+                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))]
+                                : null,
                           ),
-                          child: Center(
-                            child: Text(
-                              '🚚 Truck Fleet (${widget.api.totalCarBoxes} bxs)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: _stockLocation == 'truck' ? Colors.white : AirbnbTheme.dark,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF60A5FA)),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'Truck Fleet (${widget.api.totalCarBoxes} bxs)',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: _stockLocation == 'truck' ? Colors.white : const Color(0xFF475569),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -621,40 +647,61 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                       ],
                     ),
                   ),
-                  Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: loadedBoxes > 0
-                            ? () async {
-                                await widget.api.transferStockToCar(p.id, -1, targetTruckId: activeTruck.id);
-                                if (mounted) setState(() {});
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade600,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: loadedBoxes > 0
+                              ? () async {
+                                  await widget.api.transferStockToCar(p.id, -1, targetTruckId: activeTruck.id);
+                                  if (mounted) setState(() {});
+                                }
+                              : null,
+                          icon: const Icon(Icons.remove, size: 14),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          style: IconButton.styleFrom(
+                            backgroundColor: loadedBoxes > 0 ? Colors.red.shade50 : Colors.transparent,
+                            foregroundColor: loadedBoxes > 0 ? Colors.red.shade700 : const Color(0xFFCBD5E1),
+                          ),
                         ),
-                        child: const Text('-1 Unload', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(width: 6),
-                      ElevatedButton(
-                        onPressed: p.godownStockBoxes >= 1
-                            ? () async {
-                                await widget.api.transferStockToCar(p.id, 1, targetTruckId: activeTruck.id);
-                                if (mounted) setState(() {});
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AirbnbTheme.jodhpurBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Text(
+                            '$loadedBoxes bxs',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: loadedBoxes > 0 ? AirbnbTheme.jodhpurBlue : const Color(0xFF94A3B8),
+                            ),
+                          ),
                         ),
-                        child: const Text('+1 Load', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
+                        IconButton(
+                          onPressed: p.godownStockBoxes >= 1
+                              ? () async {
+                                  await widget.api.transferStockToCar(p.id, 1, targetTruckId: activeTruck.id);
+                                  if (mounted) setState(() {});
+                                }
+                              : null,
+                          icon: const Icon(Icons.add, size: 14),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          style: IconButton.styleFrom(
+                            backgroundColor: p.godownStockBoxes >= 1 ? AirbnbTheme.jodhpurBlue : Colors.transparent,
+                            foregroundColor: p.godownStockBoxes >= 1 ? Colors.white : const Color(0xFFCBD5E1),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1784,19 +1831,24 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Sales Orders Pick List (बिक्री ऑर्डर सूची)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                        ),
-                        Text(
-                          '${bookingOrders.length} New Orders received from Sales reps',
-                          style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Sales Orders Pick List (बिक्री ऑर्डर सूची)',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${bookingOrders.length} New Orders received from Sales reps',
+                            style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -1886,22 +1938,25 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.receipt_long, size: 16, color: AirbnbTheme.jodhpurBlue),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Order #${ord.orderNumber}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.receipt_long, size: 16, color: AirbnbTheme.jodhpurBlue),
                   ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Order #${ord.orderNumber}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -1910,7 +1965,7 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                       border: Border.all(color: allItemsPicked ? const Color(0xFF86EFAC) : const Color(0xFFFED7AA)),
                     ),
                     child: Text(
-                      allItemsPicked ? 'ALL ITEMS PICKED' : 'PICKING QUEUE',
+                      allItemsPicked ? 'ALL PICKED' : 'PICKING QUEUE',
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
@@ -1923,12 +1978,14 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
               const SizedBox(height: 8),
               Text(
                 'Retailer: ${ord.shopName} • Assigned Car: ${ord.assignedCarNumber}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AirbnbTheme.dark),
               ),
               if (ord.address.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(ord.address, style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                  child: Text(ord.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
                 ),
               const SizedBox(height: 8),
 
@@ -1936,28 +1993,37 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
               Row(
                 children: [
                   const Text('Assign Truck: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: AirbnbTheme.lightGrey,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AirbnbTheme.border),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: trucks.any((t) => t.vehicleNumber == ord.assignedCarNumber)
-                            ? ord.assignedCarNumber
-                            : trucks.first.vehicleNumber,
-                        isDense: true,
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                        items: trucks.map((t) => DropdownMenuItem(value: t.vehicleNumber, child: Text('${t.vehicleNumber} (${t.vehicleModel})'))).toList(),
-                        onChanged: (newCar) {
-                          if (newCar != null) {
-                            setState(() {
-                              ord.assignedCarNumber = newCar;
-                            });
-                          }
-                        },
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: AirbnbTheme.lightGrey,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AirbnbTheme.border),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: trucks.any((t) => t.vehicleNumber == ord.assignedCarNumber)
+                              ? ord.assignedCarNumber
+                              : trucks.first.vehicleNumber,
+                          isDense: true,
+                          isExpanded: true,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                          items: trucks
+                              .map((t) => DropdownMenuItem(
+                                    value: t.vehicleNumber,
+                                    child: Text('${t.vehicleNumber} (${t.vehicleModel})', overflow: TextOverflow.ellipsis),
+                                  ))
+                              .toList(),
+                          onChanged: (newCar) {
+                            if (newCar != null) {
+                              setState(() {
+                                ord.assignedCarNumber = newCar;
+                              });
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -2030,61 +2096,101 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
               }),
 
               const Divider(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Order Value: ₹${ord.totalRupees.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                      ),
-                      Text(
-                        'Mode: ${ord.paymentMode}',
-                        style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey),
-                      ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            final allIds = ord.items.map((it) => it.product.id).toSet();
-                            _pickedItems[ord.id] = allIds;
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text('Pick All', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          widget.api.advanceOrderStage(ord.id);
-                          setState(() {});
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Order #${ord.orderNumber} packed and staged for car loading!'),
-                              backgroundColor: AirbnbTheme.success,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Order Value: ',
+                              style: TextStyle(fontSize: 11.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.check, size: 14),
-                        label: const Text('Mark Packed & Ready'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AirbnbTheme.success,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            Text(
+                              '₹${ord.totalRupees.toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: AirbnbTheme.dark),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: AirbnbTheme.border),
+                          ),
+                          child: Text(
+                            'Mode: ${ord.paymentMode}',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                final allIds = ord.items.map((it) => it.product.id).toSet();
+                                _pickedItems[ord.id] = allIds;
+                              });
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AirbnbTheme.jodhpurBlue,
+                              side: BorderSide(color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.5)),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('Pick All', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 3,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              widget.api.advanceOrderStage(ord.id);
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Order #${ord.orderNumber} packed and staged for car loading!'),
+                                  backgroundColor: AirbnbTheme.success,
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.check_circle_outline, size: 14),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Mark Packed & Ready', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AirbnbTheme.success,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -2126,9 +2232,16 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Order #${ord.orderNumber}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  Expanded(
+                    child: Text(
+                      'Order #${ord.orderNumber}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(6)),
@@ -2153,7 +2266,15 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Total: ₹${ord.totalRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                  Expanded(
+                    child: Text(
+                      'Total: ₹${ord.totalRupees.toStringAsFixed(0)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: () {
                       widget.api.advanceOrderStage(ord.id);
@@ -2361,99 +2482,265 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
 
           // 3. Stock Transfer List
           ...prods.map((p) {
+            final inTruckBoxes = activeTruck.getStockForProduct(p.id);
+            final hasGodownStock = p.godownStockBoxes > 0;
+            final canLoad5 = p.godownStockBoxes >= 5;
+
             return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AirbnbTheme.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
+                  // Top Row: Category icon, SKU title, Brand/Category tag
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        Text('Godown: ${p.godownStockBoxes} bxs • Van: ${p.carStockBoxes} bxs', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.fastfood_rounded, color: Color(0xFFB45309), size: 20),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      p.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14.5,
+                                        color: AirbnbTheme.dark,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(
+                                      p.id,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${p.category} • ₹${((p.piecePricePaise * p.boxQty) / 100).toStringAsFixed(0)}/bx (${p.boxQty} pcs)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Row(
-                    children: [
-                      // -1 Unload
-                      if (p.carStockBoxes > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              await widget.api.transferStockToCar(p.id, -1, targetTruckId: activeTruck.id);
-                              if (mounted) setState(() {});
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade600,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            ),
-                            child: const Text('-1', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+
+                  // Middle Row: Godown vs In-Van Stock Badges
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warehouse_rounded, size: 14, color: Color(0xFF64748B)),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'Godown: ${p.godownStockBoxes} bxs',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: p.godownStockBoxes > 0 ? const Color(0xFF334155) : Colors.red.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      // +1 Box
-                      ElevatedButton(
-                        onPressed: p.godownStockBoxes >= 1
-                            ? () async {
-                                final messenger = ScaffoldMessenger.of(context);
-                                await widget.api.transferStockToCar(p.id, 1, targetTruckId: activeTruck.id);
-                                if (mounted) setState(() {});
-                                messenger.showSnackBar(
-                                  SnackBar(content: Text('Loaded 1 box of ${p.name} into van!'), duration: const Duration(milliseconds: 600)),
-                                );
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AirbnbTheme.jodhpurBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  'In Van: $inTruckBoxes bxs',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1D4ED8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Text('+1 Box', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(width: 6),
-                      // +5 Boxes
-                      ElevatedButton(
-                        onPressed: p.godownStockBoxes >= 5
-                            ? () async {
-                                final messenger = ScaffoldMessenger.of(context);
-                                await widget.api.transferStockToCar(p.id, 5, targetTruckId: activeTruck.id);
-                                if (mounted) setState(() {});
-                                messenger.showSnackBar(
-                                  SnackBar(content: Text('Loaded 5 boxes of ${p.name} into van!'), duration: const Duration(milliseconds: 600)),
-                                );
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AirbnbTheme.dark,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+
+                  // Bottom Action Bar: Stepper & Quick Actions
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left: [-1] and [+1 Box] actions
+                        Row(
+                          children: [
+                            if (inTruckBoxes > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    await widget.api.transferStockToCar(p.id, -1, targetTruckId: activeTruck.id);
+                                    if (mounted) setState(() {});
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red.shade600,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  child: const Text('-1', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                                ),
+                              ),
+                            ElevatedButton.icon(
+                              onPressed: hasGodownStock
+                                  ? () async {
+                                      final messenger = ScaffoldMessenger.of(context);
+                                      await widget.api.transferStockToCar(p.id, 1, targetTruckId: activeTruck.id);
+                                      if (mounted) setState(() {});
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('Loaded 1 box of ${p.name} into van!'),
+                                          duration: const Duration(milliseconds: 600),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.add, size: 14),
+                              label: const Text('+1 Box', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AirbnbTheme.jodhpurBlue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Text('+5', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(width: 6),
-                      // Custom Load
-                      OutlinedButton(
-                        onPressed: p.godownStockBoxes >= 1
-                            ? () => _showCustomLoadDialog(p, activeTruck)
-                            : null,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+
+                        // Right: Quick Load +5 & Custom
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: canLoad5
+                                  ? () async {
+                                      final messenger = ScaffoldMessenger.of(context);
+                                      await widget.api.transferStockToCar(p.id, 5, targetTruckId: activeTruck.id);
+                                      if (mounted) setState(() {});
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('Loaded 5 boxes of ${p.name} into van!'),
+                                          duration: const Duration(milliseconds: 600),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F172A),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              child: const Text('+5', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                            ),
+                            const SizedBox(width: 6),
+                            OutlinedButton(
+                              onPressed: hasGodownStock
+                                  ? () => _showCustomLoadDialog(p, activeTruck)
+                                  : null,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AirbnbTheme.jodhpurBlue,
+                                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              child: const Text('Custom', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700)),
+                            ),
+                          ],
                         ),
-                        child: const Text('Custom', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -2465,10 +2752,15 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Orders Loaded for ${activeTruck.vehicleNumber}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                Expanded(
+                  child: Text(
+                    'Orders Loaded for ${activeTruck.vehicleNumber}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(6)),
@@ -2488,13 +2780,16 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Order #${ord.orderNumber} • ${ord.shopName}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                      Text('₹${ord.totalRupees.toStringAsFixed(0)} • ${ord.items.length} items', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Order #${ord.orderNumber} • ${ord.shopName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                        Text('₹${ord.totalRupees.toStringAsFixed(0)} • ${ord.items.length} items', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () {
                       widget.api.advanceOrderStage(ord.id);
@@ -2506,7 +2801,7 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AirbnbTheme.success,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     child: const Text('Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),

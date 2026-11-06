@@ -449,20 +449,25 @@ class _RoleShellState extends State<RoleShell> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        titleSpacing: 10,
-        toolbarHeight: 64,
+        titleSpacing: 8,
+        toolbarHeight: 60,
         elevation: 0,
         backgroundColor: Colors.white,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Row(
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: const Color(0xFFE2E8F0), height: 1),
+        ),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
@@ -470,57 +475,41 @@ class _RoleShellState extends State<RoleShell> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
-                      color: AirbnbTheme.dark,
+                      letterSpacing: -0.4,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                   const SizedBox(width: 5),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
-                      color: roleColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
+                      color: roleColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
                       canonicalRole.badgeLabel,
                       style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
                         color: roleColor,
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    userName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AirbnbTheme.grey,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    ' (${canonicalRole.badgeLabel})',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      color: roleColor,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 1),
+              Text(
+                userName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           // Active Organization Selector Chip
@@ -528,30 +517,30 @@ class _RoleShellState extends State<RoleShell> {
             GestureDetector(
               onTap: () => OrganizationSelectSheet.show(context, widget.authService!),
               child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 14),
+                margin: const EdgeInsets.symmetric(vertical: 16),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AirbnbTheme.lightGrey,
+                  color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AirbnbTheme.border),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.business, size: 13, color: AirbnbTheme.dark),
+                    const Icon(Icons.business, size: 12, color: AirbnbTheme.dark),
                     const SizedBox(width: 3),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 68),
+                      constraints: const BoxConstraints(maxWidth: 54),
                       child: Text(
                         widget.authService!.session?.activeMembership?.name ??
                             widget.authService!.session?.activeOrganizationId ??
                             'Depot',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down, size: 13, color: AirbnbTheme.grey),
+                    const Icon(Icons.arrow_drop_down, size: 12, color: AirbnbTheme.grey),
                   ],
                 ),
               ),
@@ -573,41 +562,41 @@ class _RoleShellState extends State<RoleShell> {
               final IconData icon;
 
               if (isSyncing) {
-                label = 'Syncing...';
+                label = 'Sync';
                 bgColor = const Color(0xFFE3F2FD);
                 borderColor = const Color(0xFF90CAF9);
                 textColor = const Color(0xFF1976D2);
                 icon = Icons.sync;
               } else if (lastSync != null) {
-                label = 'Synced';
+                label = 'Live';
                 bgColor = const Color(0xFFE8F5E9);
                 borderColor = const Color(0xFFA5D6A7);
                 textColor = const Color(0xFF2E7D32);
                 icon = Icons.cloud_done;
               } else {
-                label = 'Offline';
-                bgColor = const Color(0xFFF5F5F5);
-                borderColor = const Color(0xFFE0E0E0);
-                textColor = const Color(0xFF757575);
+                label = 'Off';
+                bgColor = const Color(0xFFF1F5F9);
+                borderColor = const Color(0xFFCBD5E1);
+                textColor = const Color(0xFF64748B);
                 icon = Icons.cloud_off;
               }
 
               return GestureDetector(
                 onTap: _showCloudflareInfo,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                  margin: const EdgeInsets.symmetric(vertical: 17),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: bgColor,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: borderColor, width: 0.6),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icon, size: 10, color: textColor),
-                      const SizedBox(width: 3),
-                      Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: textColor)),
+                      Icon(icon, size: 9, color: textColor),
+                      const SizedBox(width: 2),
+                      Text(label, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: textColor)),
                     ],
                   ),
                 ),
@@ -622,7 +611,9 @@ class _RoleShellState extends State<RoleShell> {
           // Accountant / GST button (available for owner, admin, warehouse, delivery; hidden for sales)
           if (canonicalRole != CanonicalRole.sales)
             IconButton(
-              icon: const Icon(Icons.receipt_long_outlined, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
               tooltip: 'Accountant GST Summary',
               onPressed: _showAccountantSheet,
             ),
@@ -630,24 +621,16 @@ class _RoleShellState extends State<RoleShell> {
           // Modern Polished Logout Button with tooltip 'Sign Out'
           IconButton(
             tooltip: 'Sign Out',
+            padding: const EdgeInsets.only(left: 2, right: 8),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             icon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: AirbnbTheme.coral.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(7),
                 border: Border.all(color: AirbnbTheme.coral.withValues(alpha: 0.3)),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.logout, size: 14, color: AirbnbTheme.coral),
-                  SizedBox(width: 4),
-                  Text(
-                    'Exit',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AirbnbTheme.coral),
-                  ),
-                ],
-              ),
+              child: const Icon(Icons.logout, size: 14, color: AirbnbTheme.coral),
             ),
             onPressed: () async {
               if (widget.authService != null) {
@@ -655,7 +638,6 @@ class _RoleShellState extends State<RoleShell> {
               }
             },
           ),
-          const SizedBox(width: 4),
         ],
       ),
       body: AnimatedSwitcher(
@@ -820,23 +802,28 @@ class _RoleShellState extends State<RoleShell> {
 
   Widget _buildNavItem(int index, _RoleNavItem item, Color roleColor) {
     final isSelected = _currentTabIndex == index;
-    final color = isSelected ? roleColor : AirbnbTheme.grey;
+    final color = isSelected ? roleColor : const Color(0xFF64748B);
 
     return InkWell(
       onTap: () => setState(() => _currentTabIndex = index),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? roleColor.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isSelected ? item.icon : item.unselectedIcon, color: color, size: 22),
+            Icon(isSelected ? item.icon : item.unselectedIcon, color: color, size: 21),
             const SizedBox(height: 3),
             Text(
               item.label,
               style: TextStyle(
                 fontSize: 10.5,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 color: color,
               ),
             ),
