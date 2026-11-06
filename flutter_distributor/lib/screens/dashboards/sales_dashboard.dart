@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../l10n/app_strings.dart';
@@ -41,7 +43,7 @@ class SalesDashboard extends StatefulWidget {
 class _SalesDashboardState extends State<SalesDashboard> {
   SalesAnalyticsTimeframe _selectedTimeframe = SalesAnalyticsTimeframe.today;
   int _selectedStopIndex = 0;
-  bool _showGoogleMaps = false;
+  bool _showGoogleMaps = true;
   MapType _mapType = MapType.normal;
   GoogleMapController? _googleMapController;
 
@@ -304,6 +306,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
               children: [
                 if (_showGoogleMaps && locatedShops.isNotEmpty)
                   GoogleMap(
+                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                    },
                     initialCameraPosition: CameraPosition(
                       target: LatLng(
                         selectedShop?.latitude ?? locatedShops.first.latitude!,
@@ -469,7 +474,11 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => SalesRouteMapView(api: widget.api, onNavigateTab: widget.onNavigateTab),
+                              builder: (_) => SalesRouteMapView(
+                                api: widget.api,
+                                onNavigateTab: widget.onNavigateTab,
+                                initialShowGoogleMaps: true,
+                              ),
                             ),
                           ).then((_) => setState(() {}));
                         },
@@ -563,21 +572,54 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   ),
                 ),
 
-                // Map Sketch Notice label (top left)
+                // Map Status / Notice label (top left)
                 Positioned(
                   top: 10,
                   left: 10,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: AirbnbTheme.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      strings.t('route_sketch'),
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
-                    ),
+                    child: _showGoogleMaps
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: AirbnbTheme.success,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              const Text(
+                                'Google Maps • Live',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AirbnbTheme.dark,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            strings.t('route_sketch'),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: AirbnbTheme.grey,
+                            ),
+                          ),
                   ),
                 ),
 

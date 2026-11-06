@@ -107,8 +107,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Check embedded map canvas and sketch label
-      expect(find.byType(CustomPaint), findsWidgets);
+      // Check embedded Google Map and Live status
+      expect(find.text('Google Maps • Live'), findsOneWidget);
+
+      // Toggling to canvas displays Route sketch (not to scale)
+      await tester.tap(find.text('Canvas'));
+      await tester.pumpAndSettle();
       expect(find.text('Route sketch (not to scale)'), findsOneWidget);
 
       // Check Beat header and dynamic "4 shops assigned beat" badge

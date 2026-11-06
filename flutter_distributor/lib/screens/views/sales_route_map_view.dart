@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../l10n/app_strings.dart';
@@ -14,11 +16,13 @@ import 'add_shop_sheet.dart';
 class SalesRouteMapView extends StatefulWidget {
   final ApiService api;
   final Function(int targetTab)? onNavigateTab;
+  final bool initialShowGoogleMaps;
 
   const SalesRouteMapView({
     super.key,
     required this.api,
     this.onNavigateTab,
+    this.initialShowGoogleMaps = false,
   });
 
   @override
@@ -36,6 +40,7 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
   @override
   void initState() {
     super.initState();
+    _showGoogleMaps = widget.initialShowGoogleMaps;
     // Update live timer every second if checked in
     _visitTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && widget.api.activeVisitShop != null) {
@@ -183,8 +188,12 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          strings.t('route_sketch'),
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
+                          _showGoogleMaps ? 'Google Maps • Live' : strings.t('route_sketch'),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: _showGoogleMaps ? AirbnbTheme.success : AirbnbTheme.grey,
+                          ),
                         ),
                       ],
                     ),
@@ -229,6 +238,9 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
               children: [
                 if (_showGoogleMaps && locatedShops.isNotEmpty) ...[
                   GoogleMap(
+                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                    },
                     initialCameraPosition: CameraPosition(
                       target: LatLng(
                         selectedShop?.latitude ?? locatedShops.first.latitude!,
