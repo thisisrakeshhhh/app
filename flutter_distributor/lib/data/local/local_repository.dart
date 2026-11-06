@@ -747,6 +747,29 @@ class LocalRepository {
         );
   }
 
+  Future<void> deleteRetailer(String id) async {
+    await (db.delete(db.retailers)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  Future<void> updateRetailerDetails({
+    required String id,
+    required String name,
+    required String ownerName,
+    required String phone,
+    required String address,
+    required String area,
+  }) async {
+    await (db.update(db.retailers)..where((tbl) => tbl.id.equals(id))).write(
+      RetailersCompanion(
+        name: Value(name),
+        ownerName: Value(ownerName),
+        phone: Value(phone),
+        address: Value(address),
+        area: Value(area),
+      ),
+    );
+  }
+
   Future<RetailerEntry?> getRetailerById(String id) async {
     return (db.select(db.retailers)..where((tbl) => tbl.id.equals(id)))
         .getSingleOrNull();

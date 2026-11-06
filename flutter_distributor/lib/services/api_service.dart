@@ -1362,8 +1362,6 @@ class ApiService extends ChangeNotifier {
     if (_assignedBeatShopIds.isEmpty && _retailers.isNotEmpty) {
       _assignedBeatShopIds = _retailers.map((r) => r.id).toSet();
     }
-    final shop = _retailers.cast<RetailerShop?>().firstWhere((r) => r?.id == shopId, orElse: () => null);
-    if (shop != null && shop.routeId != null) return true;
     return _assignedBeatShopIds.contains(shopId);
   }
 
@@ -1397,7 +1395,72 @@ class ApiService extends ChangeNotifier {
     }
   }
 
-  /// Reps cannot remove owner-assigned beat shops. They can only toggle extra visits for other shops.
+  /// Removes shop from today's assigned beat route (in-map route management).
+  void removeShopFromTodayBeat(String shopId) {
+    if (_assignedBeatShopIds.isEmpty && _retailers.isNotEmpty) {
+      _assignedBeatShopIds = _retailers.map((r) => r.id).toSet();
+    }
+    _assignedBeatShopIds.remove(shopId);
+    _extraVisitShopIds.remove(shopId);
+    notifyListeners();
+  }
+
+  /// Adds shop to today's assigned beat route.
+  void addShopToTodayBeat(String shopId) {
+    if (_assignedBeatShopIds.isEmpty && _retailers.isNotEmpty) {
+      _assignedBeatShopIds = _retailers.map((r) => r.id).toSet();
+    }
+    _assignedBeatShopIds.add(shopId);
+    _extraVisitShopIds.remove(shopId);
+    notifyListeners();
+  }
+
+  /// Permanently deletes a retailer shop from database and memory.
+  Future<void> deleteRetailer(String shopId) async {
+    _retailers.removeWhere((r) => r.id == shopId);
+    _assignedBeatShopIds.remove(shopId);
+    _extraVisitShopIds.remove(shopId);
+    try {
+      await repository.deleteRetailer(shopId);
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Updates retailer shop contact and address details.
+  Future<void> updateRetailerDetails({
+    required String shopId,
+    required String name,
+    required String ownerName,
+    required String phone,
+    required String address,
+    required String area,
+  }) async {
+    final idx = _retailers.indexWhere((r) => r.id == shopId);
+    if (idx != -1) {
+      final old = _retailers[idx];
+      final updated = old.copyWith(
+        name: name,
+        ownerName: ownerName,
+        phone: phone,
+        address: address,
+        area: area,
+      );
+      _retailers[idx] = updated;
+      try {
+        await repository.updateRetailerDetails(
+          id: shopId,
+          name: name,
+          ownerName: ownerName,
+          phone: phone,
+          address: address,
+          area: area,
+        );
+      } catch (_) {}
+      notifyListeners();
+    }
+  }
+
+  /// Reps cannot remove owner-assigned beat shops via casual toggle. They can only toggle extra visits for other shops.
   /// Returns true if toggled, false if rejected due to owner-assignment protection.
   bool toggleShopInRoute(String shopId) {
     if (isAssignedBeatShop(shopId)) {
@@ -2640,28 +2703,28 @@ class ApiService extends ChangeNotifier {
       ),
     ];
 
-    // 2. Jodhpur Kirana Retailers with Spatial Coordinates
+    // 2. Jodhpur Kirana Retailers with Spatial Coordinates (Sardarpura & Nai Sadak Route)
     _retailers = [
       RetailerShop(
         id: 'RET-JDH-01',
         name: 'Shree Ganesh Kirana Store',
         ownerName: 'Ramprasad Maheshwari',
         phone: '+91 98290 12345',
-        address: 'Opp. Ghanta Ghar (Clock Tower), Station Rd',
-        area: 'Clock Tower Market',
+        address: 'Shop 14, Nai Sadak (Opp. Ghanta Ghar)',
+        area: 'Nai Sadak',
         creditLimitPaise: 5000000, // ₹50,000
         outstandingPaise: 1240000, // ₹12,400
         visitedToday: false,
-        latitude: 26.2965,
-        longitude: 73.0232,
+        latitude: 26.2945,
+        longitude: 73.0240,
       ),
       RetailerShop(
         id: 'RET-JDH-02',
         name: 'Jodhpur Wholesale Traders',
         ownerName: 'Madan Lal Sharma',
         phone: '+91 94141 55678',
-        address: 'B-Road, Near Nehru Park, Sardarpura',
-        area: 'Sardarpura Beat',
+        address: 'Plot 22, B-Road, Near Nehru Park',
+        area: 'Sardarpura',
         creditLimitPaise: 10000000, // ₹1,00,000
         outstandingPaise: 4320000, // ₹43,200
         visitedToday: true,
@@ -2676,26 +2739,26 @@ class ApiService extends ChangeNotifier {
         name: 'Marwar Super Provision Store',
         ownerName: 'Bhanwar Singh Rathore',
         phone: '+91 98291 98765',
-        address: 'Main Market, Sohati Gate Circle',
-        area: 'Sohati Gate',
+        address: 'Shop 8, Main Market, Nai Sadak',
+        area: 'Nai Sadak',
         creditLimitPaise: 4000000,
         outstandingPaise: 850000,
         visitedToday: false,
-        latitude: 26.2890,
-        longitude: 73.0210,
+        latitude: 26.2915,
+        longitude: 73.0215,
       ),
       RetailerShop(
         id: 'RET-JDH-04',
-        name: 'Karni Mata General Stores',
+        name: 'Mahadev Kirana & General Stores',
         ownerName: 'Dungar Ram Dewasi',
         phone: '+91 99280 44321',
-        address: 'Near Old Bus Stand, Paota C-Road',
-        area: 'Paota Beat',
+        address: 'SCO 9, 4th C Road',
+        area: 'Sardarpura',
         creditLimitPaise: 3000000,
         outstandingPaise: 1520000,
         visitedToday: false,
-        latitude: 26.3050,
-        longitude: 73.0420,
+        latitude: 26.2810,
+        longitude: 73.0115,
       ),
     ];
 

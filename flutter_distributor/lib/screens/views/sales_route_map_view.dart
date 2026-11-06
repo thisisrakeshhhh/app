@@ -5,6 +5,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import 'add_shop_sheet.dart';
 
 /// Zomato-style Route & Shop Map View for Sales Representative.
 /// Displays assigned beat route (Points A -> B -> C -> D), stops,
@@ -123,13 +124,13 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Sardarpura & Clock Tower Beat',
+                                  'Sardarpura & Nai Sadak Route',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AirbnbTheme.dark),
                                 ),
                                 Text(
-                                  '${routeShops.length} Shops Assigned • ${routeShops.where((s) => s.visitedToday).length} Visited',
+                                  '${routeShops.length} Shops Assigned Beat • ${routeShops.where((s) => s.visitedToday).length} Visited',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
@@ -141,26 +142,10 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AirbnbTheme.lightGrey,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AirbnbTheme.border),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.alt_route, size: 12, color: AirbnbTheme.grey),
-                              const SizedBox(width: 4),
-                              Text(strings.t('route_sketch'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
                         InkWell(
                           onTap: () {
                             setState(() {
@@ -196,6 +181,11 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          strings.t('route_sketch'),
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
+                        ),
                       ],
                     ),
                   ],
@@ -211,6 +201,13 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                       _buildFilterChip('Pending', 'Pending (${routeShops.where((s) => !s.visitedToday).length})'),
                       const SizedBox(width: 6),
                       _buildFilterChip('Visited', 'Visited (${routeShops.where((s) => s.visitedToday).length})'),
+                      const SizedBox(width: 6),
+                      ActionChip(
+                        avatar: const Icon(Icons.add_business_outlined, size: 14, color: Colors.white),
+                        label: const Text('+ Add Shop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                        backgroundColor: AirbnbTheme.coral,
+                        onPressed: () => _openAddShopSheet(context),
+                      ),
                       const SizedBox(width: 6),
                       ActionChip(
                         avatar: const Icon(Icons.add_location_alt_outlined, size: 14, color: AirbnbTheme.coral),
@@ -332,7 +329,7 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                   GestureDetector(
                     child: CustomPaint(
                       size: Size.infinite,
-                      painter: _ZomatoRouteMapPainter(
+                      painter: ZomatoRouteMapPainter(
                         shops: locatedShops,
                         selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
                         activeShopId: activeShop?.id,
@@ -649,22 +646,45 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
                   ),
                 ],
               ),
-              // Class badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _getClassColor(shop.classType).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _getClassColor(shop.classType).withValues(alpha: 0.4)),
-                ),
-                child: Text(
-                  shop.classType,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: _getClassColor(shop.classType),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: AirbnbTheme.grey),
+                    tooltip: 'Edit Shop',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showEditShopDialog(context, shop),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                    tooltip: 'Delete / Remove Shop',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showDeleteShopDialog(context, shop),
+                  ),
+                  const SizedBox(width: 8),
+                  // Class badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _getClassColor(shop.classType).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _getClassColor(shop.classType).withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      shop.classType,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: _getClassColor(shop.classType),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1005,6 +1025,161 @@ class _SalesRouteMapViewState extends State<SalesRouteMapView> {
       ),
     );
   }
+
+  void _openAddShopSheet(BuildContext context) async {
+    final newShop = await AddShopSheet.show(
+      context,
+      api: widget.api,
+      defaultRouteId: 'route_sardarpura_02',
+    );
+    if (newShop != null) {
+      widget.api.addShopToTodayBeat(newShop.id);
+      if (mounted) {
+        final shops = widget.api.assignedRouteShops;
+        final newIndex = shops.indexWhere((s) => s.id == newShop.id);
+        setState(() {
+          if (newIndex != -1) _selectedStopIndex = newIndex;
+        });
+      }
+    }
+  }
+
+  void _showEditShopDialog(BuildContext context, RetailerShop shop) {
+    final nameCtrl = TextEditingController(text: shop.name);
+    final ownerCtrl = TextEditingController(text: shop.ownerName);
+    final phoneCtrl = TextEditingController(text: shop.phone);
+    final addressCtrl = TextEditingController(text: shop.address);
+    final areaCtrl = TextEditingController(text: shop.area.isNotEmpty ? shop.area : 'Sardarpura');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.edit_note_rounded, color: AirbnbTheme.jodhpurBlue),
+            SizedBox(width: 8),
+            Text('Edit Shop Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Shop Name', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: ownerCtrl,
+                decoration: const InputDecoration(labelText: 'Owner / Prop Name', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: addressCtrl,
+                decoration: const InputDecoration(labelText: 'Address (SCO / Gali / Plot)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: areaCtrl,
+                decoration: const InputDecoration(labelText: 'Area (Sardarpura / Nai Sadak)', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = nameCtrl.text.trim();
+              if (newName.isEmpty) return;
+              await widget.api.updateRetailerDetails(
+                shopId: shop.id,
+                name: newName,
+                ownerName: ownerCtrl.text.trim(),
+                phone: phoneCtrl.text.trim(),
+                address: addressCtrl.text.trim(),
+                area: areaCtrl.text.trim(),
+              );
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) setState(() {});
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AirbnbTheme.coral, foregroundColor: Colors.white),
+            child: const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteShopDialog(BuildContext context, RetailerShop shop) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.delete_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Manage / Delete Shop', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Shop: ${shop.name}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            const Text('Choose whether to remove this shop from today\'s beat route or delete it completely:'),
+          ],
+        ),
+        actions: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.remove_circle_outline, size: 16, color: Colors.orange),
+            label: const Text('Remove from Today\'s Beat', style: TextStyle(color: Colors.orange)),
+            onPressed: () {
+              widget.api.removeShopFromTodayBeat(shop.id);
+              Navigator.pop(ctx);
+              setState(() {
+                _selectedStopIndex = 0;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Removed ${shop.name} from today\'s beat')),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.delete_forever, size: 16),
+            label: const Text('Delete Shop Permanently'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              await widget.api.deleteRetailer(shop.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                setState(() {
+                  _selectedStopIndex = 0;
+                });
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Deleted ${shop.name} permanently')),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Projects real GPS coordinates into canvas bounds when available,
@@ -1050,12 +1225,12 @@ Offset computeShopCanvasPosition({
 }
 
 /// Custom Canvas Painter rendering street grid, arterial roads, polyline and landmarks
-class _ZomatoRouteMapPainter extends CustomPainter {
+class ZomatoRouteMapPainter extends CustomPainter {
   final List<RetailerShop> shops;
   final int selectedIndex;
   final String? activeShopId;
 
-  _ZomatoRouteMapPainter({
+  ZomatoRouteMapPainter({
     required this.shops,
     required this.selectedIndex,
     this.activeShopId,
@@ -1126,5 +1301,5 @@ class _ZomatoRouteMapPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ZomatoRouteMapPainter oldDelegate) => true;
+  bool shouldRepaint(covariant ZomatoRouteMapPainter oldDelegate) => true;
 }
