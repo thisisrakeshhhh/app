@@ -1740,10 +1740,12 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
   ProductItem? _findExactProduct(String query) {
     final clean = query.trim().toUpperCase();
     if (clean.isEmpty) return null;
-    return widget.api.products.firstWhere(
-      (p) => p.id.toUpperCase() == clean || p.name.toUpperCase() == clean,
-      orElse: () => null as dynamic,
-    );
+    for (final p in widget.api.products) {
+      if (p.id.toUpperCase() == clean || p.name.toUpperCase() == clean) {
+        return p;
+      }
+    }
+    return null;
   }
 
   List<ProductItem> _findClosestMatches(String query) {
@@ -2392,7 +2394,9 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<ProductItem>(
-                        value: _selectedProduct,
+                        value: widget.api.products.contains(_selectedProduct)
+                            ? _selectedProduct
+                            : (widget.api.products.isNotEmpty ? widget.api.products.first : null),
                         isExpanded: true,
                         items: widget.api.products.map((p) {
                           return DropdownMenuItem<ProductItem>(
