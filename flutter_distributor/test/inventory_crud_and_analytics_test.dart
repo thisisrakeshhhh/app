@@ -224,8 +224,12 @@ void main() {
       await tester.tap(find.text('Add Item to Godown Inventory'));
       await tester.pumpAndSettle();
 
-      // Verify product added to ApiService
-      expect(api.products.any((p) => p.name == 'Mirinda Orange 500ml'), isTrue);
+      // Verify product added to ApiService with multi-tier unit pricing
+      final mirinda = api.products.firstWhere((p) => p.name == 'Mirinda Orange 500ml');
+      expect(mirinda.piecePricePaise, equals(1700));
+      expect(mirinda.priceForUnit(OrderUnit.piece), equals(1700));
+      expect(mirinda.priceForUnit(OrderUnit.strip), equals(10200)); // 6 * 1700
+      expect(mirinda.priceForUnit(OrderUnit.box), equals(40800)); // 24 * 1700
     });
   });
 }

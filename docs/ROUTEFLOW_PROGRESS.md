@@ -59,6 +59,9 @@ Exact per-file count measured via regex `^\s*(test|testWidgets)\(` across all 19
 
 | **Step 0** | Sales Role Corrections after babdad1 | **COMPLETED** | `61023e2` | +6 (`sales_step0_corrections_test.dart`) | **PASS (255/255)** |
 | **Slice S1** | Language Foundation (en, hinglish, hi, gu) | **COMPLETED** | `8149995` | +10 (`sales_language_foundation_test.dart`) | **PASS (265/265)** |
+| **Sales Map & CRUD** | Google Maps, Beat Route & In-Map Shop CRUD | **COMPLETED** | `e13be31` & `7d4540b` | +5 (`sales_route_map_crud_test.dart`) | **PASS (270/270)** |
+| **Inventory CRUD & Radar** | In-App SKU Intake, Expiry Radar & Analytics | **COMPLETED** | `f6adca8` | +5 (`inventory_crud_and_analytics_test.dart`) | **PASS (275/275)** |
+| **Multi-Unit Pricing** | Box, Strip, Piece Tiered Wholesale Pricing | **COMPLETED** | `HEAD` | Multi-tier unit rates & Client Docs | **PASS (275/275)** |
 
 ---
 

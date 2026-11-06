@@ -740,8 +740,12 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                                     ),
                                   ),
                                   Text(
+                                    'Wholesale: ₹${(prod.piecePricePaise / 100).toStringAsFixed(1)}/pc • ₹${(prod.priceForUnit(OrderUnit.strip) / 100).toStringAsFixed(0)}/strip • ₹${(prod.priceForUnit(OrderUnit.box) / 100).toStringAsFixed(0)}/box',
+                                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue),
+                                  ),
+                                  Text(
                                     'Valuation: ₹${prod.godownValuationRupees.toStringAsFixed(0)} • MRP ₹${prod.mrpRupees.toStringAsFixed(0)}',
-                                    style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey),
+                                    style: const TextStyle(fontSize: 10, color: AirbnbTheme.grey),
                                   ),
                                 ],
                               ),

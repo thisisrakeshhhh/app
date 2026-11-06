@@ -34,7 +34,9 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
   late TextEditingController _nameController;
   late TextEditingController _hindiNameController;
   late TextEditingController _mrpController;
-  late TextEditingController _wholesalePriceController;
+  late TextEditingController _wholesalePriceController; // piece
+  late TextEditingController _stripPriceController; // strip
+  late TextEditingController _boxPriceController; // box
   late TextEditingController _boxQtyController;
   late TextEditingController _stripQtyController;
   late TextEditingController _stockBoxesController;
@@ -66,15 +68,21 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
 
     final generatedId = p?.id ?? 'SKU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
+    final initialPiecePrice = p != null ? (p.piecePricePaise / 100.0) : 17.00;
+    final initialBoxQty = p?.boxQty ?? 24;
+    final initialStripQty = p?.stripQty ?? 6;
+    final initialStripPrice = p != null ? (p.priceForUnit(OrderUnit.strip) / 100.0) : (initialPiecePrice * initialStripQty);
+    final initialBoxPrice = p != null ? (p.priceForUnit(OrderUnit.box) / 100.0) : (initialPiecePrice * initialBoxQty);
+
     _idController = TextEditingController(text: p?.id ?? generatedId);
     _nameController = TextEditingController(text: p?.name ?? '');
     _hindiNameController = TextEditingController(text: p?.hindiName ?? '');
     _mrpController = TextEditingController(text: p != null ? p.mrpRupees.toStringAsFixed(1) : '20.0');
-    _wholesalePriceController = TextEditingController(
-      text: p != null ? (p.piecePricePaise / 100.0).toStringAsFixed(2) : '17.00',
-    );
-    _boxQtyController = TextEditingController(text: (p?.boxQty ?? 24).toString());
-    _stripQtyController = TextEditingController(text: (p?.stripQty ?? 6).toString());
+    _wholesalePriceController = TextEditingController(text: initialPiecePrice.toStringAsFixed(2));
+    _stripPriceController = TextEditingController(text: initialStripPrice.toStringAsFixed(2));
+    _boxPriceController = TextEditingController(text: initialBoxPrice.toStringAsFixed(2));
+    _boxQtyController = TextEditingController(text: initialBoxQty.toString());
+    _stripQtyController = TextEditingController(text: initialStripQty.toString());
     _stockBoxesController = TextEditingController(text: (p?.godownStockBoxes ?? 50).toString());
     _batchNumberController = TextEditingController(
       text: p?.batchNumber ?? 'LOT-${DateTime.now().year}-B${DateTime.now().month}',
@@ -102,12 +110,25 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
     _hindiNameController.dispose();
     _mrpController.dispose();
     _wholesalePriceController.dispose();
+    _stripPriceController.dispose();
+    _boxPriceController.dispose();
     _boxQtyController.dispose();
     _stripQtyController.dispose();
     _stockBoxesController.dispose();
     _batchNumberController.dispose();
     _reorderLevelController.dispose();
     super.dispose();
+  }
+
+  void _autoCalculatePricesFromPiece() {
+    final piecePrice = double.tryParse(_wholesalePriceController.text.trim()) ?? 0.0;
+    final stripQty = int.tryParse(_stripQtyController.text.trim()) ?? 6;
+    final boxQty = int.tryParse(_boxQtyController.text.trim()) ?? 24;
+
+    setState(() {
+      _stripPriceController.text = (piecePrice * stripQty).toStringAsFixed(2);
+      _boxPriceController.text = (piecePrice * boxQty).toStringAsFixed(2);
+    });
   }
 
   void _saveItem() {
@@ -122,16 +143,35 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
     final mrpRupees = double.tryParse(_mrpController.text.trim()) ?? 20.0;
     final mrpPaise = (mrpRupees * 100).round();
 
+    final boxQty = int.tryParse(_boxQtyController.text.trim()) ?? 24;
+    final stripQty = int.tryParse(_stripQtyController.text.trim()) ?? 6;
+
     final piecePriceRupees = double.tryParse(_wholesalePriceController.text.trim()) ?? 17.0;
     final piecePricePaise = (piecePriceRupees * 100).round();
 
-    final boxQty = int.tryParse(_boxQtyController.text.trim()) ?? 24;
-    final stripQty = int.tryParse(_stripQtyController.text.trim()) ?? 6;
+    final stripPriceRupees = double.tryParse(_stripPriceController.text.trim()) ?? (piecePriceRupees * stripQty);
+    final stripPricePaise = (stripPriceRupees * 100).round();
+
+    final boxPriceRupees = double.tryParse(_boxPriceController.text.trim()) ?? (piecePriceRupees * boxQty);
+    final boxPricePaise = (boxPriceRupees * 100).round();
+
     final godownBoxes = int.tryParse(_stockBoxesController.text.trim()) ?? 0;
     final reorderLevel = int.tryParse(_reorderLevelController.text.trim()) ?? 30;
     final batchNo = _batchNumberController.text.trim().isNotEmpty
         ? _batchNumberController.text.trim()
         : 'LOT-${DateTime.now().year}-GEN';
+
+    final customUnitPricesPaise = <String, int>{
+      'piece': piecePricePaise,
+      'strip': stripPricePaise,
+      'box': boxPricePaise,
+    };
+
+    final customUnitMultipliers = <String, int>{
+      'piece': 1,
+      'strip': stripQty,
+      'box': boxQty,
+    };
 
     final product = ProductItem(
       id: id,
@@ -150,6 +190,8 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
       batchNumber: batchNo,
       expiryDate: _selectedExpiryDate,
       reorderLevelBoxes: reorderLevel,
+      customUnitPricesPaise: customUnitPricesPaise,
+      customUnitMultipliers: customUnitMultipliers,
     );
 
     if (_isEditing) {
@@ -395,35 +437,127 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Pricing Row (MRP & Wholesale Price)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _mrpController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(
-                              labelText: 'Retail MRP (₹) *',
-                              prefixIcon: const Icon(Icons.currency_rupee, size: 18),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            validator: (val) => (val == null || (double.tryParse(val) ?? 0) <= 0) ? 'Valid MRP' : null,
+                    // Retail MRP
+                    TextFormField(
+                      controller: _mrpController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Retail MRP per Piece (₹) *',
+                        prefixIcon: const Icon(Icons.currency_rupee, size: 18),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      validator: (val) => (val == null || (double.tryParse(val) ?? 0) <= 0) ? 'Valid MRP required' : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Multi-Unit Wholesale Pricing Header
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AirbnbTheme.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.sell_outlined, size: 16, color: AirbnbTheme.jodhpurBlue),
+                                    SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        'Unit Wholesale Pricing (पीस, लड़ी, पेटी)',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: _autoCalculatePricesFromPiece,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.calculate_outlined, size: 12, color: AirbnbTheme.jodhpurBlue),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Auto-Fill Units',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
+                          const SizedBox(height: 10),
+
+                          // 1. Piece Price
+                          TextFormField(
                             controller: _wholesalePriceController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: InputDecoration(
-                              labelText: 'Wholesale Price (₹) *',
-                              prefixIcon: const Icon(Icons.price_check, size: 18),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              labelText: 'Wholesale Price per Piece (प्रति पीस) *',
+                              prefixIcon: const Icon(Icons.crop_square, size: 16),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            validator: (val) => (val == null || (double.tryParse(val) ?? 0) <= 0) ? 'Valid price' : null,
+                            validator: (val) => (val == null || (double.tryParse(val) ?? 0) <= 0) ? 'Enter piece price' : null,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+
+                          // 2. Strip & Box Prices Row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _stripPriceController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: InputDecoration(
+                                    labelText: 'Strip Price (प्रति लड़ी)',
+                                    prefixIcon: const Icon(Icons.linear_scale, size: 16),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _boxPriceController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: InputDecoration(
+                                    labelText: 'Box Price (प्रति पेटी)',
+                                    prefixIcon: const Icon(Icons.all_inbox, size: 16),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
 

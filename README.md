@@ -99,14 +99,53 @@ npm run dev    # Local development at http://localhost:3000
 npm run build  # Production build verification
 ```
 
-### Android Native App
+### Android Native App / Flutter Mobile
 ```bash
-# Run unit tests
-.\gradlew.bat testStagingUnitTest --no-daemon
-
-# Build Staging APK
-.\gradlew.bat assembleStaging --no-daemon
-
-# Build Release App Bundle (AAB)
-.\gradlew.bat bundleRelease --no-daemon
+cd flutter_distributor
+flutter analyze --no-pub # 0 issues found
+flutter test             # 275 of 275 tests passed (100%)
+flutter build apk --debug
 ```
+
+---
+
+## Client Release Summary: Sales & Inventory Suites
+
+### 1. Field Sales Representative Suite (फील्ड सेल्स एग्जीक्यूटिव)
+- **Live Google Maps & Eager Gesture Navigation**: Seamless embedded Google Maps directly beneath the top navigation bar. Includes `EagerGestureRecognizer` for fluid pan, pinch-to-zoom, and map rotation without page scroll interference.
+- **Sequential Beat Route Management**: Sardarpura & Nai Sadak route with live assigned stops (`Points A -> B -> C -> D`).
+- **In-Map Shop CRUD Operations**:
+  - **Create**: Add new kirana shops directly from the map location with geotagging.
+  - **Read**: Visual shop pins, shop cards, owner contact details, and address breakdowns.
+  - **Update**: Edit shop name, owner name, phone number, and street address directly from the beat.
+  - **Delete**: Soft-delete or remove shop from today's beat route.
+- **High-Velocity Order Booking**: Multi-unit selector supporting Box, Strip (Ladi), and Loose Piece combo bookings with wholesale pricing.
+- **Role Isolation**: Accounting and GST summary buttons are strictly hidden from Sales reps to protect business margins.
+- **Real-Time Beat Analytics**: Live tracking of booked orders, booked turnover, beat coverage percentage, average order value (AOV), and visit strike rate.
+- **4-Language Support**: Instant switching across English, Hinglish, Hindi (हिंदी), and Gujarati (ગુજરાતી).
+
+---
+
+### 2. Godown & Inventory Management Suite (गोदाम व इन्वेंट्री प्रबंधन)
+- **Manual In-App SKU Intake (`+ Add SKU`)**:
+  - Add new products and stock batches directly from the mobile app without needing desktop backoffice access.
+  - Form includes SKU code, English name, Hindi name, Category dropdown, and initial godown carton stock.
+- **Multi-Unit Pricing Breakdown (पीस, लड़ी, पेटी मूल्य)**:
+  - Explicit wholesale pricing per **Piece (प्रति पीस)**, **Strip (प्रति लड़ी)**, and **Box / Carton (प्रति पेटी)**.
+  - Integrated "Auto-Fill Units" calculator to instantly derive strip and box rates from base piece prices.
+  - GST rate selector (5%, 12%, 18%, 28%).
+- **Full In-App Inventory CRUD**:
+  - **Create**: Add new SKUs with batch numbers and expiry dates.
+  - **Read**: Filter by category pills, search by name/SKU/batch, and filter by stock health (`In Stock`, `Low Stock`, `Out of Stock`).
+  - **Update**: Edit product specifications, pricing tiers, and reorder alert levels.
+  - **Stock Audit (Adjust +)**: Physical stock count stepper with discrepancy detection and mandatory audit reasons (*Physical audit*, *Damage/Breakage*, *Supplier inward variance*, *Ledger correction*).
+  - **Delete**: Safely archive or permanently remove SKUs with confirmation safeguards.
+- **Automated Expiry Radar & Batches (एक्सपायरी ट्रैकर)**:
+  - Categorizes stock into `Expired`, `Expiring in <60 days`, and `Fresh / Safe`.
+  - Chronological batch timeline with prominent days-remaining countdowns (e.g. `22 days left`).
+  - Quick action to flag near-expiry batches for **Clearance Sales** or record disposal **Write-Offs**.
+- **Godown Financial Analytics (इन्वेंट्री एनालिटिक्स)**:
+  - Live total stock valuation in ₹ and Lakhs.
+  - Category-wise valuation distribution and carton volume breakdown.
+  - Automated reorder threshold warnings with suggested replenishment carton quantities.
+
