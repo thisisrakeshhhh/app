@@ -266,6 +266,94 @@ class _RoleShellState extends State<RoleShell> {
     );
   }
 
+  void _showRoleSwitchSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(color: AirbnbTheme.border, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Switch Active Role (भूमिका बदलें)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                const Text('Instantly test how inventory & orders appear across roles:', style: TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                const SizedBox(height: 14),
+                _buildRoleSwitchTile(
+                  icon: Icons.warehouse_rounded,
+                  color: AirbnbTheme.jodhpurBlue,
+                  title: 'Warehouse & Godown Inventory',
+                  subtitle: 'Manual Inward, SKU CRUD, Godown & Truck Stock',
+                  roleString: 'WAREHOUSE',
+                ),
+                _buildRoleSwitchTile(
+                  icon: Icons.point_of_sale_rounded,
+                  color: AirbnbTheme.coral,
+                  title: 'Sales Person (Field Beat)',
+                  subtitle: 'Retailer visits, order booking, real-time Godown stock',
+                  roleString: 'SALES',
+                ),
+                _buildRoleSwitchTile(
+                  icon: Icons.local_shipping_rounded,
+                  color: AirbnbTheme.success,
+                  title: 'Delivery Logistics & Van',
+                  subtitle: 'Trip dispatch, deliveries, and payment collection',
+                  roleString: 'DELIVERY',
+                ),
+                _buildRoleSwitchTile(
+                  icon: Icons.admin_panel_settings_rounded,
+                  color: const Color(0xFF6C5CE7),
+                  title: 'Distributor Admin / Owner',
+                  subtitle: 'Full operations overview and reports',
+                  roleString: 'OWNER',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRoleSwitchTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required String roleString,
+  }) {
+    final isCurrent = widget.authService?.session?.activeRole == roleString;
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(title, style: TextStyle(fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600, fontSize: 13.5)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+      trailing: isCurrent ? Icon(Icons.check_circle, color: color, size: 20) : null,
+      onTap: () {
+        Navigator.pop(context);
+        widget.authService?.switchRoleForDemo(roleString);
+        setState(() {
+          _lastRole = CanonicalRole.fromString(roleString);
+          _currentTabIndex = 0;
+        });
+      },
+    );
+  }
+
   void _showCloudflareInfo() async {
     final pendingCount = (await widget.api.db.outboxDao.getPendingQueue()).length;
     final failedCount = (await widget.api.db.outboxDao.getFailedMutations()).length;
@@ -480,18 +568,30 @@ class _RoleShellState extends State<RoleShell> {
                     ),
                   ),
                   const SizedBox(width: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: roleColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      canonicalRole.badgeLabel,
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        color: roleColor,
+                  InkWell(
+                    onTap: _showRoleSwitchSheet,
+                    borderRadius: BorderRadius.circular(5),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: roleColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: roleColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            canonicalRole.badgeLabel,
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w800,
+                              color: roleColor,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(Icons.expand_more, size: 11, color: roleColor),
+                        ],
                       ),
                     ),
                   ),

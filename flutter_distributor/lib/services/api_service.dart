@@ -1116,6 +1116,10 @@ class ApiService extends ChangeNotifier {
       basePiecesPerCartonSnapshot: piecesPerCarton,
     );
 
+    if (productEntry != null) {
+      await repository.upsertProduct(productEntry);
+    }
+
     final mutationId = 'out_${generateUuidV4()}';
     await db.outboxDao.insertOrderMutationAtomic(
       id: mutationId,

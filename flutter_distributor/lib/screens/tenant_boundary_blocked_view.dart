@@ -10,10 +10,12 @@ import 'role_shell.dart';
 /// Prevents any access to the business application shell until Phase B2.2.
 class TenantBoundaryBlockedView extends StatelessWidget {
   final AuthService authService;
+  final ApiService? api;
 
   const TenantBoundaryBlockedView({
     super.key,
     required this.authService,
+    this.api,
   });
 
   @override
@@ -177,7 +179,7 @@ class TenantBoundaryBlockedView extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (context) => RoleShell(
-                              api: ApiService(),
+                              api: api ?? ApiService(),
                               authService: authService,
                             ),
                           ),

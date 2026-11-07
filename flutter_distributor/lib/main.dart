@@ -123,7 +123,10 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
     if (!_auth.isAuthenticated) {
       homeScreen = LoginView(authService: _auth);
     } else if (_auth.isTenantBoundaryBlocked) {
-      homeScreen = TenantBoundaryBlockedView(authService: _auth);
+      homeScreen = TenantBoundaryBlockedView(
+        authService: _auth,
+        api: _api,
+      );
     } else {
       homeScreen = RoleShell(
         api: _api,

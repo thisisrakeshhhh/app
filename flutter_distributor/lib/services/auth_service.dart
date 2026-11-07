@@ -262,6 +262,16 @@ class AuthService extends ChangeNotifier {
     );
   }
 
+  /// Switch active role for live demo & cross-role testing.
+  void switchRoleForDemo(String newRole) {
+    final s = _state.session;
+    if (s != null) {
+      final updated = s.copyWith(activeRole: newRole);
+      _state = AuthState.authenticated(updated);
+      notifyListeners();
+    }
+  }
+
   /// Acquires a valid, non-expired access token from RAM, coordinating concurrent refreshes.
   /// Enforces session-generation fencing against stale or late refresh responses.
   Future<String> getValidAccessToken() async {

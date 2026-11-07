@@ -520,75 +520,122 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Godown: ${p.godownStockBoxes} (${widget.api.availableGodownBoxes(p.id)} avail)',
-                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue),
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: p.isOutOfStock
+                                    ? Colors.red.withValues(alpha: 0.1)
+                                    : (p.isLowStock
+                                        ? Colors.orange.withValues(alpha: 0.1)
+                                        : const Color(0xFFF0FDF4)),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: p.isOutOfStock
+                                      ? Colors.red.shade300
+                                      : (p.isLowStock
+                                          ? Colors.orange.shade300
+                                          : const Color(0xFF86EFAC)),
+                                ),
+                              ),
+                              child: Text(
+                                p.isOutOfStock
+                                    ? '✕ Out of Stock (0 Bxs)'
+                                    : 'Godown: ${p.godownStockBoxes} Bxs (${widget.api.availableGodownBoxes(p.id)} avail)',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.isOutOfStock
+                                      ? Colors.red.shade800
+                                      : (p.isLowStock
+                                          ? Colors.orange.shade800
+                                          : const Color(0xFF166534)),
+                                ),
+                              ),
+                            ),
+                            if (p.carStockBoxes > 0) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Van: ${p.carStockBoxes} Bxs',
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    // Unit selector pills & quantity controls
+                    // Unit selector pills
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          const Text('Unit: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+                          const SizedBox(width: 4),
+                          _buildUnitChip(p, OrderUnit.box, 'Box (${p.boxQty}p)'),
+                          const SizedBox(width: 5),
+                          if (p.stripQty > 1) ...[
+                            _buildUnitChip(p, OrderUnit.strip, 'Strip (${p.stripQty}p)'),
+                            const SizedBox(width: 5),
+                          ],
+                          _buildUnitChip(p, OrderUnit.piece, 'Pcs'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Quantity +/- and Quick-qty chips
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Unit pills: Box, Strip, Piece
-                        Row(
-                          children: [
-                            _buildUnitChip(p, OrderUnit.box, 'Box (${p.boxQty}p)'),
-                            const SizedBox(width: 4),
-                            _buildUnitChip(p, OrderUnit.strip, 'Strip (${p.stripQty}p)'),
-                            const SizedBox(width: 4),
-                            _buildUnitChip(p, OrderUnit.piece, 'Pcs'),
-                          ],
-                        ),
-
-                        // Quantity +/- and Quick-qty chips
                         Row(
                           children: [
                             IconButton(
                               onPressed: currentQty > 1
                                   ? () => setState(() => _selectedQuantities[p.id] = currentQty - 1)
                                   : null,
-                              icon: const Icon(Icons.remove_circle_outline, size: 20),
+                              icon: const Icon(Icons.remove_circle_outline, size: 22),
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                             ),
-                            Text(
-                              key: ValueKey('qty_display_${p.id}'),
-                              '$currentQty',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                key: ValueKey('qty_display_${p.id}'),
+                                '$currentQty',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                              ),
                             ),
                             IconButton(
                               onPressed: () => setState(() => _selectedQuantities[p.id] = currentQty + 1),
-                              icon: const Icon(Icons.add_circle_outline, size: 20, color: AirbnbTheme.coral),
+                              icon: const Icon(Icons.add_circle_outline, size: 22, color: AirbnbTheme.coral),
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                             ),
-                            const SizedBox(width: 4),
+                          ],
+                        ),
+                        Row(
+                          children: [
                             for (final addCount in [1, 5, 10])
                               InkWell(
                                 key: ValueKey('quick_qty_${addCount}_${p.id}'),
-                                onTap: () {
-                                  setState(() {
-                                    _selectedQuantities[p.id] = currentQty + addCount;
-                                  });
-                                },
+                                onTap: () => setState(() => _selectedQuantities[p.id] = currentQty + addCount),
+                                borderRadius: BorderRadius.circular(6),
                                 child: Container(
-                                  margin: const EdgeInsets.only(left: 3),
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  margin: const EdgeInsets.only(left: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: AirbnbTheme.lightGrey,
-                                    borderRadius: BorderRadius.circular(5),
+                                    borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: AirbnbTheme.border),
                                   ),
-                                  child: Text('+$addCount', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                  child: Text('+$addCount', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                                 ),
                               ),
                           ],
@@ -599,23 +646,30 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '₹${unitRate.toStringAsFixed(2)} / ${currentUnit.shortCode} • Total: ₹${lineTotal.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                        Flexible(
+                          child: Text(
+                            '₹${unitRate.toStringAsFixed(2)} / ${currentUnit.shortCode} • Total: ₹${lineTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 6),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             OutlinedButton.icon(
                               onPressed: () => _showMixedUnitOrderSheet(p),
-                              icon: const Icon(Icons.layers_outlined, size: 13, color: AirbnbTheme.coral),
-                              label: const Text('Combo (मिश्रित)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
+                              icon: const Icon(Icons.layers_outlined, size: 12, color: AirbnbTheme.coral),
+                              label: const Text('Combo', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.coral)),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                                visualDensity: VisualDensity.compact,
                                 side: const BorderSide(color: AirbnbTheme.coral),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             ElevatedButton.icon(
                               onPressed: () {
                                 widget.api.addToCart(p, currentUnit, currentQty);
@@ -628,12 +682,13 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                                   ),
                                 );
                               },
-                              icon: const Icon(Icons.add_shopping_cart, size: 14),
+                              icon: const Icon(Icons.add_shopping_cart, size: 13),
                               label: const Text('Add', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AirbnbTheme.coral,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                visualDensity: VisualDensity.compact,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
@@ -1349,19 +1404,45 @@ class _SalesProductsViewState extends State<SalesProductsView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          p.name,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AirbnbTheme.dark),
+                        Expanded(
+                          child: Text(
+                            p.name,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AirbnbTheme.dark),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
-                            color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
+                            color: p.isOutOfStock
+                                ? Colors.red.withValues(alpha: 0.1)
+                                : (p.isLowStock
+                                    ? Colors.orange.withValues(alpha: 0.1)
+                                    : const Color(0xFFF0FDF4)),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: p.isOutOfStock
+                                  ? Colors.red.shade300
+                                  : (p.isLowStock
+                                      ? Colors.orange.shade300
+                                      : const Color(0xFF86EFAC)),
+                            ),
                           ),
                           child: Text(
-                            'Stock: ${p.godownStockBoxes} Boxes',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue),
+                            p.isOutOfStock
+                                ? 'Out of Stock'
+                                : 'Godown: ${p.godownStockBoxes} Bxs${p.carStockBoxes > 0 ? " • Van: ${p.carStockBoxes} Bxs" : ""}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: p.isOutOfStock
+                                  ? Colors.red.shade800
+                                  : (p.isLowStock
+                                      ? Colors.orange.shade800
+                                      : const Color(0xFF166534)),
+                            ),
                           ),
                         ),
                       ],
