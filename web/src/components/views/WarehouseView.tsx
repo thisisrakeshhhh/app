@@ -38,6 +38,8 @@ interface WarehouseViewProps {
   setOrders: React.Dispatch<React.SetStateAction<OrderItem[]>>;
   activeSubTab?: 'godown' | 'inward' | 'pick_pack' | 'load_van';
   onSubTabChange?: (tab: 'godown' | 'inward' | 'pick_pack' | 'load_van') => void;
+  onServerInward?: (productId: string, boxes: number, notes: string) => Promise<void>;
+  onServerPack?: (orderId: string, productId: string) => Promise<void>;
 }
 
 export default function WarehouseView({
@@ -51,6 +53,8 @@ export default function WarehouseView({
   setOrders,
   activeSubTab = 'godown',
   onSubTabChange,
+  onServerInward,
+  onServerPack,
 }: WarehouseViewProps) {
   const [subTab, setSubTab] = useState<'godown' | 'inward' | 'pick_pack' | 'load_van'>(activeSubTab);
 
@@ -179,6 +183,10 @@ export default function WarehouseView({
       })
     );
 
+    if (onServerInward) {
+      onServerInward(targetProduct.id, boxes, `GRN Inward Challan ${inwardChallan} from ${inwardSupplier}`).catch(console.error);
+    }
+
     setInwardReceipts((prev) => [newReceipt, ...prev]);
     setShowInwardConfirmDialog(false);
     setInwardSuccessBanner(
@@ -247,6 +255,10 @@ export default function WarehouseView({
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
+          if (onServerPack) {
+            const prodId = o.items[0]?.productId || 'P1';
+            onServerPack(orderId, prodId).catch(console.error);
+          }
           return {
             ...o,
             status: 'PACKED',

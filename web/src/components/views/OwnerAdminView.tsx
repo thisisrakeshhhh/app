@@ -32,6 +32,7 @@ interface OwnerAdminViewProps {
   fleet: TruckFleet[];
   activeSubTab?: 'pulse' | 'approvals' | 'handovers' | 'reports';
   onSubTabChange?: (tab: 'pulse' | 'approvals' | 'handovers' | 'reports') => void;
+  onServerApprove?: (orderId: string) => Promise<void>;
 }
 
 export default function OwnerAdminView({
@@ -44,6 +45,7 @@ export default function OwnerAdminView({
   fleet,
   activeSubTab = 'pulse',
   onSubTabChange,
+  onServerApprove,
 }: OwnerAdminViewProps) {
   const [subTab, setSubTab] = useState<'pulse' | 'approvals' | 'handovers' | 'reports'>(activeSubTab);
 
@@ -62,6 +64,9 @@ export default function OwnerAdminView({
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, status: 'APPROVED' } : o))
     );
+    if (onServerApprove) {
+      onServerApprove(id).catch(console.error);
+    }
     alert(`Order ${id} approved for warehouse picking!`);
   };
 

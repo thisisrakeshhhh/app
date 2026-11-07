@@ -1,25 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CanonicalRole,
   ProductItem,
   RetailerItem,
   OrderItem,
+  OrderLineItem,
   TruckFleet,
   InwardReceipt,
   CashHandoverItem
 } from '@/lib/types';
 import {
-  INITIAL_PRODUCTS,
-  INITIAL_RETAILERS,
   INITIAL_FLEET,
-  INITIAL_ORDERS,
-  INITIAL_INWARD_RECEIPTS,
-  INITIAL_HANDOVERS
+  INITIAL_INWARD_RECEIPTS
 } from '@/lib/seed-data';
-import { getStoredUser, clearSession } from '@/lib/api';
+import {
+  ensureAuthenticated,
+  fetchLiveProducts,
+  fetchLiveRetailers,
+  fetchLiveOrders,
+  fetchLiveHandovers,
+  serverAdjustInventory,
+  serverCreateOrder,
+  serverCreateRetailer,
+  serverApproveOrder,
+  serverPickAndPackOrder,
+  serverDispatchAndDeliver,
+  getStoredUser,
+  clearSession
+} from '@/lib/api';
 
 import RoleHeader from '@/components/layout/RoleHeader';
 import MobileNavBar from '@/components/layout/MobileNavBar';
@@ -39,78 +50,87 @@ export default function DashboardPage() {
   const [showRoleModal, setShowRoleModal] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'desktop' | 'phone_shell'>('desktop');
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Central Shared Business State
-  const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
-  const [retailers, setRetailers] = useState<RetailerItem[]>(INITIAL_RETAILERS);
+  // Live Server Business State
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [retailers, setRetailers] = useState<RetailerItem[]>([]);
   const [fleet, setFleet] = useState<TruckFleet[]>(INITIAL_FLEET);
-  const [orders, setOrders] = useState<OrderItem[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
   const [inwardReceipts, setInwardReceipts] = useState<InwardReceipt[]>(INITIAL_INWARD_RECEIPTS);
-  const [handovers, setHandovers] = useState<CashHandoverItem[]>(INITIAL_HANDOVERS);
+  const [handovers, setHandovers] = useState<CashHandoverItem[]>([]);
 
-  // Initialize from LocalStorage or user session
-  useEffect(() => {
+  const [serverStats, setServerStats] = useState<{ products: number; retailers: number; orders: number }>({
+    products: 0,
+    retailers: 0,
+    orders: 0,
+  });
+
+  // Fetch Live Server Data from Cloudflare D1
+  const loadServerData = useCallback(async (role: CanonicalRole, silent = false) => {
+    if (!silent) setIsRefreshing(true);
     try {
-      const savedRole = localStorage.getItem('rf_active_role') as CanonicalRole;
-      if (savedRole && ['WAREHOUSE', 'SALES', 'DELIVERY', 'OWNER', 'ADMIN'].includes(savedRole)) {
-        setCurrentRole(savedRole);
-        updateSubTabForRole(savedRole);
-      } else {
-        const u = getStoredUser();
-        if (u?.role) {
-          const r = u.role.toUpperCase();
-          if (r.includes('WAREHOUSE')) {
-            setCurrentRole('WAREHOUSE');
-            setActiveSubTab('godown');
-          } else if (r.includes('SALES')) {
-            setCurrentRole('SALES');
-            setActiveSubTab('dash');
-          } else if (r.includes('DELIVERY')) {
-            setCurrentRole('DELIVERY');
-            setActiveSubTab('stops');
-          } else {
-            setCurrentRole('OWNER');
-            setActiveSubTab('pulse');
-          }
-        }
-      }
+      await ensureAuthenticated(role);
 
-      // Restore persisted products & orders if stored
-      const savedProds = localStorage.getItem('rf_products');
-      if (savedProds) setProducts(JSON.parse(savedProds));
+      const [liveProds, liveRets, liveOrds, liveHnds] = await Promise.all([
+        fetchLiveProducts().catch((e) => {
+          console.error('Products fetch error:', e);
+          return [];
+        }),
+        fetchLiveRetailers().catch((e) => {
+          console.error('Retailers fetch error:', e);
+          return [];
+        }),
+        fetchLiveOrders().catch((e) => {
+          console.error('Orders fetch error:', e);
+          return [];
+        }),
+        fetchLiveHandovers().catch((e) => {
+          console.error('Handovers fetch error:', e);
+          return [];
+        }),
+      ]);
 
-      const savedOrders = localStorage.getItem('rf_orders');
-      if (savedOrders) setOrders(JSON.parse(savedOrders));
+      if (liveProds.length > 0) setProducts(liveProds);
+      if (liveRets.length > 0) setRetailers(liveRets);
+      if (liveOrds.length > 0) setOrders(liveOrds);
+      if (liveHnds.length > 0) setHandovers(liveHnds);
 
-      const savedInwards = localStorage.getItem('rf_inwards');
-      if (savedInwards) setInwardReceipts(JSON.parse(savedInwards));
-
-      const savedFleet = localStorage.getItem('rf_fleet');
-      if (savedFleet) setFleet(JSON.parse(savedFleet));
-
-      const savedHandovers = localStorage.getItem('rf_handovers');
-      if (savedHandovers) setHandovers(JSON.parse(savedHandovers));
-    } catch (e) {
-      console.warn('LocalStorage hydration fallback to initial data', e);
+      setServerStats({
+        products: liveProds.length,
+        retailers: liveRets.length,
+        orders: liveOrds.length,
+      });
+    } catch (err) {
+      console.error('Server sync error:', err);
     } finally {
+      if (!silent) setIsRefreshing(false);
       setIsLoaded(true);
     }
   }, []);
 
-  // Sync to LocalStorage on modifications
+  // Initialize from session / server
   useEffect(() => {
-    if (!isLoaded) return;
-    try {
-      localStorage.setItem('rf_active_role', currentRole);
-      localStorage.setItem('rf_products', JSON.stringify(products));
-      localStorage.setItem('rf_orders', JSON.stringify(orders));
-      localStorage.setItem('rf_inwards', JSON.stringify(inwardReceipts));
-      localStorage.setItem('rf_fleet', JSON.stringify(fleet));
-      localStorage.setItem('rf_handovers', JSON.stringify(handovers));
-    } catch (e) {
-      console.warn('LocalStorage save error', e);
+    const savedRole = (typeof window !== 'undefined' ? localStorage.getItem('rf_active_role') : null) as CanonicalRole;
+    let initialRole: CanonicalRole = 'WAREHOUSE';
+
+    if (savedRole && ['WAREHOUSE', 'SALES', 'DELIVERY', 'OWNER', 'ADMIN'].includes(savedRole)) {
+      initialRole = savedRole;
+    } else {
+      const u = getStoredUser();
+      if (u?.role) {
+        const r = u.role.toUpperCase();
+        if (r.includes('WAREHOUSE')) initialRole = 'WAREHOUSE';
+        else if (r.includes('SALES')) initialRole = 'SALES';
+        else if (r.includes('DELIVERY')) initialRole = 'DELIVERY';
+        else initialRole = 'OWNER';
+      }
     }
-  }, [isLoaded, currentRole, products, orders, inwardReceipts, fleet, handovers]);
+
+    setCurrentRole(initialRole);
+    updateSubTabForRole(initialRole);
+    loadServerData(initialRole);
+  }, [loadServerData]);
 
   const updateSubTabForRole = (role: CanonicalRole) => {
     switch (role) {
@@ -130,9 +150,13 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSelectRole = (newRole: CanonicalRole) => {
+  const handleSelectRole = async (newRole: CanonicalRole) => {
     setCurrentRole(newRole);
     updateSubTabForRole(newRole);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rf_active_role', newRole);
+    }
+    await loadServerData(newRole);
   };
 
   const handleLogout = () => {
@@ -140,12 +164,86 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
+  // ==========================================
+  // REAL SERVER MUTATIONS HANDLERS
+  // ==========================================
+
+  const handleServerInward = async (productId: string, boxes: number, notes: string) => {
+    try {
+      await serverAdjustInventory(productId, boxes, 'STOCK_RECEIPT', notes);
+      // Refetch live products to reflect new stock from D1
+      const freshProds = await fetchLiveProducts();
+      if (freshProds.length > 0) setProducts(freshProds);
+    } catch (e: any) {
+      console.warn('Server Inward adjust fallback:', e.message);
+    }
+  };
+
+  const handleServerCreateOrder = async (retailerId: string, totalRupees: number, items: OrderLineItem[]) => {
+    try {
+      await serverCreateOrder({
+        retailerId,
+        totalAmountPaise: Math.round(totalRupees * 100),
+        items: items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          pricePaiseAtTime: Math.round(i.unitPriceRupees * 100),
+        })),
+      });
+      // Refetch live orders from D1
+      const freshOrders = await fetchLiveOrders();
+      if (freshOrders.length > 0) setOrders(freshOrders);
+    } catch (e: any) {
+      console.warn('Server Order create fallback:', e.message);
+    }
+  };
+
+  const handleServerCreateRetailer = async (data: any) => {
+    try {
+      await serverCreateRetailer(data);
+      const freshRets = await fetchLiveRetailers();
+      if (freshRets.length > 0) setRetailers(freshRets);
+    } catch (e: any) {
+      console.warn('Server Retailer create fallback:', e.message);
+    }
+  };
+
+  const handleServerPack = async (orderId: string, productId: string) => {
+    try {
+      await serverPickAndPackOrder(orderId, productId, 'user_delivery');
+      const freshOrders = await fetchLiveOrders();
+      if (freshOrders.length > 0) setOrders(freshOrders);
+    } catch (e: any) {
+      console.warn('Server Pack fallback:', e.message);
+    }
+  };
+
+  const handleServerDeliver = async (orderId: string, recipientName: string, paymentMethod: 'CASH' | 'CREDIT') => {
+    try {
+      await serverDispatchAndDeliver(orderId, recipientName, paymentMethod);
+      const freshOrders = await fetchLiveOrders();
+      if (freshOrders.length > 0) setOrders(freshOrders);
+    } catch (e: any) {
+      console.warn('Server Deliver fallback:', e.message);
+    }
+  };
+
+  const handleServerApprove = async (orderId: string) => {
+    try {
+      await serverApproveOrder(orderId);
+      const freshOrders = await fetchLiveOrders();
+      if (freshOrders.length > 0) setOrders(freshOrders);
+    } catch (e: any) {
+      console.warn('Server Approve fallback:', e.message);
+    }
+  };
+
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <div className="flex flex-col items-center gap-2 text-slate-500">
           <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs font-bold">Loading RouteFlow Operations...</span>
+          <span className="text-xs font-bold">Connecting to Cloudflare D1 Server...</span>
         </div>
       </div>
     );
@@ -167,6 +265,8 @@ export default function DashboardPage() {
             setOrders={setOrders}
             activeSubTab={activeSubTab as any}
             onSubTabChange={(t) => setActiveSubTab(t)}
+            onServerInward={handleServerInward}
+            onServerPack={handleServerPack}
           />
         );
       case 'SALES':
@@ -179,6 +279,8 @@ export default function DashboardPage() {
             setOrders={setOrders}
             activeSubTab={activeSubTab as any}
             onSubTabChange={(t) => setActiveSubTab(t)}
+            onServerCreateOrder={handleServerCreateOrder}
+            onServerCreateRetailer={handleServerCreateRetailer}
           />
         );
       case 'DELIVERY':
@@ -191,6 +293,7 @@ export default function DashboardPage() {
             setHandovers={setHandovers}
             activeSubTab={activeSubTab as any}
             onSubTabChange={(t) => setActiveSubTab(t)}
+            onServerDeliver={handleServerDeliver}
           />
         );
       case 'OWNER':
@@ -207,6 +310,7 @@ export default function DashboardPage() {
             fleet={fleet}
             activeSubTab={activeSubTab as any}
             onSubTabChange={(t) => setActiveSubTab(t)}
+            onServerApprove={handleServerApprove}
           />
         );
     }
@@ -221,6 +325,10 @@ export default function DashboardPage() {
         viewMode={viewMode}
         onToggleViewMode={() => setViewMode(viewMode === 'desktop' ? 'phone_shell' : 'desktop')}
         onLogout={handleLogout}
+        isLiveServer={true}
+        serverStats={serverStats}
+        onRefreshLive={() => loadServerData(currentRole)}
+        isRefreshing={isRefreshing}
       />
 
       {/* Main Container: Switchable between Responsive Desktop View and Phone Shell Simulator */}

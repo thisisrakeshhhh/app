@@ -10,7 +10,9 @@ import {
   Globe,
   LogOut,
   Smartphone,
-  Monitor
+  Monitor,
+  RefreshCw,
+  Database
 } from 'lucide-react';
 
 interface RoleHeaderProps {
@@ -19,6 +21,10 @@ interface RoleHeaderProps {
   viewMode: 'desktop' | 'phone_shell';
   onToggleViewMode: () => void;
   onLogout: () => void;
+  isLiveServer?: boolean;
+  serverStats?: { products: number; retailers: number; orders: number };
+  onRefreshLive?: () => void;
+  isRefreshing?: boolean;
 }
 
 export default function RoleHeader({
@@ -27,6 +33,10 @@ export default function RoleHeader({
   viewMode,
   onToggleViewMode,
   onLogout,
+  isLiveServer = true,
+  serverStats,
+  onRefreshLive,
+  isRefreshing = false,
 }: RoleHeaderProps) {
   const getRoleConfig = (role: CanonicalRole) => {
     switch (role) {
@@ -89,15 +99,23 @@ export default function RoleHeader({
                 FMCG OS
               </span>
             </div>
-            <div className="hidden xs:flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[10px] text-slate-400">Cloudflare Edge Live</span>
+            <div className="hidden xs:flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                <Database className="w-3 h-3" />
+                <span>Live Server D1</span>
+              </span>
+              {serverStats && (
+                <span className="text-[10px] text-slate-400 font-medium">
+                  ({serverStats.products} SKUs • {serverStats.retailers} Shops • {serverStats.orders} Ords)
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Center: Interactive Role Switcher Pill (Replicates Flutter Top Bar) */}
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <button
             onClick={onOpenRoleSwitch}
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border ${config.border} ${config.lightBg} hover:opacity-90 transition cursor-pointer shadow-2xs`}
@@ -108,6 +126,17 @@ export default function RoleHeader({
             </span>
             <ChevronDown className={`w-3.5 h-3.5 ${config.textColor} opacity-70`} />
           </button>
+
+          {onRefreshLive && (
+            <button
+              onClick={onRefreshLive}
+              disabled={isRefreshing}
+              title="Refresh Live Server Data"
+              className="p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition cursor-pointer flex items-center justify-center"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
+          )}
         </div>
 
         {/* Right: View Mode Toggle & Logout */}

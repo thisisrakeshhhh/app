@@ -36,6 +36,8 @@ interface SalesViewProps {
   setOrders: React.Dispatch<React.SetStateAction<OrderItem[]>>;
   activeSubTab?: 'dash' | 'retailers' | 'products' | 'new_order';
   onSubTabChange?: (tab: 'dash' | 'retailers' | 'products' | 'new_order') => void;
+  onServerCreateOrder?: (retailerId: string, totalRupees: number, items: OrderLineItem[]) => Promise<void>;
+  onServerCreateRetailer?: (data: any) => Promise<void>;
 }
 
 export default function SalesView({
@@ -46,6 +48,8 @@ export default function SalesView({
   setOrders,
   activeSubTab = 'dash',
   onSubTabChange,
+  onServerCreateOrder,
+  onServerCreateRetailer,
 }: SalesViewProps) {
   const [subTab, setSubTab] = useState<'dash' | 'retailers' | 'products' | 'new_order'>(activeSubTab);
 
@@ -178,6 +182,9 @@ export default function SalesView({
     };
 
     setOrders((prev) => [newOrder, ...prev]);
+    if (onServerCreateOrder) {
+      onServerCreateOrder(ret.id, cartTotalAmount, lineItems).catch(console.error);
+    }
     setOrderItemsMap({});
     setOrderSubmittedBanner(`Order ${newOrder.orderCode} booked for ${ret.name} (₹${cartTotalAmount.toFixed(2)})!`);
     handleTabClick('dash');
@@ -205,6 +212,15 @@ export default function SalesView({
     };
 
     setRetailers((prev) => [created, ...prev]);
+    if (onServerCreateRetailer) {
+      onServerCreateRetailer({
+        name: created.name,
+        contactNumber: created.phone,
+        address: created.address,
+        beatId: created.beat,
+        creditLimitRupees: created.creditLimitRupees,
+      }).catch(console.error);
+    }
     setShowAddRetailerModal(false);
     setSelectedRetailerId(created.id);
     alert(`Shop ${created.name} added to ${created.beat}!`);

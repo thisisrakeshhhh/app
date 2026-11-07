@@ -28,6 +28,7 @@ interface DeliveryViewProps {
   setHandovers: React.Dispatch<React.SetStateAction<CashHandoverItem[]>>;
   activeSubTab?: 'stops' | 'trips' | 'collections' | 'handover';
   onSubTabChange?: (tab: 'stops' | 'trips' | 'collections' | 'handover') => void;
+  onServerDeliver?: (orderId: string, recipientName: string, paymentMethod: 'CASH' | 'CREDIT') => Promise<void>;
 }
 
 export default function DeliveryView({
@@ -38,6 +39,7 @@ export default function DeliveryView({
   setHandovers,
   activeSubTab = 'stops',
   onSubTabChange,
+  onServerDeliver,
 }: DeliveryViewProps) {
   const [subTab, setSubTab] = useState<'stops' | 'trips' | 'collections' | 'handover'>(activeSubTab);
 
@@ -89,6 +91,11 @@ export default function DeliveryView({
         return o;
       })
     );
+
+    if (onServerDeliver) {
+      const pm = paymentMethod === 'CREDIT' ? 'CREDIT' : 'CASH';
+      onServerDeliver(activeOtpOrder.id, recipientName || 'Shopkeeper', pm).catch(console.error);
+    }
 
     setDeliverySuccessNote(`Order ${activeOtpOrder.orderCode} successfully delivered with OTP verification!`);
     setActiveOtpOrder(null);
