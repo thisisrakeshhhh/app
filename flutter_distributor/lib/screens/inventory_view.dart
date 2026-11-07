@@ -19,11 +19,10 @@ class _InventoryViewState extends State<InventoryView> {
 
   final List<String> _categories = [
     'All',
-    'Carbonated Drinks (CSD)',
-    'Energy & Hydration',
-    'Potato Chips (Lay\'s)',
-    'Extruded Snacks (Kurkure & Doritos)',
-    'Juices & Nutrition (Tropicana & Quaker)',
+    'Traditional Namkeen',
+    'Potato Wafers',
+    'Extruded Snacks & Fryums',
+    'Bakery & Confectionery',
   ];
 
   void _showAddProductSheet() {
@@ -116,7 +115,7 @@ class _InventoryViewState extends State<InventoryView> {
                     TextField(
                       controller: nameCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Product Name (e.g. Kurkure Green Chutney)',
+                        labelText: 'Product Name (e.g. Real Bites Masala Sev)',
                         labelStyle: const TextStyle(fontSize: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

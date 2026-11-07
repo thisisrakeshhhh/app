@@ -419,9 +419,12 @@ app.get('/retailers', authMiddleware, async (c) => {
 
 app.get('/products', authMiddleware, async (c) => {
   const user = c.get('user');
-  const { results } = await c.env.DB.prepare(
-    'SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise, mrp_paise AS mrpPaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, sku, barcode, image_url AS imageUrl, product_image_key AS productImageKey, tracks_expiry AS tracksExpiry, is_active AS isActive FROM products WHERE company_id = ?'
-  )
+  const includeInactive = c.req.query('include_inactive') === 'true';
+  const query = includeInactive
+    ? 'SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise, mrp_paise AS mrpPaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, sku, barcode, image_url AS imageUrl, product_image_key AS productImageKey, tracks_expiry AS tracksExpiry, is_active AS isActive FROM products WHERE company_id = ?'
+    : 'SELECT id, name, hindi_name AS hindiName, category, price_paise AS pricePaise, mrp_paise AS mrpPaise, stock_quantity AS stockQuantity, reserved_quantity AS reservedQuantity, unit, sku, barcode, image_url AS imageUrl, product_image_key AS productImageKey, tracks_expiry AS tracksExpiry, is_active AS isActive FROM products WHERE company_id = ? AND is_active = 1';
+
+  const { results } = await c.env.DB.prepare(query)
     .bind(user.company_id)
     .all();
 
@@ -2095,13 +2098,16 @@ app.post('/products', authMiddleware, async (c) => {
 
   const id = body.id || `P_${crypto.randomUUID().slice(0, 8)}`;
   const hindiName = body.hindiName?.trim() || body.hindi_name?.trim() || null;
+  const barcode = body.barcode?.trim() || null;
+  const productImageKey = body.productImageKey?.trim() || body.product_image_key?.trim() || null;
+  const tracksExpiry = (body.tracksExpiry || body.tracks_expiry) ? 1 : 0;
   const now = Date.now();
 
   const statements = [
     c.env.DB.prepare(
-      `INSERT INTO products (id, company_id, name, hindi_name, category, price_paise, mrp_paise, stock_quantity, reserved_quantity, unit, sku, image_url, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1)`
-    ).bind(id, user.company_id, name, hindiName, category, pricePaise, mrpPaise, stockQuantity, unit, sku, imageUrl),
+      `INSERT INTO products (id, company_id, name, hindi_name, category, price_paise, mrp_paise, stock_quantity, reserved_quantity, unit, sku, barcode, image_url, product_image_key, tracks_expiry, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 1)`
+    ).bind(id, user.company_id, name, hindiName, category, pricePaise, mrpPaise, stockQuantity, unit, sku, barcode, imageUrl, productImageKey, tracksExpiry),
     c.env.DB.prepare(
       'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_CREATED', id, `Product: ${name}, Price: ${pricePaise}, Stock: ${stockQuantity}`, now)
@@ -2110,8 +2116,44 @@ app.post('/products', authMiddleware, async (c) => {
   await c.env.DB.batch(statements);
   return c.json({
     success: true,
-    product: { id, name, hindiName, category, pricePaise, mrpPaise, stockQuantity, reservedQuantity: 0, unit, sku, imageUrl, isActive: true }
+    product: { id, name, hindiName, category, pricePaise, mrpPaise, stockQuantity, reservedQuantity: 0, unit, sku, barcode, imageUrl, productImageKey, tracksExpiry, isActive: true }
   });
+});
+
+app.delete('/products/:id', authMiddleware, async (c) => {
+  const user = c.get('user');
+  if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
+    return c.json({ error: 'Permission denied: owner or admin role required' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const existing = await c.env.DB.prepare('SELECT * FROM products WHERE id = ? AND company_id = ?')
+    .bind(id, user.company_id).first() as any;
+
+  if (!existing) return c.json({ error: 'Product not found' }, 404);
+
+  const now = Date.now();
+  try {
+    const statements = [
+      c.env.DB.prepare('DELETE FROM product_batches WHERE product_id = ?').bind(id),
+      c.env.DB.prepare('DELETE FROM stock_movements WHERE product_id = ?').bind(id),
+      c.env.DB.prepare('DELETE FROM stock_adjustments WHERE product_id = ?').bind(id),
+      c.env.DB.prepare('DELETE FROM grn_items WHERE product_id = ?').bind(id),
+      c.env.DB.prepare('DELETE FROM return_items WHERE product_id = ?').bind(id),
+      c.env.DB.prepare('DELETE FROM order_items WHERE product_id = ?').bind(id),
+      c.env.DB.prepare('DELETE FROM products WHERE id = ? AND company_id = ?').bind(id, user.company_id),
+      c.env.DB.prepare(
+        'INSERT INTO audit_logs (id, company_id, user_id, action, entity_id, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(crypto.randomUUID(), user.company_id, user.sub, 'PRODUCT_DELETED', id, `Deleted product: ${existing.name}`, now)
+    ];
+    await c.env.DB.batch(statements);
+    return c.json({ success: true, message: `Product ${id} deleted successfully` });
+  } catch (err: any) {
+    // If foreign key constraint or any error prevents hard delete, perform soft delete
+    await c.env.DB.prepare('UPDATE products SET is_active = 0 WHERE id = ? AND company_id = ?')
+      .bind(id, user.company_id).run();
+    return c.json({ success: true, message: `Product ${id} deactivated: ${err.message}` });
+  }
 });
 
 app.put('/products/:id', authMiddleware, async (c) => {

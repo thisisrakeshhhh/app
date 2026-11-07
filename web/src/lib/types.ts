@@ -30,6 +30,8 @@ export interface RetailerItem {
   outstandingBalanceRupees: number;
   creditLimitRupees: number;
   lastVisitDate?: string;
+  visitStatus?: 'PENDING' | 'VISITED' | 'ORDERED';
+  lastOrderAmountRupees?: number;
   latitude?: number;
   longitude?: number;
 }

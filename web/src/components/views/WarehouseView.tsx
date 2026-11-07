@@ -87,7 +87,7 @@ export default function WarehouseView({
   // Manual Inward Receipt (GRN) Form State
   const [inwardTruck, setInwardTruck] = useState('RJ-19-GA-1102');
   const [inwardChallan, setInwardChallan] = useState('CH-2026-8820');
-  const [inwardSupplier, setInwardSupplier] = useState('PepsiCo India Holdings Pvt Ltd');
+  const [inwardSupplier, setInwardSupplier] = useState('Laxmi Snacks Pvt Ltd (Real Bites)');
   const [inwardSku, setInwardSku] = useState('KURK-01');
   const [inwardBoxes, setInwardBoxes] = useState('50');
   const [inwardBatch, setInwardBatch] = useState('LOT-2026-KM02');
@@ -665,7 +665,7 @@ export default function WarehouseView({
                   required
                   value={inwardSupplier}
                   onChange={(e) => setInwardSupplier(e.target.value)}
-                  placeholder="e.g. PepsiCo India Holdings Pvt Ltd"
+                  placeholder="e.g. Laxmi Snacks Pvt Ltd (Real Bites)"
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
                 />
               </div>
@@ -1046,7 +1046,7 @@ export default function WarehouseView({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Kurkure Green Chutney"
+                  placeholder="e.g. Real Bites Masala Sev"
                   value={newSku.name}
                   onChange={(e) => setNewSku({ ...newSku, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"

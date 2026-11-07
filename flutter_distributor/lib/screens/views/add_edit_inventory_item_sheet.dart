@@ -48,13 +48,10 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
   DateTime? _selectedExpiryDate;
 
   final List<String> _categories = [
-    'Carbonated Drinks (CSD)',
-    'Potato Chips (Lay\'s)',
-    'Extruded Snacks (Kurkure & Doritos)',
-    'Energy & Hydration',
-    'Juices & Nutrition (Tropicana & Quaker)',
-    'Biscuits & Confectionery',
-    'Namkeen & Traditional Snacks',
+    'Traditional Namkeen',
+    'Potato Wafers',
+    'Extruded Snacks & Fryums',
+    'Bakery & Confectionery',
   ];
 
   final List<double> _gstRates = [5.0, 12.0, 18.0, 28.0];

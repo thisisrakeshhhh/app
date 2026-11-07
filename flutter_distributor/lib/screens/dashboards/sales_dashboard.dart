@@ -1596,7 +1596,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Select a retailer from your beat and book Kurkure & FMCG stock.',
+                      'Select a retailer from your beat and book Real Bites snacks.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
                     ),

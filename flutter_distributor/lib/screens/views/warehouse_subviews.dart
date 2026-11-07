@@ -23,13 +23,10 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
   final List<String> _categories = [
     'All',
-    'Carbonated Drinks (CSD)',
-    'Energy & Hydration',
-    'Potato Chips (Lay\'s)',
-    'Extruded Snacks (Kurkure & Doritos)',
-    'Juices & Nutrition (Tropicana & Quaker)',
-    'Biscuits & Confectionery',
-    'Namkeen & Traditional Snacks',
+    'Traditional Namkeen',
+    'Potato Wafers',
+    'Extruded Snacks & Fryums',
+    'Bakery & Confectionery',
   ];
 
   void _showAddEditSheet([ProductItem? product]) async {
@@ -1917,7 +1914,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
 
   void _showUnrecognizedSkuWarningDialog(String typedSku, int boxes, List<ProductItem> suggestions) {
     final newNameCtrl = TextEditingController(text: typedSku);
-    String newCategory = 'Extruded Snacks (Kurkure & Doritos)';
+    String newCategory = 'Extruded Snacks & Fryums';
 
     showDialog(
       context: context,
@@ -2016,11 +2013,10 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                     isDense: true,
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'Extruded Snacks (Kurkure & Doritos)', child: Text('Extruded Snacks (Kurkure)')),
-                    DropdownMenuItem(value: 'Potato Chips (Lay\'s)', child: Text('Potato Chips (Lay\'s)')),
-                    DropdownMenuItem(value: 'Carbonated Drinks (CSD)', child: Text('Carbonated Drinks (Pepsi)')),
-                    DropdownMenuItem(value: 'Energy & Hydration', child: Text('Energy & Hydration (Sting)')),
-                    DropdownMenuItem(value: 'Juices & Nutrition (Tropicana & Quaker)', child: Text('Juices & Nutrition')),
+                    DropdownMenuItem(value: 'Traditional Namkeen', child: Text('Traditional Namkeen')),
+                    DropdownMenuItem(value: 'Potato Wafers', child: Text('Potato Wafers')),
+                    DropdownMenuItem(value: 'Extruded Snacks & Fryums', child: Text('Extruded Snacks & Fryums')),
+                    DropdownMenuItem(value: 'Bakery & Confectionery', child: Text('Bakery & Confectionery')),
                   ],
                   onChanged: (v) {
                     if (v != null) setDlgState(() => newCategory = v);
