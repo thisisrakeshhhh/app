@@ -175,6 +175,8 @@ class TenantBoundaryBlockedView extends StatelessWidget {
                     height: 50,
                     child: ElevatedButton.icon(
                       onPressed: () {
+                        final targetRole = authService.currentRole ?? 'WAREHOUSE';
+                        authService.switchRoleForDemo(targetRole);
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
@@ -186,9 +188,9 @@ class TenantBoundaryBlockedView extends StatelessWidget {
                         );
                       },
                       icon: const Icon(Icons.storefront, size: 18, color: Colors.white),
-                      label: const Text(
-                        'Continue to Sales Pilot (Demo)',
-                        style: TextStyle(
+                      label: Text(
+                        'Continue to ${authService.currentRole ?? "Operations"} (Demo Pilot)',
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,

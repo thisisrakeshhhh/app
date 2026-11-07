@@ -269,6 +269,28 @@ class AuthService extends ChangeNotifier {
       final updated = s.copyWith(activeRole: newRole);
       _state = AuthState.authenticated(updated);
       notifyListeners();
+    } else {
+      final demoSession = UserSession(
+        userId: 'usr_demo_${newRole.toLowerCase()}',
+        name: switch (newRole) {
+          'WAREHOUSE' => 'Mukesh Godown (Warehouse)',
+          'SALES' => 'Rakesh Kumar (Sales)',
+          'DELIVERY' => 'Suresh Yadav (Delivery)',
+          _ => 'System Owner (Control Room)',
+        },
+        activeOrganizationId: 'comp_jodhpur',
+        activeRole: newRole,
+        organizations: [
+          OrganizationMembership(
+            id: 'comp_jodhpur',
+            name: 'Jodhpur FMCG Depot',
+            role: newRole,
+            isActive: true,
+          ),
+        ],
+      );
+      _state = AuthState.authenticated(demoSession);
+      notifyListeners();
     }
   }
 
