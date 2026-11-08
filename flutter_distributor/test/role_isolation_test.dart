@@ -242,5 +242,46 @@ void main() {
       final persistedFalse = await repo.getMetadata('sales_v2_enabled');
       expect(persistedFalse, 'false');
     });
+
+    test('9. TenantBoundaryGate purgeLegacyQuarantine resets state to cleanEmpty', () async {
+      final gate = TenantBoundaryGate(db);
+      await gate.purgeLegacyQuarantine();
+      final assessment = await gate.assessBoundary();
+      expect(assessment.isBlocked, isFalse);
+      expect(assessment.unassignedRecordCount, equals(0));
+    });
+
+    test('10. Owner staff management: createStaffMember assigns role and credentials', () async {
+      final initialCount = api.staffList.length;
+      final created = await api.createStaffMember(
+        fullName: 'Ramesh Kumar',
+        username: 'ramesh_sales',
+        password: 'RouteFlow@2026!',
+        role: 'SALES',
+        beatId: 'Sardarpura Market',
+      );
+      expect(created, isTrue);
+      expect(api.staffList.length, equals(initialCount + 1));
+      final member = api.staffList.firstWhere((s) => s.username == 'ramesh_sales');
+      expect(member.fullName, equals('Ramesh Kumar'));
+      expect(member.role, equals('SALES'));
+      expect(member.isActive, isTrue);
+
+      // Toggle status
+      await api.toggleStaffStatus(member.id);
+      final updated = api.staffList.firstWhere((s) => s.username == 'ramesh_sales');
+      expect(updated.isActive, isFalse);
+    });
+
+    test('11. Owner Godown analytics & profit calculation', () {
+      expect(api.totalGodownBoxes, greaterThan(0));
+      expect(api.totalGodownValuationRupees, greaterThan(0));
+      expect(api.totalGodownEstimatedProfitRupees, greaterThan(0));
+
+      final firstProduct = api.products.first;
+      final margin = api.getProductMarginPercent(firstProduct);
+      expect(margin, greaterThanOrEqualTo(0.0));
+      expect(margin, lessThanOrEqualTo(100.0));
+    });
   });
 }

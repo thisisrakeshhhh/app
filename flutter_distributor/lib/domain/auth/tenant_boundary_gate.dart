@@ -202,4 +202,32 @@ class TenantBoundaryGate {
       );
     }
   }
+
+  /// Explicitly purges unscoped legacy B1 cache so device transitions to CLEAN_EMPTY state.
+  Future<void> purgeLegacyQuarantine() async {
+    final database = _db;
+    if (database == null) return;
+    try {
+      await database.delete(database.products).go();
+      await database.delete(database.retailers).go();
+      await database.delete(database.inventorySnapshots).go();
+      await database.delete(database.inventoryMovements).go();
+      await database.into(database.databaseMetadata).insertOnConflictUpdate(
+        DatabaseMetadataCompanion(
+          key: const Value('tenant_boundary_state'),
+          value: const Value('CLEAN_EMPTY'),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      await database.into(database.databaseMetadata).insertOnConflictUpdate(
+        DatabaseMetadataCompanion(
+          key: const Value('unassigned_record_count'),
+          value: const Value('0'),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    } catch (e) {
+      // Best-effort cleanup
+    }
+  }
 }

@@ -841,3 +841,44 @@ class DeliveryTruck {
     );
   }
 }
+
+/// Distributor Staff Member for Owner Role Management.
+class StaffMember {
+  final String id;
+  final String username;
+  final String fullName;
+  final String role; // 'SALES', 'WAREHOUSE', 'DELIVERY', 'ADMIN', 'OWNER'
+  bool isActive;
+  final String? assignedBeat;
+  final DateTime createdAt;
+
+  StaffMember({
+    required this.id,
+    required this.username,
+    required this.fullName,
+    required this.role,
+    this.isActive = true,
+    this.assignedBeat,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'username': username,
+    'fullName': fullName,
+    'role': role,
+    'isActive': isActive,
+    'assignedBeat': assignedBeat,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory StaffMember.fromJson(Map<String, dynamic> json) => StaffMember(
+    id: json['id'] as String? ?? '',
+    username: json['username'] as String? ?? '',
+    fullName: (json['fullName'] ?? json['full_name'] ?? '') as String,
+    role: json['role'] as String? ?? 'SALES',
+    isActive: json['isActive'] as bool? ?? json['is_active'] as bool? ?? true,
+    assignedBeat: json['assignedBeat'] as String?,
+    createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
+  );
+}

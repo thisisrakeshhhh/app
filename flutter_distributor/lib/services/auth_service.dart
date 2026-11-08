@@ -294,6 +294,17 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Purges unpartitioned legacy local cache and transitions session to authenticated.
+  Future<void> purgeQuarantineAndUnlock({String? targetRole}) async {
+    await tenantBoundaryGate.purgeLegacyQuarantine();
+    switchRoleForDemo(targetRole ?? _state.session?.activeRole ?? 'OWNER');
+  }
+
+  /// Dismisses tenant boundary block and enters application with specified or current role.
+  void dismissTenantBoundaryBlock({String? forcedRole}) {
+    switchRoleForDemo(forcedRole ?? _state.session?.activeRole ?? 'OWNER');
+  }
+
   /// Acquires a valid, non-expired access token from RAM, coordinating concurrent refreshes.
   /// Enforces session-generation fencing against stale or late refresh responses.
   Future<String> getValidAccessToken() async {
