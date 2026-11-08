@@ -9,6 +9,7 @@ import 'package:lala_distributor/l10n/language_controller.dart';
 import 'package:lala_distributor/models/models.dart';
 import 'package:lala_distributor/screens/views/sales_route_map_view.dart';
 import 'package:lala_distributor/services/api_service.dart';
+import 'package:lala_distributor/theme/airbnb_theme.dart';
 
 void main() {
   group('Slice S1: Language Foundation, Invariants & Trade Glossary', () {
@@ -354,6 +355,20 @@ void main() {
 
       await service.removeExtraVisit('extra_shop_99');
       expect(service.isShopInTodaySchedule('extra_shop_99'), isFalse);
+    });
+
+    test('11. Indic Line Height & Typography Fallback: Theme configures Indic font fallback and 1.4 line-height', () {
+      expect(AppLanguage.hi.isIndic, isTrue);
+      expect(AppLanguage.gu.isIndic, isTrue);
+      expect(AppLanguage.hi.lineHeight, equals(1.4));
+      expect(AppLanguage.gu.lineHeight, equals(1.4));
+      expect(AppLanguage.en.lineHeight, equals(1.2));
+      expect(AppLanguage.hinglish.lineHeight, equals(1.2));
+
+      final theme = AirbnbTheme.lightTheme;
+      final fallback = theme.textTheme.bodyMedium?.fontFamilyFallback;
+      expect(fallback, contains('Noto Sans Devanagari'));
+      expect(fallback, contains('Noto Sans Gujarati'));
     });
   });
 }

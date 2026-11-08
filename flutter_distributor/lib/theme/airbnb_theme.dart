@@ -25,6 +25,9 @@ class AirbnbTheme {
         surface: Colors.white,
       ),
       fontFamily: 'Roboto',
+      textTheme: ThemeData.light().textTheme.apply(
+        fontFamilyFallback: const ['Noto Sans Devanagari', 'Noto Sans Gujarati', 'Roboto'],
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         elevation: 0,

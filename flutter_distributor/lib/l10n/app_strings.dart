@@ -973,6 +973,18 @@ class AppStrings {
       AppLanguage.hi: 'अपनी बीट से दुकान चुनें और ऑर्डर बुक करें।',
       AppLanguage.gu: 'તમારી બીટમાંથી દુકાન પસંદ કરો અને ઓર્ડર બુક કરો.',
     },
+    'no_orders_booked_today': {
+      AppLanguage.en: 'No Orders Booked Yet Today',
+      AppLanguage.hinglish: 'Aaj abhi tak koi order nahi hua',
+      AppLanguage.hi: 'आज अभी तक कोई ऑर्डर दर्ज नहीं हुआ',
+      AppLanguage.gu: 'આજે હજુ સુધી કોઈ ઓર્ડર નોંધાયેલ નથી',
+    },
+    'book_first_order': {
+      AppLanguage.en: 'Book First Order',
+      AppLanguage.hinglish: 'Pehla order book karein',
+      AppLanguage.hi: 'पहला ऑर्डर बुक करें',
+      AppLanguage.gu: 'પહેલો ઓર્ડર બુક કરો',
+    },
     'product_name_example': {
       AppLanguage.en: 'Product Name (e.g. Masala Sev)',
       AppLanguage.hinglish: 'Product ka naam (jaise Masala Sev)',

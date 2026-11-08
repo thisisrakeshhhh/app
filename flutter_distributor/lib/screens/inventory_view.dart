@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/local/app_database.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/airbnb_theme.dart';

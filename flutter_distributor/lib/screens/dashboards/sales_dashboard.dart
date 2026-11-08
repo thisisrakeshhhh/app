@@ -1586,9 +1586,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   children: [
                     const Icon(Icons.receipt_long_outlined, size: 36, color: AirbnbTheme.grey),
                     const SizedBox(height: 8),
-                    const Text(
-                      'No Orders Booked Yet Today',
-                      style: TextStyle(
+                    Text(
+                      AppStrings.tr('no_orders_booked_today'),
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: AirbnbTheme.dark,
@@ -1604,7 +1604,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     ElevatedButton.icon(
                       onPressed: () => widget.onNavigateTab(1),
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Book First Order'),
+                      label: Text(AppStrings.tr('book_first_order')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AirbnbTheme.coral,
                         foregroundColor: Colors.white,
