@@ -5,6 +5,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import 'add_shop_sheet.dart';
 import 'sales_route_map_view.dart';
 
 /// 1. Sales Order Booking View: Full order taking experience.
@@ -1008,6 +1009,39 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
     return Column(
       children: [
         _buildViewModeToggle(),
+        // Action Header: Total shops count + Add Shop button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${retailers.length} Shops Registered',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
+              ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final newShop = await AddShopSheet.show(context, api: widget.api);
+                  if (newShop != null && mounted) {
+                    setState(() {});
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Added ${newShop.name} successfully!')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.add_business_outlined, size: 16),
+                label: const Text('Add Shop', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AirbnbTheme.coral,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -1079,6 +1113,30 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                                   : (shop.visitedToday ? AirbnbTheme.success : AirbnbTheme.grey),
                             ),
                           ),
+                        ),
+                        const SizedBox(width: 2),
+                        // Shop Options: Delete / Remove Action
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert, size: 18, color: AirbnbTheme.grey),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onSelected: (val) {
+                            if (val == 'delete') {
+                              _showDeleteShopDialog(context, shop);
+                            }
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Delete / Remove Shop', style: TextStyle(fontSize: 13, color: Colors.red)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1338,6 +1396,73 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
       default:
         return const Color(0xFF6C5CE7);
     }
+  }
+
+  void _showDeleteShopDialog(BuildContext context, RetailerShop shop) {
+    final isAssigned = widget.api.isAssignedBeatShop(shop.id);
+    if (isAssigned) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: const [
+              Icon(Icons.shield_outlined, color: Color(0xFFD97706)),
+              SizedBox(width: 8),
+              Text('Protected Shop', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ],
+          ),
+          content: Text(
+            '${shop.name} is an assigned beat shop assigned by the distributor owner. '
+            'Sales representatives cannot delete assigned distributor shops.',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.delete_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Delete Shop', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: Text('Are you sure you want to delete "${shop.name}" from your shop roster?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+              await widget.api.deleteRetailer(shop.id);
+              if (mounted) {
+                setState(() {});
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Deleted "${shop.name}"')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
