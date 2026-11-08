@@ -79,8 +79,18 @@ void main() {
     });
 
     test('2. 4-part stock status calculates On-Hand, Reserved, Available, and Status (OK/LOW/OUT)', () async {
-      final product = api.products.first;
-      product.godownStockBoxes = 50;
+      final product = ProductItem(
+        id: 'TEST-STOCK-CHIPS-01',
+        name: 'Test Chips Product',
+        hindiName: 'टेस्ट चिप्स',
+        category: 'Snacks',
+        mrpRupees: 20.0,
+        piecePricePaise: 1000,
+        stripQty: 10,
+        boxQty: 50,
+        godownStockBoxes: 50,
+      );
+      api.addProduct(product);
 
       // Status with 0 reservations
       var status = api.getFourPartStockStatus(product.id);

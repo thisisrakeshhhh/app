@@ -8,6 +8,7 @@ import 'package:lala_distributor/domain/auth/auth_models.dart';
 import 'package:lala_distributor/domain/outbox/outbox_models.dart';
 import 'package:lala_distributor/models/models.dart';
 import 'package:lala_distributor/services/api_service.dart';
+import 'helpers/test_catalog_helper.dart';
 
 class ZeroNetworkHttpOverrides extends HttpOverrides {
   @override
@@ -48,6 +49,7 @@ void main() {
         sessionProvider: () => testSession,
       );
       await api.syncForTesting(seed: true);
+      await registerTestCatalogFixtures(api, repo);
     });
 
     tearDown(() async {
@@ -84,7 +86,7 @@ void main() {
 
     // TEST-02: App Restart Reconstruction
     test('TEST-02: Cold boot reconstructs provisional DistributorOrder from outbox mutations', () async {
-      final product = api.products.first;
+      final product = api.products.firstWhere((p) => p.id == 'KURK-01');
       final shop = api.retailers.first;
 
       api.addToCart(product, OrderUnit.box, 2);
@@ -101,6 +103,7 @@ void main() {
         localRepo: repo,
         sessionProvider: () => testSession,
       );
+      await registerTestCatalogFixtures(restartedApi);
       // Before sync, only initial seed orders exist
       expect(restartedApi.orders.any((o) => o.id == confirmed.id), isFalse);
 
@@ -285,7 +288,7 @@ void main() {
 
     // TEST-08: Packaging Ratio Preservation
     test('TEST-08: Reconstructed order retains exact original packaging units and piece count', () async {
-      final product = api.products.first; // Kurkure (10 strip, 50 box)
+      final product = api.products.firstWhere((p) => p.id == 'KURK-01'); // Kurkure (12 strip, 96 box)
       final shop = api.retailers.first;
 
       api.addToCart(product, OrderUnit.strip, 3); // 3 strips = 30 pieces
@@ -325,7 +328,7 @@ void main() {
 
     // TEST-09: Reservation Lifecycle Transition
     test('TEST-09: Advancing order from booking to readyStock releases booking reservation', () async {
-      final product = api.products.first;
+      final product = api.products.firstWhere((p) => p.id == 'KURK-01');
       final shop = api.retailers.first;
 
       final initialAvailable = api.availableGodownPieces(product.id);

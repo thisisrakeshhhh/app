@@ -9,6 +9,7 @@ import 'package:lala_distributor/models/models.dart';
 import 'package:lala_distributor/screens/dashboards/sales_dashboard.dart';
 import 'package:lala_distributor/screens/views/sales_subviews.dart';
 import 'package:lala_distributor/services/api_service.dart';
+import 'helpers/test_catalog_helper.dart';
 
 class ZeroNetworkHttpOverrides extends HttpOverrides {
   @override
@@ -50,6 +51,7 @@ void main() {
         sessionProvider: () => salesSession,
       );
       await api.syncForTesting(seed: true);
+      await registerTestCatalogFixtures(api, repo);
     });
 
     tearDown(() async {

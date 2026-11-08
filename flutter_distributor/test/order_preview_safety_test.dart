@@ -4,6 +4,7 @@ import 'package:lala_distributor/data/local/app_database.dart';
 import 'package:lala_distributor/data/local/local_repository.dart';
 import 'package:lala_distributor/models/models.dart';
 import 'package:lala_distributor/services/api_service.dart';
+import 'helpers/test_catalog_helper.dart';
 
 void main() {
   late AppDatabase db;
@@ -15,6 +16,7 @@ void main() {
     repository = LocalRepository(db);
     api = ApiService.internalForTesting(database: db, localRepo: repository);
     await api.syncForTesting();
+    await registerTestCatalogFixtures(api, repository);
   });
 
   tearDown(() async {

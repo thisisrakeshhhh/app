@@ -86,7 +86,18 @@ void main() {
 
     test('2. Stale price warning surfaces when product price in DB changed since draft was saved', () async {
       final shop = api.retailers.first;
-      final prod = api.products.first;
+      final prod = ProductItem(
+        id: 'TEST-PRICE-STALE-01',
+        name: 'Test Price Item',
+        hindiName: 'टेस्ट प्राइस आइटम',
+        category: 'Snacks',
+        mrpRupees: 10.0,
+        piecePricePaise: 850,
+        stripQty: 10,
+        boxQty: 50,
+        godownStockBoxes: 50,
+      );
+      api.addProduct(prod);
 
       api.selectShop(shop);
       api.addToCart(prod, OrderUnit.piece, 1);

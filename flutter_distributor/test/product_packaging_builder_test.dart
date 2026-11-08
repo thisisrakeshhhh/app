@@ -105,12 +105,24 @@ void main() {
     });
 
     test('2. Price parity: existing products unit prices match exactly before and after migration without hardcoded floats', () async {
-      // Kurkure Masala Munch in default catalog:
+      // Test product with defined packaging and price:
       // piecePricePaise = 850 (Rs 8.50)
       // stripQty = 12
       // boxQty = 96
       // Pre-migration strip formula: (850 * 12 * 0.98).round() = 9996 paise
       // Pre-migration box formula: (850 * 96 * 0.95).round() = 77520 paise
+      await repo.upsertProduct(ProductItem(
+        id: 'KURK-01',
+        name: 'Kurkure Masala Munch',
+        hindiName: 'कुरकुरे मसाला मंच',
+        category: 'Snacks',
+        mrpRupees: 20.0,
+        piecePricePaise: 850,
+        stripQty: 12,
+        boxQty: 96,
+        godownStockBoxes: 180,
+        carStockBoxes: 24,
+      ));
       await repo.backfillLegacyProductUnitsAndPrices();
       final products = await repo.getAllProducts();
       final kurkure = products.firstWhere((p) => p.id == 'KURK-01');
