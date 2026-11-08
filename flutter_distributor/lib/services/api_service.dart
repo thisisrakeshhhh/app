@@ -193,7 +193,7 @@ class ApiService extends ChangeNotifier {
   // Server API endpoint configuration (configurable via --dart-define=ROUTEFLOW_API_URL=...)
   String _cloudflareUrl = const String.fromEnvironment(
     'ROUTEFLOW_API_URL',
-    defaultValue: 'https://routeflow-api-staging.workers.dev',
+    defaultValue: 'https://routeflow-api-staging.thisisrakesh21.workers.dev',
   );
   final bool _isOnline = false;
   final bool _isLoading = false;
