@@ -103,3 +103,21 @@
 | `product_name_example` | Product Name (e.g. Masala Sev) | Product ka naam (jaise Masala Sev) | उत्पाद का नाम (उदा. मसाला सेव) | પ્રોડક્ટનું નામ (દા.ત. મસાલા સેવ) |
 | `product_local_name_example` | Hindi / Local Name (e.g. ग्रीन चटनी) | Hindi / Local naam (jaise ग्रीन चटनी) | हिंदी / स्थानीय नाम (उदा. ग्रीन चटनी) | હિન્દી / સ્થાનિક નામ (દા.ત. ગ્રીન ચટણી) |
 | `search_products_hint` | Search products, namkeen, wafers... | Products, namkeen, wafers khojein... | उत्पाद, नमकीन, वेफर्स खोजें... | પ્રોડક્ટ્સ, નમકીન, વેફર્સ શોધો... |
+| `nav_sales_today` | Today | Aaj | आज | આજ |
+| `nav_sales_shops` | Shops | Dukaanein | दुकानें | દુકાનો |
+| `nav_sales_earn` | Earn | Kamai | कमाई | કમાણી |
+| `nav_sales_more` | More | Aur | और | વધુ |
+| `earn_title` | My Earnings & Performance | Meri Kamai aur Performance | मेरी कमाई और प्रदर्शन | મારી કમાણી અને કામગીરી |
+| `earn_today_sales` | Today's Sales | Aaj ki Bikri | आज की बिक्री | આજનું વેચાણ |
+| `earn_today_orders` | Today's Orders | Aaj ke Order | आज के ऑर्डर | આજના ઓર્ડર |
+| `earn_delivered_sales` | Delivered Sales | Deliver Hui Bikri | डिलीवर हुई बिक्री | ડિલિવર થયેલ વેચાણ |
+| `earn_incentives_hint` | Targets and incentives configured by your distributor will appear here. | Distributor ke set kiye gaye target aur incentives yahan dikhenge. | डिस्ट्रिब्यूटर द्वारा तय किए गए टारगेट और इंसेंटिव यहाँ दिखेंगे। | ડિસ્ટ્રીબ્યુટર દ્વારા નક્કી કરેલ લક્ષ્યો અને પ્રોત્સાહનો અહીં દેખાશે. |
+| `earn_day_close` | Day Summary | Din ka Hisaab | दिन का हिसाब | દિવસનો હિસાબ |
+| `more_title` | More Options | Aur Suvidhayein | और विकल्प | વધુ વિકલ્પો |
+| `more_order_history` | Order History | Pichhle Order | ऑर्डर इतिहास | ઓર્ડર ઇતિહાસ |
+| `more_visits_history` | Visits History | Dauron ka Record | मुलाकात इतिहास | મુલાકાતોનો ઇતિહાસ |
+| `more_product_catalog` | Rate List & Products | Rate List aur Maal | रेट लिस्ट और उत्पाद | રેટ લિસ્ટ અને ઉત્પાદનો |
+| `more_language` | App Language | Bhasha Badlein | भाषा बदलें | ભાષા બદલો |
+| `more_sync_status` | Cloud Sync Status | Cloud Sync ki Jankari | क्लाउड सिंक स्थिति | ક્લાઉડ સિંક સ્થિતિ |
+| `more_help` | Help & Support | Madad aur Sahayata | मदद और सहायता | મદદ અને સહાય |
+| `more_help_phone_note` | RouteFlow FMCG field sales assistant. All data saved locally on this phone. | RouteFlow FMCG sales sahayak. Sara data is phone par surakshit hai. | RouteFlow FMCG सेल्स सहायक। सारा डेटा इस फ़ोन पर सुरक्षित है। | RouteFlow FMCG સેલ્સ સહાયક. તમામ ડેટા આ ફોન પર સુરક્ષિત છે. |

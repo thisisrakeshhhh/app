@@ -12,6 +12,7 @@ import 'dashboards/role_blocked_view.dart';
 import 'dashboards/sales_dashboard.dart';
 import 'dashboards/warehouse_dashboard.dart';
 import 'organization_select_view.dart';
+import '../features/sales/screens/sales_shell.dart';
 import '../features/sales/widgets/sales_language_picker.dart';
 import '../l10n/app_strings.dart';
 import 'views/admin_subviews.dart';
@@ -27,12 +28,14 @@ class RoleShell extends StatefulWidget {
   final ApiService api;
   final AuthService? authService;
   final SyncWorker? syncWorker;
+  final bool? salesV2Enabled;
 
   const RoleShell({
     super.key,
     required this.api,
     this.authService,
     this.syncWorker,
+    this.salesV2Enabled,
   });
 
   @override
@@ -42,6 +45,8 @@ class RoleShell extends StatefulWidget {
 class _RoleShellState extends State<RoleShell> {
   int _currentTabIndex = 0;
   CanonicalRole? _lastRole;
+
+  bool get isSalesV2 => widget.salesV2Enabled ?? widget.api.salesV2Enabled;
 
   @override
   void initState() {
@@ -744,7 +749,9 @@ class _RoleShellState extends State<RoleShell> {
         duration: const Duration(milliseconds: 200),
         child: _buildRoleView(canonicalRole),
       ),
-      bottomNavigationBar: _buildRoleNavigationBar(canonicalRole, roleColor),
+      bottomNavigationBar: (canonicalRole == CanonicalRole.sales && isSalesV2)
+          ? null
+          : _buildRoleNavigationBar(canonicalRole, roleColor),
     ),
   );
 }
@@ -753,6 +760,13 @@ class _RoleShellState extends State<RoleShell> {
   Widget _buildRoleView(CanonicalRole role) {
     switch (role) {
       case CanonicalRole.sales:
+        if (isSalesV2) {
+          return SalesShell(
+            api: widget.api,
+            authService: widget.authService,
+            syncWorker: widget.syncWorker,
+          );
+        }
         return switch (_currentTabIndex) {
           0 => SalesDashboard(
               api: widget.api,

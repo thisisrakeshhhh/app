@@ -132,6 +132,7 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
         api: _api,
         authService: _auth,
         syncWorker: _syncWorker,
+        salesV2Enabled: true,
       );
     }
 

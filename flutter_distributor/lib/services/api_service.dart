@@ -167,6 +167,19 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _salesV2Enabled = false;
+
+  /// Whether Sales V2 4-tab navigation and screens are active.
+  bool get salesV2Enabled => _salesV2Enabled;
+
+  void setSalesV2Enabled(bool value, {bool persist = true}) {
+    _salesV2Enabled = value;
+    if (persist) {
+      repository.setMetadata('sales_v2_enabled', value ? 'true' : 'false');
+    }
+    notifyListeners();
+  }
+
   @visibleForTesting
   Future<void> syncForTesting({bool seed = true}) async {
     if (seed) {
@@ -3299,6 +3312,10 @@ class ApiService extends ChangeNotifier {
       }
       if (dbRetailers.isNotEmpty) {
         _retailers = dbRetailers;
+      }
+      final v2Meta = await repository.getMetadata('sales_v2_enabled');
+      if (v2Meta != null) {
+        _salesV2Enabled = v2Meta == 'true';
       }
       notifyListeners();
     } catch (e) {
