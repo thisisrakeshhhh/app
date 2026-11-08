@@ -97,3 +97,7 @@
 | `uploading_to_cloud` | Uploading to Cloud... | Cloud par upload ho raha hai... | क्लाउड पर अपलोड हो रहा है... | ક્લાઉડ પર અપલોડ થઈ રહ્યું છે... |
 | `synced_to_cloud` | Synced to Cloud | Cloud par sync ho gaya | क्लाउड पर सिंक हो गया | ક્લાઉડ પર સિંક થઈ ગયું |
 | `sync_worker_note` | Sync worker inactive — mutations remain safe on phone. | Sync worker band hai — saare badlav phone me surakshit hain. | सिंक वर्कर अभी निष्क्रिय है — सभी बदलाव फ़ोन पर पूरी तरह सुरक्षित हैं। | સિંક વર્કર બંધ છે — ફેરફારો ફોનમાં સુરક્ષિત છે. |
+| `no_orders_beat_prompt` | Select a retailer from your beat and book orders. | Apne beat se dukaan chunein aur order book karein. | अपनी बीट से दुकान चुनें और ऑर्डर बुक करें। | તમારી બીટમાંથી દુકાન પસંદ કરો અને ઓર્ડર બુક કરો. |
+| `product_name_example` | Product Name (e.g. Masala Sev) | Product ka naam (jaise Masala Sev) | उत्पाद का नाम (उदा. मसाला सेव) | પ્રોડક્ટનું નામ (દા.ત. મસાલા સેવ) |
+| `product_local_name_example` | Hindi / Local Name (e.g. ग्रीन चटनी) | Hindi / Local naam (jaise ग्रीन चटनी) | हिंदी / स्थानीय नाम (उदा. ग्रीन चटनी) | હિન્દી / સ્થાનિક નામ (દા.ત. ગ્રીન ચટણી) |
+| `search_products_hint` | Search products, namkeen, wafers... | Products, namkeen, wafers khojein... | उत्पाद, नमकीन, वेफर्स खोजें... | પ્રોડક્ટ્સ, નમકીન, વેફર્સ શોધો... |

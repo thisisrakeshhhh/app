@@ -285,7 +285,7 @@ class ApiService extends ChangeNotifier {
     }
   }
 
-  // Products catalog (Snacks, Kurkure, Mirchi, Ghee, Oils)
+  // Products catalog (Dynamic FMCG Categories)
   List<ProductItem> _products = [];
   List<ProductItem> get products => _products;
 

@@ -115,7 +115,7 @@ class _InventoryViewState extends State<InventoryView> {
                     TextField(
                       controller: nameCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Product Name (e.g. Real Bites Masala Sev)',
+                        labelText: AppStrings.productNameExample,
                         labelStyle: const TextStyle(fontSize: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -127,7 +127,7 @@ class _InventoryViewState extends State<InventoryView> {
                     TextField(
                       controller: hindiCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Hindi / Local Name (e.g. कुरकुरे ग्रीन चटनी)',
+                        labelText: AppStrings.productLocalNameExample,
                         labelStyle: const TextStyle(fontSize: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

@@ -178,6 +178,12 @@ class AppStrings {
   static String get ownerNameRequired => tr('owner_name_required');
   static String get validMobileRequired => tr('valid_mobile_required');
 
+  // Product & Catalog UX
+  static String get noOrdersBeatPrompt => tr('no_orders_beat_prompt');
+  static String get productNameExample => tr('product_name_example');
+  static String get productLocalNameExample => tr('product_local_name_example');
+  static String get searchProductsHint => tr('search_products_hint');
+
   // ──────────────────────────────────────────────────────────────────────────
   // FOUR-LANGUAGE DICTIONARY
   // ──────────────────────────────────────────────────────────────────────────
@@ -958,6 +964,32 @@ class AppStrings {
       AppLanguage.hinglish: 'Kripya 10 ank ka sahi mobile number dalein',
       AppLanguage.hi: 'कृपया 10 अंकों का मान्य मोबाइल नंबर दर्ज करें',
       AppLanguage.gu: 'કૃપા કરીને માન્ય 10 અંકનો મોબાઇલ નંબર દાખલ કરો',
+    },
+
+    // === 9. PRODUCT & CATALOG UX ===
+    'no_orders_beat_prompt': {
+      AppLanguage.en: 'Select a retailer from your beat and book orders.',
+      AppLanguage.hinglish: 'Apne beat se dukaan chunein aur order book karein.',
+      AppLanguage.hi: 'अपनी बीट से दुकान चुनें और ऑर्डर बुक करें।',
+      AppLanguage.gu: 'તમારી બીટમાંથી દુકાન પસંદ કરો અને ઓર્ડર બુક કરો.',
+    },
+    'product_name_example': {
+      AppLanguage.en: 'Product Name (e.g. Masala Sev)',
+      AppLanguage.hinglish: 'Product ka naam (jaise Masala Sev)',
+      AppLanguage.hi: 'उत्पाद का नाम (उदा. मसाला सेव)',
+      AppLanguage.gu: 'પ્રોડક્ટનું નામ (દા.ત. મસાલા સેવ)',
+    },
+    'product_local_name_example': {
+      AppLanguage.en: 'Hindi / Local Name (e.g. ग्रीन चटनी)',
+      AppLanguage.hinglish: 'Hindi / Local naam (jaise ग्रीन चटनी)',
+      AppLanguage.hi: 'हिंदी / स्थानीय नाम (उदा. ग्रीन चटनी)',
+      AppLanguage.gu: 'હિન્દી / સ્થાનિક નામ (દા.ત. ગ્રીન ચટણી)',
+    },
+    'search_products_hint': {
+      AppLanguage.en: 'Search products, namkeen, wafers...',
+      AppLanguage.hinglish: 'Products, namkeen, wafers khojein...',
+      AppLanguage.hi: 'उत्पाद, नमकीन, वेफर्स खोजें...',
+      AppLanguage.gu: 'પ્રોડક્ટ્સ, નમકીન, વેફર્સ શોધો...',
     },
   };
 

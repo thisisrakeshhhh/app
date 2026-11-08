@@ -474,7 +474,7 @@ class LocalRepository {
           id: Value(productId),
           name: Value(productId),
           hindiName: Value(productId),
-          category: const Value('Extruded Snacks (Kurkure & Doritos)'),
+          category: const Value('Extruded Snacks'),
           piecePricePaise: const Value(1800),
           stripQty: const Value(12),
           boxQty: const Value(24),

@@ -313,7 +313,7 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
                       enabled: !_isEditing,
                       decoration: InputDecoration(
                         labelText: 'SKU / Product Code *',
-                        hintText: 'e.g. PEPSI-CAN-330',
+                        hintText: 'e.g. SKU-SNK-01',
                         prefixIcon: const Icon(Icons.qr_code_2, size: 20),
                         filled: true,
                         fillColor: _isEditing ? AirbnbTheme.lightGrey : Colors.white,

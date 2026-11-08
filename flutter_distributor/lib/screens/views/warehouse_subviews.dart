@@ -1704,7 +1704,7 @@ class WarehouseInwardView extends StatefulWidget {
 }
 
 class _WarehouseInwardViewState extends State<WarehouseInwardView> {
-  final _supplierCtrl = TextEditingController(text: 'PepsiCo FMCG Plant Panipat');
+  final _supplierCtrl = TextEditingController(text: 'FMCG Plant Panipat');
   final _challanCtrl = TextEditingController(text: 'CH-2026-8819');
   final _vehicleCtrl = TextEditingController(text: 'RJ-19-GA-1102');
   final _boxesCtrl = TextEditingController(text: '50');
@@ -1712,7 +1712,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
   
   // Manual SKU Input vs Catalog Dropdown Toggle
   bool _manualSkuMode = true;
-  final _skuInputCtrl = TextEditingController(text: 'KURK-01');
+  final _skuInputCtrl = TextEditingController(text: 'SKU-01');
   ProductItem? _selectedProduct;
 
   @override
@@ -2413,7 +2413,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
-                      hintText: 'e.g. KURK-01, KURK-02, PEPSI-500',
+                      hintText: 'e.g. SKU-01, SKU-02, SKU-03',
                       prefixIcon: const Icon(Icons.qr_code, size: 18, color: AirbnbTheme.grey),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),

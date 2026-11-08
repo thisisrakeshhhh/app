@@ -1368,7 +1368,7 @@ class _SalesProductsViewState extends State<SalesProductsView> {
           child: TextField(
             onChanged: (val) => setState(() => _searchQuery = val),
             decoration: InputDecoration(
-              hintText: 'Search Real Bites, Namkeen, Wafers...',
+              hintText: AppStrings.searchProductsHint,
               prefixIcon: const Icon(Icons.search, size: 20),
               filled: true,
               fillColor: AirbnbTheme.lightGrey,

@@ -1595,10 +1595,10 @@ class _SalesDashboardState extends State<SalesDashboard> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Select a retailer from your beat and book Real Bites snacks.',
+                    Text(
+                      AppStrings.noOrdersBeatPrompt,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                      style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
