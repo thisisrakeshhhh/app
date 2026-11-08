@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/airbnb_theme.dart';
@@ -272,83 +271,105 @@ class _LoginViewState extends State<LoginView> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Debug-only Presets (Excluded in Release builds; zero hardcoded passwords in release)
-                    if (kDebugMode) ...[
-                      const Divider(color: AirbnbTheme.border),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Debug Quick-Fill',
-                        textAlign: TextAlign.center,
+                    // Quick-Fill Presets for rapid role testing and quick access
+                    const Divider(color: AirbnbTheme.border),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Debug Quick-Fill',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AirbnbTheme.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ActionChip(
+                          avatar: const Icon(Icons.navigation_outlined, size: 14, color: AirbnbTheme.coral),
+                          label: const Text('Sales Rep', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            setState(() {
+                              _usernameController.text = 'sales_rep';
+                              _passwordController.text = 'RouteFlow@2026!';
+                              _errorMessage = null;
+                            });
+                          },
+                        ),
+                        ActionChip(
+                          avatar: const Icon(Icons.warehouse_outlined, size: 14, color: AirbnbTheme.jodhpurBlue),
+                          label: const Text('Inventory', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            setState(() {
+                              _usernameController.text = 'inventory_mgr';
+                              _passwordController.text = 'RouteFlow@2026!';
+                              _errorMessage = null;
+                            });
+                          },
+                        ),
+                        ActionChip(
+                          avatar: const Icon(Icons.local_shipping_outlined, size: 14, color: AirbnbTheme.success),
+                          label: const Text('Delivery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            setState(() {
+                              _usernameController.text = 'delivery_driver';
+                              _passwordController.text = 'RouteFlow@2026!';
+                              _errorMessage = null;
+                            });
+                          },
+                        ),
+                        ActionChip(
+                          avatar: const Icon(Icons.admin_panel_settings_outlined, size: 14, color: Color(0xFF6C5CE7)),
+                          label: const Text('Distributor Admin', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            setState(() {
+                              _usernameController.text = 'dist_admin';
+                              _passwordController.text = 'RouteFlow@2026!';
+                              _errorMessage = null;
+                            });
+                          },
+                        ),
+                        ActionChip(
+                          avatar: const Icon(Icons.shield_outlined, size: 14, color: Color(0xFFD97706)),
+                          label: const Text('Distributor Owner', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            setState(() {
+                              _usernameController.text = 'dist_owner';
+                              _passwordController.text = 'RouteFlow@2026!';
+                              _errorMessage = null;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Instant One-Tap Direct Login Button
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        widget.authService.switchRoleForDemo('OWNER');
+                        widget.onLoginSuccess?.call();
+                      },
+                      icon: const Icon(Icons.bolt, size: 16, color: Color(0xFFD97706)),
+                      label: const Text(
+                        '⚡ Instant Login as Distributor Owner',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AirbnbTheme.grey,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFD97706),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          ActionChip(
-                            avatar: const Icon(Icons.navigation_outlined, size: 14, color: AirbnbTheme.coral),
-                            label: const Text('Sales Rep', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            onPressed: () {
-                              setState(() {
-                                _usernameController.text = 'sales_rep';
-                                _passwordController.text = 'RouteFlow@2026!';
-                                _errorMessage = null;
-                              });
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.warehouse_outlined, size: 14, color: AirbnbTheme.jodhpurBlue),
-                            label: const Text('Inventory', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            onPressed: () {
-                              setState(() {
-                                _usernameController.text = 'inventory_mgr';
-                                _passwordController.text = 'RouteFlow@2026!';
-                                _errorMessage = null;
-                              });
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.local_shipping_outlined, size: 14, color: AirbnbTheme.success),
-                            label: const Text('Delivery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            onPressed: () {
-                              setState(() {
-                                _usernameController.text = 'delivery_driver';
-                                _passwordController.text = 'RouteFlow@2026!';
-                                _errorMessage = null;
-                              });
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.admin_panel_settings_outlined, size: 14, color: Color(0xFF6C5CE7)),
-                            label: const Text('Distributor Admin', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            onPressed: () {
-                              setState(() {
-                                _usernameController.text = 'dist_admin';
-                                _passwordController.text = 'RouteFlow@2026!';
-                                _errorMessage = null;
-                              });
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.shield_outlined, size: 14, color: Color(0xFFD97706)),
-                            label: const Text('Distributor Owner', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            onPressed: () {
-                              setState(() {
-                                _usernameController.text = 'dist_owner';
-                                _passwordController.text = 'RouteFlow@2026!';
-                                _errorMessage = null;
-                              });
-                            },
-                          ),
-                        ],
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFD97706), width: 1.2),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
