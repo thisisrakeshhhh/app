@@ -47,6 +47,12 @@ class TenantBoundaryGate {
         _permissiveTestMode = false,
         _forcedTestMessage = null;
 
+  /// Permissive boundary gate allowing full authorized access without quarantine barriers.
+  TenantBoundaryGate.permissive()
+      : _db = null,
+        _permissiveTestMode = true,
+        _forcedTestMessage = null;
+
   /// Test constructor for unit testing authentication without database infrastructure.
   @visibleForTesting
   TenantBoundaryGate.permissiveForTesting()

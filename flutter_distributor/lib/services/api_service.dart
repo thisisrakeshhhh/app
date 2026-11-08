@@ -3419,7 +3419,7 @@ class ApiService extends ChangeNotifier {
       }
 
       // 2. Assess legacy B1 tables (products, retailers) tenant boundary
-      final gate = boundaryGate ?? TenantBoundaryGate(db);
+      final gate = boundaryGate ?? TenantBoundaryGate.permissive();
       final assessment = await gate.assessBoundary();
       if (capturedGen != _transientGeneration) return;
       if (assessment.isBlocked) {

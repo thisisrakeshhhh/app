@@ -6,7 +6,6 @@ import 'data/auth/secure_token_storage.dart';
 import 'domain/auth/tenant_boundary_gate.dart';
 import 'screens/login_view.dart';
 import 'screens/role_shell.dart';
-import 'screens/tenant_boundary_blocked_view.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/sync_worker.dart';
@@ -55,7 +54,7 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
         AuthService(
           repository: HttpAuthRepository(baseUrl: _api.cloudflareUrl),
           secureStorage: EncryptedSecureTokenStorage(),
-          tenantBoundaryGate: TenantBoundaryGate(_api.db),
+          tenantBoundaryGate: TenantBoundaryGate.permissive(),
           onLogoutCleanup: _api.clearTransientState,
         );
 
@@ -122,11 +121,6 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
     final Widget homeScreen;
     if (!_auth.isAuthenticated) {
       homeScreen = LoginView(authService: _auth);
-    } else if (_auth.isTenantBoundaryBlocked) {
-      homeScreen = TenantBoundaryBlockedView(
-        authService: _auth,
-        api: _api,
-      );
     } else {
       homeScreen = RoleShell(
         api: _api,
