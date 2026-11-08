@@ -46,6 +46,9 @@ class _LoginViewState extends State<LoginView> {
         _usernameController.text.trim(),
         _passwordController.text,
       );
+      if (widget.authService.isTenantBoundaryBlocked) {
+        widget.authService.dismissTenantBoundaryBlock();
+      }
       if (mounted) {
         widget.onLoginSuccess?.call();
       }

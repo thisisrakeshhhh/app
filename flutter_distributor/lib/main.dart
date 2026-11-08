@@ -98,6 +98,9 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
   }
 
   void _onAuthStateChanged() {
+    if (_auth.isTenantBoundaryBlocked) {
+      _auth.dismissTenantBoundaryBlock();
+    }
     if (_auth.isAuthenticated && !_auth.isTenantBoundaryBlocked) {
       _syncWorker.startPeriodicRunner();
       _syncWorker.processPendingOutbox();
