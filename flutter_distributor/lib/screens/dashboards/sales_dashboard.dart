@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -40,6 +43,9 @@ class SalesDashboard extends StatefulWidget {
 class _SalesDashboardState extends State<SalesDashboard> {
   SalesAnalyticsTimeframe _selectedTimeframe = SalesAnalyticsTimeframe.today;
   int _selectedStopIndex = 0;
+  bool _showGoogleMaps = true;
+  MapType _mapType = MapType.normal;
+  GoogleMapController? _googleMapController;
 
   void _openAddShopSheet() async {
     final newShop = await AddShopSheet.show(
@@ -273,133 +279,24 @@ class _SalesDashboardState extends State<SalesDashboard> {
       _selectedStopIndex = 0;
     }
     final selectedShop = assignedShops.isNotEmpty ? assignedShops[_selectedStopIndex] : null;
+    final locatedShops = assignedShops.where((s) => s.latitude != null && s.longitude != null).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. TERRITORY EXECUTIVE WELCOME BANNER (RouteX Design)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A8A), Color(0xFF1E293B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Welcome back, Akhendera Singh',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Territory Executive • Jodhpur Region',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: widget.api.isTripActive
-                            ? const Color(0xFF00B894).withValues(alpha: 0.25)
-                            : Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: widget.api.isTripActive
-                              ? const Color(0xFF00B894)
-                              : Colors.white24,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.circle,
-                            size: 8,
-                            color: widget.api.isTripActive
-                                ? const Color(0xFF00B894)
-                                : Colors.white60,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            widget.api.isTripActive
-                                ? 'TRIP ACTIVE'
-                                : 'TRIP NOT STARTED',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: widget.api.isTripActive
-                                  ? const Color(0xFF00B894)
-                                  : Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 14, color: Color(0xFF60A5FA)),
-                      const SizedBox(width: 6),
-                      const Expanded(
-                        child: Text(
-                          "Today's route is ready: Sardarpura & Nai Sadak Commercial Beats",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // 1. EMBEDDED INTERACTIVE ROUTE MAP (Directly below navbar)
+          _buildInteractiveMap(locatedShops, selectedShop, activeShop, strings),
 
           const SizedBox(height: 12),
 
-          // 2. ROUTEX 3-STAT CARDS (Customers Visited, Customers Skipped, Total Sales Placed)
+          // 2. TODAY'S ASSIGNED BEAT BANNER (Sardarpura & Nai Sadak Route)
+          _buildAssignedBeatCard(assignedShops, selectedShop, strings),
+
+          const SizedBox(height: 14),
+
+          // 3. ROUTEX 3-STAT CARDS (Customers Visited, Customers Skipped, Total Sales Placed)
           Row(
             children: [
               // 1. Customers Visited
@@ -628,394 +525,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
           const SizedBox(height: 8),
           _buildUploadPendingTile(),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
 
-          // 2. TODAY'S ASSIGNED BEAT BANNER (Sardarpura & Nai Sadak Route)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2D3436), Color(0xFF1E272E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AirbnbTheme.coral.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.navigation_rounded,
-                              color: AirbnbTheme.coral,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              strings.t('today_assigned_beat'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AirbnbTheme.coral,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.location_on, color: Colors.white, size: 12),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${assignedShops.length} shops assigned beat',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Sardarpura & Nai Sadak Route',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Sequential Beat Route (A ➔ B ➔ C ➔ D) • ${assignedShops.length} Active Stops',
-                  style: const TextStyle(
-                    color: Color(0xFFB2BEC3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        key: const ValueKey('continue_route_btn'),
-                        onPressed: () => widget.onNavigateTab(2),
-                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                        label: Text(strings.t('continue_route'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AirbnbTheme.coral,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _openAddShopSheet,
-                      icon: const Icon(Icons.add_business_outlined, size: 15),
-                      label: const Text('+ Add', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AirbnbTheme.coral.withValues(alpha: 0.25),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SalesRouteMapView(api: widget.api, onNavigateTab: widget.onNavigateTab),
-                          ),
-                        ).then((_) => setState(() {}));
-                      },
-                      icon: const Icon(Icons.map_rounded, size: 15),
-                      label: Text(strings.t('route_map'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Stop Sequence Carousel Pills
-                if (assignedShops.isNotEmpty)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: assignedShops.asMap().entries.map((entry) {
-                        final idx = entry.key;
-                        final shop = entry.value;
-                        final isSel = idx == _selectedStopIndex;
-                        final letter = String.fromCharCode(65 + (idx % 26));
-
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() => _selectedStopIndex = idx);
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isSel ? AirbnbTheme.coral : Colors.white.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isSel ? AirbnbTheme.coral : Colors.white.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    letter,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 11,
-                                      color: isSel ? Colors.white : const Color(0xFFB2BEC3),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    shop.name.split(' ').take(2).join(' '),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: isSel ? Colors.white : Colors.white.withValues(alpha: 0.85),
-                                    ),
-                                  ),
-                                  if (shop.visitedToday) ...[
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.check_circle, size: 12, color: Colors.greenAccent),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-
-                // Selected Stop In-Map Card with Full CRUD Controls
-                if (selectedShop != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: selectedShop.visitedToday
-                                          ? AirbnbTheme.success
-                                          : (selectedShop.isCheckedIn ? AirbnbTheme.coral : AirbnbTheme.jodhpurBlue),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        String.fromCharCode(65 + (_selectedStopIndex % 26)),
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          selectedShop.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                                        ),
-                                        Text(
-                                          'Prop: ${selectedShop.ownerName} • ${selectedShop.phone}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 17, color: AirbnbTheme.grey),
-                                  tooltip: 'Edit Shop',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _showEditShopDialog(selectedShop),
-                                ),
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 17, color: Colors.red),
-                                  tooltip: 'Delete / Remove Shop',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _showDeleteShopDialog(selectedShop),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: _getClassColor(selectedShop.classType).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    selectedShop.classType,
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: _getClassColor(selectedShop.classType),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        // Address Details
-                        Text(
-                          '${selectedShop.address}, ${selectedShop.area}',
-                          style: const TextStyle(fontSize: 11, color: AirbnbTheme.dark, fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (selectedShop.latitude != null && selectedShop.longitude != null)
-                          Text(
-                            'GPS: ${selectedShop.latitude!.toStringAsFixed(4)}, ${selectedShop.longitude!.toStringAsFixed(4)} (${selectedShop.area})',
-                            style: const TextStyle(fontSize: 9.5, color: AirbnbTheme.grey),
-                          ),
-                        const SizedBox(height: 10),
-                        // Action row
-                        Row(
-                          children: [
-                            Expanded(
-                              child: selectedShop.isCheckedIn
-                                  ? ElevatedButton.icon(
-                                      onPressed: () {
-                                        widget.api.endShopVisit(selectedShop.id);
-                                        setState(() {});
-                                      },
-                                      icon: const Icon(Icons.check_circle_outline, size: 14),
-                                      label: const Text('End Visit', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AirbnbTheme.dark,
-                                        foregroundColor: Colors.white,
-                                        visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
-                                      ),
-                                    )
-                                  : ElevatedButton.icon(
-                                      onPressed: () {
-                                        widget.api.startShopVisit(selectedShop.id);
-                                        setState(() {});
-                                      },
-                                      icon: const Icon(Icons.login_rounded, size: 14),
-                                      label: Text(
-                                        selectedShop.visitedToday ? 'Visit Again' : 'Check In',
-                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AirbnbTheme.coral,
-                                        foregroundColor: Colors.white,
-                                        visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                widget.api.selectShop(selectedShop);
-                                widget.onNavigateTab(1);
-                              },
-                              icon: const Icon(Icons.shopping_bag_outlined, size: 14),
-                              label: const Text('Order', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AirbnbTheme.jodhpurBlue,
-                                foregroundColor: Colors.white,
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          // 2. TIMEFRAME SELECTOR CHIPS
 
           const SizedBox(height: 18),
 
@@ -2202,6 +1714,752 @@ class _SalesDashboardState extends State<SalesDashboard> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractiveMap(
+    List<RetailerShop> locatedShops,
+    RetailerShop? selectedShop,
+    RetailerShop? activeShop,
+    AppStrings strings,
+  ) {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AirbnbTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          if (_showGoogleMaps && locatedShops.isNotEmpty)
+            GoogleMap(
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+              },
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  selectedShop?.latitude ?? locatedShops.first.latitude!,
+                  selectedShop?.longitude ?? locatedShops.first.longitude!,
+                ),
+                zoom: 14.5,
+              ),
+              mapType: _mapType,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              markers: locatedShops.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final s = entry.value;
+                final isSel = s.id == selectedShop?.id;
+                final isChecked = s.isCheckedIn;
+                final letter = String.fromCharCode(65 + (idx % 26));
+
+                return Marker(
+                  markerId: MarkerId(s.id),
+                  position: LatLng(s.latitude!, s.longitude!),
+                  icon: isChecked
+                      ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
+                      : isSel
+                          ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
+                          : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                  infoWindow: InfoWindow(
+                    title: '$letter. ${s.name}',
+                    snippet: '${s.area} • ${s.visitedToday ? "Visited" : "Pending"}',
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _selectedStopIndex = widget.api.assignedRouteShops.indexOf(s);
+                    });
+                  },
+                );
+              }).toSet(),
+              polylines: locatedShops.length >= 2
+                  ? {
+                      Polyline(
+                        polylineId: const PolylineId('dashboard_route_line'),
+                        points: locatedShops
+                            .map((s) => LatLng(s.latitude!, s.longitude!))
+                            .toList(),
+                        color: AirbnbTheme.coral,
+                        width: 4,
+                      ),
+                    }
+                  : {},
+              onMapCreated: (ctrl) => _googleMapController = ctrl,
+            )
+          else
+            GestureDetector(
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: ZomatoRouteMapPainter(
+                  shops: locatedShops,
+                  selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
+                  activeShopId: activeShop?.id,
+                ),
+              ),
+            ),
+
+          // Floating Pin Badges on Canvas (when offline sketch active)
+          if (!_showGoogleMaps && locatedShops.isNotEmpty)
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                final w = constraints.maxWidth;
+                final h = constraints.maxHeight;
+                return Stack(
+                  children: locatedShops.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final shop = entry.value;
+                    final isSelected = shop.id == selectedShop?.id;
+                    final isCheckedIn = shop.isCheckedIn;
+                    final isVisited = shop.visitedToday;
+                    final pos = computeShopCanvasPosition(
+                      shop: shop,
+                      index: idx,
+                      totalCount: locatedShops.length,
+                      canvasSize: Size(w, h),
+                      allShops: locatedShops,
+                    );
+                    final letter = String.fromCharCode(65 + (idx % 26));
+
+                    return Positioned(
+                      left: pos.dx - 20,
+                      top: pos.dy - 24,
+                      child: GestureDetector(
+                        onTap: () {
+                          final origIdx = widget.api.assignedRouteShops.indexOf(shop);
+                          if (origIdx != -1) {
+                            setState(() => _selectedStopIndex = origIdx);
+                          }
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(
+                                  color: isSelected ? AirbnbTheme.coral : AirbnbTheme.border,
+                                  width: isSelected ? 1.5 : 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                shop.name.split(' ').take(2).join(' '),
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isSelected ? AirbnbTheme.coral : AirbnbTheme.dark,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                color: isCheckedIn
+                                    ? AirbnbTheme.coral
+                                    : (isVisited
+                                        ? AirbnbTheme.success
+                                        : (isSelected ? AirbnbTheme.jodhpurBlue : const Color(0xFF475569))),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: Center(
+                                child: isVisited
+                                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                    : Text(
+                                        letter,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+
+          // Top Controls Overlay
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Fullscreen Map button
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SalesRouteMapView(
+                          api: widget.api,
+                          onNavigateTab: widget.onNavigateTab,
+                          initialShowGoogleMaps: true,
+                        ),
+                      ),
+                    ).then((_) => setState(() {}));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AirbnbTheme.border),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                      ],
+                    ),
+                    child: const Icon(Icons.fullscreen_rounded, size: 16, color: AirbnbTheme.dark),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Recenter button
+                if (selectedShop?.latitude != null && selectedShop?.longitude != null)
+                  InkWell(
+                    onTap: () {
+                      _googleMapController?.animateCamera(
+                        CameraUpdate.newLatLng(
+                          LatLng(selectedShop!.latitude!, selectedShop.longitude!),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AirbnbTheme.border),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                        ],
+                      ),
+                      child: const Icon(Icons.my_location, size: 16, color: AirbnbTheme.jodhpurBlue),
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                // Satellite/Normal Switcher
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _mapType = _mapType == MapType.normal ? MapType.hybrid : MapType.normal;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AirbnbTheme.border),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                      ],
+                    ),
+                    child: Icon(
+                      _mapType == MapType.normal ? Icons.satellite_alt : Icons.map,
+                      size: 16,
+                      color: AirbnbTheme.dark,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Map / Canvas toggle
+                InkWell(
+                  onTap: () => setState(() => _showGoogleMaps = !_showGoogleMaps),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _showGoogleMaps ? AirbnbTheme.jodhpurBlue : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AirbnbTheme.jodhpurBlue),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                      ],
+                    ),
+                    child: Text(
+                      _showGoogleMaps ? 'Canvas' : 'Google Map',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: _showGoogleMaps ? Colors.white : AirbnbTheme.jodhpurBlue,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Map Status / Notice label (top left)
+          Positioned(
+            top: 10,
+            left: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AirbnbTheme.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: _showGoogleMaps
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: AirbnbTheme.success,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const Text(
+                          'Google Maps • Live',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: AirbnbTheme.dark,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      strings.t('route_sketch'),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: AirbnbTheme.grey,
+                      ),
+                    ),
+            ),
+          ),
+
+          // Bottom Right: "+ Add Shop" Button right on the map!
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: ElevatedButton.icon(
+              onPressed: _openAddShopSheet,
+              icon: const Icon(Icons.add_business_outlined, size: 16),
+              label: const Text(
+                '+ Add Shop',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AirbnbTheme.coral,
+                foregroundColor: Colors.white,
+                elevation: 4,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssignedBeatCard(
+    List<RetailerShop> assignedShops,
+    RetailerShop? selectedShop,
+    AppStrings strings,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2D3436), Color(0xFF1E272E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AirbnbTheme.coral.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.navigation_rounded,
+                        color: AirbnbTheme.coral,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        strings.t('today_assigned_beat'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AirbnbTheme.coral,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.white, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${assignedShops.length} shops assigned beat',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Sardarpura & Nai Sadak Route',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Sequential Beat Route (A ➔ B ➔ C ➔ D) • ${assignedShops.length} Active Stops',
+            style: const TextStyle(
+              color: Color(0xFFB2BEC3),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  key: const ValueKey('continue_route_btn'),
+                  onPressed: () => widget.onNavigateTab(2),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(strings.t('continue_route'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AirbnbTheme.coral,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SalesRouteMapView(api: widget.api, onNavigateTab: widget.onNavigateTab),
+                    ),
+                  ).then((_) => setState(() {}));
+                },
+                icon: const Icon(Icons.map_rounded, size: 15),
+                label: Text(strings.t('route_map'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.15),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Stop Sequence Carousel Pills
+          if (assignedShops.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: assignedShops.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final shop = entry.value;
+                  final isSel = idx == _selectedStopIndex;
+                  final letter = String.fromCharCode(65 + (idx % 26));
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() => _selectedStopIndex = idx);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSel ? AirbnbTheme.coral : Colors.white.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSel ? AirbnbTheme.coral : Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              letter,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 11,
+                                color: isSel ? Colors.white : const Color(0xFFB2BEC3),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              shop.name.split(' ').take(2).join(' '),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isSel ? Colors.white : Colors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
+                            if (shop.visitedToday) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.check_circle, size: 12, color: Colors.greenAccent),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          // Selected Stop In-Map Card with Full CRUD Controls
+          if (selectedShop != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: selectedShop.visitedToday
+                                    ? AirbnbTheme.success
+                                    : (selectedShop.isCheckedIn ? AirbnbTheme.coral : AirbnbTheme.jodhpurBlue),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  String.fromCharCode(65 + (_selectedStopIndex % 26)),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    selectedShop.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                                  ),
+                                  Text(
+                                    'Prop: ${selectedShop.ownerName} • ${selectedShop.phone}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 17, color: AirbnbTheme.grey),
+                            tooltip: 'Edit Shop',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _showEditShopDialog(selectedShop),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 17, color: Colors.red),
+                            tooltip: 'Delete / Remove Shop',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _showDeleteShopDialog(selectedShop),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _getClassColor(selectedShop.classType).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              selectedShop.classType,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: _getClassColor(selectedShop.classType),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Address Details
+                  Text(
+                    '${selectedShop.address}, ${selectedShop.area}',
+                    style: const TextStyle(fontSize: 11, color: AirbnbTheme.dark, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (selectedShop.latitude != null && selectedShop.longitude != null)
+                    Text(
+                      'GPS: ${selectedShop.latitude!.toStringAsFixed(4)}, ${selectedShop.longitude!.toStringAsFixed(4)} (${selectedShop.area})',
+                      style: const TextStyle(fontSize: 9.5, color: AirbnbTheme.grey),
+                    ),
+                  const SizedBox(height: 10),
+                  // Action row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: selectedShop.isCheckedIn
+                            ? ElevatedButton.icon(
+                                onPressed: () {
+                                  widget.api.endShopVisit(selectedShop.id);
+                                  setState(() {});
+                                },
+                                icon: const Icon(Icons.check_circle_outline, size: 14),
+                                label: const Text('End Visit', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AirbnbTheme.dark,
+                                  foregroundColor: Colors.white,
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              )
+                            : ElevatedButton.icon(
+                                onPressed: () {
+                                  widget.api.startShopVisit(selectedShop.id);
+                                  setState(() {});
+                                },
+                                icon: const Icon(Icons.login_rounded, size: 14),
+                                label: Text(
+                                  selectedShop.visitedToday ? 'Visit Again' : 'Check In',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AirbnbTheme.coral,
+                                  foregroundColor: Colors.white,
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          widget.api.selectShop(selectedShop);
+                          widget.onNavigateTab(1);
+                        },
+                        icon: const Icon(Icons.shopping_bag_outlined, size: 14),
+                        label: const Text('Order', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AirbnbTheme.jodhpurBlue,
+                          foregroundColor: Colors.white,
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
