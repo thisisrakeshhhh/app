@@ -411,6 +411,9 @@ class RetailerShop {
   String? createdByUserId;
   double? locationAccuracyMeters;
   String syncStatus;
+  String? whatsappPhone;
+  String? gstType; // 'CONSUMER' | 'COMPOSITION' | 'REGULAR'
+  String? panNumber;
 
   RetailerShop({
     required this.id,
@@ -440,7 +443,18 @@ class RetailerShop {
     this.createdByUserId,
     this.locationAccuracyMeters,
     this.syncStatus = 'PENDING',
+    this.whatsappPhone,
+    this.gstType = 'CONSUMER',
+    this.panNumber,
   });
+
+  String? get resolvedPanNumber {
+    if (panNumber != null && panNumber!.isNotEmpty) return panNumber;
+    if (gstin != null && gstin!.length == 15) {
+      return gstin!.substring(2, 12);
+    }
+    return null;
+  }
 
   double get creditLimitRupees => creditLimitPaise / 100.0;
   double get outstandingRupees => outstandingPaise / 100.0;

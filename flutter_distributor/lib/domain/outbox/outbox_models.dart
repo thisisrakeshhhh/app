@@ -443,6 +443,11 @@ class CreateRetailerMutationPayload {
   final double? longitude;
   final double? locationAccuracyMeters;
   final int clientCreatedAtEpochMs;
+  final String? whatsappPhone;
+  final String? gstType;
+  final String? panNumber;
+  final String routeInsertPosition;
+  final String? insertAfterRetailerId;
 
   const CreateRetailerMutationPayload({
     required this.provisionalRetailerId,
@@ -465,6 +470,11 @@ class CreateRetailerMutationPayload {
     this.longitude,
     this.locationAccuracyMeters,
     required this.clientCreatedAtEpochMs,
+    this.whatsappPhone,
+    this.gstType = 'CONSUMER',
+    this.panNumber,
+    this.routeInsertPosition = 'AT_END',
+    this.insertAfterRetailerId,
   });
 
   Map<String, dynamic> toMap() {
@@ -489,6 +499,11 @@ class CreateRetailerMutationPayload {
       'longitude': longitude,
       'locationAccuracyMeters': locationAccuracyMeters,
       'clientCreatedAtEpochMs': clientCreatedAtEpochMs,
+      'whatsappPhone': whatsappPhone,
+      'gstType': gstType,
+      'panNumber': panNumber,
+      'routeInsertPosition': routeInsertPosition,
+      'insertAfterRetailerId': insertAfterRetailerId,
     };
   }
 
@@ -514,6 +529,11 @@ class CreateRetailerMutationPayload {
       longitude: (map['longitude'] as num?)?.toDouble(),
       locationAccuracyMeters: (map['locationAccuracyMeters'] as num?)?.toDouble(),
       clientCreatedAtEpochMs: (map['clientCreatedAtEpochMs'] as num).toInt(),
+      whatsappPhone: map['whatsappPhone'] as String?,
+      gstType: (map['gstType'] as String?) ?? 'CONSUMER',
+      panNumber: map['panNumber'] as String?,
+      routeInsertPosition: (map['routeInsertPosition'] as String?) ?? 'AT_END',
+      insertAfterRetailerId: map['insertAfterRetailerId'] as String?,
     );
   }
 

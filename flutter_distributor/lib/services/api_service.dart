@@ -652,6 +652,11 @@ class ApiService extends ChangeNotifier {
     double? locationAccuracyMeters,
     String? suggestedClass,
     String? idempotencyKey,
+    String routeInsertPosition = 'AT_END',
+    String? insertAfterRetailerId,
+    String? whatsappPhone,
+    String? gstType,
+    String? panNumber,
   }) async {
     final session = currentSession;
     if (session == null) {
@@ -722,6 +727,9 @@ class ApiService extends ChangeNotifier {
       status: 'ACTIVE',
       createdByUserId: session.userId,
       syncStatus: 'PENDING',
+      whatsappPhone: whatsappPhone?.trim(),
+      gstType: gstType ?? (gstin != null && gstin.trim().isNotEmpty ? 'REGULAR' : 'CONSUMER'),
+      panNumber: panNumber?.trim().toUpperCase(),
     );
 
     final payload = CreateRetailerMutationPayload(
@@ -745,6 +753,11 @@ class ApiService extends ChangeNotifier {
       longitude: newShop.longitude,
       locationAccuracyMeters: newShop.locationAccuracyMeters,
       clientCreatedAtEpochMs: epochMs,
+      whatsappPhone: newShop.whatsappPhone,
+      gstType: newShop.gstType,
+      panNumber: newShop.panNumber,
+      routeInsertPosition: routeInsertPosition,
+      insertAfterRetailerId: insertAfterRetailerId,
     );
 
     final mutationId = 'out_${generateUuidV4()}';
@@ -759,6 +772,17 @@ class ApiService extends ChangeNotifier {
       createdAtEpochMs: epochMs,
       businessOperation: () async {
         await repository.upsertRetailer(newShop);
+        if (routeId != null && routeId.isNotEmpty) {
+          final routeExists = await (db.select(db.routes)..where((tbl) => tbl.id.equals(routeId))).getSingleOrNull();
+          if (routeExists != null) {
+            await repository.addRouteStop(
+              routeId: routeId,
+              retailerId: provisionalRetailerId,
+              position: routeInsertPosition,
+              afterRetailerId: insertAfterRetailerId,
+            );
+          }
+        }
       },
     );
 
@@ -3358,6 +3382,9 @@ class ApiService extends ChangeNotifier {
                   status: 'ACTIVE',
                   createdByUserId: payload.userId,
                   syncStatus: 'PENDING',
+                  whatsappPhone: payload.whatsappPhone,
+                  gstType: payload.gstType,
+                  panNumber: payload.panNumber,
                 );
                 _retailers.insert(0, reconstructed);
               }

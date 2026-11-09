@@ -821,18 +821,83 @@ class LocalRepository {
         .get();
   }
 
-  Future<void> addRouteStop({required String routeId, required String retailerId}) async {
+  Future<void> addRouteStop({
+    required String routeId,
+    required String retailerId,
+    String position = 'AT_END',
+    String? afterRetailerId,
+  }) async {
     final existingStops = await getRouteStops(routeId);
-    final nextSeq = existingStops.isEmpty ? 1 : (existingStops.last.stopSequence + 1);
-    await db.into(db.routeStops).insertOnConflictUpdate(
-      RouteStopEntry(
-        id: 'stop_${DateTime.now().millisecondsSinceEpoch}_$nextSeq',
-        routeId: routeId,
-        retailerId: retailerId,
-        stopSequence: nextSeq,
-        createdAt: DateTime.now(),
-      ),
-    );
+    if (existingStops.isEmpty) {
+      await db.into(db.routeStops).insertOnConflictUpdate(
+        RouteStopEntry(
+          id: 'stop_${DateTime.now().millisecondsSinceEpoch}_1',
+          routeId: routeId,
+          retailerId: retailerId,
+          stopSequence: 1,
+          createdAt: DateTime.now(),
+        ),
+      );
+      return;
+    }
+
+    if (position == 'AT_START') {
+      for (final s in existingStops.reversed) {
+        await (db.update(db.routeStops)..where((tbl) => tbl.id.equals(s.id))).write(
+          RouteStopsCompanion(stopSequence: Value(s.stopSequence + 1)),
+        );
+      }
+      await db.into(db.routeStops).insertOnConflictUpdate(
+        RouteStopEntry(
+          id: 'stop_${DateTime.now().millisecondsSinceEpoch}_1',
+          routeId: routeId,
+          retailerId: retailerId,
+          stopSequence: 1,
+          createdAt: DateTime.now(),
+        ),
+      );
+    } else if (position == 'AFTER_SHOP' && afterRetailerId != null) {
+      final targetIdx = existingStops.indexWhere((s) => s.retailerId == afterRetailerId);
+      if (targetIdx != -1) {
+        final targetSeq = existingStops[targetIdx].stopSequence;
+        for (final s in existingStops.where((s) => s.stopSequence > targetSeq).toList().reversed) {
+          await (db.update(db.routeStops)..where((tbl) => tbl.id.equals(s.id))).write(
+            RouteStopsCompanion(stopSequence: Value(s.stopSequence + 1)),
+          );
+        }
+        await db.into(db.routeStops).insertOnConflictUpdate(
+          RouteStopEntry(
+            id: 'stop_${DateTime.now().millisecondsSinceEpoch}_${targetSeq + 1}',
+            routeId: routeId,
+            retailerId: retailerId,
+            stopSequence: targetSeq + 1,
+            createdAt: DateTime.now(),
+          ),
+        );
+      } else {
+        final nextSeq = existingStops.last.stopSequence + 1;
+        await db.into(db.routeStops).insertOnConflictUpdate(
+          RouteStopEntry(
+            id: 'stop_${DateTime.now().millisecondsSinceEpoch}_$nextSeq',
+            routeId: routeId,
+            retailerId: retailerId,
+            stopSequence: nextSeq,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+    } else {
+      final nextSeq = existingStops.last.stopSequence + 1;
+      await db.into(db.routeStops).insertOnConflictUpdate(
+        RouteStopEntry(
+          id: 'stop_${DateTime.now().millisecondsSinceEpoch}_$nextSeq',
+          routeId: routeId,
+          retailerId: retailerId,
+          stopSequence: nextSeq,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
   }
 
   // Class Settings

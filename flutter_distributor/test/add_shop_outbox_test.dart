@@ -200,5 +200,103 @@ void main() {
       expect(shopMut.sequenceOrder < orderMut.sequenceOrder, isTrue);
       expect(orderMut.sequenceOrder, equals(shopMut.sequenceOrder + 1));
     });
+
+    test('6. Route stop insertion respects AT_START, AT_END, and AFTER_SHOP sequence order', () async {
+      const testRouteId = 'route_sojati_01';
+      await repo.insertRoute(
+        RouteEntry(
+          id: testRouteId,
+          name: 'Sojati Gate & City Market',
+          code: 'SJT-01',
+          dayOfWeek: 'MONDAY',
+          isActive: true,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      // Seed an initial shop on this route
+      final initialShop = await api.createRetailerDurable(
+        name: 'Existing Shop One',
+        ownerName: 'Ram Narayan',
+        phone: '9829000111',
+        address: 'Sojati Shop 1',
+        area: 'Sojati Gate',
+        routeId: testRouteId,
+      );
+
+      final initialStops = await repo.getRouteStops(testRouteId);
+      final initialCount = initialStops.length;
+      expect(initialCount, equals(1));
+      final firstRetailerId = initialShop.id;
+
+      // 1. Insert at start
+      final startShop = await api.createRetailerDurable(
+        name: 'Start Point Farsan',
+        ownerName: 'Manish Vyas',
+        phone: '9829111222',
+        address: 'Inside Sojati Gate',
+        area: 'Sojati Gate',
+        routeId: testRouteId,
+        routeInsertPosition: 'AT_START',
+      );
+
+      final stopsAfterStart = await repo.getRouteStops(testRouteId);
+      expect(stopsAfterStart.length, equals(initialCount + 1));
+      expect(stopsAfterStart.first.retailerId, equals(startShop.id));
+      expect(stopsAfterStart.first.stopSequence, equals(1));
+
+      // 2. Insert after first shop
+      final afterShop = await api.createRetailerDurable(
+        name: 'Midway Namkeen Mart',
+        ownerName: 'Praveen Sharma',
+        phone: '9829222333',
+        address: 'Clock Tower Rd',
+        area: 'Sojati Gate',
+        routeId: testRouteId,
+        routeInsertPosition: 'AFTER_SHOP',
+        insertAfterRetailerId: firstRetailerId,
+      );
+
+      final stopsAfterMid = await repo.getRouteStops(testRouteId);
+      final midIdx = stopsAfterMid.indexWhere((s) => s.retailerId == afterShop.id);
+      final targetIdx = stopsAfterMid.indexWhere((s) => s.retailerId == firstRetailerId);
+      expect(midIdx, equals(targetIdx + 1));
+    });
+
+    test('7. GST regular registration stores GSTIN, derives 10-char PAN, and preserves in outbox', () async {
+      final gstShop = await api.createRetailerDurable(
+        name: 'Jodhpur Sweets & Farsan Pvt Ltd',
+        ownerName: 'Ashok Gehlot',
+        phone: '9829333444',
+        address: 'Jaljog Circle',
+        area: 'Sardarpura',
+        shopType: 'FARSAN_NAMKEEN',
+        gstType: 'REGULAR',
+        gstin: '08AAACJ1234F1Z9',
+        panNumber: 'AAACJ1234F',
+        whatsappPhone: '9829999888',
+      );
+
+      expect(gstShop.shopType, equals('FARSAN_NAMKEEN'));
+      expect(gstShop.gstType, equals('REGULAR'));
+      expect(gstShop.gstin, equals('08AAACJ1234F1Z9'));
+      expect(gstShop.panNumber, equals('AAACJ1234F'));
+      expect(gstShop.resolvedPanNumber, equals('AAACJ1234F'));
+      expect(gstShop.whatsappPhone, equals('9829999888'));
+
+      // Check payload serialization & deserialization
+      final pending = await db.outboxDao.getPendingMutations(
+        organizationId: 'org_jodhpur_dist',
+        userId: 'usr_sales_imran',
+      );
+      final mut = pending.firstWhere((m) => m.provisionalBusinessId == gstShop.id);
+      final payload = CreateRetailerMutationPayload.fromCanonicalJson(mut.payloadJson);
+
+      expect(payload.shopType, equals('FARSAN_NAMKEEN'));
+      expect(payload.gstType, equals('REGULAR'));
+      expect(payload.gstin, equals('08AAACJ1234F1Z9'));
+      expect(payload.panNumber, equals('AAACJ1234F'));
+      expect(payload.whatsappPhone, equals('9829999888'));
+    });
   });
 }

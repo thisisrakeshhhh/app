@@ -5,6 +5,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
+import 'map_pin_picker_dialog.dart';
 
 class AddShopSheet extends StatefulWidget {
   final ApiService api;
@@ -44,11 +45,15 @@ class _AddShopSheetState extends State<AddShopSheet> {
   final _nameCtrl = TextEditingController();
   final _ownerCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _whatsappCtrl = TextEditingController();
+  bool _whatsappSameAsPhone = true;
+
   final _addressCtrl = TextEditingController();
   final _areaCtrl = TextEditingController(text: 'Sardarpura');
   final _landmarkCtrl = TextEditingController();
   final _pincodeCtrl = TextEditingController();
   final _gstinCtrl = TextEditingController();
+  final _panCtrl = TextEditingController();
 
   String? _selectedRouteId;
   List<RouteEntry> _availableRoutes = [];
@@ -58,13 +63,22 @@ class _AddShopSheetState extends State<AddShopSheet> {
   bool _showMoreDetails = false;
   bool _isSaving = false;
 
+  // Rapido-style Pin Point location state
   double? _latitude;
   double? _longitude;
   double? _accuracyMeters;
   bool _gpsCaptured = false;
 
+  // Route insertion position
+  String _routeInsertPosition = 'AT_END'; // 'AT_END', 'AT_START', 'AFTER_SHOP'
+  String? _insertAfterShopId;
+
+  // GST & Business Tax details
+  String _gstType = 'CONSUMER'; // 'CONSUMER', 'COMPOSITION', 'REGULAR'
+
   final List<String> _shopTypes = [
     'KIRANA',
+    'FARSAN_NAMKEEN',
     'GENERAL_STORE',
     'SUPERMARKET',
     'PHARMACY',
@@ -79,6 +93,22 @@ class _AddShopSheetState extends State<AddShopSheet> {
     super.initState();
     _selectedRouteId = widget.defaultRouteId;
     _loadRoutes();
+
+    // Auto extract PAN from 15-digit GSTIN
+    _gstinCtrl.addListener(_onGstinChanged);
+  }
+
+  void _onGstinChanged() {
+    final text = _gstinCtrl.text.trim().toUpperCase();
+    if (text.length >= 12 && text.length <= 15) {
+      // GSTIN format: 2 digit state code + 10 digit PAN + 1 entity + 1 Z + 1 check
+      final extractedPan = text.substring(2, 12);
+      if (RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(extractedPan)) {
+        if (_panCtrl.text != extractedPan) {
+          _panCtrl.text = extractedPan;
+        }
+      }
+    }
   }
 
   Future<void> _loadRoutes() async {
@@ -91,16 +121,24 @@ class _AddShopSheetState extends State<AddShopSheet> {
     }
   }
 
+  List<RetailerShop> get _currentRouteShops {
+    if (_selectedRouteId == null) return [];
+    return widget.api.retailers.where((r) => r.routeId == _selectedRouteId).toList();
+  }
+
   @override
   void dispose() {
+    _gstinCtrl.removeListener(_onGstinChanged);
     _nameCtrl.dispose();
     _ownerCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _addressCtrl.dispose();
     _areaCtrl.dispose();
     _landmarkCtrl.dispose();
     _pincodeCtrl.dispose();
     _gstinCtrl.dispose();
+    _panCtrl.dispose();
     super.dispose();
   }
 
@@ -130,6 +168,44 @@ class _AddShopSheetState extends State<AddShopSheet> {
             '📍 ${AppStrings.locationAccuracy(_accuracyMeters!)}',
           ),
           backgroundColor: AirbnbTheme.dark,
+        ),
+      );
+    }
+  }
+
+  void _openMapPinPicker() async {
+    final result = await MapPinPickerDialog.show(
+      context,
+      initialLatitude: _latitude ?? 26.2850,
+      initialLongitude: _longitude ?? 73.0180,
+      shopName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : 'Retailer Shop',
+      initialArea: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : 'Sardarpura, Jodhpur',
+    );
+
+    if (result != null && mounted) {
+      final suggested = await widget.api.suggestNearbyRoute(
+        latitude: result.latitude,
+        longitude: result.longitude,
+        currentRouteId: _selectedRouteId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _latitude = result.latitude;
+        _longitude = result.longitude;
+        _accuracyMeters = result.accuracyMeters;
+        _gpsCaptured = true;
+        _suggestedNearbyRoute = suggested;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '📍 Map Pin Set: ${result.latitude.toStringAsFixed(4)}° N, ${result.longitude.toStringAsFixed(4)}° E (±${result.accuracyMeters.round()}m)',
+          ),
+          backgroundColor: AirbnbTheme.dark,
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -179,13 +255,18 @@ class _AddShopSheetState extends State<AddShopSheet> {
         area: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : 'Jodhpur',
         routeId: _selectedRouteId,
         shopType: _selectedShopType,
-        gstin: _gstinCtrl.text.trim().isNotEmpty ? _gstinCtrl.text.trim() : null,
+        gstin: _gstinCtrl.text.trim().isNotEmpty ? _gstinCtrl.text.trim().toUpperCase() : null,
         pincode: _pincodeCtrl.text.trim().isNotEmpty ? _pincodeCtrl.text.trim() : null,
         landmark: _landmarkCtrl.text.trim().isNotEmpty ? _landmarkCtrl.text.trim() : null,
         latitude: _latitude,
         longitude: _longitude,
         locationAccuracyMeters: _accuracyMeters,
         suggestedClass: _suggestedClass,
+        routeInsertPosition: _routeInsertPosition,
+        insertAfterRetailerId: _routeInsertPosition == 'AFTER_SHOP' ? _insertAfterShopId : null,
+        whatsappPhone: _whatsappSameAsPhone ? rawPhone : _whatsappCtrl.text.trim(),
+        gstType: _gstType,
+        panNumber: _panCtrl.text.trim().isNotEmpty ? _panCtrl.text.trim().toUpperCase() : null,
       );
 
       widget.onShopAdded?.call();
@@ -431,32 +512,159 @@ class _AddShopSheetState extends State<AddShopSheet> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
-            // 4. Location Geotag Button
-            OutlinedButton.icon(
-              onPressed: _simulateLocationCapture,
-              icon: Icon(
-                _gpsCaptured ? Icons.check_circle : Icons.my_location,
-                size: 18,
-                color: _gpsCaptured ? AirbnbTheme.success : AirbnbTheme.coral,
-              ),
-              label: Text(
-                _gpsCaptured
-                    ? '📍 ${AppStrings.locationAccuracy(_accuracyMeters!)}'
-                    : AppStrings.captureGpsButton,
-                style: TextStyle(
-                  color: _gpsCaptured ? AirbnbTheme.success : AirbnbTheme.coral,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+            // WhatsApp Toggle
+            Row(
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Checkbox(
+                    value: _whatsappSameAsPhone,
+                    activeColor: const Color(0xFF25D366),
+                    onChanged: (v) => setState(() => _whatsappSameAsPhone = v ?? true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _whatsappSameAsPhone = !_whatsappSameAsPhone),
+                    child: const Text(
+                      'WhatsApp same as calling mobile',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AirbnbTheme.dark),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (!_whatsappSameAsPhone) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _whatsappCtrl,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'WhatsApp Number',
+                  prefixText: '+91 ',
+                  prefixIcon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF25D366), size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 44),
-                side: BorderSide(color: _gpsCaptured ? AirbnbTheme.success : AirbnbTheme.border),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ],
+            const SizedBox(height: 10),
+
+            // 4. Rapido-Style Location Picker & Geotag
+            if (!_gpsCaptured)
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: OutlinedButton.icon(
+                      onPressed: _openMapPinPicker,
+                      icon: const Icon(Icons.pin_drop_rounded, size: 18, color: AirbnbTheme.coral),
+                      label: const Text(
+                        'Set on Map 🗺️',
+                        style: TextStyle(color: AirbnbTheme.coral, fontWeight: FontWeight.w800, fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        side: const BorderSide(color: AirbnbTheme.coral, width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton.icon(
+                      onPressed: _simulateLocationCapture,
+                      icon: const Icon(Icons.my_location, size: 16, color: AirbnbTheme.dark),
+                      label: const Text(
+                        'Auto GPS',
+                        style: TextStyle(color: AirbnbTheme.dark, fontWeight: FontWeight.w600, fontSize: 11),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        side: const BorderSide(color: AirbnbTheme.border),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF008A05).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF008A05).withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Color(0xFF008A05), size: 18),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Shop GPS Pin Dropped',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF008A05)),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF008A05).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '±${_accuracyMeters?.round() ?? 5}m',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF008A05)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_latitude!.toStringAsFixed(5)}° N, ${_longitude!.toStringAsFixed(5)}° E',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.dark),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        InkWell(
+                          onTap: _openMapPinPicker,
+                          child: Row(
+                            children: const [
+                              Icon(Icons.edit_location_alt_rounded, size: 14, color: AirbnbTheme.jodhpurBlue),
+                              SizedBox(width: 4),
+                              Text('Adjust Pin on Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue)),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: _simulateLocationCapture,
+                          child: Row(
+                            children: const [
+                              Icon(Icons.refresh, size: 14, color: AirbnbTheme.grey),
+                              SizedBox(width: 4),
+                              Text('Recalibrate GPS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: 10),
 
             // Route / Beat Picker
@@ -478,6 +686,55 @@ class _AddShopSheetState extends State<AddShopSheet> {
                   if (val != null) setState(() => _selectedRouteId = val);
                 },
               ),
+              const SizedBox(height: 8),
+
+              // Route Stop Insert Position Selector
+              Row(
+                children: [
+                  const Text('Insert in Route: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _routeInsertPosition,
+                      isDense: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'AT_END', child: Text('At End of Route', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'AT_START', child: Text('At Start of Route', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'AFTER_SHOP', child: Text('After Specific Shop...', style: TextStyle(fontSize: 12))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _routeInsertPosition = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              if (_routeInsertPosition == 'AFTER_SHOP') ...[
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  initialValue: _insertAfterShopId,
+                  decoration: InputDecoration(
+                    labelText: 'Select Preceding Shop',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  items: _currentRouteShops.map((s) {
+                    return DropdownMenuItem(
+                      value: s.id,
+                      child: Text(
+                        '${s.name} (${s.area})',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _insertAfterShopId = val),
+                ),
+              ],
               const SizedBox(height: 8),
             ],
 
@@ -540,13 +797,43 @@ class _AddShopSheetState extends State<AddShopSheet> {
 
             if (_showMoreDetails) ...[
               const SizedBox(height: 8),
+              const Text('Shop Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
+              const SizedBox(height: 6),
               // Shop Type Chips
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
                 children: _shopTypes.map((type) {
                   final isSel = _selectedShopType == type;
-                  final label = type.replaceAll('_', ' ');
+                  String label;
+                  switch (type) {
+                    case 'FARSAN_NAMKEEN':
+                      label = '🥟 Farsan & Namkeen';
+                      break;
+                    case 'KIRANA':
+                      label = '🏪 Kirana Store';
+                      break;
+                    case 'GENERAL_STORE':
+                      label = '🛍️ General Store';
+                      break;
+                    case 'SUPERMARKET':
+                      label = '🛒 Supermarket';
+                      break;
+                    case 'PHARMACY':
+                      label = '💊 Pharmacy';
+                      break;
+                    case 'PAAN_TEA_STALL':
+                      label = '☕ Paan / Tea';
+                      break;
+                    case 'DHABA_RESTAURANT':
+                      label = '🍲 Dhaba / Hotel';
+                      break;
+                    case 'WHOLESALE':
+                      label = '📦 Wholesale';
+                      break;
+                    default:
+                      label = '🏬 Other Retail';
+                  }
                   return ChoiceChip(
                     label: Text(label, style: TextStyle(fontSize: 10, color: isSel ? Colors.white : AirbnbTheme.dark)),
                     selected: isSel,
@@ -555,7 +842,76 @@ class _AddShopSheetState extends State<AddShopSheet> {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 12),
+
+              // GST Registration Status & PAN
+              const Text('GST Registration Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  ChoiceChip(
+                    label: Text('Consumer / Unregistered', style: TextStyle(fontSize: 10, color: _gstType == 'CONSUMER' ? Colors.white : AirbnbTheme.dark)),
+                    selected: _gstType == 'CONSUMER',
+                    selectedColor: AirbnbTheme.dark,
+                    onSelected: (_) => setState(() => _gstType = 'CONSUMER'),
+                  ),
+                  ChoiceChip(
+                    label: Text('Composition Scheme', style: TextStyle(fontSize: 10, color: _gstType == 'COMPOSITION' ? Colors.white : AirbnbTheme.dark)),
+                    selected: _gstType == 'COMPOSITION',
+                    selectedColor: AirbnbTheme.dark,
+                    onSelected: (_) => setState(() => _gstType = 'COMPOSITION'),
+                  ),
+                  ChoiceChip(
+                    label: Text('Regular (B2B Tax Invoice)', style: TextStyle(fontSize: 10, color: _gstType == 'REGULAR' ? Colors.white : AirbnbTheme.dark)),
+                    selected: _gstType == 'REGULAR',
+                    selectedColor: AirbnbTheme.dark,
+                    onSelected: (_) => setState(() => _gstType = 'REGULAR'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
+
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      controller: _gstinCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(15),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: AppStrings.gstinLabel,
+                        hintText: '15-char GSTIN',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: _panCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'PAN Number',
+                        hintText: '10-char PAN',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
               TextField(
                 controller: _addressCtrl,
                 decoration: InputDecoration(
@@ -596,16 +952,6 @@ class _AddShopSheetState extends State<AddShopSheet> {
                 controller: _landmarkCtrl,
                 decoration: InputDecoration(
                   labelText: AppStrings.landmarkLabel,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _gstinCtrl,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  labelText: AppStrings.gstinLabel,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
