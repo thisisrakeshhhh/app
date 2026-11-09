@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../domain/outbox/outbox_models.dart';
@@ -6,7 +7,6 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 import 'add_shop_sheet.dart';
-import 'sales_route_map_view.dart';
 
 /// 1. Sales Order Booking View: Full order taking experience.
 class SalesOrderBookingView extends StatefulWidget {
@@ -986,401 +986,977 @@ class SalesRetailersView extends StatefulWidget {
 }
 
 class _SalesRetailersViewState extends State<SalesRetailersView> {
-  int _viewMode = 0; // 0 = List View, 1 = Route Map View
+  String _selectedRouteFilter = 'ALL'; // 'ALL', 'route_sardarpura_02', 'route_nai_sadak_01'
+  String _sortBy = 'NEAREST'; // 'NEAREST', 'SEQUENCE', 'PENDING'
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+  Timer? _stopwatchTimer;
+
+  // Salesperson's active reference GPS coordinate in Jodhpur commercial district
+  static const double _repLat = 26.2850;
+  static const double _repLng = 73.0180;
+
+  @override
+  void initState() {
+    super.initState();
+    // 1-second ticker to update active visit stopwatch in real-time
+    _stopwatchTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && widget.api.activeVisitShopId != null) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopwatchTimer?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  double _getShopDistance(RetailerShop shop) {
+    if (shop.latitude == null || shop.longitude == null) return 999999.0;
+    return ApiService.calculateDistanceMeters(
+      _repLat,
+      _repLng,
+      shop.latitude!,
+      shop.longitude!,
+    );
+  }
+
+  String _formatDistance(double meters) {
+    if (meters >= 999999) return 'Distance unknown';
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)} m';
+    }
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
+  List<RetailerShop> _getFilteredAndSortedShops() {
+    var list = List<RetailerShop>.from(widget.api.retailers);
+
+    // 1. Filter by Beat Route
+    if (_selectedRouteFilter != 'ALL') {
+      list = list.where((s) => s.routeId == _selectedRouteFilter).toList();
+    }
+
+    // 2. Filter by search query
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((s) {
+        return s.name.toLowerCase().contains(q) ||
+            s.area.toLowerCase().contains(q) ||
+            s.ownerName.toLowerCase().contains(q) ||
+            s.phone.contains(q);
+      }).toList();
+    }
+
+    // 3. Sort
+    if (_sortBy == 'NEAREST') {
+      list.sort((a, b) => _getShopDistance(a).compareTo(_getShopDistance(b)));
+    } else if (_sortBy == 'PENDING') {
+      list.sort((a, b) {
+        int scoreA = a.isCheckedIn ? 0 : (!a.visitedToday && !a.isSkipped ? 1 : 2);
+        int scoreB = b.isCheckedIn ? 0 : (!b.visitedToday && !b.isSkipped ? 1 : 2);
+        if (scoreA != scoreB) return scoreA.compareTo(scoreB);
+        return _getShopDistance(a).compareTo(_getShopDistance(b));
+      });
+    }
+    return list;
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_viewMode == 1) {
-      return Column(
-        children: [
-          _buildViewModeToggle(),
-          Expanded(
-            child: SalesRouteMapView(
-              api: widget.api,
-              onNavigateTab: widget.onNavigateTab,
-            ),
-          ),
-        ],
-      );
-    }
+    final allShops = widget.api.retailers;
+    final displayShops = _getFilteredAndSortedShops();
+    final activeShop = widget.api.activeVisitShop;
 
-    final retailers = widget.api.retailers;
+    // Closest unvisited & un-skipped shop for Zomato-style Next Stop recommendation
+    final pendingShops = displayShops.where((s) => !s.visitedToday && !s.isSkipped && !s.isCheckedIn).toList();
+    final nextRecommendedShop = pendingShops.isNotEmpty ? pendingShops.first : null;
 
     return Column(
       children: [
-        _buildViewModeToggle(),
-        // Action Header: Total shops count + Add Shop button
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${retailers.length} Shops Registered',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
-              ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final newShop = await AddShopSheet.show(context, api: widget.api);
-                  if (newShop != null && mounted) {
-                    setState(() {});
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('Added ${newShop.name} successfully!')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.add_business_outlined, size: 16),
-                label: const Text('Add Shop', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AirbnbTheme.coral,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Active Visit Floating Banner (If salesperson is currently checked into a shop)
+        if (activeShop != null) _buildActiveVisitBanner(activeShop),
+
+        // 1. Beat Selection Filter Tabs
+        _buildBeatFilterChips(),
+
+        // 2. Search & Sort Bar
+        _buildSearchAndSortBar(displayShops.length, allShops.length),
+
+        // 3. Next Recommended Stop Banner (Zomato style sequence)
+        if (nextRecommendedShop != null && activeShop == null)
+          _buildNextStopRecommendationCard(nextRecommendedShop),
+        // 4. Shops List
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            itemCount: retailers.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (ctx, idx) {
-              final shop = retailers[idx];
-              final isCheckedIn = shop.isCheckedIn;
-
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isCheckedIn ? AirbnbTheme.coral : AirbnbTheme.border,
-                    width: isCheckedIn ? 1.5 : 1,
-                  ),
+          child: displayShops.isEmpty
+              ? _buildEmptyState()
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                  itemCount: displayShops.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (ctx, idx) {
+                    final shop = displayShops[idx];
+                    return _buildShopCard(shop, idx + 1);
+                  },
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            shop.name,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                          ),
-                        ),
-                        // Class Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getClassBadgeColor(shop.classType).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: _getClassBadgeColor(shop.classType).withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            shop.classType,
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              color: _getClassBadgeColor(shop.classType),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isCheckedIn
-                                ? AirbnbTheme.coral.withValues(alpha: 0.12)
-                                : (shop.visitedToday
-                                    ? AirbnbTheme.success.withValues(alpha: 0.1)
-                                    : AirbnbTheme.lightGrey),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isCheckedIn
-                                ? 'CHECKED IN • ${shop.activeVisitFormatted}'
-                                : (shop.visitedToday ? 'VISITED TODAY' : 'NOT VISITED'),
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              color: isCheckedIn
-                                  ? AirbnbTheme.coral
-                                  : (shop.visitedToday ? AirbnbTheme.success : AirbnbTheme.grey),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        // Shop Options: Delete / Remove Action
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert, size: 18, color: AirbnbTheme.grey),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onSelected: (val) {
-                            if (val == 'delete') {
-                              _showDeleteShopDialog(context, shop);
-                            }
-                          },
-                          itemBuilder: (ctx) => [
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Delete / Remove Shop', style: TextStyle(fontSize: 13, color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Real address chips (SCO No, Gaali No if present in address text)
-                    Row(
-                      children: [
-                        if (shop.unitNo != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: AirbnbTheme.lightGrey,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AirbnbTheme.border),
-                            ),
-                            child: Text(shop.unitNo!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        if (shop.gaaliNo != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: AirbnbTheme.lightGrey,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AirbnbTheme.border),
-                            ),
-                            child: Text(shop.gaaliNo!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Expanded(
-                          child: Text(
-                            shop.ownerName,
-                            style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      shop.address.trim().isNotEmpty
-                          ? (shop.area.isNotEmpty ? '${shop.address}, ${shop.area}' : shop.address)
-                          : 'Address not added',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: AirbnbTheme.grey,
-                        height: 1.3,
-                        fontStyle: shop.address.trim().isNotEmpty ? FontStyle.normal : FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Outstanding Udhaar: ₹${shop.outstandingRupees.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.coral),
-                        ),
-                        Text(
-                          'Today: ₹${(shop.todayOrderTotalPaise / 100.0).toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 18),
-                    Row(
-                      children: [
-                        // In Route / Extra visit toggle with permission check
-                        Builder(
-                          builder: (ctx) {
-                            final isAssigned = widget.api.isAssignedBeatShop(shop.id);
-                            final isExtra = widget.api.isExtraVisitToday(shop.id);
-                            if (isAssigned) {
-                              return IconButton(
-                                icon: const Icon(Icons.lock_outline, size: 18, color: AirbnbTheme.grey),
-                                tooltip: 'Assigned Beat Shop (Cannot remove)',
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Assigned beat shops cannot be removed by sales reps.')),
-                                  );
-                                },
-                              );
-                            }
-                            return IconButton(
-                              icon: Icon(
-                                isExtra ? Icons.check_circle : Icons.add_circle_outline,
-                                size: 20,
-                                color: isExtra ? AirbnbTheme.coral : AirbnbTheme.grey,
-                              ),
-                              tooltip: isExtra ? 'Extra Visit Added (Tap to remove)' : 'Add as Extra Visit Today',
-                              onPressed: () {
-                                widget.api.toggleShopInRoute(shop.id);
-                                setState(() {});
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(isExtra
-                                        ? AppStrings.tr('extra_visit_removed', {'name': shop.name})
-                                        : AppStrings.tr('extra_visit_added', {'name': shop.name})),
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                        Expanded(
-                          child: isCheckedIn
-                              ? ElevatedButton.icon(
-                                  onPressed: () {
-                                    widget.api.endShopVisit(shop.id);
-                                    setState(() {});
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Completed visit to ${shop.name}!')),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.check, size: 16),
-                                  label: const Text('Complete Visit'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AirbnbTheme.dark,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                )
-                              : OutlinedButton.icon(
-                                  onPressed: () {
-                                    widget.api.startShopVisit(shop.id);
-                                    setState(() {});
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Checked in at ${shop.name}!')),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.location_on_outlined, size: 16),
-                                  label: const Text('Start Visit'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AirbnbTheme.dark,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              widget.api.selectShop(shop);
-                              if (widget.onNavigateTab != null) {
-                                widget.onNavigateTab!(1); // Go to order booking tab
-                              }
-                            },
-                            icon: const Icon(Icons.add_shopping_cart, size: 16),
-                            label: const Text('Book Order'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AirbnbTheme.coral,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildViewModeToggle() {
+  Widget _buildActiveVisitBanner(RetailerShop shop) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-      padding: const EdgeInsets.all(4),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AirbnbTheme.lightGrey,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AirbnbTheme.border),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF00B894), Color(0xFF00897B)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00B894).withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
+          const Icon(Icons.timer_outlined, color: Colors.white, size: 24),
+          const SizedBox(width: 10),
           Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _viewMode = 0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: _viewMode == 0 ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: _viewMode == 0
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4, offset: const Offset(0, 1))]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Icon(Icons.list_alt, size: 16, color: _viewMode == 0 ? AirbnbTheme.coral : AirbnbTheme.grey),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                     const SizedBox(width: 6),
-                    Text(
-                      'List View (दुकानें)',
+                    const Text(
+                      'ACTIVE VISIT IN PROGRESS',
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: _viewMode == 0 ? FontWeight.w800 : FontWeight.w600,
-                        color: _viewMode == 0 ? AirbnbTheme.dark : AirbnbTheme.grey,
+                        color: Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  shop.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '⏱️ Time Spent: ${shop.activeVisitFormatted}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              widget.api.selectShop(shop);
+              if (widget.onNavigateTab != null) {
+                widget.onNavigateTab!(1); // Book Order tab
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF00897B),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Book Order', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton(
+            onPressed: () => _handleCheckOut(shop),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Check-Out', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBeatFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          _buildFilterChip('ALL', 'All Shops (${widget.api.retailers.length})'),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            'route_sardarpura_02',
+            'Sardarpura Beat (${widget.api.retailers.where((s) => s.routeId == 'route_sardarpura_02').length})',
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip(
+            'route_nai_sadak_01',
+            'Nai Sadak Beat (${widget.api.retailers.where((s) => s.routeId == 'route_nai_sadak_01').length})',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String routeKey, String label) {
+    final isSelected = _selectedRouteFilter == routeKey;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _selectedRouteFilter = routeKey),
+      selectedColor: AirbnbTheme.dark,
+      backgroundColor: Colors.white,
+      side: BorderSide(color: isSelected ? AirbnbTheme.dark : AirbnbTheme.border),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+        color: isSelected ? Colors.white : AirbnbTheme.dark,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    );
+  }
+
+  Widget _buildSearchAndSortBar(int filteredCount, int totalCount) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search shop or owner...',
+                hintStyle: const TextStyle(fontSize: 12.5, color: AirbnbTheme.grey),
+                prefixIcon: const Icon(Icons.search, size: 18, color: AirbnbTheme.grey),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: Colors.white,
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AirbnbTheme.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AirbnbTheme.border),
                 ),
               ),
             ),
           ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _viewMode = 1),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: _viewMode == 1 ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: _viewMode == 1
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4, offset: const Offset(0, 1))]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.map_outlined, size: 16, color: _viewMode == 1 ? AirbnbTheme.coral : AirbnbTheme.grey),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Zomato Route Map (रूट)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: _viewMode == 1 ? FontWeight.w800 : FontWeight.w600,
-                        color: _viewMode == 1 ? AirbnbTheme.dark : AirbnbTheme.grey,
-                      ),
-                    ),
-                  ],
-                ),
+          const SizedBox(width: 8),
+          // Sort Dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AirbnbTheme.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _sortBy,
+                icon: const Icon(Icons.sort, size: 18, color: AirbnbTheme.dark),
+                items: const [
+                  DropdownMenuItem(value: 'NEAREST', child: Text('📍 Nearest', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+                  DropdownMenuItem(value: 'PENDING', child: Text('⏱️ Pending', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+                  DropdownMenuItem(value: 'SEQUENCE', child: Text('🚶 Route Stop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _sortBy = val);
+                },
               ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Add Shop Button
+          ElevatedButton.icon(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final newShop = await AddShopSheet.show(context, api: widget.api);
+              if (newShop != null && mounted) {
+                setState(() {});
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Added ${newShop.name} successfully!')),
+                );
+              }
+            },
+            icon: const Icon(Icons.add_business_outlined, size: 16),
+            label: const Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AirbnbTheme.coral,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNextStopRecommendationCard(RetailerShop shop) {
+    final dist = _getShopDistance(shop);
+    final distStr = _formatDistance(dist);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF22C55E).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.navigation_outlined, color: Color(0xFF16A34A), size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'NEXT RECOMMENDED STOP • $distStr away',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF16A34A),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  shop.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: AirbnbTheme.dark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => _handleCheckIn(shop),
+            icon: const Icon(Icons.login, size: 14),
+            label: const Text('Check In', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF16A34A),
+              side: const BorderSide(color: Color(0xFF16A34A)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopCard(RetailerShop shop, int stopNum) {
+    final isCheckedIn = shop.isCheckedIn;
+    final dist = _getShopDistance(shop);
+    final distStr = _formatDistance(dist);
+
+    Color cardBorderColor = AirbnbTheme.border;
+    if (isCheckedIn) {
+      cardBorderColor = const Color(0xFF00B894);
+    } else if (shop.isSkipped) {
+      cardBorderColor = Colors.orange.shade300;
+    } else if (shop.visitedToday) {
+      cardBorderColor = Colors.blueGrey.shade200;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: isCheckedIn ? const Color(0xFFF0FDF4) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: cardBorderColor,
+          width: isCheckedIn ? 1.8 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top Row: Stop Index, Shop Name, Class, and Menu
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Stop Number Pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AirbnbTheme.dark,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '#$stopNum',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _getCategoryIcon(shop.shopType),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      shop.name,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: AirbnbTheme.dark,
+                      ),
+                    ),
+                    Text(
+                      '${shop.ownerName} • ${shop.phone}',
+                      style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                    ),
+                  ],
+                ),
+              ),
+              // Class Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _getClassBadgeColor(shop.classType).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _getClassBadgeColor(shop.classType).withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  shop.classType,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    color: _getClassBadgeColor(shop.classType),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 18, color: AirbnbTheme.grey),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onSelected: (val) {
+                  if (val == 'delete') {
+                    _showDeleteShopDialog(context, shop);
+                  } else if (val == 'skip') {
+                    _showSkipShopDialog(context, shop);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'skip',
+                    child: Row(
+                      children: [
+                        Icon(Icons.skip_next_outlined, size: 16, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Skip Shop with Reason', style: TextStyle(fontSize: 13, color: Colors.orange)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete / Remove Shop', style: TextStyle(fontSize: 13, color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Location details & Distance Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AirbnbTheme.lightGrey,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.place_outlined, size: 12, color: AirbnbTheme.dark),
+                    const SizedBox(width: 3),
+                    Text(
+                      distStr,
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  shop.area,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+                ),
+              ),
+              if (shop.routeId != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    shop.routeId == 'route_sardarpura_02' ? 'Sardarpura' : 'Nai Sadak',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue),
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Time Spent & Visit Status Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isCheckedIn
+                  ? const Color(0xFF00B894).withValues(alpha: 0.12)
+                  : (shop.isSkipped
+                      ? Colors.orange.shade50
+                      : (shop.visitedToday ? Colors.blueGrey.shade50 : AirbnbTheme.lightGrey)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isCheckedIn
+                      ? Icons.timer
+                      : (shop.isSkipped
+                          ? Icons.warning_amber_rounded
+                          : (shop.visitedToday ? Icons.check_circle_outline : Icons.schedule)),
+                  size: 14,
+                  color: isCheckedIn
+                      ? const Color(0xFF00897B)
+                      : (shop.isSkipped
+                          ? Colors.orange.shade800
+                          : (shop.visitedToday ? Colors.teal.shade800 : AirbnbTheme.grey)),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    isCheckedIn
+                        ? '🟢 CHECKED IN • Time Spent: ${shop.activeVisitFormatted}'
+                        : (shop.isSkipped
+                            ? '⚠️ SKIPPED • Reason: ${shop.skipReason ?? "No Orders"}'
+                            : (shop.visitedToday
+                                ? '✓ VISITED TODAY • Time Spent: ${shop.totalTimeSpentFormatted}'
+                                : '⏱️ Not Visited (0m spent today)')),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: isCheckedIn
+                          ? const Color(0xFF00897B)
+                          : (shop.isSkipped
+                              ? Colors.orange.shade900
+                              : (shop.visitedToday ? Colors.teal.shade900 : AirbnbTheme.grey)),
+                    ),
+                  ),
+                ),
+                if (shop.todayOrderTotalPaise > 0) ...[
+                  Text(
+                    '₹${(shop.todayOrderTotalPaise / 100).toStringAsFixed(0)} Booked',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AirbnbTheme.coral),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Action Buttons: Check-In/Check-Out, Book Order, Skip Shop
+          Row(
+            children: [
+              // Check-In / Check-Out
+              Expanded(
+                child: isCheckedIn
+                    ? ElevatedButton.icon(
+                        onPressed: () => _handleCheckOut(shop),
+                        icon: const Icon(Icons.logout, size: 15),
+                        label: const Text('Check-Out'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: () => _handleCheckIn(shop),
+                        icon: const Icon(Icons.login, size: 15),
+                        label: Text(shop.visitedToday ? 'Re-Visit' : 'Check-In'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AirbnbTheme.dark,
+                          side: const BorderSide(color: AirbnbTheme.dark),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 8),
+              // Book Order
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    if (!shop.isCheckedIn) {
+                      widget.api.startShopVisit(shop.id);
+                    }
+                    widget.api.selectShop(shop);
+                    if (widget.onNavigateTab != null) {
+                      widget.onNavigateTab!(1); // Go to Order Booking tab
+                    }
+                  },
+                  icon: const Icon(Icons.add_shopping_cart, size: 15),
+                  label: const Text('Book Order'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AirbnbTheme.coral,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Skip Shop Button
+              IconButton(
+                onPressed: () => _showSkipShopDialog(context, shop),
+                icon: const Icon(Icons.skip_next_outlined, size: 20),
+                tooltip: 'Skip Shop',
+                color: Colors.orange.shade800,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.orange.shade50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.orange.shade200),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleCheckIn(RetailerShop shop) {
+    widget.api.startShopVisit(shop.id);
+    if (shop.isSkipped) {
+      shop.clearSkip();
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🟢 Checked into ${shop.name}! Stopwatch started.'),
+        backgroundColor: const Color(0xFF00897B),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _handleCheckOut(RetailerShop shop) {
+    final elapsedSecs = widget.api.endShopVisit(shop.id);
+    setState(() {});
+
+    final durationFormatted = RetailerShop.formatDuration(elapsedSecs);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.check_circle, color: Color(0xFF00897B), size: 24),
+            SizedBox(width: 8),
+            Text('Visit Completed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Successfully checked out from ${shop.name}.', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AirbnbTheme.lightGrey,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Time Spent This Visit:', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+                      Text(durationFormatted, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Today Time:', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+                      Text(shop.totalTimeSpentFormatted, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Orders Booked:', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+                      Text('₹${(shop.todayOrderTotalPaise / 100).toStringAsFixed(0)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AirbnbTheme.coral)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AirbnbTheme.dark,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.store_outlined, size: 48, color: AirbnbTheme.grey),
+          SizedBox(height: 10),
+          Text(
+            'No shops found matching filter.',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _getCategoryIcon(String shopType) {
+    IconData icon;
+    Color color;
+    switch (shopType.toUpperCase()) {
+      case 'WHOLESALE':
+        icon = Icons.inventory_2_outlined;
+        color = const Color(0xFF6C5CE7);
+        break;
+      case 'FARSAN_NAMKEEN':
+      case 'FARSAN':
+        icon = Icons.bakery_dining_outlined;
+        color = const Color(0xFFD35400);
+        break;
+      case 'SUPERMARKET':
+        icon = Icons.storefront_outlined;
+        color = const Color(0xFF27AE60);
+        break;
+      default:
+        icon = Icons.shopping_basket_outlined;
+        color = AirbnbTheme.coral;
+    }
+    return Icon(icon, size: 18, color: color);
+  }
+
+  void _showSkipShopDialog(BuildContext context, RetailerShop shop) {
+    String selectedReason = 'Shop Closed';
+    final searchReasonCtrl = TextEditingController();
+
+    final presetReasons = [
+      'Next Week',
+      'No Orders',
+      'Shop Closed',
+      'Vehicle Breakdown',
+      'Others',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'RouteX | Sales Order',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AirbnbTheme.jodhpurBlue),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Reason For Skipping : ${shop.name}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: searchReasonCtrl,
+                    onChanged: (val) {
+                      setDialogState(() {
+                        if (val.isNotEmpty) selectedReason = val;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search Reason',
+                      hintStyle: const TextStyle(fontSize: 12, color: AirbnbTheme.grey),
+                      prefixIcon: const Icon(Icons.search, size: 16),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ...presetReasons.map((reason) {
+                    final isChecked = selectedReason == reason;
+                    return CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: isChecked,
+                      title: Text(
+                        reason,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isChecked ? FontWeight.w800 : FontWeight.w600,
+                          color: isChecked ? AirbnbTheme.jodhpurBlue : AirbnbTheme.dark,
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedReason = reason;
+                          searchReasonCtrl.text = reason;
+                        });
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('CLOSE', style: TextStyle(color: AirbnbTheme.grey, fontWeight: FontWeight.w700)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  widget.api.skipShopVisit(shop.id, selectedReason);
+                  Navigator.pop(ctx);
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Skipped "${shop.name}" ($selectedReason)'),
+                      backgroundColor: Colors.orange.shade800,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AirbnbTheme.jodhpurBlue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Skip Shop', style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

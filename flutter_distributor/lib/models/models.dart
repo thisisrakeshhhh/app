@@ -414,6 +414,8 @@ class RetailerShop {
   String? whatsappPhone;
   String? gstType; // 'CONSUMER' | 'COMPOSITION' | 'REGULAR'
   String? panNumber;
+  bool isSkipped;
+  String? skipReason;
 
   RetailerShop({
     required this.id,
@@ -446,6 +448,8 @@ class RetailerShop {
     this.whatsappPhone,
     this.gstType = 'CONSUMER',
     this.panNumber,
+    this.isSkipped = false,
+    this.skipReason,
   });
 
   String? get resolvedPanNumber {
@@ -602,6 +606,19 @@ class RetailerShop {
       return elapsed;
     }
     return 0;
+  }
+
+  void skipShop(String reason) {
+    isSkipped = true;
+    skipReason = reason;
+    if (currentVisitStartTime != null) {
+      endVisit();
+    }
+  }
+
+  void clearSkip() {
+    isSkipped = false;
+    skipReason = null;
   }
 }
 

@@ -1078,6 +1078,30 @@ class LocalRepository {
         }
       }
 
+      final existingRoutes = await db.select(db.routes).get();
+      if (existingRoutes.isEmpty) {
+        await db.into(db.routes).insert(
+          RouteEntry(
+            id: 'route_sardarpura_02',
+            name: 'Sardarpura Commercial Beat',
+            code: 'SAR-02',
+            dayOfWeek: 'Monday',
+            isActive: true,
+            createdAt: DateTime.now(),
+          ),
+        );
+        await db.into(db.routes).insert(
+          RouteEntry(
+            id: 'route_nai_sadak_01',
+            name: 'Nai Sadak Wholesale Beat',
+            code: 'NAI-01',
+            dayOfWeek: 'Tuesday',
+            isActive: true,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+
       await db.into(db.databaseMetadata).insertOnConflictUpdate(
         DatabaseMetadataCompanion(
           key: const Value('schema_initialized'),

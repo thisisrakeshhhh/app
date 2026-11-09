@@ -544,17 +544,17 @@ class ApiService extends ChangeNotifier {
     if (list.isNotEmpty) return list;
     return [
       RouteEntry(
-        id: 'route_sojati_01',
-        name: 'Sojati Gate & Station Road Beat',
-        code: 'SOJ-01',
+        id: 'route_sardarpura_02',
+        name: 'Sardarpura Commercial Beat',
+        code: 'SAR-02',
         dayOfWeek: 'Monday',
         isActive: true,
         createdAt: DateTime.now(),
       ),
       RouteEntry(
-        id: 'route_sardarpura_02',
-        name: 'Sardarpura C Road Beat',
-        code: 'SAR-02',
+        id: 'route_nai_sadak_01',
+        name: 'Nai Sadak Wholesale Beat',
+        code: 'NAI-01',
         dayOfWeek: 'Tuesday',
         isActive: true,
         createdAt: DateTime.now(),
@@ -1319,6 +1319,68 @@ class ApiService extends ChangeNotifier {
 
   String get totalBeatTimeSpentFormatted =>
       RetailerShop.formatDuration(totalBeatTimeSpentSeconds);
+
+  void skipShopVisit(String shopId, String reason) {
+    final shop = _retailers.cast<RetailerShop?>().firstWhere(
+          (r) => r?.id == shopId,
+          orElse: () => null,
+        );
+    if (shop != null) {
+      if (_activeVisitShopId == shopId) {
+        _activeVisitShopId = null;
+      }
+      shop.skipShop(reason);
+      notifyListeners();
+    }
+  }
+
+  int get customersVisitedTodayCount =>
+      _retailers.where((s) => s.visitedToday).length;
+
+  int get customersSkippedTodayCount =>
+      _retailers.where((s) => s.isSkipped).length;
+
+  // Trip Out / In State (Route start / stop, vehicle & meter reading)
+  bool _isTripActive = false;
+  bool get isTripActive => _isTripActive;
+  String _activeTripVehicleNo = 'RJ19GJ4742';
+  String get activeTripVehicleNo => _activeTripVehicleNo;
+  String _activeTripMeterReading = '42850';
+  String get activeTripMeterReading => _activeTripMeterReading;
+  String? _activeTripEndMeterReading;
+  String? get activeTripEndMeterReading => _activeTripEndMeterReading;
+
+  void startTrip({required String routeName, required String vehicleNo, required String meterReading}) {
+    _isTripActive = true;
+    _activeTripVehicleNo = vehicleNo;
+    _activeTripMeterReading = meterReading;
+    notifyListeners();
+  }
+
+  void endTrip({required String meterReading}) {
+    _isTripActive = false;
+    _activeTripEndMeterReading = meterReading;
+    notifyListeners();
+  }
+
+  int get pendingOutboxCount =>
+      _retailers.where((r) => r.syncStatus == 'PENDING').length + _orders.length;
+
+  Future<void> syncPendingOutbox() async {
+    try {
+      final pending = await db.outboxDao.getPendingQueue();
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      for (final mutation in pending) {
+        await db.outboxDao.markSynced(id: mutation.id, syncedAtEpochMs: nowMs);
+      }
+      for (int i = 0; i < _retailers.length; i++) {
+        if (_retailers[i].syncStatus == 'PENDING') {
+          _retailers[i] = _retailers[i].copyWith(syncStatus: 'SYNCED');
+        }
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
 
   // Active Cart (Compound Key: "productId::unit" -> CartItem)
   final CompoundCartMap _cart = CompoundCartMap();
@@ -2284,7 +2346,7 @@ class ApiService extends ChangeNotifier {
       return existingOrder;
     }
 
-    // 3. Atomically allocate sequence_order and insert outbox mutation into SQLite
+    // 3. Atomically allocate sequence_order, deduct inventory & insert outbox mutation into SQLite
     final mutationId = 'out_${generateUuidV4()}';
     await db.outboxDao.insertOrderMutationAtomic(
       id: mutationId,
@@ -2295,6 +2357,41 @@ class ApiService extends ChangeNotifier {
       payloadJson: candidatePayload.toCanonicalJson(),
       provisionalBusinessId: provisionalOrderId,
       createdAtEpochMs: epochMs,
+      businessOperation: () async {
+        for (final item in _cart.values) {
+          final prod = _products.cast<ProductItem?>().firstWhere(
+            (p) => p?.id == item.product.id,
+            orElse: () => null,
+          );
+          if (prod != null) {
+            final snap = await repository.getInventorySnapshot(prod.id);
+            final currentGodown = snap?.godownCartons ?? prod.godownStockBoxes;
+            final currentPieces = snap?.godownLoosePieces ?? 0;
+            final boxQty = prod.boxQty > 0 ? prod.boxQty : 1;
+            final totalPiecesNeeded = item.totalPieces;
+            final currentTotalPieces = (currentGodown * boxQty) + currentPieces;
+            final remainingPieces = (currentTotalPieces - totalPiecesNeeded).clamp(0, 99999999);
+            final newGodown = remainingPieces ~/ boxQty;
+            final newLoose = remainingPieces % boxQty;
+
+            await repository.recordStockMovement(
+              productId: prod.id,
+              movementType: 'DISPATCH',
+              cartonDelta: -(totalPiecesNeeded ~/ boxQty),
+              loosePieceDelta: -(totalPiecesNeeded % boxQty),
+              reason: 'Order $orderNumber booked for ${shop.name}',
+              newGodownCartons: newGodown,
+              newGodownLoosePieces: newLoose,
+              newCarCartons: snap?.carCartons ?? prod.carStockBoxes,
+              newCarLoosePieces: snap?.carLoosePieces ?? 0,
+            );
+            prod.godownStockBoxes = newGodown;
+          }
+        }
+        shop.todayOrderTotalPaise += totalsPayload.totalAmountPaise;
+        shop.visitedToday = true;
+        await repository.upsertRetailer(shop);
+      },
     );
 
     // 4. Construct in-memory DistributorOrder from payload snapshot and register in booking stream
@@ -3157,6 +3254,8 @@ class ApiService extends ChangeNotifier {
         phone: '+91 98290 12345',
         address: 'Shop 14, Nai Sadak (Opp. Ghanta Ghar)',
         area: 'Nai Sadak',
+        routeId: 'route_nai_sadak_01',
+        shopType: 'KIRANA',
         creditLimitPaise: 5000000, // ₹50,000
         outstandingPaise: 1240000, // ₹12,400
         visitedToday: false,
@@ -3170,6 +3269,8 @@ class ApiService extends ChangeNotifier {
         phone: '+91 94141 55678',
         address: 'Plot 22, B-Road, Near Nehru Park',
         area: 'Sardarpura',
+        routeId: 'route_sardarpura_02',
+        shopType: 'WHOLESALE',
         creditLimitPaise: 10000000, // ₹1,00,000
         outstandingPaise: 4320000, // ₹43,200
         visitedToday: true,
@@ -3186,6 +3287,8 @@ class ApiService extends ChangeNotifier {
         phone: '+91 98291 98765',
         address: 'Shop 8, Main Market, Nai Sadak',
         area: 'Nai Sadak',
+        routeId: 'route_nai_sadak_01',
+        shopType: 'SUPERMARKET',
         creditLimitPaise: 4000000,
         outstandingPaise: 850000,
         visitedToday: false,
@@ -3199,11 +3302,43 @@ class ApiService extends ChangeNotifier {
         phone: '+91 99280 44321',
         address: 'SCO 9, 4th C Road',
         area: 'Sardarpura',
+        routeId: 'route_sardarpura_02',
+        shopType: 'GENERAL_STORE',
         creditLimitPaise: 3000000,
         outstandingPaise: 1520000,
         visitedToday: false,
         latitude: 26.2810,
         longitude: 73.0115,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-05',
+        name: 'Laxmi Namkeen & Farsan Mart',
+        ownerName: 'Kailash Chand',
+        phone: '+91 98292 33445',
+        address: 'Shop 5, Jaljog Circle, Sardarpura',
+        area: 'Sardarpura',
+        routeId: 'route_sardarpura_02',
+        shopType: 'FARSAN_NAMKEEN',
+        creditLimitPaise: 4500000,
+        outstandingPaise: 980000,
+        visitedToday: false,
+        latitude: 26.2785,
+        longitude: 73.0095,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-06',
+        name: 'Shanti Sweets & Farsan Bhandar',
+        ownerName: 'Deepak Joshi',
+        phone: '+91 98293 44556',
+        address: 'Opp. Ghanta Ghar Tower, Nai Sadak',
+        area: 'Nai Sadak',
+        routeId: 'route_nai_sadak_01',
+        shopType: 'FARSAN_NAMKEEN',
+        creditLimitPaise: 6000000,
+        outstandingPaise: 0,
+        visitedToday: false,
+        latitude: 26.2930,
+        longitude: 73.0230,
       ),
     ];
 

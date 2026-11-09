@@ -1,7 +1,4 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -43,9 +40,6 @@ class SalesDashboard extends StatefulWidget {
 class _SalesDashboardState extends State<SalesDashboard> {
   SalesAnalyticsTimeframe _selectedTimeframe = SalesAnalyticsTimeframe.today;
   int _selectedStopIndex = 0;
-  bool _showGoogleMaps = true;
-  MapType _mapType = MapType.normal;
-  GoogleMapController? _googleMapController;
 
   void _openAddShopSheet() async {
     final newShop = await AddShopSheet.show(
@@ -275,7 +269,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
         ),
     };
 
-    final locatedShops = assignedShops.where((s) => s.latitude != null && s.longitude != null).toList();
     if (_selectedStopIndex >= assignedShops.length && assignedShops.isNotEmpty) {
       _selectedStopIndex = 0;
     }
@@ -286,364 +279,354 @@ class _SalesDashboardState extends State<SalesDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. EMBEDDED INTERACTIVE ROUTE MAP (Directly below navbar)
+          // 1. TERRITORY EXECUTIVE WELCOME BANNER (RouteX Design)
           Container(
-            height: 200,
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AirbnbTheme.border),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E3A8A), Color(0xFF1E293B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
                   blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_showGoogleMaps && locatedShops.isNotEmpty)
-                  GoogleMap(
-                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-                    },
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        selectedShop?.latitude ?? locatedShops.first.latitude!,
-                        selectedShop?.longitude ?? locatedShops.first.longitude!,
-                      ),
-                      zoom: 14.5,
-                    ),
-                    mapType: _mapType,
-                    myLocationEnabled: true,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    markers: locatedShops.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final s = entry.value;
-                      final isSel = s.id == selectedShop?.id;
-                      final isChecked = s.isCheckedIn;
-                      final letter = String.fromCharCode(65 + (idx % 26));
-
-                      return Marker(
-                        markerId: MarkerId(s.id),
-                        position: LatLng(s.latitude!, s.longitude!),
-                        icon: isChecked
-                            ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
-                            : isSel
-                                ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
-                                : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-                        infoWindow: InfoWindow(
-                          title: '$letter. ${s.name}',
-                          snippet: '${s.area} • ${s.visitedToday ? "Visited" : "Pending"}',
-                        ),
-                        onTap: () {
-                          setState(() {
-                            _selectedStopIndex = assignedShops.indexOf(s);
-                          });
-                        },
-                      );
-                    }).toSet(),
-                    polylines: locatedShops.length >= 2
-                        ? {
-                            Polyline(
-                              polylineId: const PolylineId('dashboard_route_line'),
-                              points: locatedShops
-                                  .map((s) => LatLng(s.latitude!, s.longitude!))
-                                  .toList(),
-                              color: AirbnbTheme.coral,
-                              width: 4,
-                            ),
-                          }
-                        : {},
-                    onMapCreated: (ctrl) => _googleMapController = ctrl,
-                  )
-                else
-                  GestureDetector(
-                    child: CustomPaint(
-                      size: Size.infinite,
-                      painter: ZomatoRouteMapPainter(
-                        shops: locatedShops,
-                        selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
-                        activeShopId: activeShop?.id,
-                      ),
-                    ),
-                  ),
-
-                // Floating Pin Badges on Canvas (when offline sketch active)
-                if (!_showGoogleMaps && locatedShops.isNotEmpty)
-                  LayoutBuilder(
-                    builder: (ctx, constraints) {
-                      final w = constraints.maxWidth;
-                      final h = constraints.maxHeight;
-                      return Stack(
-                        children: locatedShops.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final shop = entry.value;
-                          final isSelected = shop.id == selectedShop?.id;
-                          final isCheckedIn = shop.isCheckedIn;
-                          final isVisited = shop.visitedToday;
-                          final pos = computeShopCanvasPosition(
-                            shop: shop,
-                            index: idx,
-                            totalCount: locatedShops.length,
-                            canvasSize: Size(w, h),
-                            allShops: locatedShops,
-                          );
-                          final letter = String.fromCharCode(65 + (idx % 26));
-
-                          return Positioned(
-                            left: pos.dx - 20,
-                            top: pos.dy - 24,
-                            child: GestureDetector(
-                              onTap: () {
-                                final origIdx = assignedShops.indexOf(shop);
-                                if (origIdx != -1) {
-                                  setState(() => _selectedStopIndex = origIdx);
-                                }
-                              },
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(5),
-                                      border: Border.all(
-                                        color: isSelected ? AirbnbTheme.coral : AirbnbTheme.border,
-                                        width: isSelected ? 1.5 : 0.8,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      shop.name.split(' ').take(2).join(' '),
-                                      style: TextStyle(
-                                        fontSize: 8.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: isSelected ? AirbnbTheme.coral : AirbnbTheme.dark,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    width: 26,
-                                    height: 26,
-                                    decoration: BoxDecoration(
-                                      color: isCheckedIn
-                                          ? AirbnbTheme.coral
-                                          : (isVisited
-                                              ? AirbnbTheme.success
-                                              : (isSelected ? AirbnbTheme.jodhpurBlue : const Color(0xFF475569))),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                    ),
-                                    child: Center(
-                                      child: isVisited
-                                          ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                          : Text(
-                                              letter,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
-
-                // Top Controls Overlay
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Fullscreen Map button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SalesRouteMapView(
-                                api: widget.api,
-                                onNavigateTab: widget.onNavigateTab,
-                                initialShowGoogleMaps: true,
-                              ),
-                            ),
-                          ).then((_) => setState(() {}));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Welcome back, Akhendera Singh',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AirbnbTheme.border),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                            ],
                           ),
-                          child: const Icon(Icons.fullscreen_rounded, size: 16, color: AirbnbTheme.dark),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Territory Executive • Jodhpur Region',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: widget.api.isTripActive
+                            ? const Color(0xFF00B894).withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: widget.api.isTripActive
+                              ? const Color(0xFF00B894)
+                              : Colors.white24,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      // Recenter button
-                      if (selectedShop?.latitude != null && selectedShop?.longitude != null)
-                        InkWell(
-                          onTap: () {
-                            _googleMapController?.animateCamera(
-                              CameraUpdate.newLatLng(
-                                LatLng(selectedShop!.latitude!, selectedShop.longitude!),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AirbnbTheme.border),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                              ],
-                            ),
-                            child: const Icon(Icons.my_location, size: 16, color: AirbnbTheme.jodhpurBlue),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            size: 8,
+                            color: widget.api.isTripActive
+                                ? const Color(0xFF00B894)
+                                : Colors.white60,
                           ),
-                        ),
-                      const SizedBox(width: 6),
-                      // Satellite/Normal Switcher
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _mapType = _mapType == MapType.normal ? MapType.hybrid : MapType.normal;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AirbnbTheme.border),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                            ],
-                          ),
-                          child: Icon(
-                            _mapType == MapType.normal ? Icons.satellite_alt : Icons.map,
-                            size: 16,
-                            color: AirbnbTheme.dark,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      // Map / Canvas toggle
-                      InkWell(
-                        onTap: () => setState(() => _showGoogleMaps = !_showGoogleMaps),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: _showGoogleMaps ? AirbnbTheme.jodhpurBlue : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AirbnbTheme.jodhpurBlue),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                            ],
-                          ),
-                          child: Text(
-                            _showGoogleMaps ? 'Canvas' : 'Google Map',
+                          const SizedBox(width: 5),
+                          Text(
+                            widget.api.isTripActive
+                                ? 'TRIP ACTIVE'
+                                : 'TRIP NOT STARTED',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: _showGoogleMaps ? Colors.white : AirbnbTheme.jodhpurBlue,
+                              color: widget.api.isTripActive
+                                  ? const Color(0xFF00B894)
+                                  : Colors.white70,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: Color(0xFF60A5FA)),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          "Today's route is ready: Sardarpura & Nai Sadak Commercial Beats",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                // Map Status / Notice label (top left)
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AirbnbTheme.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: _showGoogleMaps
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: AirbnbTheme.success,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                'Google Maps • Live',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: AirbnbTheme.dark,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Text(
-                            strings.t('route_sketch'),
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: AirbnbTheme.grey,
-                            ),
-                          ),
-                  ),
-                ),
-
-                // Bottom Right: "+ Add Shop" Button right on the map!
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: ElevatedButton.icon(
-                    onPressed: _openAddShopSheet,
-                    icon: const Icon(Icons.add_business_outlined, size: 14),
-                    label: const Text('+ Add Shop', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AirbnbTheme.coral,
-                      foregroundColor: Colors.white,
-                      elevation: 3,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
+
+          const SizedBox(height: 12),
+
+          // 2. ROUTEX 3-STAT CARDS (Customers Visited, Customers Skipped, Total Sales Placed)
+          Row(
+            children: [
+              // 1. Customers Visited
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AirbnbTheme.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.location_on, color: Color(0xFF2563EB), size: 22),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${widget.api.customersVisitedTodayCount}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: AirbnbTheme.dark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Customers\nvisited',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey, height: 1.2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 2. Customers Skipped
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AirbnbTheme.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.person_off_outlined, color: Color(0xFFD97706), size: 22),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${widget.api.customersSkippedTodayCount}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: AirbnbTheme.dark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Customers\nskipped',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey, height: 1.2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 3. Total Sales Placed
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AirbnbTheme.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.shopping_cart_outlined, color: Color(0xFF16A34A), size: 22),
+                      const SizedBox(height: 6),
+                      Text(
+                        '₹${totalRevenueRupees.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Total Sales\nPlaced',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey, height: 1.2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // 3. QUICK ACTIONS HEADER
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'QUICK ACTIONS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AirbnbTheme.grey,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              Text(
+                'Total Time: ${widget.api.totalBeatTimeSpentFormatted}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AirbnbTheme.jodhpurBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // 4. QUICK ACTION CARDS GRID (RouteX Style)
+          Row(
+            children: [
+              Expanded(
+                child: _buildRouteXActionTile(
+                  title: widget.api.isTripActive ? 'Route stop' : 'Route start',
+                  subtitle: widget.api.isTripActive ? 'End trip & meter' : 'Tap to begin route',
+                  color: const Color(0xFFEF4444),
+                  icon: Icons.alt_route_rounded,
+                  onTap: _showTripInOutDialog,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildRouteXActionTile(
+                  title: 'Order booking',
+                  subtitle: 'Place a new order',
+                  color: const Color(0xFF2563EB),
+                  icon: Icons.assignment_outlined,
+                  onTap: () => widget.onNavigateTab(1),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildRouteXActionTile(
+                  title: 'Emergency order',
+                  subtitle: 'Urgent fulfilment',
+                  color: const Color(0xFF7C3AED),
+                  icon: Icons.bolt_rounded,
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Priority emergency order mode active.')),
+                    );
+                    widget.onNavigateTab(1);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildRouteXActionTile(
+                  title: 'Delivery',
+                  subtitle: 'Confirm deliveries',
+                  color: const Color(0xFF16A34A),
+                  icon: Icons.local_shipping_outlined,
+                  onTap: () => widget.onNavigateTab(3),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildRouteXActionTile(
+                  title: 'Ready stock',
+                  subtitle: 'Van stock & loading',
+                  color: const Color(0xFFEA580C),
+                  icon: Icons.airport_shuttle_outlined,
+                  onTap: _showVanStockReportDialog,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildRouteXActionTile(
+                  title: 'Reports',
+                  subtitle: 'Daily sales summary',
+                  color: const Color(0xFF0D9488),
+                  icon: Icons.bar_chart_rounded,
+                  onTap: _showDailyOrderReport,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildUploadPendingTile(),
 
           const SizedBox(height: 12),
 
@@ -764,7 +747,20 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _openAddShopSheet,
+                      icon: const Icon(Icons.add_business_outlined, size: 15),
+                      label: const Text('+ Add', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AirbnbTheme.coral.withValues(alpha: 0.25),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.push(
@@ -774,14 +770,14 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           ),
                         ).then((_) => setState(() {}));
                       },
-                      icon: const Icon(Icons.map_rounded, size: 16),
-                      label: Text(strings.t('route_map'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                      icon: const Icon(Icons.map_rounded, size: 15),
+                      label: Text(strings.t('route_map'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.15),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       ),
                     ),
                   ],
@@ -804,11 +800,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           child: InkWell(
                             onTap: () {
                               setState(() => _selectedStopIndex = idx);
-                              if (shop.latitude != null && shop.longitude != null) {
-                                _googleMapController?.animateCamera(
-                                  CameraUpdate.newLatLng(LatLng(shop.latitude!, shop.longitude!)),
-                                );
-                              }
                             },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
@@ -1786,6 +1777,432 @@ class _SalesDashboardState extends State<SalesDashboard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRouteXActionTile({
+    required String title,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadPendingTile() {
+    final pendingCount = widget.api.pendingOutboxCount;
+    return InkWell(
+      onTap: () async {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Syncing pending orders to distributor server...')),
+        );
+        await widget.api.syncPendingOutbox();
+        setState(() {});
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Offline data synchronized successfully!')),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF854D0E),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF854D0E).withValues(alpha: 0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Upload pendings',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (pendingCount > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$pendingCount PENDING',
+                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.black),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const Text(
+                    'Sync offline data to server',
+                    style: TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.sync, color: Colors.white, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTripInOutDialog() {
+    final isTripActive = widget.api.isTripActive;
+    final vehicleCtrl = TextEditingController(text: widget.api.activeTripVehicleNo);
+    final meterCtrl = TextEditingController(
+      text: isTripActive ? (int.tryParse(widget.api.activeTripMeterReading) ?? 42850 + 25).toString() : widget.api.activeTripMeterReading,
+    );
+    final routeCtrl = TextEditingController(text: 'Sardarpura Commercial Beat (SAR-02)');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: EdgeInsets.zero,
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: const BoxDecoration(
+            color: Color(0xFF2563EB),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                onPressed: () => Navigator.pop(ctx),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isTripActive ? 'RouteX | Trip In Entry' : 'RouteX | Trip Out Entry',
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Blue stats subheader
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E40AF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text('88', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text('11-10-2026', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text('11:29', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+
+              const Text('Route Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+              const SizedBox(height: 4),
+              TextField(
+                controller: routeCtrl,
+                readOnly: isTripActive,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              const Text('Vehicle Number', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+              const SizedBox(height: 4),
+              TextField(
+                controller: vehicleCtrl,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              const Text('SALESMAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+              const SizedBox(height: 4),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AirbnbTheme.lightGrey,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AirbnbTheme.border),
+                ),
+                child: const Text('Akhendera Singh', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 10),
+
+              const Text('METER READING', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
+              const SizedBox(height: 4),
+              TextField(
+                controller: meterCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Enter Odometer Reading',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AirbnbTheme.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (isTripActive) {
+                widget.api.endTrip(meterReading: meterCtrl.text);
+                Navigator.pop(ctx);
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Trip ended and meter reading saved!')),
+                );
+              } else {
+                widget.api.startTrip(
+                  routeName: routeCtrl.text,
+                  vehicleNo: vehicleCtrl.text,
+                  meterReading: meterCtrl.text,
+                );
+                Navigator.pop(ctx);
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Trip started! Route activated.')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(isTripActive ? 'Save Trip End' : 'SAVE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showVanStockReportDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('RouteX | Ready Stock', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDialogMenuBtn('VAN Loading', Icons.upload_rounded, () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('VAN Loading confirmed.')));
+            }),
+            const SizedBox(height: 8),
+            _buildDialogMenuBtn('Direct Stock Loading', Icons.move_to_inbox, () {
+              Navigator.pop(ctx);
+            }),
+            const SizedBox(height: 8),
+            _buildDialogMenuBtn('Ready Stock Billing', Icons.receipt_long, () {
+              Navigator.pop(ctx);
+              widget.onNavigateTab(1);
+            }),
+            const SizedBox(height: 8),
+            _buildDialogMenuBtn('VAN Unloading', Icons.download_rounded, () {
+              Navigator.pop(ctx);
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogMenuBtn(String label, IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        decoration: BoxDecoration(
+          color: AirbnbTheme.lightGrey,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AirbnbTheme.jodhpurBlue),
+            const SizedBox(width: 10),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AirbnbTheme.dark)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDailyOrderReport() {
+    final orders = widget.api.orders;
+    final totalOrderValue = orders.fold(0, (sum, o) => sum + o.totalPaise) / 100.0;
+    const double discount = 0.0;
+    final double netTotal = totalOrderValue - discount;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('RouteX | Sales Order Report', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDBEAFE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('Order Value', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF1E40AF))),
+                        const SizedBox(height: 4),
+                        Text('₹${totalOrderValue.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E40AF))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('Discount', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF166534))),
+                        const SizedBox(height: 4),
+                        Text('₹${discount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF166534))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFCE7F3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('Total Amount', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF9D174D))),
+                        const SizedBox(height: 4),
+                        Text('₹${netTotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF9D174D))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '${orders.length} orders booked today during route beats.',
+              style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
