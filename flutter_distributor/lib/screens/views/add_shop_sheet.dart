@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../data/local/app_database.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
@@ -49,7 +50,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
   bool _whatsappSameAsPhone = true;
 
   final _addressCtrl = TextEditingController();
-  final _areaCtrl = TextEditingController(text: 'Sardarpura');
+  late final TextEditingController _areaCtrl;
   final _landmarkCtrl = TextEditingController();
   final _pincodeCtrl = TextEditingController();
   final _gstinCtrl = TextEditingController();
@@ -58,8 +59,8 @@ class _AddShopSheetState extends State<AddShopSheet> {
   String? _selectedRouteId;
   List<RouteEntry> _availableRoutes = [];
   RouteEntry? _suggestedNearbyRoute;
-  String _selectedShopType = 'KIRANA';
-  final String _suggestedClass = 'NEW';
+  String _selectedShopType = 'SUPERMARKET';
+  String _selectedClass = 'CLASS_A'; // 'CLASS_A', 'CLASS_B', 'CLASS_C'
   bool _showMoreDetails = false;
   bool _isSaving = false;
 
@@ -76,22 +77,112 @@ class _AddShopSheetState extends State<AddShopSheet> {
   // GST & Business Tax details
   String _gstType = 'CONSUMER'; // 'CONSUMER', 'COMPOSITION', 'REGULAR'
 
-  final List<String> _shopTypes = [
-    'KIRANA',
-    'FARSAN_NAMKEEN',
-    'GENERAL_STORE',
-    'SUPERMARKET',
-    'PHARMACY',
-    'PAAN_TEA_STALL',
-    'DHABA_RESTAURANT',
-    'WHOLESALE',
-    'OTHER',
+  final List<Map<String, dynamic>> _shopCategories = [
+    {
+      'type': 'SUPERMARKET',
+      'label': 'Super Mart',
+      'emoji': '🛒',
+      'recommendedClass': 'CLASS_A',
+      'desc': 'Large format self-service mart',
+    },
+    {
+      'type': 'KIRANA',
+      'label': 'Kirana Store',
+      'emoji': '🏪',
+      'recommendedClass': 'CLASS_B',
+      'desc': 'Traditional grocery & staples',
+    },
+    {
+      'type': 'GENERAL_STORE',
+      'label': 'General Store',
+      'emoji': '🛍️',
+      'recommendedClass': 'CLASS_B',
+      'desc': 'Daily household items & snacks',
+    },
+    {
+      'type': 'WHOLESALE',
+      'label': 'Wholesale Mart',
+      'emoji': '📦',
+      'recommendedClass': 'CLASS_A',
+      'desc': 'Bulk distribution trader',
+    },
+    {
+      'type': 'DAIRY_NEEDS',
+      'label': 'Dairy & Daily Needs',
+      'emoji': '🥛',
+      'recommendedClass': 'CLASS_B',
+      'desc': 'Milk, bakery & morning goods',
+    },
+    {
+      'type': 'FARSAN_NAMKEEN',
+      'label': 'Namkeen & Sweets',
+      'emoji': '🥟',
+      'recommendedClass': 'CLASS_B',
+      'desc': 'Snacks, namkeen & specialty',
+    },
+    {
+      'type': 'PHARMACY',
+      'label': 'Chemist / Pharma',
+      'emoji': '💊',
+      'recommendedClass': 'CLASS_B',
+      'desc': 'Medical & personal care',
+    },
+    {
+      'type': 'PAAN_TEA_STALL',
+      'label': 'Paan / Tea Stall',
+      'emoji': '☕',
+      'recommendedClass': 'CLASS_C',
+      'desc': 'High-frequency impulse kiosk',
+    },
+    {
+      'type': 'OTHER',
+      'label': 'Other Retail',
+      'emoji': '🏬',
+      'recommendedClass': 'CLASS_C',
+      'desc': 'Independent shop',
+    },
   ];
+
+  Color get _selectedClassColor {
+    switch (_selectedClass) {
+      case 'CLASS_A':
+      case 'A':
+        return const Color(0xFFD97706);
+      case 'CLASS_B':
+      case 'B':
+        return const Color(0xFF1A73E8);
+      case 'CLASS_C':
+      case 'C':
+        return const Color(0xFF00B894);
+      default:
+        return AirbnbTheme.dark;
+    }
+  }
+
+  String get _selectedClassBadge {
+    switch (_selectedClass) {
+      case 'CLASS_A':
+      case 'A':
+        return '⭐ Class A (Super Mart)';
+      case 'CLASS_B':
+      case 'B':
+        return '⚡ Class B (Kirana)';
+      case 'CLASS_C':
+      case 'C':
+        return '🏪 Class C (Small Kiosk)';
+      default:
+        return 'Class B';
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _selectedRouteId = widget.defaultRouteId;
+    final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
+    _areaCtrl = TextEditingController(
+      text: isJodhpur ? 'Sardarpura, Jodhpur' : 'Sector 17, Chandigarh',
+    );
+    _selectedRouteId = widget.defaultRouteId ?? (isJodhpur ? 'route_sardarpura_02' : 'route_chd_mohali_01');
     _loadRoutes();
 
     // Auto extract PAN from 15-digit GSTIN
@@ -114,9 +205,13 @@ class _AddShopSheetState extends State<AddShopSheet> {
   Future<void> _loadRoutes() async {
     final routes = await widget.api.getAvailableRoutes();
     if (mounted) {
+      final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
+      final preferredRouteId = isJodhpur ? 'route_sardarpura_02' : 'route_chd_mohali_01';
       setState(() {
         _availableRoutes = routes;
-        _selectedRouteId ??= routes.isNotEmpty ? routes.first.id : 'route_sojati_01';
+        _selectedRouteId ??= routes.any((r) => r.id == preferredRouteId)
+            ? preferredRouteId
+            : (routes.isNotEmpty ? routes.first.id : 'route_chd_mohali_01');
       });
     }
   }
@@ -143,10 +238,31 @@ class _AddShopSheetState extends State<AddShopSheet> {
   }
 
   void _simulateLocationCapture() async {
-    // Captures realistic coordinates with accuracy
-    final lat = 26.2850 + (DateTime.now().millisecond % 100) * 0.0001;
-    final lng = 73.0180 + (DateTime.now().millisecond % 100) * 0.0001;
-    final acc = 8.0 + (DateTime.now().second % 10);
+    double lat;
+    double lng;
+    double acc = 5.0;
+
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+      lat = pos.latitude;
+      lng = pos.longitude;
+      acc = pos.accuracy;
+    } catch (_) {
+      // Fallback to active territory center
+      final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
+      lat = isJodhpur
+          ? 26.2850 + (DateTime.now().millisecond % 50) * 0.0001
+          : 30.7225 + (DateTime.now().millisecond % 50) * 0.0001;
+      lng = isJodhpur
+          ? 73.0180 + (DateTime.now().millisecond % 50) * 0.0001
+          : 76.7620 + (DateTime.now().millisecond % 50) * 0.0001;
+      acc = 8.0 + (DateTime.now().second % 6);
+    }
 
     final suggested = await widget.api.suggestNearbyRoute(
       latitude: lat,
@@ -165,7 +281,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '📍 ${AppStrings.locationAccuracy(_accuracyMeters!)}',
+            '📍 Pin dropped: ${lat.toStringAsFixed(4)}° N, ${lng.toStringAsFixed(4)}° E (±${acc.round()}m)',
           ),
           backgroundColor: AirbnbTheme.dark,
         ),
@@ -174,12 +290,15 @@ class _AddShopSheetState extends State<AddShopSheet> {
   }
 
   void _openMapPinPicker() async {
+    final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
+    final fallbackArea = isJodhpur ? 'Sardarpura, Jodhpur' : 'Sector 17, Chandigarh';
+
     final result = await MapPinPickerDialog.show(
       context,
-      initialLatitude: _latitude ?? 26.2850,
-      initialLongitude: _longitude ?? 73.0180,
+      initialLatitude: _latitude ?? widget.api.currentRepLat,
+      initialLongitude: _longitude ?? widget.api.currentRepLng,
       shopName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : 'Retailer Shop',
-      initialArea: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : 'Sardarpura, Jodhpur',
+      initialArea: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : fallbackArea,
     );
 
     if (result != null && mounted) {
@@ -230,11 +349,14 @@ class _AddShopSheetState extends State<AddShopSheet> {
       return;
     }
 
+    final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
+    final fallbackArea = isJodhpur ? 'Sardarpura, Jodhpur' : 'Sector 17, Chandigarh';
+
     // 1. Check for duplicates
     final dupResult = widget.api.checkDuplicateRetailer(
       phone: rawPhone,
       name: name,
-      area: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : 'Jodhpur',
+      area: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : fallbackArea,
       gstin: _gstinCtrl.text.trim(),
       latitude: _latitude,
       longitude: _longitude,
@@ -252,7 +374,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
         ownerName: owner,
         phone: rawPhone,
         address: _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : _areaCtrl.text.trim(),
-        area: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : 'Jodhpur',
+        area: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : fallbackArea,
         routeId: _selectedRouteId,
         shopType: _selectedShopType,
         gstin: _gstinCtrl.text.trim().isNotEmpty ? _gstinCtrl.text.trim().toUpperCase() : null,
@@ -261,7 +383,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
         latitude: _latitude,
         longitude: _longitude,
         locationAccuracyMeters: _accuracyMeters,
-        suggestedClass: _suggestedClass,
+        suggestedClass: _selectedClass,
         routeInsertPosition: _routeInsertPosition,
         insertAfterRetailerId: _routeInsertPosition == 'AFTER_SHOP' ? _insertAfterShopId : null,
         whatsappPhone: _whatsappSameAsPhone ? rawPhone : _whatsappCtrl.text.trim(),
@@ -274,7 +396,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
         Navigator.pop(context, newShop);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✓ "${newShop.name}" ${AppStrings.savedOnPhone}'),
+            content: Text('✓ "${newShop.name}" ($_selectedClassBadge) ${AppStrings.savedOnPhone}'),
             backgroundColor: AirbnbTheme.success,
           ),
         );
@@ -285,6 +407,86 @@ class _AddShopSheetState extends State<AddShopSheet> {
         _showError('Error saving shop: $e');
       }
     }
+  }
+
+  Widget _buildClassTile({
+    required String keyId,
+    required String classCode,
+    required String title,
+    required String subtitle,
+    required String credit,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isSel = _selectedClass == classCode;
+    return Expanded(
+      child: InkWell(
+        key: ValueKey(keyId),
+        onTap: () => setState(() => _selectedClass = classCode),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSel ? color.withValues(alpha: 0.12) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSel ? color : AirbnbTheme.border,
+              width: isSel ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 14, color: isSel ? color : AirbnbTheme.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: isSel ? color : AirbnbTheme.dark,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isSel ? color.withValues(alpha: 0.9) : AirbnbTheme.grey,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: isSel ? color : Colors.grey.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  credit,
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w800,
+                    color: isSel ? Colors.white : AirbnbTheme.dark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showError(String msg) {
@@ -455,14 +657,15 @@ class _AddShopSheetState extends State<AddShopSheet> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.1),
+                    color: _selectedClassColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _selectedClassColor.withValues(alpha: 0.4)),
                   ),
-                  child: const Text(
-                    'Class: NEW (Cash Only)',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                  child: Text(
+                    _selectedClassBadge,
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: _selectedClassColor),
                   ),
                 ),
               ],
@@ -556,7 +759,109 @@ class _AddShopSheetState extends State<AddShopSheet> {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+
+            // Shop Classification & Category Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Shop Class & Category',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _selectedClassColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _selectedClassColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    _selectedClassBadge,
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: _selectedClassColor),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Select outlet classification and primary retail category:',
+              style: TextStyle(fontSize: 11, color: AirbnbTheme.grey),
+            ),
+            const SizedBox(height: 8),
+
+            // Class Cards: Class A, Class B, Class C
+            Row(
+              children: [
+                _buildClassTile(
+                  keyId: 'class_a_tile',
+                  classCode: 'CLASS_A',
+                  title: 'Class A',
+                  subtitle: 'Super Mart',
+                  credit: '₹1,00,000 Limit',
+                  color: const Color(0xFFD97706),
+                  icon: Icons.storefront_rounded,
+                ),
+                const SizedBox(width: 8),
+                _buildClassTile(
+                  keyId: 'class_b_tile',
+                  classCode: 'CLASS_B',
+                  title: 'Class B',
+                  subtitle: 'Kirana Store',
+                  credit: '₹50,000 Limit',
+                  color: const Color(0xFF1A73E8),
+                  icon: Icons.local_grocery_store_rounded,
+                ),
+                const SizedBox(width: 8),
+                _buildClassTile(
+                  keyId: 'class_c_tile',
+                  classCode: 'CLASS_C',
+                  title: 'Class C',
+                  subtitle: 'Small Kiosk',
+                  credit: '₹15,000 / Cash',
+                  color: const Color(0xFF00B894),
+                  icon: Icons.shopping_bag_outlined,
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
+
+            // Category Chips with emojis
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _shopCategories.map((cat) {
+                final String type = cat['type'] as String;
+                final String label = cat['label'] as String;
+                final String emoji = cat['emoji'] as String;
+                final String recClass = cat['recommendedClass'] as String;
+                final isSel = _selectedShopType == type;
+
+                return ChoiceChip(
+                  label: Text(
+                    '$emoji $label',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                      color: isSel ? Colors.white : AirbnbTheme.dark,
+                    ),
+                  ),
+                  selected: isSel,
+                  selectedColor: AirbnbTheme.dark,
+                  backgroundColor: AirbnbTheme.lightGrey,
+                  side: BorderSide(
+                    color: isSel ? AirbnbTheme.dark : AirbnbTheme.border,
+                  ),
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedShopType = type;
+                      _selectedClass = recClass;
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
 
             // 4. Rapido-Style Location Picker & Geotag
             if (!_gpsCaptured)
@@ -670,6 +975,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
             // Route / Beat Picker
             if (_availableRoutes.isNotEmpty) ...[
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _selectedRouteId,
                 decoration: InputDecoration(
                   labelText: AppStrings.routeLabel,
@@ -679,7 +985,11 @@ class _AddShopSheetState extends State<AddShopSheet> {
                 items: _availableRoutes.map((r) {
                   return DropdownMenuItem<String>(
                     value: r.id,
-                    child: Text('${r.name} (${r.code})', style: const TextStyle(fontSize: 13)),
+                    child: Text(
+                      '${r.name} (${r.code})',
+                      style: const TextStyle(fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   );
                 }).toList(),
                 onChanged: (val) {
@@ -695,6 +1005,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _routeInsertPosition,
                       isDense: true,
                       decoration: InputDecoration(
@@ -702,9 +1013,9 @@ class _AddShopSheetState extends State<AddShopSheet> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'AT_END', child: Text('At End of Route', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'AT_START', child: Text('At Start of Route', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'AFTER_SHOP', child: Text('After Specific Shop...', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'AT_END', child: Text('At End of Route', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: 'AT_START', child: Text('At Start of Route', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: 'AFTER_SHOP', child: Text('After Specific Shop...', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _routeInsertPosition = val);
@@ -716,6 +1027,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
               if (_routeInsertPosition == 'AFTER_SHOP') ...[
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _insertAfterShopId,
                   decoration: InputDecoration(
                     labelText: 'Select Preceding Shop',
@@ -797,52 +1109,6 @@ class _AddShopSheetState extends State<AddShopSheet> {
 
             if (_showMoreDetails) ...[
               const SizedBox(height: 8),
-              const Text('Shop Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),
-              const SizedBox(height: 6),
-              // Shop Type Chips
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: _shopTypes.map((type) {
-                  final isSel = _selectedShopType == type;
-                  String label;
-                  switch (type) {
-                    case 'FARSAN_NAMKEEN':
-                      label = '🥟 Farsan & Namkeen';
-                      break;
-                    case 'KIRANA':
-                      label = '🏪 Kirana Store';
-                      break;
-                    case 'GENERAL_STORE':
-                      label = '🛍️ General Store';
-                      break;
-                    case 'SUPERMARKET':
-                      label = '🛒 Supermarket';
-                      break;
-                    case 'PHARMACY':
-                      label = '💊 Pharmacy';
-                      break;
-                    case 'PAAN_TEA_STALL':
-                      label = '☕ Paan / Tea';
-                      break;
-                    case 'DHABA_RESTAURANT':
-                      label = '🍲 Dhaba / Hotel';
-                      break;
-                    case 'WHOLESALE':
-                      label = '📦 Wholesale';
-                      break;
-                    default:
-                      label = '🏬 Other Retail';
-                  }
-                  return ChoiceChip(
-                    label: Text(label, style: TextStyle(fontSize: 10, color: isSel ? Colors.white : AirbnbTheme.dark)),
-                    selected: isSel,
-                    selectedColor: AirbnbTheme.dark,
-                    onSelected: (_) => setState(() => _selectedShopType = type),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
 
               // GST Registration Status & PAN
               const Text('GST Registration Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AirbnbTheme.dark)),

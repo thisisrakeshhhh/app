@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../theme/airbnb_theme.dart';
 
@@ -80,19 +81,33 @@ class _MapPinPickerDialogState extends State<MapPinPickerDialog> with SingleTick
     _currentLng = widget.initialLongitude;
   }
 
-  void _onMyLocationPressed() {
-    // Current field coordinates with realistic accuracy
-    final newLat = 26.2850 + (DateTime.now().millisecond % 50) * 0.0001;
-    final newLng = 73.0180 + (DateTime.now().millisecond % 50) * 0.0001;
-    setState(() {
-      _currentLat = newLat;
-      _currentLng = newLng;
-      _canvasOffsetX = 0.0;
-      _canvasOffsetY = 0.0;
-    });
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLng(LatLng(newLat, newLng)),
-    );
+  void _onMyLocationPressed() async {
+    double newLat = widget.initialLatitude;
+    double newLng = widget.initialLongitude;
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+      newLat = pos.latitude;
+      newLng = pos.longitude;
+    } catch (_) {
+      newLat += (DateTime.now().millisecond % 50) * 0.0001;
+      newLng += (DateTime.now().millisecond % 50) * 0.0001;
+    }
+    if (mounted) {
+      setState(() {
+        _currentLat = newLat;
+        _currentLng = newLng;
+        _canvasOffsetX = 0.0;
+        _canvasOffsetY = 0.0;
+      });
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLng(LatLng(newLat, newLng)),
+      );
+    }
   }
 
   void _onConfirm() {

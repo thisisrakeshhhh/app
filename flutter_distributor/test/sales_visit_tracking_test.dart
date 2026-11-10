@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lala_distributor/data/local/app_database.dart';
 import 'package:lala_distributor/data/local/local_repository.dart';
 import 'package:lala_distributor/domain/auth/auth_models.dart';
-import 'package:lala_distributor/domain/outbox/outbox_models.dart';
 import 'package:lala_distributor/models/models.dart';
 import 'package:lala_distributor/services/api_service.dart';
 

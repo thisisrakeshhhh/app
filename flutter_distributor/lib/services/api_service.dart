@@ -740,7 +740,7 @@ class ApiService extends ChangeNotifier {
       latitude: latitude,
       longitude: longitude,
       locationAccuracyMeters: locationAccuracyMeters,
-      classType: 'NEW',
+      classType: (suggestedClass != null && suggestedClass.isNotEmpty) ? suggestedClass : 'NEW',
       classSource: 'SALESPERSON_SUGGESTED',
       shopType: shopType,
       gstin: gstin?.trim().toUpperCase(),

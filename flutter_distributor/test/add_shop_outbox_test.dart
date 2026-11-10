@@ -138,7 +138,7 @@ void main() {
       );
       expect(dupPhone.hasDuplicate, isTrue);
       expect(dupPhone.type, equals(DuplicateType.exactMobile));
-      expect(dupPhone.matchedShop!.id, equals(api.retailers.first.id));
+      expect(dupPhone.matchedShop!.id, equals('RET-JDH-01'));
 
       // Clean check with brand new mobile and name
       final noDup = api.checkDuplicateRetailer(
