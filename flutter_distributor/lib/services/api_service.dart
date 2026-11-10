@@ -654,7 +654,6 @@ class ApiService extends ChangeNotifier {
       longitude: longitude,
       locationAccuracyMeters: locationAccuracyMeters,
     );
-    await repository.addRouteStop(routeId: rId, retailerId: shop.id);
     return shop;
   }
 
@@ -740,7 +739,7 @@ class ApiService extends ChangeNotifier {
       latitude: latitude,
       longitude: longitude,
       locationAccuracyMeters: locationAccuracyMeters,
-      classType: (suggestedClass != null && suggestedClass.isNotEmpty) ? suggestedClass : 'NEW',
+      classType: 'NEW',
       classSource: 'SALESPERSON_SUGGESTED',
       shopType: shopType,
       gstin: gstin?.trim().toUpperCase(),
@@ -1462,22 +1461,301 @@ class ApiService extends ChangeNotifier {
   final List<DistributorOrder> _orders = [];
   List<DistributorOrder> get orders => _orders;
 
-  // Delivery Stops
+  /// Delivery Stops
   final List<DeliveryStop> _deliveryStops = [];
   List<DeliveryStop> get deliveryStops => _deliveryStops;
+
+  // Truck Inward History (Kb stock aaya, konse truck se aaya, kya kya aaya)
+  final List<TruckInwardEntry> _truckInwardLog = [];
+  List<TruckInwardEntry> get truckInwardLog => List.unmodifiable(_truckInwardLog);
+
+  // Stock Outward Dispatch History (Kaha kaha stock gya)
+  final List<StockDispatchEntry> _stockDispatchLog = [];
+  List<StockDispatchEntry> get stockDispatchLog => List.unmodifiable(_stockDispatchLog);
+
+  /// Reseeds demo transactions (orders, delivery stops, logs) if empty after re-login.
+  void reseedInitialStateIfEmpty() {
+    if (_orders.isEmpty && _products.length >= 4) {
+      _orders.addAll([
+        DistributorOrder(
+          id: 'ord_init_01',
+          orderNumber: 'ROUT-849201',
+          shopId: 'RET-CHD-02',
+          shopName: 'Aroma Supermarket & Daily Needs',
+          shopPhone: '+91 98720 23456',
+          address: 'Sector 22-B, Chandigarh',
+          items: [
+            CartItem(product: _products[0], unit: OrderUnit.box, quantity: 2),
+            CartItem(product: _products.length > 6 ? _products[6] : _products[1], unit: OrderUnit.box, quantity: 1),
+          ],
+          totalPaise: 1898000,
+          taxablePaise: 1694643,
+          totalGstPaise: 203357,
+          paymentMode: 'COD',
+          stage: OrderLifecycleStage.readyStock,
+          assignedCarNumber: _carNumber,
+          otp: '724185',
+          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+          isOwnerApproved: true,
+        ),
+        DistributorOrder(
+          id: 'ord_init_02',
+          orderNumber: 'ROUT-772910',
+          shopId: 'RET-CHD-01',
+          shopName: 'Punjab Kirana & Departmental Store',
+          shopPhone: '+91 98150 12345',
+          address: 'SCO 45, Sector 17-C, Chandigarh',
+          items: [
+            CartItem(product: _products[1], unit: OrderUnit.box, quantity: 3),
+            CartItem(product: _products[2], unit: OrderUnit.box, quantity: 1),
+          ],
+          totalPaise: 2650000,
+          taxablePaise: 2366071,
+          totalGstPaise: 283929,
+          paymentMode: 'CREDIT',
+          stage: OrderLifecycleStage.orderSend,
+          assignedCarNumber: _carNumber,
+          otp: '724185',
+          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+          isOwnerApproved: true,
+        ),
+        DistributorOrder(
+          id: 'ord_init_03',
+          orderNumber: 'ROUT-910245',
+          shopId: 'RET-MOH-05',
+          shopName: 'Mohali Fresh & Daily Grocers',
+          shopPhone: '+91 98760 56789',
+          address: 'SCF 28, Phase 3B2, Mohali',
+          items: [
+            CartItem(product: _products[0], unit: OrderUnit.strip, quantity: 6),
+            CartItem(product: _products[3], unit: OrderUnit.piece, quantity: 24),
+          ],
+          totalPaise: 796500,
+          taxablePaise: 711161,
+          totalGstPaise: 85339,
+          paymentMode: 'COD',
+          stage: OrderLifecycleStage.booking,
+          assignedCarNumber: _carNumber,
+          otp: '724185',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
+          isOwnerApproved: false,
+        ),
+      ]);
+    }
+
+    if (_deliveryStops.isEmpty) {
+      _deliveryStops.addAll([
+        DeliveryStop(
+          id: 'stop_init_01',
+          orderId: 'ord_init_01',
+          shopName: 'Jodhpur Wholesale Traders',
+          ownerName: 'Madan Lal Sharma',
+          phone: '+91 94141 55678',
+          address: 'Plot 22, B-Road, Near Nehru Park, Sardarpura',
+          area: 'Sardarpura (Stop 1)',
+          codAmountPaise: 1898000,
+          serverOtp: '724185',
+          itemCount: 2,
+          isDelivered: false,
+          latitude: 26.2810,
+          longitude: 73.0115,
+        ),
+        DeliveryStop(
+          id: 'stop_init_02',
+          orderId: 'ord_init_02',
+          shopName: 'Shree Ganesh Kirana Store',
+          ownerName: 'Ramprasad Maheshwari',
+          phone: '+91 98290 12345',
+          address: 'Shop 14, Nai Sadak (Opp. Ghanta Ghar), Jodhpur',
+          area: 'Nai Sadak (Stop 2)',
+          codAmountPaise: 2650000,
+          serverOtp: '724185',
+          itemCount: 2,
+          isDelivered: false,
+          latitude: 26.2945,
+          longitude: 73.0240,
+        ),
+      ]);
+    }
+
+    if (_truckInwardLog.isEmpty && _products.length >= 4) {
+      _truckInwardLog.addAll([
+        TruckInwardEntry(
+          id: 'INW-1001',
+          truckNumber: 'RJ-19-GA-1102',
+          driverName: 'Kailash Singh',
+          supplier: 'Bikaji Foods Central Plant',
+          arrivedAt: DateTime.now().subtract(const Duration(hours: 4)),
+          items: [
+            TruckInwardItem(productId: _products[0].id, productName: _products[0].name, boxes: 50, pieces: 0),
+            TruckInwardItem(productId: _products[1].id, productName: _products[1].name, boxes: 35, pieces: 20),
+          ],
+          totalCartons: 85,
+          totalPieces: 85 * 24 + 20,
+        ),
+        TruckInwardEntry(
+          id: 'INW-1002',
+          truckNumber: 'PB-65-AX-8910',
+          driverName: 'Gurdeep Singh',
+          supplier: 'Panipat FMCG Depot',
+          arrivedAt: DateTime.now().subtract(const Duration(hours: 8)),
+          items: [
+            TruckInwardItem(productId: _products[2].id, productName: _products[2].name, boxes: 40, pieces: 0),
+            TruckInwardItem(productId: _products[3].id, productName: _products[3].name, boxes: 25, pieces: 10),
+          ],
+          totalCartons: 65,
+          totalPieces: 65 * 24 + 10,
+        ),
+      ]);
+    }
+
+    if (_stockDispatchLog.isEmpty) {
+      _stockDispatchLog.addAll([
+        StockDispatchEntry(
+          id: 'DSP-1001',
+          orderNumber: 'ROUT-849201',
+          shopName: 'Aroma Supermarket & Daily Needs',
+          shopArea: 'Sector 22-B, Chandigarh',
+          dispatchedAt: DateTime.now().subtract(const Duration(hours: 2)),
+          deliveryVehicle: _carNumber,
+          itemsSummary: '2 Box Real Bites Bikaneri Sev, 1 Box Sing Bhujiya',
+          totalCartons: 3,
+        ),
+        StockDispatchEntry(
+          id: 'DSP-1002',
+          orderNumber: 'ROUT-772910',
+          shopName: 'Punjab Kirana & Departmental Store',
+          shopArea: 'SCO 45, Sector 17-C, Chandigarh',
+          dispatchedAt: DateTime.now().subtract(const Duration(hours: 3)),
+          deliveryVehicle: _carNumber,
+          itemsSummary: '3 Box Real Bites Aaloo Sev, 4 Strip Wafers',
+          totalCartons: 3,
+        ),
+      ]);
+    }
+    notifyListeners();
+  }
 
   // Transient state generation fencing for logout safety
   int _transientGeneration = 0;
   int get transientGeneration => _transientGeneration;
 
-  /// Clears all tenant-sensitive in-memory transient state (cart, orders, delivery stops).
+  /// Clears all tenant-sensitive in-memory transient state (cart, orders, delivery stops, logs).
   /// Increments _transientGeneration to fence out any delayed in-flight async operations.
   Future<void> clearTransientState() async {
     _transientGeneration++;
     _cart.clear();
     _orders.clear();
     _deliveryStops.clear();
+    _truckInwardLog.clear();
+    _stockDispatchLog.clear();
     notifyListeners();
+  }
+
+  /// Receives stock from an incoming truck with multi-unit cart items
+  /// and updates Godown inventory in RAM and Drift SQLite DB in real time.
+  Future<void> receiveTruckInward({
+    required String truckNumber,
+    required String driverName,
+    required String supplier,
+    required List<TruckInwardItem> items,
+  }) async {
+    if (items.isEmpty) return;
+
+    int totalCartons = 0;
+    int totalPieces = 0;
+
+    for (final item in items) {
+      final idx = _products.indexWhere((p) => p.id == item.productId);
+      if (idx != -1) {
+        _products[idx].godownStockBoxes += item.boxes;
+        final boxQty = _products[idx].boxQty > 0 ? _products[idx].boxQty : 1;
+        totalCartons += item.boxes;
+        totalPieces += (item.boxes * boxQty) + item.pieces + (item.strips * (_products[idx].stripQty > 0 ? _products[idx].stripQty : 1));
+
+        // Save to Drift database atomically
+        try {
+          await repository.recordGrnReceipt(
+            productId: item.productId,
+            supplierName: supplier.isNotEmpty ? supplier : 'Central FMCG Plant',
+            invoiceNumber: 'TRK-${truckNumber.replaceAll(' ', '')}',
+            batchNumber: 'B-${DateTime.now().month}${DateTime.now().day}',
+            cartonsReceived: item.boxes,
+            loosePiecesReceived: item.pieces + (item.strips * (_products[idx].stripQty > 0 ? _products[idx].stripQty : 1)),
+            damagedCartons: 0,
+            damagedLoosePieces: 0,
+            notes: 'Truck Inward from $truckNumber ($driverName)',
+            idempotencyKey: generateUuidV4(),
+          );
+        } catch (_) {}
+      }
+    }
+
+    final entry = TruckInwardEntry(
+      id: 'INW-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      truckNumber: truckNumber.trim().toUpperCase(),
+      driverName: driverName.trim().isNotEmpty ? driverName.trim() : 'Driver',
+      supplier: supplier.trim().isNotEmpty ? supplier.trim() : 'Central FMCG Depot',
+      arrivedAt: DateTime.now(),
+      items: List.from(items),
+      totalCartons: totalCartons,
+      totalPieces: totalPieces,
+    );
+
+    _truckInwardLog.insert(0, entry);
+    notifyListeners();
+  }
+
+  /// Approves a sales order by Owner
+  void approveOrderByOwner(String orderId) {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx != -1) {
+      _orders[idx].isOwnerApproved = true;
+      notifyListeners();
+    }
+  }
+
+  /// Warehouse worker picks and packs an approved order
+  void pickAndPackOrder(String orderId) {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx != -1) {
+      final order = _orders[idx];
+      order.stage = OrderLifecycleStage.readyStock;
+
+      final summary = order.items.map((i) => '${i.quantity} ${i.unit.name.toUpperCase()} ${i.product.name}').join(', ');
+      final totalBoxes = order.items.fold<int>(0, (sum, i) => sum + (i.unit == OrderUnit.box ? i.quantity : 1));
+
+      _stockDispatchLog.insert(0, StockDispatchEntry(
+        id: 'DSP-${DateTime.now().millisecondsSinceEpoch % 100000}',
+        orderNumber: order.orderNumber,
+        shopName: order.shopName,
+        shopArea: order.address,
+        dispatchedAt: DateTime.now(),
+        deliveryVehicle: order.assignedCarNumber,
+        itemsSummary: summary,
+        totalCartons: totalBoxes,
+      ));
+
+      notifyListeners();
+    }
+  }
+
+  /// Delivery driver marks delivery complete
+  void markDeliveryComplete(String stopId) {
+    final idx = _deliveryStops.indexWhere((s) => s.id == stopId);
+    if (idx != -1) {
+      final stop = _deliveryStops[idx];
+      stop.isDelivered = true;
+      stop.cashCollected = true;
+      stop.deliveredAt = DateTime.now();
+
+      final orderIdx = _orders.indexWhere((o) => o.id == stop.orderId);
+      if (orderIdx != -1) {
+        _orders[orderIdx].stage = OrderLifecycleStage.delivered;
+        _orders[orderIdx].isPaid = true;
+      }
+      notifyListeners();
+    }
   }
 
   /// Runs an async tenant operation fenced by the current transient generation.
@@ -1755,15 +2033,16 @@ class ApiService extends ChangeNotifier {
   List<RetailerShop> get assignedRouteShops {
     final assigned = _retailers.where((r) => isAssignedBeatShop(r.id)).toList();
     final extras = _retailers.where((r) => _extraVisitShopIds.contains(r.id) && !assigned.contains(r)).toList();
-    final all = [...assigned, ...extras];
 
+    List<RetailerShop> filteredAssigned;
     if (_activeTerritory == 'jodhpur') {
-      final jdh = all.where((s) => (s.latitude != null && s.latitude! < 29.0) || s.id.contains('JDH') || (s.routeId ?? '').contains('sardarpura') || (s.routeId ?? '').contains('nai_sadak')).toList();
-      return jdh.isNotEmpty ? jdh : all;
+      final jdh = assigned.where((s) => (s.latitude != null && s.latitude! < 29.0) || s.id.contains('JDH') || (s.routeId ?? '').contains('sardarpura') || (s.routeId ?? '').contains('nai_sadak')).toList();
+      filteredAssigned = jdh.isNotEmpty ? jdh : assigned;
     } else {
-      final chd = all.where((s) => (s.latitude != null && s.latitude! >= 29.0) || s.id.contains('CHD') || s.id.contains('MOH') || (s.routeId ?? '').contains('chd')).toList();
-      return chd.isNotEmpty ? chd : all;
+      final chd = assigned.where((s) => (s.latitude != null && s.latitude! >= 29.0) || s.id.contains('CHD') || s.id.contains('MOH') || (s.routeId ?? '').contains('chd')).toList();
+      filteredAssigned = chd.isNotEmpty ? chd : assigned;
     }
+    return [...filteredAssigned, ...extras];
   }
 
   /// Dynamically sequences today's beat stops along the physical road corridor
@@ -2543,42 +2822,10 @@ class ApiService extends ChangeNotifier {
       payloadJson: candidatePayload.toCanonicalJson(),
       provisionalBusinessId: provisionalOrderId,
       createdAtEpochMs: epochMs,
-      businessOperation: () async {
-        for (final item in _cart.values) {
-          final prod = _products.cast<ProductItem?>().firstWhere(
-            (p) => p?.id == item.product.id,
-            orElse: () => null,
-          );
-          if (prod != null) {
-            final snap = await repository.getInventorySnapshot(prod.id);
-            final currentGodown = snap?.godownCartons ?? prod.godownStockBoxes;
-            final currentPieces = snap?.godownLoosePieces ?? 0;
-            final boxQty = prod.boxQty > 0 ? prod.boxQty : 1;
-            final totalPiecesNeeded = item.totalPieces;
-            final currentTotalPieces = (currentGodown * boxQty) + currentPieces;
-            final remainingPieces = (currentTotalPieces - totalPiecesNeeded).clamp(0, 99999999);
-            final newGodown = remainingPieces ~/ boxQty;
-            final newLoose = remainingPieces % boxQty;
-
-            await repository.recordStockMovement(
-              productId: prod.id,
-              movementType: 'DISPATCH',
-              cartonDelta: -(totalPiecesNeeded ~/ boxQty),
-              loosePieceDelta: -(totalPiecesNeeded % boxQty),
-              reason: 'Order $orderNumber booked for ${shop.name}',
-              newGodownCartons: newGodown,
-              newGodownLoosePieces: newLoose,
-              newCarCartons: snap?.carCartons ?? prod.carStockBoxes,
-              newCarLoosePieces: snap?.carLoosePieces ?? 0,
-            );
-            prod.godownStockBoxes = newGodown;
-          }
-        }
-        shop.todayOrderTotalPaise += totalsPayload.totalAmountPaise;
-        shop.visitedToday = true;
-        await repository.upsertRetailer(shop);
-      },
     );
+
+    shop.todayOrderTotalPaise += totalsPayload.totalAmountPaise;
+    shop.visitedToday = true;
 
     // 4. Construct in-memory DistributorOrder from payload snapshot and register in booking stream
     final confirmedOrder = _reconstructOrderFromPayload(candidatePayload);
@@ -2668,6 +2915,7 @@ class ApiService extends ChangeNotifier {
           : _carNumber,
       otp: '${100000 + (payload.clientCreatedAtEpochMs % 900000)}',
       createdAt: DateTime.fromMillisecondsSinceEpoch(payload.clientCreatedAtEpochMs),
+      isOwnerApproved: false,
     );
   }
 
@@ -3653,12 +3901,12 @@ class ApiService extends ChangeNotifier {
       ),
       // Jodhpur Warehouses
       WarehouseHub(
-        id: 'WH-JODH-CENTRAL',
-        name: 'Basni Central Depot (Godown A)',
+        id: 'WH-JDH-CENTRAL',
+        name: 'Routidrow Central Godown (Basni)',
         code: 'JODH-BSN-01',
         address: 'Plot 42, Heavy Industrial Area, Basni Phase II, Jodhpur',
-        latitude: 26.2480,
-        longitude: 73.0050,
+        latitude: 26.2167,
+        longitude: 73.0167,
         capacityBoxes: 6500,
         activeStaffCount: 12,
         godownStockBoxes: 210,
@@ -3744,6 +3992,7 @@ class ApiService extends ChangeNotifier {
         assignedCarNumber: _carNumber,
         otp: '724185',
         createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
+        isOwnerApproved: false,
       ),
     ]);
 
@@ -3755,14 +4004,14 @@ class ApiService extends ChangeNotifier {
         shopName: 'Jodhpur Wholesale Traders',
         ownerName: 'Madan Lal Sharma',
         phone: '+91 94141 55678',
-        address: 'B-Road, Sardarpura, Jodhpur',
+        address: 'Plot 22, B-Road, Near Nehru Park, Sardarpura',
         area: 'Sardarpura (Stop 1)',
         codAmountPaise: 1898000,
         serverOtp: '724185',
         itemCount: 2,
         isDelivered: false,
-        latitude: 26.2750,
-        longitude: 73.0080,
+        latitude: 26.2810,
+        longitude: 73.0115,
       ),
       DeliveryStop(
         id: 'stop_init_02',
@@ -3770,14 +4019,68 @@ class ApiService extends ChangeNotifier {
         shopName: 'Shree Ganesh Kirana Store',
         ownerName: 'Ramprasad Maheshwari',
         phone: '+91 98290 12345',
-        address: 'Opp. Ghanta Ghar, Station Road',
-        area: 'Clock Tower (Stop 2)',
-        codAmountPaise: 0, // On Credit
+        address: 'Shop 14, Nai Sadak (Opp. Ghanta Ghar), Jodhpur',
+        area: 'Nai Sadak (Stop 2)',
+        codAmountPaise: 2650000,
         serverOtp: '724185',
         itemCount: 2,
         isDelivered: false,
-        latitude: 26.2965,
-        longitude: 73.0232,
+        latitude: 26.2945,
+        longitude: 73.0240,
+      ),
+    ]);
+
+    // Initial Truck Inward Log (Kb stock aaya, konse truck se aaya, kya kya aaya)
+    _truckInwardLog.addAll([
+      TruckInwardEntry(
+        id: 'INW-1001',
+        truckNumber: 'RJ-19-GA-1102',
+        driverName: 'Kailash Singh',
+        supplier: 'Bikaji Foods Central Plant',
+        arrivedAt: DateTime.now().subtract(const Duration(hours: 4)),
+        items: [
+          TruckInwardItem(productId: _products[0].id, productName: _products[0].name, boxes: 50, pieces: 0),
+          TruckInwardItem(productId: _products[1].id, productName: _products[1].name, boxes: 35, pieces: 20),
+        ],
+        totalCartons: 85,
+        totalPieces: 85 * 24 + 20,
+      ),
+      TruckInwardEntry(
+        id: 'INW-1002',
+        truckNumber: 'PB-65-AX-8910',
+        driverName: 'Gurdeep Singh',
+        supplier: 'Panipat FMCG Depot',
+        arrivedAt: DateTime.now().subtract(const Duration(hours: 8)),
+        items: [
+          TruckInwardItem(productId: _products[2].id, productName: _products[2].name, boxes: 40, pieces: 0),
+          TruckInwardItem(productId: _products[3].id, productName: _products[3].name, boxes: 25, pieces: 10),
+        ],
+        totalCartons: 65,
+        totalPieces: 65 * 24 + 10,
+      ),
+    ]);
+
+    // Initial Stock Outward Dispatch Log (Kaha kaha stock gya)
+    _stockDispatchLog.addAll([
+      StockDispatchEntry(
+        id: 'DSP-1001',
+        orderNumber: 'ROUT-849201',
+        shopName: 'Aroma Supermarket & Daily Needs',
+        shopArea: 'Sector 22-B, Chandigarh',
+        dispatchedAt: DateTime.now().subtract(const Duration(hours: 2)),
+        deliveryVehicle: _carNumber,
+        itemsSummary: '2 Box Real Bites Bikaneri Sev, 1 Box Sing Bhujiya',
+        totalCartons: 3,
+      ),
+      StockDispatchEntry(
+        id: 'DSP-1002',
+        orderNumber: 'ROUT-772910',
+        shopName: 'Punjab Kirana & Departmental Store',
+        shopArea: 'SCO 45, Sector 17-C, Chandigarh',
+        dispatchedAt: DateTime.now().subtract(const Duration(hours: 3)),
+        deliveryVehicle: _carNumber,
+        itemsSummary: '3 Box Real Bites Aaloo Sev, 4 Strip Wafers',
+        totalCartons: 3,
       ),
     ]);
   }

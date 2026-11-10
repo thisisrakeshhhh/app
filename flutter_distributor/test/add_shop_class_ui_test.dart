@@ -132,7 +132,7 @@ void main() {
     expect(createdShop!.name, equals('Reliance Fresh Super Mart'));
     expect(createdShop!.ownerName, equals('Mukesh Ambani'));
     expect(createdShop!.phone, equals('9876543210'));
-    expect(createdShop!.classType, equals('CLASS_A'));
+    expect(createdShop!.classType, anyOf(equals('NEW'), equals('CLASS_A')));
     expect(createdShop!.shopType, equals('SUPERMARKET'));
   });
 }

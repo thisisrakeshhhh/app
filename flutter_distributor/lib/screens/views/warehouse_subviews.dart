@@ -3,7 +3,6 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 import 'add_edit_inventory_item_sheet.dart';
-import 'receive_stock_grn_view.dart';
 
 /// 1. Warehouse Stock View: Live Godown inventory with full CRUD, Expiry Radar, and Analytics.
 class WarehouseStockView extends StatefulWidget {
@@ -1704,16 +1703,17 @@ class WarehouseInwardView extends StatefulWidget {
 }
 
 class _WarehouseInwardViewState extends State<WarehouseInwardView> {
-  final _supplierCtrl = TextEditingController(text: 'FMCG Plant Panipat');
-  final _challanCtrl = TextEditingController(text: 'CH-2026-8819');
-  final _vehicleCtrl = TextEditingController(text: 'RJ-19-GA-1102');
-  final _boxesCtrl = TextEditingController(text: '50');
-  final _batchCtrl = TextEditingController(text: 'B-2610-A');
-  
-  // Manual SKU Input vs Catalog Dropdown Toggle
-  bool _manualSkuMode = true;
-  final _skuInputCtrl = TextEditingController(text: 'SKU-01');
+  final _truckCtrl = TextEditingController(text: 'RJ-19-GA-1102');
+  final _driverCtrl = TextEditingController(text: 'Kailash Singh');
+  final _supplierCtrl = TextEditingController(text: 'Bikaji Foods Central Plant');
+
   ProductItem? _selectedProduct;
+  final _boxQtyCtrl = TextEditingController(text: '10');
+  final _stripQtyCtrl = TextEditingController(text: '0');
+  final _pieceQtyCtrl = TextEditingController(text: '0');
+
+  final List<TruckInwardItem> _inwardCart = [];
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -1725,769 +1725,345 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
 
   @override
   void dispose() {
+    _truckCtrl.dispose();
+    _driverCtrl.dispose();
     _supplierCtrl.dispose();
-    _challanCtrl.dispose();
-    _vehicleCtrl.dispose();
-    _boxesCtrl.dispose();
-    _batchCtrl.dispose();
-    _skuInputCtrl.dispose();
+    _boxQtyCtrl.dispose();
+    _stripQtyCtrl.dispose();
+    _pieceQtyCtrl.dispose();
     super.dispose();
   }
 
-  ProductItem? _findExactProduct(String query) {
-    final clean = query.trim().toUpperCase();
-    if (clean.isEmpty) return null;
-    for (final p in widget.api.products) {
-      if (p.id.toUpperCase() == clean || p.name.toUpperCase() == clean) {
-        return p;
-      }
-    }
-    return null;
-  }
-
-  List<ProductItem> _findClosestMatches(String query) {
-    final clean = query.trim().toLowerCase();
-    if (clean.isEmpty) return [];
-    return widget.api.products.where((p) {
-      return p.id.toLowerCase().contains(clean) ||
-          p.name.toLowerCase().contains(clean) ||
-          clean.contains(p.id.toLowerCase()) ||
-          clean.contains(p.name.toLowerCase());
-    }).take(3).toList();
-  }
-
-  void _onPostInwardTapped() {
-    final boxes = int.tryParse(_boxesCtrl.text) ?? 0;
-    if (boxes <= 0) {
+  void _addItemToCart() {
+    if (_selectedProduct == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid box quantity greater than 0')),
+        const SnackBar(content: Text('कृपया कोई सामान चुनें (Please select product)')),
       );
       return;
     }
 
-    if (_manualSkuMode) {
-      final typedSku = _skuInputCtrl.text.trim();
-      if (typedSku.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a Product SKU or Code')),
-        );
-        return;
-      }
+    final boxes = int.tryParse(_boxQtyCtrl.text.trim()) ?? 0;
+    final strips = int.tryParse(_stripQtyCtrl.text.trim()) ?? 0;
+    final pieces = int.tryParse(_pieceQtyCtrl.text.trim()) ?? 0;
 
-      final matched = _findExactProduct(typedSku);
-      if (matched != null) {
-        // Matched catalog product -> Show Reconfirmation Dialog
-        _showVerifiedInwardConfirmationDialog(matched, boxes);
-      } else {
-        // Unrecognized SKU -> Potential Typo Warning & Reconfirmation Dialog
-        final suggestions = _findClosestMatches(typedSku);
-        _showUnrecognizedSkuWarningDialog(typedSku, boxes, suggestions);
-      }
-    } else {
-      if (_selectedProduct == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a product from catalog')),
-        );
-        return;
-      }
-      _showVerifiedInwardConfirmationDialog(_selectedProduct!, boxes);
-    }
-  }
-
-  void _showVerifiedInwardConfirmationDialog(ProductItem product, int boxes) {
-    final currentStock = product.godownStockBoxes;
-    final resultingStock = currentStock + boxes;
-    final supplier = _supplierCtrl.text.trim().isEmpty ? 'Depot Supplier' : _supplierCtrl.text.trim();
-    final vehicle = _vehicleCtrl.text.trim().isEmpty ? 'RJ-19-GA-1102' : _vehicleCtrl.text.trim();
-    final challan = _challanCtrl.text.trim().isEmpty ? 'CH-${DateTime.now().millisecondsSinceEpoch}' : _challanCtrl.text.trim();
-    final batch = _batchCtrl.text.trim().isEmpty ? 'B-DEFAULT' : _batchCtrl.text.trim();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
-            Icon(Icons.verified, color: AirbnbTheme.success, size: 22),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('Reconfirm Inward SKU & Stock', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Please double-check the SKU and stock count before posting to Godown shelves:',
-                style: TextStyle(fontSize: 12, color: AirbnbTheme.dark),
-              ),
-              const SizedBox(height: 12),
-
-              // Product Info Card
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF86EFAC)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFF166534), borderRadius: BorderRadius.circular(4)),
-                          child: Text(product.id, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            product.name,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF14532D)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(product.category, style: const TextStyle(fontSize: 11, color: Color(0xFF15803D))),
-                    const Divider(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'Current: $currentStock bxs',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '+$boxes bxs',
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AirbnbTheme.success),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Stock After Inward: $resultingStock Boxes',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Logistics details
-              Text('Supplier: $supplier', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-              Text('Challan #: $challan • Batch: $batch', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-              Text('Incoming Vehicle: $vehicle', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Back / Edit Details'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _executeInwardCommit(product, boxes, supplier, challan, batch, vehicle);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AirbnbTheme.success,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('✓ Yes, Confirm & Post Stock'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showUnrecognizedSkuWarningDialog(String typedSku, int boxes, List<ProductItem> suggestions) {
-    final newNameCtrl = TextEditingController(text: typedSku);
-    String newCategory = 'Extruded Snacks & Fryums';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text('Unrecognized SKU / Potential Typo', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    text: 'You typed SKU: ',
-                    style: const TextStyle(fontSize: 12, color: AirbnbTheme.dark),
-                    children: [
-                      TextSpan(
-                        text: '"$typedSku"',
-                        style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.deepOrange),
-                      ),
-                      const TextSpan(text: '. This code does not match any product in your current godown catalog.'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Did you mean suggestions
-                if (suggestions.isNotEmpty) ...[
-                  const Text('Did you mean one of these existing catalog items?', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
-                  const SizedBox(height: 6),
-                  ...suggestions.map((p) => Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFCBD5E1)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('${p.name} (${p.id})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                                  Text('Current Stock: ${p.godownStockBoxes} bxs', style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey)),
-                                ],
-                              ),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                _showVerifiedInwardConfirmationDialog(p, boxes);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AirbnbTheme.jodhpurBlue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text('Use This', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                            ),
-                          ],
-                        ),
-                      )),
-                  const Divider(height: 16),
-                ],
-
-                // Or confirm adding as new SKU
-                const Text('Or register this as a brand-new SKU:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark)),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: newNameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Product Name *',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: newCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'Traditional Namkeen', child: Text('Traditional Namkeen')),
-                    DropdownMenuItem(value: 'Potato Wafers', child: Text('Potato Wafers')),
-                    DropdownMenuItem(value: 'Extruded Snacks & Fryums', child: Text('Extruded Snacks & Fryums')),
-                    DropdownMenuItem(value: 'Bakery & Confectionery', child: Text('Bakery & Confectionery')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setDlgState(() => newCategory = v);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel / Re-type SKU'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final prodName = newNameCtrl.text.trim();
-                if (prodName.isEmpty) return;
-                Navigator.pop(ctx);
-
-                // Create new SKU in catalog
-                final newProd = ProductItem(
-                  id: typedSku.toUpperCase(),
-                  name: prodName,
-                  hindiName: prodName,
-                  category: newCategory,
-                  piecePricePaise: 1800,
-                  stripQty: 12,
-                  boxQty: 24,
-                  mrpPaise: 2000,
-                  godownStockBoxes: 0,
-                  carStockBoxes: 0,
-                );
-                widget.api.addProduct(newProd);
-
-                final supplier = _supplierCtrl.text.trim().isEmpty ? 'Depot Supplier' : _supplierCtrl.text.trim();
-                final vehicle = _vehicleCtrl.text.trim().isEmpty ? 'RJ-19-GA-1102' : _vehicleCtrl.text.trim();
-                final challan = _challanCtrl.text.trim().isEmpty ? 'CH-${DateTime.now().millisecondsSinceEpoch}' : _challanCtrl.text.trim();
-                final batch = _batchCtrl.text.trim().isEmpty ? 'B-DEFAULT' : _batchCtrl.text.trim();
-
-                await _executeInwardCommit(newProd, boxes, supplier, challan, batch, vehicle);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AirbnbTheme.coral,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Add as New SKU & Inward'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _executeInwardCommit(
-    ProductItem product,
-    int boxes,
-    String supplier,
-    String challan,
-    String batch,
-    String vehicle,
-  ) async {
-    final key = 'grn_quick_${product.id}_${DateTime.now().millisecondsSinceEpoch}';
-    try {
-      await widget.api.receiveStockGrnDurable(
-        productId: product.id,
-        supplierName: supplier,
-        invoiceNumber: challan,
-        batchNumber: batch,
-        cartonsReceived: boxes,
-        loosePiecesReceived: 0,
-        damagedCartons: 0,
-        damagedLoosePieces: 0,
-        notes: 'Vehicle: $vehicle',
-        idempotencyKey: key,
-      );
-    } catch (e) {
-      // Direct in-memory & repository restock fallback
-      widget.api.restockProduct(product.id, boxes);
-    }
-
-    if (mounted) {
-      setState(() {});
+    if (boxes <= 0 && strips <= 0 && pieces <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✓ Inward Verified & Posted: +$boxes boxes of ${product.name} (${product.id}) added to Godown!'),
-          backgroundColor: AirbnbTheme.success,
-        ),
+        const SnackBar(content: Text('कृपया कम से कम 1 पेटी, लड़ी या पीस दर्ज करें')),
       );
+      return;
+    }
+
+    final existingIdx = _inwardCart.indexWhere((it) => it.productId == _selectedProduct!.id);
+    if (existingIdx != -1) {
+      final existing = _inwardCart[existingIdx];
+      _inwardCart[existingIdx] = TruckInwardItem(
+        productId: existing.productId,
+        productName: existing.productName,
+        boxes: existing.boxes + boxes,
+        strips: existing.strips + strips,
+        pieces: existing.pieces + pieces,
+      );
+    } else {
+      _inwardCart.add(TruckInwardItem(
+        productId: _selectedProduct!.id,
+        productName: _selectedProduct!.name,
+        boxes: boxes,
+        strips: strips,
+        pieces: pieces,
+      ));
+    }
+
+    _boxQtyCtrl.text = '1';
+    _stripQtyCtrl.text = '0';
+    _pieceQtyCtrl.text = '0';
+
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✓  कार्ट में जोड़ा गया'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  Future<void> _commitInwardToGodownDb() async {
+    final truckNum = _truckCtrl.text.trim();
+    if (truckNum.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('कृपया गाड़ी / ट्रक नंबर दर्ज करें (Enter Truck Number)')),
+      );
+      return;
+    }
+
+    if (_inwardCart.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('कृपया कम से कम एक सामान लिस्ट में जोड़ें (Cart is empty)')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await widget.api.receiveTruckInward(
+        truckNumber: truckNum,
+        driverName: _driverCtrl.text.trim(),
+        supplier: _supplierCtrl.text.trim(),
+        items: List.from(_inwardCart),
+      );
+
+      final totalCartons = _inwardCart.fold<int>(0, (sum, i) => sum + i.boxes);
+      _inwardCart.clear();
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF059669),
+            duration: const Duration(seconds: 3),
+            content: Text(
+              '✅ ट्रक $truckNum का माल ($totalCartons पेटी) गोदाम DB में सफलता से जमा हो गया!',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving stock: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final matchedProduct = _manualSkuMode ? _findExactProduct(_skuInputCtrl.text) : _selectedProduct;
-    final trucks = widget.api.deliveryTrucks;
+    final products = widget.api.products;
+    final totalCartBoxes = _inwardCart.fold<int>(0, (sum, i) => sum + i.boxes);
+    final totalCartPieces = _inwardCart.fold<int>(0, (sum, i) => sum + i.pieces);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Detailed GRN Banner Button
-          InkWell(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (ctx) => ReceiveStockGrnView(api: widget.api),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E3A8A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.receipt_long, color: Colors.white, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Open Full GRN Entry Sheet (आवक रसीद)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text('Record damaged goods, batch numbers & challans', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-
+          // 1. TRUCK INTAKE HEADER CARD
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AirbnbTheme.cardBg,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AirbnbTheme.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(Icons.input_rounded, color: AirbnbTheme.jodhpurBlue, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Record Inward Shipment (आवक स्टॉक)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text('Manually enter received SKU and truck number. Stock is verified with confirmation before saving.', style: TextStyle(fontSize: 11.5, color: AirbnbTheme.grey)),
-                const Divider(height: 20),
-
-                // Supplier
-                const Text('Supplier / Manufacturing Depot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
-                const SizedBox(height: 4),
-                TextField(
-                  controller: _supplierCtrl,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Invoice / Challan & Vehicle
-                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Challan / Invoice #', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: _challanCtrl,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),
-                            ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Truck / Vehicle #', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: _vehicleCtrl,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-
-                // Quick Fleet Trucks selector chips
-                Row(
-                  children: [
-                    const Text('Quick Truck: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            ...trucks.map((t) => Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: InkWell(
-                                    onTap: () => setState(() => _vehicleCtrl.text = t.vehicleNumber),
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFFCBD5E1)),
-                                      ),
-                                      child: Text(t.vehicleNumber, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-                                    ),
-                                  ),
-                                )),
-                            InkWell(
-                              onTap: () => showAddTruckDialog(
-                                context: context,
-                                api: widget.api,
-                                onAdded: () => setState(() {}),
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.3)),
-                                ),
-                                child: const Text('+ Add Truck', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue)),
-                              ),
-                            ),
-                          ],
+                          child: const Icon(Icons.local_shipping, color: Colors.white, size: 18),
                         ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'TRUCK INWARD (ट्रक आवक)',
+                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: const Text('Real-Time DB', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-
-                // SKU MODE TOGGLE (Manual Entry vs Select from Catalog)
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setState(() => _manualSkuMode = true),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: _manualSkuMode ? Colors.white : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: _manualSkuMode
-                                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 1))]
-                                  : null,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.edit_note, size: 14, color: _manualSkuMode ? AirbnbTheme.jodhpurBlue : AirbnbTheme.grey),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    'Manual SKU Entry',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: _manualSkuMode ? FontWeight.w800 : FontWeight.w600,
-                                      color: _manualSkuMode ? AirbnbTheme.jodhpurBlue : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setState(() => _manualSkuMode = false),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: !_manualSkuMode ? Colors.white : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: !_manualSkuMode
-                                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 1))]
-                                  : null,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.list_alt, size: 14, color: !_manualSkuMode ? AirbnbTheme.jodhpurBlue : AirbnbTheme.grey),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    'Catalog Select',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: !_manualSkuMode ? FontWeight.w800 : FontWeight.w600,
-                                      color: !_manualSkuMode ? AirbnbTheme.jodhpurBlue : const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                TextField(
+                  controller: _truckCtrl,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1),
+                  decoration: InputDecoration(
+                    labelText: 'गाड़ी / ट्रक नंबर (Truck Number) *',
+                    labelStyle: const TextStyle(color: Color(0xFFBFDBFE), fontSize: 12),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.12),
+                    prefixIcon: const Icon(Icons.pin, color: Colors.white70, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
                 ),
                 const SizedBox(height: 10),
-
-                // MANUAL SKU INPUT OR DROPDOWN
-                if (_manualSkuMode) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Enter Product SKU / Item Code *',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _driverCtrl,
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                        decoration: InputDecoration(
+                          labelText: 'ड्राइवर (Driver Name)',
+                          labelStyle: const TextStyle(color: Color(0xFFBFDBFE), fontSize: 11),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         ),
                       ),
-                      if (matchedProduct != null)
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            margin: const EdgeInsets.only(left: 4),
-                            decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
-                            child: Text(
-                              '✓ ${matchedProduct.name}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.success),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: _skuInputCtrl,
-                    textCapitalization: TextCapitalization.characters,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'e.g. SKU-01, SKU-02, SKU-03',
-                      prefixIcon: const Icon(Icons.qr_code, size: 18, color: AirbnbTheme.grey),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),
                     ),
-                  ),
-                  if (matchedProduct == null && _skuInputCtrl.text.trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    const Text('⚠️ New SKU detected: will prompt confirmation before registering into catalog.', style: TextStyle(fontSize: 10.5, color: Colors.orange, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _supplierCtrl,
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                        decoration: InputDecoration(
+                          labelText: 'फैक्ट्री / प्लांट (Plant)',
+                          labelStyle: const TextStyle(color: Color(0xFFBFDBFE), fontSize: 11),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                    ),
                   ],
-                ] else ...[
-                  const Text('Select Product SKU from Catalog', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AirbnbTheme.border),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // 2. ADD ITEM TO TRUCK CART SECTION
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.add_shopping_cart, color: AirbnbTheme.jodhpurBlue, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'सामान लिस्ट में जोड़ें (Add Items to Truck)',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AirbnbTheme.dark),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ProductItem>(
-                        value: widget.api.products.contains(_selectedProduct)
-                            ? _selectedProduct
-                            : (widget.api.products.isNotEmpty ? widget.api.products.first : null),
-                        isExpanded: true,
-                        items: widget.api.products.map((p) {
-                          return DropdownMenuItem<ProductItem>(
-                            value: p,
-                            child: Text('${p.name} (${p.id}) • Cur: ${p.godownStockBoxes} bxs'),
-                          );
-                        }).toList(),
-                        onChanged: (p) => setState(() => _selectedProduct = p),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
                 const SizedBox(height: 12),
 
-                // Box quantity & batch number
+                // Product Dropdown
+                DropdownButtonFormField<ProductItem>(
+                  initialValue: _selectedProduct,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'सामान चुनें (Select Product)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: products.map((p) {
+                    return DropdownMenuItem<ProductItem>(
+                      value: p,
+                      child: Text(
+                        '${p.name} (स्टॉक: ${p.godownStockBoxes} पेटी)',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (p) => setState(() => _selectedProduct = p),
+                ),
+
+                const SizedBox(height: 14),
+
+                // Multi-unit inputs: Boxes, Strips, Pieces
                 Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Inward Quantity (Petis/Boxes)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
+                          const Text('पेटी (Boxes)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                           const SizedBox(height: 4),
                           TextField(
-                            controller: _boxesCtrl,
+                            controller: _boxQtyCtrl,
                             keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Batch Number', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey)),
+                          const Text('लड़ी (Strips)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                           const SizedBox(height: 4),
                           TextField(
-                            controller: _batchCtrl,
+                            controller: _stripQtyCtrl,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AirbnbTheme.border)),
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('खुला पीस (Pieces)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: _pieceQtyCtrl,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
                             ),
                           ),
                         ],
@@ -2495,23 +2071,142 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(height: 14),
 
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _onPostInwardTapped,
-                    icon: const Icon(Icons.verified, size: 18),
-                    label: const Text('Verify & Post Inward to Godown', style: TextStyle(fontWeight: FontWeight.w800)),
+                    onPressed: _addItemToCart,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('+ लिस्ट में जोड़ें (+ Add to Cart)', style: TextStyle(fontWeight: FontWeight.w800)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AirbnbTheme.jodhpurBlue,
+                      backgroundColor: const Color(0xFF1E3A8A),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // 3. TRUCK CART LIST
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'ट्रक का सामान (${_inwardCart.length} आइटम्स)',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+              ),
+              if (_inwardCart.isNotEmpty)
+                Text(
+                  'कुल: $totalCartBoxes पेटी $totalCartPieces पीस',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF059669)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          if (_inwardCart.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.shopping_cart_outlined, size: 36, color: Color(0xFF94A3B8)),
+                  SizedBox(height: 8),
+                  Text('ट्रक में कोई सामान नहीं जोड़ा गया है', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                  SizedBox(height: 4),
+                  Text('ऊपर दिए फॉर्म से सामान और पेटी/पीस संख्या जोड़ें', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _inwardCart.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (ctx, idx) {
+                final it = _inwardCart[idx];
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.inventory_2, color: Color(0xFF2563EB), size: 16),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              it.productName,
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${it.boxes} पेटी • ${it.strips} लड़ी • ${it.pieces} पीस',
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF059669), fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            _inwardCart.removeAt(idx);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+          const SizedBox(height: 20),
+
+          // 4. BIG GREEN COMMIT BUTTON
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isSaving ? null : _commitInwardToGodownDb,
+              icon: _isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.check_circle, size: 20),
+              label: Text(
+                _isSaving ? 'गोदाम में सेव हो रहा है...' : '✓ गोदाम में माल जमा करें (Save to Godown DB)',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+              ),
             ),
           ),
         ],
@@ -2520,9 +2215,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
   }
 }
 
-/// 3. Warehouse Sales Orders Pick List View:
-/// Live queue of incoming orders placed by Sales Persons (stage: booking).
-/// Allows physical item checklist picking, truck assignment, and one-click truck loading.
+
 class WarehousePickingView extends StatefulWidget {
   final ApiService api;
   const WarehousePickingView({super.key, required this.api});
@@ -2753,6 +2446,79 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                 ],
               ),
 
+              // OWNER APPROVAL STATUS & ACTION BANNER
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ord.isOwnerApproved ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: ord.isOwnerApproved ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      ord.isOwnerApproved ? Icons.verified : Icons.hourglass_top,
+                      color: ord.isOwnerApproved ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ord.isOwnerApproved
+                                ? '✓ Owner Approved (मालिक ने पास कर दिया)'
+                                : '⏳ Waiting for Owner Approval (मालिक की मंज़ूरी का इंतज़ार है)',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: ord.isOwnerApproved ? const Color(0xFF15803D) : const Color(0xFF92400E),
+                            ),
+                          ),
+                          Text(
+                            ord.isOwnerApproved
+                                ? 'Ready for packing & van dispatch'
+                                : 'मालिक की मंजूरी के बाद ही माल पैक किया जाएगा',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: ord.isOwnerApproved ? const Color(0xFF166534) : const Color(0xFFB45309),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!ord.isOwnerApproved)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          widget.api.approveOrderByOwner(ord.id);
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Order #${ord.orderNumber} approved by Owner! Now ready to pick.'),
+                              backgroundColor: AirbnbTheme.success,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.bolt, size: 14),
+                        label: const Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD97706),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
               const Divider(height: 18),
               const Text('Items to Pick from Godown Shelves:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
               const SizedBox(height: 6),
@@ -2885,11 +2651,12 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                           flex: 3,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              widget.api.advanceOrderStage(ord.id);
+                              ord.isOwnerApproved = true;
+                              widget.api.pickAndPackOrder(ord.id);
                               setState(() {});
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Order #${ord.orderNumber} packed and staged for car loading!'),
+                                  content: Text('Order #${ord.orderNumber} packed and logged for dispatch!'),
                                   backgroundColor: AirbnbTheme.success,
                                 ),
                               );
@@ -3092,8 +2859,53 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
     );
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Vehicle Loading & Registers (आवक - जावक)',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                ),
+                const SizedBox(height: 8),
+                TabBar(
+                  labelColor: AirbnbTheme.jodhpurBlue,
+                  unselectedLabelColor: AirbnbTheme.grey,
+                  indicatorColor: AirbnbTheme.jodhpurBlue,
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                  tabs: [
+                    const Tab(text: '🚛 वैन में लोड'),
+                    Tab(text: '🚚 कब माल आया (${widget.api.truckInwardLog.length})'),
+                    Tab(text: '📤 कहाँ माल गया (${widget.api.stockDispatchLog.length})'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildLoadingDock(context),
+                _buildInwardLogView(context),
+                _buildDispatchLogView(context),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingDock(BuildContext context) {
     final prods = widget.api.products;
     final trucks = widget.api.deliveryTrucks;
     final activeTruck = widget.api.activeTruck;
@@ -3551,6 +3363,217 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildInwardLogView(BuildContext context) {
+    final inwardLog = widget.api.truckInwardLog;
+
+    if (inwardLog.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.local_shipping_outlined, size: 48, color: AirbnbTheme.grey),
+            SizedBox(height: 12),
+            Text('कोई आवक दर्ज नहीं हुई है', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            SizedBox(height: 4),
+            Text('ट्रक आवक टैब से नया माल दर्ज करें', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      itemCount: inwardLog.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (ctx, idx) {
+        final inw = inwardLog[idx];
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.local_shipping, color: Color(0xFF2563EB), size: 18),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        inw.truckNumber,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('गोदाम में जमा ✓', style: TextStyle(color: Color(0xFF059669), fontSize: 10.5, fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text('चालक: ${inw.driverName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                  const SizedBox(width: 8),
+                  Text('• प्लांट: ${inw.supplier}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'कब आया: ${inw.arrivedAt.day}/${inw.arrivedAt.month}/${inw.arrivedAt.year} at ${inw.arrivedAt.hour.toString().padLeft(2, '0')}:${inw.arrivedAt.minute.toString().padLeft(2, '0')}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+              const Divider(height: 18),
+              const Text('क्या क्या माल आया (Items Inward):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+              const SizedBox(height: 6),
+              ...inw.items.map((item) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '• ${item.productName}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                          ),
+                        ),
+                        Text(
+                          '${item.boxes} पेटी ${item.strips > 0 ? "• ${item.strips} लड़ी " : ""}${item.pieces > 0 ? "• ${item.pieces} पीस" : ""}',
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
+                        ),
+                      ],
+                    ),
+                  )),
+              const Divider(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('कुल आवक (Total Received):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                  Text('${inw.totalCartons} पेटी (${inw.totalPieces} कुल पीस)', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDispatchLogView(BuildContext context) {
+    final dispatchLog = widget.api.stockDispatchLog;
+
+    if (dispatchLog.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.outbox_rounded, size: 48, color: AirbnbTheme.grey),
+            SizedBox(height: 12),
+            Text('कोई जावक दर्ज नहीं हुई है', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            SizedBox(height: 4),
+            Text('ऑर्डर पैक होने पर यहाँ अपने आप दिखेगा', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      itemCount: dispatchLog.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (ctx, idx) {
+        final dsp = dispatchLog[idx];
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      dsp.shopName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(dsp.deliveryVehicle, style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 10.5, fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(dsp.shopArea, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('ऑर्डर: #${dsp.orderNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+                  Text(
+                    'कब गया: ${dsp.dispatchedAt.day}/${dsp.dispatchedAt.month} ${dsp.dispatchedAt.hour.toString().padLeft(2, '0')}:${dsp.dispatchedAt.minute.toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+              const Text('क्या क्या सामान गया:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+              const SizedBox(height: 4),
+              Text(
+                dsp.itemsSummary,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF059669)),
+              ),
+              const SizedBox(height: 6),
+              Text('कुल पेटी रवाना: ${dsp.totalCartons} Boxes', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -889,9 +889,9 @@ class _AddShopSheetState extends State<AddShopSheet> {
                     child: OutlinedButton.icon(
                       onPressed: _simulateLocationCapture,
                       icon: const Icon(Icons.my_location, size: 16, color: AirbnbTheme.dark),
-                      label: const Text(
-                        'Auto GPS',
-                        style: TextStyle(color: AirbnbTheme.dark, fontWeight: FontWeight.w600, fontSize: 11),
+                      label: Text(
+                        AppStrings.captureGpsButton,
+                        style: const TextStyle(color: AirbnbTheme.dark, fontWeight: FontWeight.w600, fontSize: 11),
                       ),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 44),

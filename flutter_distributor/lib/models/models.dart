@@ -679,6 +679,7 @@ class DistributorOrder {
   final String otp;
   final DateTime createdAt;
   bool isPaid;
+  bool isOwnerApproved;
 
   DistributorOrder({
     required this.id,
@@ -697,6 +698,7 @@ class DistributorOrder {
     required this.otp,
     required this.createdAt,
     this.isPaid = false,
+    this.isOwnerApproved = false,
   });
 
   double get totalRupees => totalPaise / 100.0;
@@ -720,6 +722,7 @@ class DistributorOrder {
     String? otp,
     DateTime? createdAt,
     bool? isPaid,
+    bool? isOwnerApproved,
   }) {
     return DistributorOrder(
       id: id ?? this.id,
@@ -738,6 +741,7 @@ class DistributorOrder {
       otp: otp ?? this.otp,
       createdAt: createdAt ?? this.createdAt,
       isPaid: isPaid ?? this.isPaid,
+      isOwnerApproved: isOwnerApproved ?? this.isOwnerApproved,
     );
   }
 }
@@ -950,3 +954,75 @@ class SalesRepLeaderboardEntry {
     return ((visitsCompleted / totalAssignedShops) * 100.0).clamp(0.0, 100.0);
   }
 }
+
+/// Simple Truck Inward Item for Godown Receiving (Cart-style)
+class TruckInwardItem {
+  final String productId;
+  final String productName;
+  final int boxes;
+  final int strips;
+  final int pieces;
+
+  const TruckInwardItem({
+    required this.productId,
+    required this.productName,
+    this.boxes = 0,
+    this.strips = 0,
+    this.pieces = 0,
+  });
+
+  String get summary {
+    final parts = <String>[];
+    if (boxes > 0) parts.add('$boxes Peti/Box');
+    if (strips > 0) parts.add('$strips Strip');
+    if (pieces > 0) parts.add('$pieces Piece');
+    return parts.isEmpty ? '0 Pcs' : parts.join(', ');
+  }
+}
+
+/// Inward Receipt for stock arriving at godown by truck
+class TruckInwardEntry {
+  final String id;
+  final String truckNumber;
+  final String driverName;
+  final String supplier;
+  final DateTime arrivedAt;
+  final List<TruckInwardItem> items;
+  final int totalCartons;
+  final int totalPieces;
+
+  const TruckInwardEntry({
+    required this.id,
+    required this.truckNumber,
+    required this.driverName,
+    required this.supplier,
+    required this.arrivedAt,
+    required this.items,
+    required this.totalCartons,
+    required this.totalPieces,
+  });
+}
+
+/// Real-time Outward Dispatch Log (where stock went)
+class StockDispatchEntry {
+  final String id;
+  final String orderNumber;
+  final String shopName;
+  final String shopArea;
+  final DateTime dispatchedAt;
+  final String deliveryVehicle;
+  final String itemsSummary;
+  final int totalCartons;
+
+  const StockDispatchEntry({
+    required this.id,
+    required this.orderNumber,
+    required this.shopName,
+    required this.shopArea,
+    required this.dispatchedAt,
+    required this.deliveryVehicle,
+    required this.itemsSummary,
+    required this.totalCartons,
+  });
+}
+

@@ -361,17 +361,25 @@ class DeliveryDashboard extends StatelessWidget {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          onNavigateTab(2); // Go to stops tab
+                          if (!stop.isDelivered) {
+                            api.markDeliveryComplete(stop.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: const Color(0xFF059669),
+                                content: Text('✅ ${stop.shopName} की डिलीवरी दर्ज हो गई!'),
+                              ),
+                            );
+                          }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: stop.isDelivered ? AirbnbTheme.lightGrey : AirbnbTheme.coral,
-                          foregroundColor: stop.isDelivered ? AirbnbTheme.dark : Colors.white,
+                          backgroundColor: stop.isDelivered ? AirbnbTheme.lightGrey : const Color(0xFF059669),
+                          foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         child: Text(
-                          stop.isDelivered ? 'Delivered ✓' : 'Verify OTP',
+                          stop.isDelivered ? 'Delivered ✓' : '✓ Delivered',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,

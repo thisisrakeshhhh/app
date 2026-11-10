@@ -208,70 +208,299 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       itemCount: stops.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (ctx, idx) {
         final stop = stops[idx];
 
         return Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: stop.isDelivered ? AirbnbTheme.success.withValues(alpha: 0.3) : AirbnbTheme.border),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: stop.isDelivered ? const Color(0xFF10B981) : const Color(0xFFCBD5E1),
+              width: stop.isDelivered ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. SHOP NAME & STATUS BADGE
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(stop.shopName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          stop.shopName,
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          stop.area,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: stop.isDelivered ? AirbnbTheme.success.withValues(alpha: 0.1) : const Color(0xFFFFF7ED),
-                      borderRadius: BorderRadius.circular(4),
+                      color: stop.isDelivered ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: stop.isDelivered ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
                     ),
                     child: Text(
-                      stop.isDelivered ? 'DELIVERED ✓' : 'PENDING DELIVERY',
+                      stop.isDelivered ? '✅ हो गई (DELIVERED)' : '🚚 डिलीवरी बाकी',
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        color: stop.isDelivered ? AirbnbTheme.success : const Color(0xFFEA580C),
+                        color: stop.isDelivered ? const Color(0xFF15803D) : const Color(0xFFB45309),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text('${stop.address} • Ph: ${stop.phone}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-              const SizedBox(height: 8),
+
+              const SizedBox(height: 12),
+
+              // 2. FULL ADDRESS BOX (High Visibility for delivery person)
               Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AirbnbTheme.cardBg, borderRadius: BorderRadius.circular(8)),
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${stop.itemCount} items', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
-                    Text('COD: ₹${stop.codAmountRupees.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AirbnbTheme.coral)),
+                    const Icon(Icons.location_on, color: AirbnbTheme.coral, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'दुकान का पूरा पता (Delivery Address):',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            stop.address,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A), height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: stop.isDelivered ? null : () => _showOtpDialog(stop),
-                  icon: Icon(stop.isDelivered ? Icons.check : Icons.lock_open, size: 16),
-                  label: Text(stop.isDelivered ? 'Delivery Verified & Complete' : 'Enter Delivery OTP'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: stop.isDelivered ? AirbnbTheme.lightGrey : AirbnbTheme.success,
-                    foregroundColor: stop.isDelivered ? AirbnbTheme.grey : Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+
+              const SizedBox(height: 10),
+
+              // 3. OWNER CONTACT & PHONE
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'दुकानदार: ${stop.ownerName}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Calling ${stop.phone}... (${stop.ownerName})')),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF059669),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.phone, size: 12, color: Colors.white),
+                            const SizedBox(width: 4),
+                            Text(
+                              stop.phone,
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+
+              const SizedBox(height: 10),
+
+              // 4. ITEMS & COD CASH INFO
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.inventory_2, size: 18, color: Color(0xFF2563EB)),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('सामान (Boxes)', style: TextStyle(fontSize: 10, color: Color(0xFF1E40AF))),
+                              Text(
+                                '${stop.itemCount} पेटी',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: stop.codAmountPaise > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: stop.codAmountPaise > 0 ? const Color(0xFFFECACA) : const Color(0xFFBBF7D0),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            stop.codAmountPaise > 0 ? Icons.payments : Icons.check_circle,
+                            size: 18,
+                            color: stop.codAmountPaise > 0 ? AirbnbTheme.coral : const Color(0xFF16A34A),
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                stop.codAmountPaise > 0 ? 'कैश लेना है (COD)' : 'पहले से चुकता',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: stop.codAmountPaise > 0 ? const Color(0xFF991B1B) : const Color(0xFF166534),
+                                ),
+                              ),
+                              Text(
+                                '₹${stop.codAmountRupees.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                  color: stop.codAmountPaise > 0 ? AirbnbTheme.coral : const Color(0xFF15803D),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // 5. ONE-TAP DELIVERY BUTTON
+              if (!stop.isDelivered)
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          widget.api.markDeliveryComplete(stop.id);
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF059669),
+                              content: Text('✅ ${stop.shopName} की डिलीवरी पूरी हो गई!'),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle, size: 20),
+                        label: const Text(
+                          '✓ डिलीवरी हो गई (Mark Delivered)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: () => _showOtpDialog(stop),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      child: const Text('OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                    ),
+                  ],
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: const Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'सामान डिलीवर हो चुका है (Delivered ✓)',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF15803D)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         );

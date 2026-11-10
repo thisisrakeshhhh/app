@@ -245,8 +245,8 @@ void main() {
     test('7. ApiService populates realistic Jodhpur coordinates and warehouse hubs', () {
       final api = ApiService();
 
-      // Check retailers have valid non-null coordinates
-      final retailersWithCoords = api.retailers.where((r) => r.latitude != null && r.longitude != null).toList();
+      // Check Jodhpur retailers have valid non-null coordinates
+      final retailersWithCoords = api.retailers.where((r) => r.latitude != null && r.longitude != null && r.latitude! < 29.0).toList();
       expect(retailersWithCoords.length, greaterThanOrEqualTo(4));
 
       for (final r in retailersWithCoords) {

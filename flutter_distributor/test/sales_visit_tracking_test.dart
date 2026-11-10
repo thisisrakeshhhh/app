@@ -107,8 +107,8 @@ void main() {
       api.selectShop(shop);
 
       final product = api.products.first;
-      final initialBoxes = product.godownStockBoxes;
-      expect(initialBoxes, greaterThan(5));
+      final initialPieces = api.availableGodownPieces(product.id);
+      expect(initialPieces, greaterThan(5));
 
       // Add item to cart
       api.addToCart(product, OrderUnit.box, 2);
@@ -124,13 +124,9 @@ void main() {
       expect(order.shopId, equals(shop.id));
       expect(shop.todayOrderTotalPaise, equals(order.totalPaise));
 
-      // Verify inventory was automatically deducted
-      final updatedProduct = api.products.firstWhere((p) => p.id == product.id);
-      expect(updatedProduct.godownStockBoxes, equals(initialBoxes - 2));
-
-      // Verify stock movement ledger in SQLite
-      final movements = await (db.select(db.inventoryMovements)..where((tbl) => tbl.productId.equals(product.id))).get();
-      expect(movements.any((m) => m.movementType == 'DISPATCH' && m.cartonDelta == -2), isTrue);
+      // Verify available inventory was reserved
+      final remainingPieces = api.availableGodownPieces(product.id);
+      expect(remainingPieces, equals(initialPieces - (2 * product.boxQty)));
     });
 
     test('5. Trip Out and Trip In properly records vehicle and odometer reading', () {

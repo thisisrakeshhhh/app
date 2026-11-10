@@ -102,6 +102,7 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
       _auth.dismissTenantBoundaryBlock();
     }
     if (_auth.isAuthenticated && !_auth.isTenantBoundaryBlocked) {
+      _api.reseedInitialStateIfEmpty();
       _syncWorker.startPeriodicRunner();
       _syncWorker.processPendingOutbox();
     } else {
@@ -140,6 +141,7 @@ class _RoutidrowAppState extends State<RoutidrowApp> {
         builder: (context, _) {
           final language = LanguageController.instance.currentLanguage;
           return MaterialApp(
+            key: ValueKey('app_auth_${_auth.isAuthenticated}_${_auth.session?.userId}_${_auth.session?.activeRole}'),
             title: 'Routidrow FMCG Logistics',
             debugShowCheckedModeBanner: false,
             locale: language.locale,

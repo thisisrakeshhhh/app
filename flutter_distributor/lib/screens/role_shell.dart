@@ -323,6 +323,28 @@ class _RoleShellState extends State<RoleShell> {
                   subtitle: 'Full operations overview and reports',
                   roleString: 'OWNER',
                 ),
+                const Divider(height: 20),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  tileColor: AirbnbTheme.coral.withValues(alpha: 0.08),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AirbnbTheme.coral.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.logout, color: AirbnbTheme.coral, size: 20),
+                  ),
+                  title: const Text('Sign Out (लॉग आउट करें)', style: TextStyle(fontWeight: FontWeight.w800, color: AirbnbTheme.coral)),
+                  subtitle: const Text('Return to login screen', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    if (widget.authService != null) {
+                      await widget.authService!.logout();
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -727,15 +749,22 @@ class _RoleShellState extends State<RoleShell> {
           IconButton(
             tooltip: 'Sign Out',
             padding: const EdgeInsets.only(left: 2, right: 8),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 36),
             icon: Container(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
-                color: AirbnbTheme.coral.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: AirbnbTheme.coral.withValues(alpha: 0.3)),
+                color: AirbnbTheme.coral.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AirbnbTheme.coral.withValues(alpha: 0.35)),
               ),
-              child: const Icon(Icons.logout, size: 14, color: AirbnbTheme.coral),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.logout, size: 14, color: AirbnbTheme.coral),
+                  SizedBox(width: 3),
+                  Text('Exit', style: TextStyle(color: AirbnbTheme.coral, fontSize: 10, fontWeight: FontWeight.w800)),
+                ],
+              ),
             ),
             onPressed: () async {
               if (widget.authService != null) {
