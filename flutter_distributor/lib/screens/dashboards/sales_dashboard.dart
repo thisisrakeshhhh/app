@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
@@ -48,17 +49,63 @@ class _SalesDashboardState extends State<SalesDashboard> {
   GoogleMapController? _googleMapController;
   Timer? _stopwatchTimer;
   BitmapDescriptor? _currentLocationBlueDotIcon;
+  StreamSubscription<Position>? _positionSubscription;
 
   @override
   void initState() {
     super.initState();
     _initCurrentLocationIcon();
+    _initRealPhoneLocation();
     // 1-second live ticker for active visit stopwatch and time spent
     _stopwatchTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && widget.api.activeVisitShopId != null) {
         setState(() {});
       }
     });
+  }
+
+  Future<void> _initRealPhoneLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services disabled on device
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 4),
+          ),
+        );
+      } catch (_) {}
+
+      if (position != null && mounted) {
+        widget.api.updateRepLocation(position.latitude, position.longitude);
+        _googleMapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15.0),
+        );
+      }
+
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen((pos) {
+        if (mounted) {
+          widget.api.updateRepLocation(pos.latitude, pos.longitude);
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _initCurrentLocationIcon() async {
@@ -101,6 +148,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _stopwatchTimer?.cancel();
     _googleMapController?.dispose();
     super.dispose();
@@ -110,7 +158,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     final newShop = await AddShopSheet.show(
       context,
       api: widget.api,
-      defaultRouteId: 'route_sardarpura_02',
+      defaultRouteId: 'route_chd_mohali_01',
     );
     if (newShop != null) {
       widget.api.addShopToTodayBeat(newShop.id);
@@ -1117,29 +1165,21 @@ class _SalesDashboardState extends State<SalesDashboard> {
   List<LatLng> _buildRoadSegment(LatLng from, LatLng to) {
     final points = <LatLng>[from];
 
-    final bool fromSardarpura = from.latitude <= 26.2860;
-    final bool toSardarpura = to.latitude <= 26.2860;
+    final bool fromChandigarh = from.latitude >= 30.7100;
+    final bool toChandigarh = to.latitude >= 30.7100;
 
-    if (fromSardarpura && toSardarpura) {
-      // Follow Sardarpura street grid (B Road / C Road / 4th C Road)
+    if (fromChandigarh && toChandigarh) {
+      // Chandigarh sector grid routing (via sector dividing road & roundabout)
       points.add(LatLng(from.latitude, to.longitude));
-    } else if (!fromSardarpura && !toSardarpura) {
-      // Follow Nai Sadak street corridor
-      points.add(LatLng((from.latitude + to.latitude) / 2, (from.longitude + to.longitude) / 2));
+    } else if (!fromChandigarh && !toChandigarh) {
+      // Mohali SAS Nagar phase grid routing
+      points.add(LatLng(to.latitude, from.longitude));
     } else {
-      // Follow arterial street corridor connecting Sardarpura and Nai Sadak
-      // via Residency Road -> Jalori Gate -> High Court -> Sohati Gate -> Nai Sadak
-      if (fromSardarpura) {
-        if (from.latitude < 26.2830) points.add(const LatLng(26.2830, 73.0150));
-        points.add(const LatLng(26.2850, 73.0180)); // Jalori Gate
-        points.add(const LatLng(26.2885, 73.0205)); // High Court Rd
-        points.add(const LatLng(26.2905, 73.0218)); // Sohati Gate
-      } else {
-        points.add(const LatLng(26.2905, 73.0218));
-        points.add(const LatLng(26.2885, 73.0205));
-        points.add(const LatLng(26.2850, 73.0180));
-        if (to.latitude < 26.2830) points.add(const LatLng(26.2830, 73.0150));
-      }
+      // Chandigarh-Mohali Border arterial (via Sector 43 / Phase 3B2 Border Chowk)
+      const borderChowk = LatLng(30.7090, 76.7370);
+      points.add(LatLng(from.latitude, borderChowk.longitude));
+      points.add(borderChowk);
+      points.add(LatLng(to.latitude, borderChowk.longitude));
     }
 
     points.add(to);
@@ -1348,16 +1388,28 @@ class _SalesDashboardState extends State<SalesDashboard> {
               children: [
                 // My Current Location GPS button
                 InkWell(
-                  onTap: () {
+                  onTap: () async {
+                    try {
+                      final pos = await Geolocator.getCurrentPosition(
+                        locationSettings: const LocationSettings(
+                          accuracy: LocationAccuracy.high,
+                          timeLimit: Duration(seconds: 4),
+                        ),
+                      );
+                      if (mounted) {
+                        widget.api.updateRepLocation(pos.latitude, pos.longitude);
+                      }
+                    } catch (_) {}
+                    if (!mounted) return;
                     _googleMapController?.animateCamera(
                       CameraUpdate.newLatLngZoom(
                         LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                        15.5,
+                        16.0,
                       ),
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('📍 Centered on your current location'),
+                        content: Text('📍 Centered on your phone\'s live GPS location'),
                         duration: Duration(seconds: 2),
                       ),
                     );
@@ -1634,7 +1686,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Sardarpura & Nai Sadak Route',
+            'Chandigarh & Mohali Beat Route',
             style: TextStyle(
               color: Colors.white,
               fontSize: 17,

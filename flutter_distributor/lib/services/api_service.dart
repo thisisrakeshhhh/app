@@ -1290,8 +1290,8 @@ class ApiService extends ChangeNotifier {
         );
   }
 
-  double _currentRepLat = 26.2850;
-  double _currentRepLng = 73.0180;
+  double _currentRepLat = 30.7225;
+  double _currentRepLng = 76.7620;
 
   double get currentRepLat => _currentRepLat;
   double get currentRepLng => _currentRepLng;
@@ -1719,7 +1719,7 @@ class ApiService extends ChangeNotifier {
     return [...assigned, ...extras];
   }
 
-  /// Dynamically sequences today's beat stops along the physical road corridor (Sardarpura -> Nai Sadak)
+  /// Dynamically sequences today's beat stops along the physical road corridor (Chandigarh -> Mohali)
   /// starting from the salesperson's current real-time location.
   /// Strictly preserves monotonic forward progression along the urban corridor so routes NEVER cross themselves.
   List<RetailerShop> get dynamicRoadRouteShops {
@@ -1727,12 +1727,12 @@ class ApiService extends ChangeNotifier {
     if (allAssigned.isEmpty) return [];
 
     final sorted = List<RetailerShop>.from(allAssigned);
-    final bool startFromSouth = _currentRepLat < 26.2860;
+    final bool startFromMohaliSouth = _currentRepLat < 30.7100;
 
     sorted.sort((a, b) {
-      final latA = a.latitude ?? 26.2850;
-      final latB = b.latitude ?? 26.2850;
-      return startFromSouth ? latA.compareTo(latB) : latB.compareTo(latA);
+      final latA = a.latitude ?? 30.7225;
+      final latB = b.latitude ?? 30.7225;
+      return startFromMohaliSouth ? latA.compareTo(latB) : latB.compareTo(latA);
     });
 
     return sorted;
@@ -1750,7 +1750,7 @@ class ApiService extends ChangeNotifier {
     final currentRepEntry = SalesRepLeaderboardEntry(
       id: 'rep_current_akhendera',
       repName: 'Akhendera Singh (You)',
-      beatName: 'Sardarpura & Nai Sadak Route',
+      beatName: 'Chandigarh & Mohali Route',
       salesRevenueRupees: currentRepRevenue,
       visitsCompleted: currentRepVisitsCount,
       totalAssignedShops: totalBeatShops > 0 ? totalBeatShops : 6,
@@ -2928,7 +2928,7 @@ class ApiService extends ChangeNotifier {
   List<StaffMember> get staffList {
     if (_staff.isEmpty) {
       _staff = [
-        StaffMember(id: 'usr_sales_1', username: 'sales_rep', fullName: 'Vikram Rathore', role: 'SALES', assignedBeat: 'Sardarpura & Nai Sadak'),
+        StaffMember(id: 'usr_sales_1', username: 'sales_rep', fullName: 'Vikram Rathore', role: 'SALES', assignedBeat: 'Chandigarh & Mohali Route'),
         StaffMember(id: 'usr_wh_1', username: 'warehouse_user', fullName: 'Mukesh Godown', role: 'WAREHOUSE', assignedBeat: 'Central Godown (Basni Phase II)'),
         StaffMember(id: 'usr_del_1', username: 'delivery_user', fullName: 'Suresh Yadav', role: 'DELIVERY', assignedBeat: 'Van RJ-19-1234'),
         StaffMember(id: 'usr_adm_1', username: 'dist_admin', fullName: 'Rajesh Sharma', role: 'ADMIN', assignedBeat: 'Jodhpur FMCG Depot Head Office'),
@@ -3373,124 +3373,124 @@ class ApiService extends ChangeNotifier {
       }
     }
 
-    // 2. Jodhpur Kirana Retailers with Spatial Coordinates (Sardarpura & Nai Sadak Route)
+    // 2. Chandigarh & Mohali Retailers with Spatial Coordinates
     _retailers = [
       RetailerShop(
-        id: 'RET-JDH-01',
-        name: 'Shree Ganesh Kirana Store',
-        ownerName: 'Ramprasad Maheshwari',
-        phone: '+91 98290 12345',
-        address: 'Shop 14, Nai Sadak (Opp. Ghanta Ghar)',
-        area: 'Nai Sadak',
-        routeId: 'route_nai_sadak_01',
+        id: 'RET-CHD-01',
+        name: 'Punjab Kirana & Departmental Store',
+        ownerName: 'Gurpreet Singh',
+        phone: '+91 98150 12345',
+        address: 'SCO 45, Sector 17-C (Near Neelam Cinema)',
+        area: 'Sector 17, Chandigarh',
+        routeId: 'route_chd_mohali_01',
         shopType: 'KIRANA',
         creditLimitPaise: 5000000, // ₹50,000
         outstandingPaise: 1240000, // ₹12,400
         visitedToday: false,
-        latitude: 26.2945,
-        longitude: 73.0240,
+        latitude: 30.7398,
+        longitude: 76.7827,
       ),
       RetailerShop(
-        id: 'RET-JDH-02',
-        name: 'Jodhpur Wholesale Traders',
-        ownerName: 'Madan Lal Sharma',
-        phone: '+91 94141 55678',
-        address: 'Plot 22, B-Road, Near Nehru Park',
-        area: 'Sardarpura',
-        routeId: 'route_sardarpura_02',
-        shopType: 'WHOLESALE',
+        id: 'RET-CHD-02',
+        name: 'Aroma Supermarket & Daily Needs',
+        ownerName: 'Rajinder Kumar',
+        phone: '+91 98720 23456',
+        address: 'Booth 112, Sector 22-B Market',
+        area: 'Sector 22, Chandigarh',
+        routeId: 'route_chd_mohali_01',
+        shopType: 'SUPERMARKET',
         creditLimitPaise: 10000000, // ₹1,00,000
         outstandingPaise: 4320000, // ₹43,200
         visitedToday: true,
         todayOrderTotalPaise: 1850000,
-        totalTimeSpentSeconds: 1260, // 21m spent earlier today
+        totalTimeSpentSeconds: 1260,
         visitCountToday: 1,
-        latitude: 26.2750,
-        longitude: 73.0080,
+        latitude: 30.7300,
+        longitude: 76.7725,
       ),
       RetailerShop(
-        id: 'RET-JDH-03',
-        name: 'Marwar Super Provision Store',
-        ownerName: 'Bhanwar Singh Rathore',
-        phone: '+91 98291 98765',
-        address: 'Shop 8, Main Market, Nai Sadak',
-        area: 'Nai Sadak',
-        routeId: 'route_nai_sadak_01',
-        shopType: 'SUPERMARKET',
+        id: 'RET-CHD-03',
+        name: 'Chandigarh Provision & Confectionery',
+        ownerName: 'Harbans Lal Arora',
+        phone: '+91 94170 34567',
+        address: 'SCO 12, Sector 35-C Inner Market',
+        area: 'Sector 35, Chandigarh',
+        routeId: 'route_chd_mohali_01',
+        shopType: 'GENERAL_STORE',
         creditLimitPaise: 4000000,
         outstandingPaise: 850000,
         visitedToday: false,
-        latitude: 26.2915,
-        longitude: 73.0215,
+        latitude: 30.7225,
+        longitude: 76.7620,
       ),
       RetailerShop(
-        id: 'RET-JDH-04',
-        name: 'Mahadev Kirana & General Stores',
-        ownerName: 'Dungar Ram Dewasi',
-        phone: '+91 99280 44321',
-        address: 'SCO 9, 4th C Road',
-        area: 'Sardarpura',
-        routeId: 'route_sardarpura_02',
-        shopType: 'GENERAL_STORE',
-        creditLimitPaise: 3000000,
+        id: 'RET-CHD-04',
+        name: 'City Wholesale Traders & Mart',
+        ownerName: 'Manmohan Sharma',
+        phone: '+91 98880 45678',
+        address: 'Shop 24, Sector 43-B (Near ISBT 43)',
+        area: 'Sector 43, Chandigarh',
+        routeId: 'route_chd_mohali_01',
+        shopType: 'WHOLESALE',
+        creditLimitPaise: 8000000,
         outstandingPaise: 1520000,
         visitedToday: false,
-        latitude: 26.2810,
-        longitude: 73.0115,
+        latitude: 30.7130,
+        longitude: 76.7480,
       ),
       RetailerShop(
-        id: 'RET-JDH-05',
-        name: 'Laxmi Namkeen & Farsan Mart',
-        ownerName: 'Kailash Chand',
-        phone: '+91 98292 33445',
-        address: 'Shop 5, Jaljog Circle, Sardarpura',
-        area: 'Sardarpura',
-        routeId: 'route_sardarpura_02',
-        shopType: 'FARSAN_NAMKEEN',
+        id: 'RET-MOH-05',
+        name: 'Mohali Fresh & Daily Grocers',
+        ownerName: 'Jaswinder Singh Sidhu',
+        phone: '+91 98760 56789',
+        address: 'SCF 28, Phase 3B2 Market',
+        area: 'Phase 3B2, Mohali',
+        routeId: 'route_chd_mohali_01',
+        shopType: 'KIRANA',
         creditLimitPaise: 4500000,
         outstandingPaise: 980000,
         visitedToday: false,
-        latitude: 26.2785,
-        longitude: 73.0095,
+        latitude: 30.7055,
+        longitude: 76.7265,
       ),
       RetailerShop(
-        id: 'RET-JDH-06',
-        name: 'Shanti Sweets & Farsan Bhandar',
-        ownerName: 'Deepak Joshi',
-        phone: '+91 98293 44556',
-        address: 'Opp. Ghanta Ghar Tower, Nai Sadak',
-        area: 'Nai Sadak',
-        routeId: 'route_nai_sadak_01',
-        shopType: 'FARSAN_NAMKEEN',
+        id: 'RET-MOH-06',
+        name: 'Golden Superstore Mohali',
+        ownerName: 'Baldev Raj Gupta',
+        phone: '+91 99140 67890',
+        address: 'SCF 14, Phase 7 Main Market',
+        area: 'Phase 7, Mohali',
+        routeId: 'route_chd_mohali_01',
+        shopType: 'SUPERMARKET',
         creditLimitPaise: 6000000,
         outstandingPaise: 0,
         visitedToday: false,
-        latitude: 26.2930,
-        longitude: 73.0230,
+        latitude: 30.6975,
+        longitude: 76.7115,
       ),
     ];
 
-    // 3. Physical Warehouse Hubs
+    // 3. Physical Warehouse Hubs (Chandigarh & Mohali)
     _warehouseHubs = [
       WarehouseHub(
-        id: 'WH-JDH-CENTRAL',
-        name: 'Routidrow Central Godown',
-        code: 'BASNI-01',
-        address: 'Plot 42, Light Industrial Area, Basni Phase II, Jodhpur',
-        latitude: 26.2167,
-        longitude: 73.0167,
+        id: 'WH-CHD-CENTRAL',
+        name: 'Routidrow Industrial Area Depot',
+        code: 'CHD-IND-01',
+        address: 'Plot 72, Industrial Area Phase 1, Chandigarh',
+        latitude: 30.7050,
+        longitude: 76.8010,
         capacityBoxes: 5000,
         activeStaffCount: 8,
         godownStockBoxes: 180,
         carStockBoxes: 24,
       ),
       WarehouseHub(
-        id: 'WH-JDH-SUBDEPOT',
-        name: 'Sohati Gate City Cross-Dock',
-        code: 'SOHATI-02',
-        address: 'Shop 12, Sohati Gate Circle, Inner Ring Rd, Jodhpur',
-        latitude: 26.2870,
-        longitude: 73.0200,
+        id: 'WH-MOH-SUBDEPOT',
+        name: 'Mohali Industrial Cross-Dock',
+        code: 'MOH-IND-02',
+        address: 'Plot 15, Industrial Area Phase 8, SAS Nagar, Mohali',
+        latitude: 30.7180,
+        longitude: 76.7020,
         capacityBoxes: 1200,
         activeStaffCount: 3,
         godownStockBoxes: 40,
@@ -3504,10 +3504,10 @@ class ApiService extends ChangeNotifier {
       DistributorOrder(
         id: 'ord_init_01',
         orderNumber: 'ROUT-849201',
-        shopId: 'RET-JDH-02',
-        shopName: 'Jodhpur Wholesale Traders',
-        shopPhone: '+91 94141 55678',
-        address: 'B-Road, Sardarpura, Jodhpur',
+        shopId: 'RET-CHD-02',
+        shopName: 'Aroma Supermarket & Daily Needs',
+        shopPhone: '+91 98720 23456',
+        address: 'Sector 22-B, Chandigarh',
         items: [
           CartItem(product: _products[0], unit: OrderUnit.box, quantity: 2), // 2 boxes Real Bites Bikaneri Sev
           CartItem(product: _products[6], unit: OrderUnit.box, quantity: 1), // 1 box Real Bites Sing Bhujiya
@@ -3526,10 +3526,10 @@ class ApiService extends ChangeNotifier {
       DistributorOrder(
         id: 'ord_init_02',
         orderNumber: 'ROUT-772910',
-        shopId: 'RET-JDH-01',
-        shopName: 'Shree Ganesh Kirana Store',
-        shopPhone: '+91 98290 12345',
-        address: 'Opp. Ghanta Ghar, Station Road',
+        shopId: 'RET-CHD-01',
+        shopName: 'Punjab Kirana & Departmental Store',
+        shopPhone: '+91 98150 12345',
+        address: 'SCO 45, Sector 17-C, Chandigarh',
         items: [
           CartItem(product: _products[1], unit: OrderUnit.box, quantity: 3), // 3 boxes Real Bites Aaloo Sev
           CartItem(product: _products[9], unit: OrderUnit.strip, quantity: 4), // 4 strips Real Bites Wafers
@@ -3548,10 +3548,10 @@ class ApiService extends ChangeNotifier {
       DistributorOrder(
         id: 'ord_init_03',
         orderNumber: 'ROUT-910245',
-        shopId: 'RET-JDH-03',
-        shopName: 'Marwar Super Provision Store',
-        shopPhone: '+91 98291 98765',
-        address: 'Main Market, Sohati Gate Circle',
+        shopId: 'RET-MOH-05',
+        shopName: 'Mohali Fresh & Daily Grocers',
+        shopPhone: '+91 98760 56789',
+        address: 'SCF 28, Phase 3B2, Mohali',
         items: [
           CartItem(product: _products[0], unit: OrderUnit.strip, quantity: 6), // 6 strips Real Bites Bikaneri Sev
           CartItem(product: _products[3], unit: OrderUnit.piece, quantity: 24), // 24 pouches Real Bites Papdi Ganthiya
