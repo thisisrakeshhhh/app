@@ -1741,6 +1741,10 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
     setState(() {});
 
     final durationFormatted = RetailerShop.formatDuration(elapsedSecs);
+    final nextShops = widget.api.dynamicRoadRouteShops.where((s) => !s.visitedToday && !s.isSkipped).toList();
+    final nextShop = nextShops.isNotEmpty ? nextShops.first : null;
+    final nextDist = nextShop != null ? _formatDistance(_getShopDistance(nextShop)) : null;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1792,9 +1796,51 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
                 ],
               ),
             ),
+            if (nextShop != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.navigation_rounded, color: Color(0xFF16A34A), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'NEXT ROAD-AWARE STOP',
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
+                          ),
+                          Text(
+                            '${nextShop.name} ($nextDist)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
+          if (nextShop != null)
+            TextButton(
+              onPressed: () {
+                widget.api.selectShop(nextShop);
+                Navigator.pop(ctx);
+              },
+              child: Text('Next: ${nextShop.name.split(' ').first}', style: const TextStyle(fontWeight: FontWeight.bold, color: AirbnbTheme.coral)),
+            ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(

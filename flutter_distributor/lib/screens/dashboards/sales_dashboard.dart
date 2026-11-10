@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,6 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 import '../views/add_shop_sheet.dart';
-import '../views/sales_route_map_view.dart';
 
 enum SalesAnalyticsTimeframe {
   today('timeframe_today'),
@@ -43,9 +43,27 @@ class SalesDashboard extends StatefulWidget {
 class _SalesDashboardState extends State<SalesDashboard> {
   SalesAnalyticsTimeframe _selectedTimeframe = SalesAnalyticsTimeframe.today;
   int _selectedStopIndex = 0;
-  bool _showGoogleMaps = true;
   MapType _mapType = MapType.normal;
   GoogleMapController? _googleMapController;
+  Timer? _stopwatchTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // 1-second live ticker for active visit stopwatch and time spent
+    _stopwatchTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && widget.api.activeVisitShopId != null) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopwatchTimer?.cancel();
+    _googleMapController?.dispose();
+    super.dispose();
+  }
 
   void _openAddShopSheet() async {
     final newShop = await AddShopSheet.show(
@@ -782,22 +800,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildActionBtn(
-                  icon: Icons.map_rounded,
-                  label: 'Route Map',
-                  color: const Color(0xFFE67E22),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SalesRouteMapView(api: widget.api),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildActionBtn(
                   icon: Icons.store,
                   label: 'Retailers',
                   color: AirbnbTheme.jodhpurBlue,
@@ -1094,7 +1096,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          if (_showGoogleMaps && locatedShops.isNotEmpty)
+          if (locatedShops.isNotEmpty)
             GoogleMap(
               gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
                 Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
@@ -1149,106 +1151,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     }
                   : {},
               onMapCreated: (ctrl) => _googleMapController = ctrl,
-            )
-          else
-            GestureDetector(
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: ZomatoRouteMapPainter(
-                  shops: locatedShops,
-                  selectedIndex: selectedShop != null ? locatedShops.indexOf(selectedShop) : -1,
-                  activeShopId: activeShop?.id,
-                ),
-              ),
-            ),
-
-          // Floating Pin Badges on Canvas (when offline sketch active)
-          if (!_showGoogleMaps && locatedShops.isNotEmpty)
-            LayoutBuilder(
-              builder: (ctx, constraints) {
-                final w = constraints.maxWidth;
-                final h = constraints.maxHeight;
-                return Stack(
-                  children: locatedShops.asMap().entries.map((entry) {
-                    final idx = entry.key;
-                    final shop = entry.value;
-                    final isSelected = shop.id == selectedShop?.id;
-                    final isCheckedIn = shop.isCheckedIn;
-                    final isVisited = shop.visitedToday;
-                    final pos = computeShopCanvasPosition(
-                      shop: shop,
-                      index: idx,
-                      totalCount: locatedShops.length,
-                      canvasSize: Size(w, h),
-                      allShops: locatedShops,
-                    );
-                    final letter = String.fromCharCode(65 + (idx % 26));
-
-                    return Positioned(
-                      left: pos.dx - 20,
-                      top: pos.dy - 24,
-                      child: GestureDetector(
-                        onTap: () {
-                          final origIdx = widget.api.assignedRouteShops.indexOf(shop);
-                          if (origIdx != -1) {
-                            setState(() => _selectedStopIndex = origIdx);
-                          }
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(5),
-                                border: Border.all(
-                                  color: isSelected ? AirbnbTheme.coral : AirbnbTheme.border,
-                                  width: isSelected ? 1.5 : 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                shop.name.split(' ').take(2).join(' '),
-                                style: TextStyle(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: isSelected ? AirbnbTheme.coral : AirbnbTheme.dark,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Container(
-                              width: 26,
-                              height: 26,
-                              decoration: BoxDecoration(
-                                color: isCheckedIn
-                                    ? AirbnbTheme.coral
-                                    : (isVisited
-                                        ? AirbnbTheme.success
-                                        : (isSelected ? AirbnbTheme.jodhpurBlue : const Color(0xFF475569))),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                              child: Center(
-                                child: isVisited
-                                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                    : Text(
-                                        letter,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
             ),
 
           // Top Controls Overlay
@@ -1258,19 +1160,17 @@ class _SalesDashboardState extends State<SalesDashboard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Fullscreen Map button
+                // Fit All Beat Shops button
                 InkWell(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SalesRouteMapView(
-                          api: widget.api,
-                          onNavigateTab: widget.onNavigateTab,
-                          initialShowGoogleMaps: true,
+                    if (locatedShops.isNotEmpty) {
+                      _googleMapController?.animateCamera(
+                        CameraUpdate.newLatLngZoom(
+                          LatLng(locatedShops.first.latitude!, locatedShops.first.longitude!),
+                          14.0,
                         ),
-                      ),
-                    ).then((_) => setState(() {}));
+                      );
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.all(6),
@@ -1334,30 +1234,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                // Map / Canvas toggle
-                InkWell(
-                  onTap: () => setState(() => _showGoogleMaps = !_showGoogleMaps),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _showGoogleMaps ? AirbnbTheme.jodhpurBlue : Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AirbnbTheme.jodhpurBlue),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                      ],
-                    ),
-                    child: Text(
-                      _showGoogleMaps ? 'Canvas' : 'Google Map',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: _showGoogleMaps ? Colors.white : AirbnbTheme.jodhpurBlue,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -1379,37 +1255,28 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   ),
                 ],
               ),
-              child: _showGoogleMaps
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: AirbnbTheme.success,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        const Text(
-                          'Google Maps • Live',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            color: AirbnbTheme.dark,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      strings.t('route_sketch'),
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AirbnbTheme.grey,
-                      ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: AirbnbTheme.success,
+                      shape: BoxShape.circle,
                     ),
+                  ),
+                  const SizedBox(width: 5),
+                  const Text(
+                    'Google Maps • Live',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: AirbnbTheme.dark,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -1542,44 +1409,21 @@ class _SalesDashboardState extends State<SalesDashboard> {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  key: const ValueKey('continue_route_btn'),
-                  onPressed: () => widget.onNavigateTab(2),
-                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: Text(strings.t('continue_route'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AirbnbTheme.coral,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              key: const ValueKey('continue_route_btn'),
+              onPressed: () => widget.onNavigateTab(2),
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: Text(strings.t('continue_route'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AirbnbTheme.coral,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SalesRouteMapView(api: widget.api, onNavigateTab: widget.onNavigateTab),
-                    ),
-                  ).then((_) => setState(() {}));
-                },
-                icon: const Icon(Icons.map_rounded, size: 15),
-                label: Text(strings.t('route_map'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.15),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                ),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -1753,7 +1597,66 @@ class _SalesDashboardState extends State<SalesDashboard> {
                       'GPS: ${selectedShop.latitude!.toStringAsFixed(4)}, ${selectedShop.longitude!.toStringAsFixed(4)} (${selectedShop.area})',
                       style: const TextStyle(fontSize: 9.5, color: AirbnbTheme.grey),
                     ),
-                  const SizedBox(height: 10),
+                  // Time Spent & Visit Status Indicator
+                  Container(
+                    margin: const EdgeInsets.only(top: 8, bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: selectedShop.isCheckedIn
+                          ? const Color(0xFF00B894).withValues(alpha: 0.12)
+                          : (selectedShop.visitedToday ? const Color(0xFFEFF6FF) : AirbnbTheme.lightGrey),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: selectedShop.isCheckedIn
+                            ? const Color(0xFF00B894)
+                            : (selectedShop.visitedToday ? const Color(0xFF60A5FA) : AirbnbTheme.border),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          selectedShop.isCheckedIn
+                              ? Icons.timer
+                              : (selectedShop.visitedToday ? Icons.check_circle : Icons.schedule),
+                          size: 15,
+                          color: selectedShop.isCheckedIn
+                              ? const Color(0xFF00897B)
+                              : (selectedShop.visitedToday ? const Color(0xFF2563EB) : AirbnbTheme.grey),
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            selectedShop.isCheckedIn
+                                ? '🟢 CHECKED IN • Time Spent: ${selectedShop.activeVisitFormatted}'
+                                : (selectedShop.visitedToday
+                                    ? '✓ VISITED TODAY • Time Spent: ${selectedShop.totalTimeSpentFormatted}'
+                                    : '⏱️ Not Visited (0m spent today)'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: selectedShop.isCheckedIn
+                                  ? const Color(0xFF00897B)
+                                  : (selectedShop.visitedToday ? const Color(0xFF1E40AF) : AirbnbTheme.dark),
+                            ),
+                          ),
+                        ),
+                        if (selectedShop.todayOrderTotalPaise > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AirbnbTheme.coral.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              '₹${(selectedShop.todayOrderTotalPaise / 100).toStringAsFixed(0)} Booked',
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: AirbnbTheme.coral),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   // Action row
                   Row(
                     children: [
@@ -1761,13 +1664,36 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         child: selectedShop.isCheckedIn
                             ? ElevatedButton.icon(
                                 onPressed: () {
-                                  widget.api.endShopVisit(selectedShop.id);
-                                  setState(() {});
+                                  final elapsed = widget.api.endShopVisit(selectedShop.id);
+                                  final nextSequence = widget.api.dynamicRoadRouteShops;
+                                  final unvisited = nextSequence.where((s) => !s.visitedToday && !s.isSkipped).toList();
+                                  if (unvisited.isNotEmpty) {
+                                    final nextShop = unvisited.first;
+                                    final nextIdx = nextSequence.indexOf(nextShop);
+                                    setState(() {
+                                      _selectedStopIndex = nextIdx != -1 ? nextIdx : 0;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: const Color(0xFF00897B),
+                                        duration: const Duration(seconds: 4),
+                                        content: Text('✓ Checked off ${selectedShop.name}! Spent: ${RetailerShop.formatDuration(elapsed)}.\nNext Stop: ${nextShop.name}'),
+                                      ),
+                                    );
+                                  } else {
+                                    setState(() {});
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: const Color(0xFF00897B),
+                                        content: Text('✓ Checked off ${selectedShop.name}! Spent: ${RetailerShop.formatDuration(elapsed)}.\nAll route stops completed!'),
+                                      ),
+                                    );
+                                  }
                                 },
                                 icon: const Icon(Icons.check_circle_outline, size: 14),
-                                label: const Text('End Visit', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                                label: const Text('Check-Off / End Visit', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AirbnbTheme.dark,
+                                  backgroundColor: Colors.red.shade700,
                                   foregroundColor: Colors.white,
                                   visualDensity: VisualDensity.compact,
                                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1777,6 +1703,12 @@ class _SalesDashboardState extends State<SalesDashboard> {
                                 onPressed: () {
                                   widget.api.startShopVisit(selectedShop.id);
                                   setState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: AirbnbTheme.coral,
+                                      content: Text('🟢 Checked in at ${selectedShop.name}. Stopwatch active!'),
+                                    ),
+                                  );
                                 },
                                 icon: const Icon(Icons.login_rounded, size: 14),
                                 label: Text(
@@ -1794,6 +1726,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         onPressed: () {
+                          if (!selectedShop.isCheckedIn) {
+                            widget.api.startShopVisit(selectedShop.id);
+                          }
                           widget.api.selectShop(selectedShop);
                           widget.onNavigateTab(1);
                         },
