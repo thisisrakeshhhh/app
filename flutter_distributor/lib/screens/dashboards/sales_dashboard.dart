@@ -1073,6 +1073,44 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
 
 
+  void _fitRouteBounds(List<RetailerShop> locatedShops) {
+    if (_googleMapController == null) return;
+    final points = <LatLng>[
+      LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+      ...locatedShops.map((s) => LatLng(s.latitude!, s.longitude!)),
+    ];
+    if (points.isEmpty) return;
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+    if (minLat == maxLat) {
+      minLat -= 0.005;
+      maxLat += 0.005;
+    }
+    if (minLng == maxLng) {
+      minLng -= 0.005;
+      maxLng += 0.005;
+    }
+    try {
+      _googleMapController!.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          ),
+          55.0,
+        ),
+      );
+    } catch (_) {}
+  }
+
   Widget _buildInteractiveMap(
     List<RetailerShop> locatedShops,
     RetailerShop? selectedShop,
@@ -1080,7 +1118,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     AppStrings strings,
   ) {
     return Container(
-      height: 200,
+      height: 220,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -1112,45 +1150,98 @@ class _SalesDashboardState extends State<SalesDashboard> {
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
-              markers: locatedShops.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final s = entry.value;
-                final isSel = s.id == selectedShop?.id;
-                final isChecked = s.isCheckedIn;
-                final letter = String.fromCharCode(65 + (idx % 26));
-
-                return Marker(
-                  markerId: MarkerId(s.id),
-                  position: LatLng(s.latitude!, s.longitude!),
-                  icon: isChecked
-                      ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
-                      : isSel
-                          ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
-                          : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+              circles: {
+                Circle(
+                  circleId: const CircleId('current_location_accuracy_halo'),
+                  center: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                  radius: 80,
+                  fillColor: const Color(0x331A73E8),
+                  strokeColor: const Color(0xFF1A73E8),
+                  strokeWidth: 2,
+                ),
+              },
+              markers: {
+                // Live Current Location Marker (Salesperson)
+                Marker(
+                  markerId: const MarkerId('current_location_user'),
+                  position: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
                   infoWindow: InfoWindow(
-                    title: '$letter. ${s.name}',
-                    snippet: '${s.area} • ${s.visitedToday ? "Visited" : "Pending"}',
+                    title: '📍 Your Current Location',
+                    snippet: locatedShops.isNotEmpty
+                        ? 'Navigation Start • Next: Stop 1 (${locatedShops.first.name})'
+                        : 'Your real-time GPS position',
                   ),
-                  onTap: () {
-                    setState(() {
-                      _selectedStopIndex = widget.api.assignedRouteShops.indexOf(s);
-                    });
-                  },
-                );
-              }).toSet(),
-              polylines: locatedShops.length >= 2
+                  zIndexInt: 25,
+                ),
+                // Sequential Road Beat Shop Markers
+                ...locatedShops.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final s = entry.value;
+                  final isSel = s.id == selectedShop?.id;
+                  final isChecked = s.isCheckedIn;
+                  final stopNum = idx + 1;
+                  final isFirst = idx == 0;
+                  final isSecond = idx == 1;
+                  final distM = ApiService.calculateRoadDistanceMeters(
+                    widget.api.currentRepLat,
+                    widget.api.currentRepLng,
+                    s.latitude!,
+                    s.longitude!,
+                  );
+                  final distStr = distM < 1000 ? '${distM.toStringAsFixed(0)} m' : '${(distM / 1000).toStringAsFixed(1)} km';
+
+                  return Marker(
+                    markerId: MarkerId(s.id),
+                    position: LatLng(s.latitude!, s.longitude!),
+                    icon: isChecked
+                        ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
+                        : isSel
+                            ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
+                            : (isFirst
+                                ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange)
+                                : (isSecond
+                                    ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow)
+                                    : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure))),
+                    infoWindow: InfoWindow(
+                      title: isFirst
+                          ? '1️⃣ Stop 1 (Visit First): ${s.name}'
+                          : (isSecond ? '2️⃣ Stop 2 (Visit Second): ${s.name}' : '#$stopNum. ${s.name}'),
+                      snippet: '$distStr away • ${s.visitedToday ? "✓ Visited" : (isChecked ? "🟢 Active Visit" : "Pending")}',
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _selectedStopIndex = idx;
+                      });
+                      _googleMapController?.animateCamera(
+                        CameraUpdate.newLatLng(LatLng(s.latitude!, s.longitude!)),
+                      );
+                    },
+                  );
+                }),
+              },
+              polylines: locatedShops.isNotEmpty
                   ? {
                       Polyline(
                         polylineId: const PolylineId('dashboard_route_line'),
-                        points: locatedShops
-                            .map((s) => LatLng(s.latitude!, s.longitude!))
-                            .toList(),
-                        color: AirbnbTheme.coral,
-                        width: 4,
+                        points: [
+                          LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                          ...locatedShops.map((s) => LatLng(s.latitude!, s.longitude!)),
+                        ],
+                        color: const Color(0xFF1A73E8),
+                        width: 5,
+                        jointType: JointType.round,
+                        startCap: Cap.roundCap,
+                        endCap: Cap.roundCap,
                       ),
                     }
                   : {},
-              onMapCreated: (ctrl) => _googleMapController = ctrl,
+              onMapCreated: (ctrl) {
+                _googleMapController = ctrl;
+                Future.delayed(const Duration(milliseconds: 400), () {
+                  if (mounted) _fitRouteBounds(locatedShops);
+                });
+              },
             ),
 
           // Top Controls Overlay
@@ -1160,17 +1251,40 @@ class _SalesDashboardState extends State<SalesDashboard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // My Current Location GPS button
+                InkWell(
+                  onTap: () {
+                    _googleMapController?.animateCamera(
+                      CameraUpdate.newLatLngZoom(
+                        LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                        15.5,
+                      ),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('📍 Centered on your current location'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AirbnbTheme.border),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                      ],
+                    ),
+                    child: const Icon(Icons.my_location, size: 16, color: Color(0xFF1A73E8)),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 // Fit All Beat Shops button
                 InkWell(
                   onTap: () {
-                    if (locatedShops.isNotEmpty) {
-                      _googleMapController?.animateCamera(
-                        CameraUpdate.newLatLngZoom(
-                          LatLng(locatedShops.first.latitude!, locatedShops.first.longitude!),
-                          14.0,
-                        ),
-                      );
-                    }
+                    _fitRouteBounds(locatedShops);
                   },
                   child: Container(
                     padding: const EdgeInsets.all(6),
@@ -1185,30 +1299,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     child: const Icon(Icons.fullscreen_rounded, size: 16, color: AirbnbTheme.dark),
                   ),
                 ),
-                const SizedBox(width: 6),
-                // Recenter button
-                if (selectedShop?.latitude != null && selectedShop?.longitude != null)
-                  InkWell(
-                    onTap: () {
-                      _googleMapController?.animateCamera(
-                        CameraUpdate.newLatLng(
-                          LatLng(selectedShop!.latitude!, selectedShop.longitude!),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AirbnbTheme.border),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                        ],
-                      ),
-                      child: const Icon(Icons.my_location, size: 16, color: AirbnbTheme.jodhpurBlue),
-                    ),
-                  ),
                 const SizedBox(width: 6),
                 // Satellite/Normal Switcher
                 InkWell(
@@ -1267,9 +1357,11 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     ),
                   ),
                   const SizedBox(width: 5),
-                  const Text(
-                    'Google Maps • Live',
-                    style: TextStyle(
+                  Text(
+                    locatedShops.isNotEmpty
+                        ? 'Google Maps • Stop 1: ${locatedShops.first.name.split(" ").first} (${(ApiService.calculateRoadDistanceMeters(widget.api.currentRepLat, widget.api.currentRepLng, locatedShops.first.latitude!, locatedShops.first.longitude!)).toStringAsFixed(0)}m)'
+                        : 'Google Maps • Live',
+                    style: const TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w700,
                       color: AirbnbTheme.dark,
@@ -1436,13 +1528,29 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   final idx = entry.key;
                   final shop = entry.value;
                   final isSel = idx == _selectedStopIndex;
-                  final letter = String.fromCharCode(65 + (idx % 26));
+                  final stopNumber = idx + 1;
+                  final isFirst = idx == 0;
+                  final isSecond = idx == 1;
+                  final distM = (shop.latitude != null && shop.longitude != null)
+                      ? ApiService.calculateRoadDistanceMeters(
+                          widget.api.currentRepLat,
+                          widget.api.currentRepLng,
+                          shop.latitude!,
+                          shop.longitude!,
+                        )
+                      : 0.0;
+                  final distStr = distM < 1000 ? '${distM.toStringAsFixed(0)}m' : '${(distM / 1000).toStringAsFixed(1)}km';
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: InkWell(
                       onTap: () {
                         setState(() => _selectedStopIndex = idx);
+                        if (shop.latitude != null && shop.longitude != null) {
+                          _googleMapController?.animateCamera(
+                            CameraUpdate.newLatLng(LatLng(shop.latitude!, shop.longitude!)),
+                          );
+                        }
                       },
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
@@ -1457,12 +1565,23 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              letter,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11,
-                                color: isSel ? Colors.white : const Color(0xFFB2BEC3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isFirst
+                                    ? (isSel ? Colors.white : Colors.amber)
+                                    : (isSel ? Colors.white.withValues(alpha: 0.25) : Colors.black26),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isFirst ? '#1 1st' : (isSecond ? '#2 2nd' : '#$stopNumber'),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 10,
+                                  color: isFirst
+                                      ? (isSel ? AirbnbTheme.coral : Colors.black)
+                                      : (isSel ? Colors.white : const Color(0xFFB2BEC3)),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 5),
@@ -1472,6 +1591,15 @@ class _SalesDashboardState extends State<SalesDashboard> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: isSel ? Colors.white : Colors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              distStr,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                                color: isSel ? Colors.white70 : const Color(0xFF94A3B8),
                               ),
                             ),
                             if (shop.visitedToday) ...[
@@ -1499,6 +1627,38 @@ class _SalesDashboardState extends State<SalesDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Sequential Priority Tag
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _selectedStopIndex == 0
+                              ? const Color(0xFFFEF3C7)
+                              : (_selectedStopIndex == 1 ? const Color(0xFFEFF6FF) : AirbnbTheme.lightGrey),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: _selectedStopIndex == 0
+                                ? const Color(0xFFF59E0B)
+                                : (_selectedStopIndex == 1 ? const Color(0xFF60A5FA) : AirbnbTheme.border),
+                          ),
+                        ),
+                        child: Text(
+                          _selectedStopIndex == 0
+                              ? '🎯 STOP 1 • VISIT FIRST (NEAREST TO YOU)'
+                              : (_selectedStopIndex == 1 ? '⏩ STOP 2 • VISIT SECOND' : 'STOP #${_selectedStopIndex + 1} ON ROUTE'),
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: _selectedStopIndex == 0
+                                ? const Color(0xFFB45309)
+                                : (_selectedStopIndex == 1 ? const Color(0xFF1D4ED8) : AirbnbTheme.dark),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1516,8 +1676,8 @@ class _SalesDashboardState extends State<SalesDashboard> {
                               ),
                               child: Center(
                                 child: Text(
-                                  String.fromCharCode(65 + (_selectedStopIndex % 26)),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11),
+                                  '#${_selectedStopIndex + 1}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10),
                                 ),
                               ),
                             ),
@@ -1739,6 +1899,33 @@ class _SalesDashboardState extends State<SalesDashboard> {
                           foregroundColor: Colors.white,
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          if (selectedShop.latitude != null && selectedShop.longitude != null) {
+                            _googleMapController?.animateCamera(
+                              CameraUpdate.newLatLngZoom(
+                                LatLng(selectedShop.latitude!, selectedShop.longitude!),
+                                16.5,
+                              ),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('🧭 Navigating to Stop #${_selectedStopIndex + 1}: ${selectedShop.name}'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.navigation_outlined, size: 14),
+                        label: const Text('Navigate', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1A73E8),
+                          side: const BorderSide(color: Color(0xFF1A73E8)),
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         ),
                       ),
                     ],
