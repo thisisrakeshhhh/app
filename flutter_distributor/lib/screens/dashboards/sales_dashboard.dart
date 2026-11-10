@@ -158,7 +158,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     final newShop = await AddShopSheet.show(
       context,
       api: widget.api,
-      defaultRouteId: 'route_chd_mohali_01',
+      defaultRouteId: widget.api.activeTerritory == 'jodhpur' ? 'route_sardarpura_02' : 'route_chd_mohali_01',
     );
     if (newShop != null) {
       widget.api.addShopToTodayBeat(newShop.id);
@@ -1165,21 +1165,44 @@ class _SalesDashboardState extends State<SalesDashboard> {
   List<LatLng> _buildRoadSegment(LatLng from, LatLng to) {
     final points = <LatLng>[from];
 
-    final bool fromChandigarh = from.latitude >= 30.7100;
-    final bool toChandigarh = to.latitude >= 30.7100;
+    // Check if points are in Jodhpur territory (lat < 28.5)
+    final bool isJodhpur = from.latitude < 28.5 && to.latitude < 28.5;
 
-    if (fromChandigarh && toChandigarh) {
-      // Chandigarh sector grid routing (via sector dividing road & roundabout)
-      points.add(LatLng(from.latitude, to.longitude));
-    } else if (!fromChandigarh && !toChandigarh) {
-      // Mohali SAS Nagar phase grid routing
-      points.add(LatLng(to.latitude, from.longitude));
+    if (isJodhpur) {
+      final bool fromSardarpura = from.latitude < 26.2860;
+      final bool toSardarpura = to.latitude < 26.2860;
+
+      if (fromSardarpura && toSardarpura) {
+        // Sardarpura internal grid (via B/C Road intersections)
+        points.add(LatLng(from.latitude, to.longitude));
+      } else if (!fromSardarpura && !toSardarpura) {
+        // Old City Bazaar / Nai Sadak / Sojati Gate corridor
+        points.add(LatLng(to.latitude, from.longitude));
+      } else {
+        // Arterial corridor connecting Sardarpura and Nai Sadak (via Sojati Gate junction)
+        const sojatiGateJunction = LatLng(26.2890, 73.0190);
+        points.add(LatLng(from.latitude, sojatiGateJunction.longitude));
+        points.add(sojatiGateJunction);
+        points.add(LatLng(to.latitude, sojatiGateJunction.longitude));
+      }
     } else {
-      // Chandigarh-Mohali Border arterial (via Sector 43 / Phase 3B2 Border Chowk)
-      const borderChowk = LatLng(30.7090, 76.7370);
-      points.add(LatLng(from.latitude, borderChowk.longitude));
-      points.add(borderChowk);
-      points.add(LatLng(to.latitude, borderChowk.longitude));
+      // Chandigarh & Mohali territory (lat >= 28.5)
+      final bool fromChandigarh = from.latitude >= 30.7100;
+      final bool toChandigarh = to.latitude >= 30.7100;
+
+      if (fromChandigarh && toChandigarh) {
+        // Chandigarh sector grid routing (via sector dividing road & roundabout)
+        points.add(LatLng(from.latitude, to.longitude));
+      } else if (!fromChandigarh && !toChandigarh) {
+        // Mohali SAS Nagar phase grid routing
+        points.add(LatLng(to.latitude, from.longitude));
+      } else {
+        // Chandigarh-Mohali Border arterial (via Sector 43 / Phase 3B2 Border Chowk)
+        const borderChowk = LatLng(30.7090, 76.7370);
+        points.add(LatLng(from.latitude, borderChowk.longitude));
+        points.add(borderChowk);
+        points.add(LatLng(to.latitude, borderChowk.longitude));
+      }
     }
 
     points.add(to);
@@ -1190,9 +1213,26 @@ class _SalesDashboardState extends State<SalesDashboard> {
     final polylines = <Polyline>{};
     if (shops.isEmpty) return polylines;
 
-    LatLng prevPoint = LatLng(widget.api.currentRepLat, widget.api.currentRepLng);
+    final firstLocated = shops.where((s) => s.latitude != null && s.longitude != null).firstOrNull;
+    if (firstLocated == null) return polylines;
 
-    for (int i = 0; i < shops.length; i++) {
+    final repLat = widget.api.currentRepLat;
+    final repLng = widget.api.currentRepLng;
+    final distToFirst = ApiService.calculateDistanceMeters(repLat, repLng, firstLocated.latitude!, firstLocated.longitude!);
+
+    LatLng prevPoint;
+    int startIndex = 0;
+    if (distToFirst < 35000) {
+      // Rep is physically in or near this city beat corridor - connect rep's live dot to stop 1
+      prevPoint = LatLng(repLat, repLng);
+      startIndex = 0;
+    } else {
+      // Rep is in a different city - start the route clean from stop 1
+      prevPoint = LatLng(firstLocated.latitude!, firstLocated.longitude!);
+      startIndex = 1;
+    }
+
+    for (int i = startIndex; i < shops.length; i++) {
       final s = shops[i];
       if (s.latitude == null || s.longitude == null) continue;
       final currentTarget = LatLng(s.latitude!, s.longitude!);
@@ -1220,10 +1260,26 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
   void _fitRouteBounds(List<RetailerShop> locatedShops) {
     if (_googleMapController == null) return;
+    if (locatedShops.isEmpty) {
+      final defaultLat = widget.api.activeTerritory == 'jodhpur' ? 26.2850 : 30.7225;
+      final defaultLng = widget.api.activeTerritory == 'jodhpur' ? 73.0180 : 76.7620;
+      _googleMapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(defaultLat, defaultLng), 14.5),
+      );
+      return;
+    }
+
     final points = <LatLng>[
-      LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
       ...locatedShops.map((s) => LatLng(s.latitude!, s.longitude!)),
     ];
+
+    // Only include rep's phone location if it is nearby this city's cluster (< 35km)
+    final repLat = widget.api.currentRepLat;
+    final repLng = widget.api.currentRepLng;
+    final isRepNearby = points.any((p) => ApiService.calculateDistanceMeters(repLat, repLng, p.latitude, p.longitude) < 35000);
+    if (isRepNearby) {
+      points.add(LatLng(repLat, repLng));
+    }
     if (points.isEmpty) return;
     double minLat = points.first.latitude;
     double maxLat = points.first.latitude;
@@ -1496,6 +1552,18 @@ class _SalesDashboardState extends State<SalesDashboard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AirbnbTheme.coral.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      widget.api.activeTerritoryShortName,
+                      style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: AirbnbTheme.coral),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Container(
                     width: 7,
                     height: 7,
                     decoration: const BoxDecoration(
@@ -1505,7 +1573,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   ),
                   const SizedBox(width: 4),
                   const Text('Visited', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF00B894))),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 7),
                   Container(
                     width: 7,
                     height: 7,
@@ -1685,9 +1753,104 @@ class _SalesDashboardState extends State<SalesDashboard> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Chandigarh & Mohali Beat Route',
-            style: TextStyle(
+          // City / Territory Selector Switcher Pills
+          Container(
+            padding: const EdgeInsets.all(3.5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    key: const ValueKey('territory_pill_chd'),
+                    onTap: () {
+                      widget.api.setActiveTerritory('chandigarh_mohali');
+                      setState(() => _selectedStopIndex = 0);
+                      final shops = widget.api.dynamicRoadRouteShops;
+                      final located = shops.where((s) => s.latitude != null && s.longitude != null).toList();
+                      _fitRouteBounds(located);
+                    },
+                    borderRadius: BorderRadius.circular(9),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 7.5),
+                      decoration: BoxDecoration(
+                        color: widget.api.activeTerritory == 'chandigarh_mohali' ? AirbnbTheme.coral : Colors.transparent,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.location_city_rounded,
+                            size: 14,
+                            color: widget.api.activeTerritory == 'chandigarh_mohali' ? Colors.white : Colors.white70,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Chandigarh & Mohali',
+                            style: TextStyle(
+                              color: widget.api.activeTerritory == 'chandigarh_mohali' ? Colors.white : Colors.white70,
+                              fontSize: 11.5,
+                              fontWeight: widget.api.activeTerritory == 'chandigarh_mohali' ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: InkWell(
+                    key: const ValueKey('territory_pill_jdh'),
+                    onTap: () {
+                      widget.api.setActiveTerritory('jodhpur');
+                      setState(() => _selectedStopIndex = 0);
+                      final shops = widget.api.dynamicRoadRouteShops;
+                      final located = shops.where((s) => s.latitude != null && s.longitude != null).toList();
+                      _fitRouteBounds(located);
+                    },
+                    borderRadius: BorderRadius.circular(9),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 7.5),
+                      decoration: BoxDecoration(
+                        color: widget.api.activeTerritory == 'jodhpur' ? AirbnbTheme.coral : Colors.transparent,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.fort_rounded,
+                            size: 14,
+                            color: widget.api.activeTerritory == 'jodhpur' ? Colors.white : Colors.white70,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Jodhpur (Sardarpura)',
+                            style: TextStyle(
+                              color: widget.api.activeTerritory == 'jodhpur' ? Colors.white : Colors.white70,
+                              fontSize: 11.5,
+                              fontWeight: widget.api.activeTerritory == 'jodhpur' ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.api.activeTerritoryName,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -1695,7 +1858,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Road-Aware Nearest Route (Live Real-Time Dynamic Sequence) • ${assignedShops.length} Active Stops',
+            'Road-Aware Nearest Route (Dynamic 0-Crossing Road Grid) • ${assignedShops.length} Active Stops',
             style: const TextStyle(
               color: Color(0xFFB2BEC3),
               fontSize: 12,

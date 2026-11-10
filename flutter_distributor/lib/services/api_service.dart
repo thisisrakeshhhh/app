@@ -558,6 +558,14 @@ class ApiService extends ChangeNotifier {
     if (list.isNotEmpty) return list;
     return [
       RouteEntry(
+        id: 'route_chd_mohali_01',
+        name: 'Chandigarh & Mohali Beat Route',
+        code: 'CHD-MOH-01',
+        dayOfWeek: 'Monday',
+        isActive: true,
+        createdAt: DateTime.now(),
+      ),
+      RouteEntry(
         id: 'route_sardarpura_02',
         name: 'Sardarpura Commercial Beat',
         code: 'SAR-02',
@@ -1290,6 +1298,29 @@ class ApiService extends ChangeNotifier {
         );
   }
 
+  String _activeTerritory = 'chandigarh_mohali'; // 'chandigarh_mohali' or 'jodhpur'
+  bool _userManuallySelectedTerritory = false;
+
+  String get activeTerritory => _activeTerritory;
+
+  String get activeTerritoryName => _activeTerritory == 'jodhpur'
+      ? 'Sardarpura & Nai Sadak Route'
+      : 'Chandigarh & Mohali Beat Route';
+
+  String get activeTerritoryShortName => _activeTerritory == 'jodhpur'
+      ? 'Jodhpur'
+      : 'Chandigarh & Mohali';
+
+  void setActiveTerritory(String territory, {bool userExplicit = true}) {
+    if (userExplicit) {
+      _userManuallySelectedTerritory = true;
+    }
+    if (_activeTerritory != territory) {
+      _activeTerritory = territory;
+      notifyListeners();
+    }
+  }
+
   double _currentRepLat = 30.7225;
   double _currentRepLng = 76.7620;
 
@@ -1299,6 +1330,13 @@ class ApiService extends ChangeNotifier {
   void updateRepLocation(double lat, double lng) {
     _currentRepLat = lat;
     _currentRepLng = lng;
+    if (!_userManuallySelectedTerritory) {
+      if (lat >= 29.0 && _activeTerritory != 'chandigarh_mohali') {
+        _activeTerritory = 'chandigarh_mohali';
+      } else if (lat < 29.0 && _activeTerritory != 'jodhpur') {
+        _activeTerritory = 'jodhpur';
+      }
+    }
     notifyListeners();
   }
 
@@ -1713,13 +1751,23 @@ class ApiService extends ChangeNotifier {
   }
 
   /// All stops for today: Owner-assigned stops first in order, followed by extra visits appended at the end.
+  /// Dynamically filtered by the active territory (Chandigarh & Mohali vs Jodhpur).
   List<RetailerShop> get assignedRouteShops {
     final assigned = _retailers.where((r) => isAssignedBeatShop(r.id)).toList();
     final extras = _retailers.where((r) => _extraVisitShopIds.contains(r.id) && !assigned.contains(r)).toList();
-    return [...assigned, ...extras];
+    final all = [...assigned, ...extras];
+
+    if (_activeTerritory == 'jodhpur') {
+      final jdh = all.where((s) => (s.latitude != null && s.latitude! < 29.0) || s.id.contains('JDH') || (s.routeId ?? '').contains('sardarpura') || (s.routeId ?? '').contains('nai_sadak')).toList();
+      return jdh.isNotEmpty ? jdh : all;
+    } else {
+      final chd = all.where((s) => (s.latitude != null && s.latitude! >= 29.0) || s.id.contains('CHD') || s.id.contains('MOH') || (s.routeId ?? '').contains('chd')).toList();
+      return chd.isNotEmpty ? chd : all;
+    }
   }
 
-  /// Dynamically sequences today's beat stops along the physical road corridor (Chandigarh -> Mohali)
+  /// Dynamically sequences today's beat stops along the physical road corridor
+  /// (Chandigarh -> Mohali, or Sardarpura -> Nai Sadak)
   /// starting from the salesperson's current real-time location.
   /// Strictly preserves monotonic forward progression along the urban corridor so routes NEVER cross themselves.
   List<RetailerShop> get dynamicRoadRouteShops {
@@ -1727,13 +1775,24 @@ class ApiService extends ChangeNotifier {
     if (allAssigned.isEmpty) return [];
 
     final sorted = List<RetailerShop>.from(allAssigned);
-    final bool startFromMohaliSouth = _currentRepLat < 30.7100;
 
-    sorted.sort((a, b) {
-      final latA = a.latitude ?? 30.7225;
-      final latB = b.latitude ?? 30.7225;
-      return startFromMohaliSouth ? latA.compareTo(latB) : latB.compareTo(latA);
-    });
+    if (_activeTerritory == 'jodhpur') {
+      // Jodhpur monotonic corridor: South (Basni ~ 26.248, Sardarpura ~ 26.277-26.281) to North (Sojati Gate ~ 26.290, Nai Sadak ~ 26.294)
+      final bool startFromSouth = _currentRepLat < 26.2860;
+      sorted.sort((a, b) {
+        final latA = a.latitude ?? 26.2850;
+        final latB = b.latitude ?? 26.2850;
+        return startFromSouth ? latA.compareTo(latB) : latB.compareTo(latA);
+      });
+    } else {
+      // Chandigarh & Mohali monotonic corridor: South (Mohali Phase 7 ~ 30.697, Phase 3B2 ~ 30.705) to North (Sec 43 ~ 30.713, Sec 35 ~ 30.722, Sec 22 ~ 30.730, Sec 17 ~ 30.739)
+      final bool startFromMohaliSouth = _currentRepLat < 30.7100;
+      sorted.sort((a, b) {
+        final latA = a.latitude ?? 30.7225;
+        final latB = b.latitude ?? 30.7225;
+        return startFromMohaliSouth ? latA.compareTo(latB) : latB.compareTo(latA);
+      });
+    }
 
     return sorted;
   }
@@ -1750,7 +1809,7 @@ class ApiService extends ChangeNotifier {
     final currentRepEntry = SalesRepLeaderboardEntry(
       id: 'rep_current_akhendera',
       repName: 'Akhendera Singh (You)',
-      beatName: 'Chandigarh & Mohali Route',
+      beatName: activeTerritoryName,
       salesRevenueRupees: currentRepRevenue,
       visitsCompleted: currentRepVisitsCount,
       totalAssignedShops: totalBeatShops > 0 ? totalBeatShops : 6,
@@ -1760,8 +1819,19 @@ class ApiService extends ChangeNotifier {
       badge: currentRepRevenue >= 50000 ? '⚡ ON FIRE' : '📍 IN FIELD',
     );
 
-    // Fellow territory reps in the Jodhpur distributor fleet
+    // Fellow territory reps in both Chandigarh & Jodhpur fleets
     final peerReps = <SalesRepLeaderboardEntry>[
+      const SalesRepLeaderboardEntry(
+        id: 'rep_gurpreet',
+        repName: 'Gurpreet Chawla',
+        beatName: 'Chandigarh Sector 17 & 22 Marts',
+        salesRevenueRupees: 72400.0,
+        visitsCompleted: 9,
+        totalAssignedShops: 10,
+        ordersBooked: 7,
+        targetRevenueRupees: 75000.0,
+        badge: '👑 TOP PERFORMER',
+      ),
       const SalesRepLeaderboardEntry(
         id: 'rep_mahendra',
         repName: 'Mahendra Rathore',
@@ -1769,42 +1839,30 @@ class ApiService extends ChangeNotifier {
         salesRevenueRupees: 68200.0,
         visitsCompleted: 8,
         totalAssignedShops: 9,
-        ordersBooked: 7,
+        ordersBooked: 6,
         targetRevenueRupees: 75000.0,
-        badge: '🏆 FLEET LEADER',
+        badge: '🔥 HOT RUN',
+      ),
+      const SalesRepLeaderboardEntry(
+        id: 'rep_harman',
+        repName: 'Harmanjit Singh',
+        beatName: 'Mohali Phase 3B2 & 7 Beat',
+        salesRevenueRupees: 59100.0,
+        visitsCompleted: 7,
+        totalAssignedShops: 8,
+        ordersBooked: 5,
+        targetRevenueRupees: 70000.0,
       ),
       const SalesRepLeaderboardEntry(
         id: 'rep_suresh',
         repName: 'Suresh Bishnoi',
-        beatName: 'Sojati Gate & Station Road Beat',
+        beatName: 'Sojati Gate & Nai Sadak Wholesale',
         salesRevenueRupees: 41800.0,
         visitsCompleted: 5,
         totalAssignedShops: 8,
         ordersBooked: 4,
         targetRevenueRupees: 65000.0,
         badge: '🎯 CONSISTENT',
-      ),
-      const SalesRepLeaderboardEntry(
-        id: 'rep_manish',
-        repName: 'Manish Gehlot',
-        beatName: 'Mandore Commercial Beat',
-        salesRevenueRupees: 32150.0,
-        visitsCompleted: 4,
-        totalAssignedShops: 7,
-        ordersBooked: 3,
-        targetRevenueRupees: 60000.0,
-        badge: '📈 RISING',
-      ),
-      const SalesRepLeaderboardEntry(
-        id: 'rep_dinesh',
-        repName: 'Dinesh Parihar',
-        beatName: 'Ratanada Circuit Beat',
-        salesRevenueRupees: 24500.0,
-        visitsCompleted: 3,
-        totalAssignedShops: 6,
-        ordersBooked: 2,
-        targetRevenueRupees: 55000.0,
-        badge: '📍 IN FIELD',
       ),
     ];
 
@@ -3373,8 +3431,9 @@ class ApiService extends ChangeNotifier {
       }
     }
 
-    // 2. Chandigarh & Mohali Retailers with Spatial Coordinates
+    // 2. Both City Territories Retailers with Spatial Coordinates
     _retailers = [
+      // --- CHANDIGARH & MOHALI BEAT ---
       RetailerShop(
         id: 'RET-CHD-01',
         name: 'Punjab Kirana & Departmental Store',
@@ -3468,10 +3527,106 @@ class ApiService extends ChangeNotifier {
         latitude: 30.6975,
         longitude: 76.7115,
       ),
+
+      // --- JODHPUR (SARDARPURA & NAI SADAK) BEAT ---
+      RetailerShop(
+        id: 'RET-JDH-01',
+        name: 'Shree Ganesh Kirana Store',
+        ownerName: 'Ramprasad Maheshwari',
+        phone: '+91 98290 12345',
+        address: 'Shop 14, Nai Sadak (Opp. Ghanta Ghar)',
+        area: 'Nai Sadak',
+        routeId: 'route_nai_sadak_01',
+        shopType: 'KIRANA',
+        creditLimitPaise: 5000000, // ₹50,000
+        outstandingPaise: 1240000, // ₹12,400
+        visitedToday: false,
+        latitude: 26.2945,
+        longitude: 73.0240,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-02',
+        name: 'Jodhpur Wholesale Traders',
+        ownerName: 'Madan Lal Sharma',
+        phone: '+91 94141 55678',
+        address: 'Plot 22, B-Road, Near Nehru Park',
+        area: 'Sardarpura',
+        routeId: 'route_sardarpura_02',
+        shopType: 'WHOLESALE',
+        creditLimitPaise: 10000000, // ₹1,00,000
+        outstandingPaise: 4320000, // ₹43,200
+        visitedToday: true,
+        todayOrderTotalPaise: 1850000,
+        totalTimeSpentSeconds: 1260,
+        visitCountToday: 1,
+        latitude: 26.2810,
+        longitude: 73.0115,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-03',
+        name: 'Marwar Super Provision Store',
+        ownerName: 'Om Prakash Gehlot',
+        phone: '+91 98291 98765',
+        address: 'Main Market, Sojati Gate Circle',
+        area: 'Sojati Gate',
+        routeId: 'route_nai_sadak_01',
+        shopType: 'SUPERMARKET',
+        creditLimitPaise: 8000000, // ₹80,000
+        outstandingPaise: 1520000, // ₹15,200
+        visitedToday: false,
+        latitude: 26.2905,
+        longitude: 73.0210,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-04',
+        name: 'Laxmi Daily Needs & Dairy',
+        ownerName: 'Santosh Devi Choudhary',
+        phone: '+91 94142 34567',
+        address: '12-C Road, Near Gol Building Circle',
+        area: 'Sardarpura',
+        routeId: 'route_sardarpura_02',
+        shopType: 'GENERAL_STORE',
+        creditLimitPaise: 4000000, // ₹40,000
+        outstandingPaise: 850000, // ₹8,500
+        visitedToday: false,
+        latitude: 26.2770,
+        longitude: 73.0070,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-05',
+        name: 'Tripolia Bazaar General Store',
+        ownerName: 'Kishore Kumar Jain',
+        phone: '+91 98293 45678',
+        address: 'Shop 88, Tripolia Bazaar',
+        area: 'Tripolia Bazaar',
+        routeId: 'route_nai_sadak_01',
+        shopType: 'KIRANA',
+        creditLimitPaise: 4500000, // ₹45,000
+        outstandingPaise: 980000, // ₹9,800
+        visitedToday: false,
+        latitude: 26.2925,
+        longitude: 73.0225,
+      ),
+      RetailerShop(
+        id: 'RET-JDH-06',
+        name: 'Basni Kirana Mart',
+        ownerName: 'Dungar Singh',
+        phone: '+91 94144 87654',
+        address: 'Plot 4, Industrial Area, Basni Phase 2',
+        area: 'Basni',
+        routeId: 'route_sardarpura_02',
+        shopType: 'SUPERMARKET',
+        creditLimitPaise: 6000000, // ₹60,000
+        outstandingPaise: 0,
+        visitedToday: false,
+        latitude: 26.2480,
+        longitude: 73.0050,
+      ),
     ];
 
-    // 3. Physical Warehouse Hubs (Chandigarh & Mohali)
+    // 3. Physical Warehouse Hubs for Both Regions
     _warehouseHubs = [
+      // Chandigarh & Mohali Warehouses
       WarehouseHub(
         id: 'WH-CHD-CENTRAL',
         name: 'Routidrow Industrial Area Depot',
@@ -3495,6 +3650,31 @@ class ApiService extends ChangeNotifier {
         activeStaffCount: 3,
         godownStockBoxes: 40,
         carStockBoxes: 12,
+      ),
+      // Jodhpur Warehouses
+      WarehouseHub(
+        id: 'WH-JODH-CENTRAL',
+        name: 'Basni Central Depot (Godown A)',
+        code: 'JODH-BSN-01',
+        address: 'Plot 42, Heavy Industrial Area, Basni Phase II, Jodhpur',
+        latitude: 26.2480,
+        longitude: 73.0050,
+        capacityBoxes: 6500,
+        activeStaffCount: 12,
+        godownStockBoxes: 210,
+        carStockBoxes: 32,
+      ),
+      WarehouseHub(
+        id: 'WH-JODH-SARDARPURA',
+        name: 'Sardarpura Express Hub',
+        code: 'JODH-SAR-02',
+        address: 'Plot 18, 9th C-Road, Sardarpura, Jodhpur',
+        latitude: 26.2770,
+        longitude: 73.0070,
+        capacityBoxes: 1500,
+        activeStaffCount: 4,
+        godownStockBoxes: 65,
+        carStockBoxes: 18,
       ),
     ];
 
@@ -3727,7 +3907,9 @@ class ApiService extends ChangeNotifier {
         _products = dbProducts;
       }
       if (dbRetailers.isNotEmpty) {
-        _retailers = dbRetailers;
+        final dbIds = dbRetailers.map((r) => r.id).toSet();
+        final missingSeed = _retailers.where((r) => !dbIds.contains(r.id)).toList();
+        _retailers = [...dbRetailers, ...missingSeed];
       }
       final v2Meta = await repository.getMetadata('sales_v2_enabled');
       if (v2Meta != null) {

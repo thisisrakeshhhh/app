@@ -1043,9 +1043,9 @@ class LocalRepository {
         }
       }
 
-      final existingRetailers = await db.select(db.retailers).get();
-      if (existingRetailers.isEmpty) {
-        for (final r in seedRetailers) {
+      for (final r in seedRetailers) {
+        final existing = await (db.select(db.retailers)..where((tbl) => tbl.id.equals(r.id))).getSingleOrNull();
+        if (existing == null) {
           await db.into(db.retailers).insert(
             RetailersCompanion(
               id: Value(r.id),
@@ -1078,28 +1078,37 @@ class LocalRepository {
         }
       }
 
-      final existingRoutes = await db.select(db.routes).get();
-      if (existingRoutes.isEmpty) {
-        await db.into(db.routes).insert(
-          RouteEntry(
-            id: 'route_sardarpura_02',
-            name: 'Sardarpura Commercial Beat',
-            code: 'SAR-02',
-            dayOfWeek: 'Monday',
-            isActive: true,
-            createdAt: DateTime.now(),
-          ),
-        );
-        await db.into(db.routes).insert(
-          RouteEntry(
-            id: 'route_nai_sadak_01',
-            name: 'Nai Sadak Wholesale Beat',
-            code: 'NAI-01',
-            dayOfWeek: 'Tuesday',
-            isActive: true,
-            createdAt: DateTime.now(),
-          ),
-        );
+      final routesToSeed = [
+        RouteEntry(
+          id: 'route_chd_mohali_01',
+          name: 'Chandigarh & Mohali Beat Route',
+          code: 'CHD-MOH-01',
+          dayOfWeek: 'Monday',
+          isActive: true,
+          createdAt: DateTime.now(),
+        ),
+        RouteEntry(
+          id: 'route_sardarpura_02',
+          name: 'Sardarpura Commercial Beat',
+          code: 'SAR-02',
+          dayOfWeek: 'Monday',
+          isActive: true,
+          createdAt: DateTime.now(),
+        ),
+        RouteEntry(
+          id: 'route_nai_sadak_01',
+          name: 'Nai Sadak Wholesale Beat',
+          code: 'NAI-01',
+          dayOfWeek: 'Tuesday',
+          isActive: true,
+          createdAt: DateTime.now(),
+        ),
+      ];
+      for (final rt in routesToSeed) {
+        final existing = await (db.select(db.routes)..where((tbl) => tbl.id.equals(rt.id))).getSingleOrNull();
+        if (existing == null) {
+          await db.into(db.routes).insert(rt);
+        }
       }
 
       await db.into(db.databaseMetadata).insertOnConflictUpdate(
