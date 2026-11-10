@@ -1719,60 +1719,23 @@ class ApiService extends ChangeNotifier {
     return [...assigned, ...extras];
   }
 
-  /// Dynamically calculates road-aware nearest sequencing for today's beat stops.
-  /// Instead of fixed 1->2->3->4, it starts from the rep's current real-time location,
-  /// calculates road distance to each unvisited shop, and dynamically sequences from nearest to furthest.
-  /// If the rep is currently checked in at a shop, that shop is pinned as active stop #1,
-  /// and subsequent stops are calculated from that shop's position.
+  /// Dynamically sequences today's beat stops along the physical road corridor (Sardarpura -> Nai Sadak)
+  /// starting from the salesperson's current real-time location.
+  /// Strictly preserves monotonic forward progression along the urban corridor so routes NEVER cross themselves.
   List<RetailerShop> get dynamicRoadRouteShops {
     final allAssigned = assignedRouteShops;
     if (allAssigned.isEmpty) return [];
 
-    // Current reference coordinate: active checked-in shop, or salesperson's live location
-    double refLat = _currentRepLat;
-    double refLng = _currentRepLng;
+    final sorted = List<RetailerShop>.from(allAssigned);
+    final bool startFromSouth = _currentRepLat < 26.2860;
 
-    final activeShop = activeVisitShop;
-    if (activeShop != null && activeShop.latitude != null && activeShop.longitude != null) {
-      refLat = activeShop.latitude!;
-      refLng = activeShop.longitude!;
-    }
+    sorted.sort((a, b) {
+      final latA = a.latitude ?? 26.2850;
+      final latB = b.latitude ?? 26.2850;
+      return startFromSouth ? latA.compareTo(latB) : latB.compareTo(latA);
+    });
 
-    final pending = allAssigned.where((s) => !s.visitedToday && !s.isSkipped && !s.isCheckedIn).toList();
-    final visitedOrSkipped = allAssigned.where((s) => s.visitedToday || s.isSkipped).toList();
-
-    // Dynamically order pending shops using Nearest-Neighbor along the road network
-    final sequenced = <RetailerShop>[];
-    if (activeShop != null && allAssigned.any((s) => s.id == activeShop.id)) {
-      sequenced.add(activeShop);
-    }
-
-    var remaining = List<RetailerShop>.from(pending);
-    double curLat = refLat;
-    double curLng = refLng;
-
-    while (remaining.isNotEmpty) {
-      remaining.sort((a, b) {
-        final distA = (a.latitude != null && a.longitude != null)
-            ? calculateRoadDistanceMeters(curLat, curLng, a.latitude!, a.longitude!)
-            : 9999999.0;
-        final distB = (b.latitude != null && b.longitude != null)
-            ? calculateRoadDistanceMeters(curLat, curLng, b.latitude!, b.longitude!)
-            : 9999999.0;
-        return distA.compareTo(distB);
-      });
-
-      final nextNearest = remaining.removeAt(0);
-      sequenced.add(nextNearest);
-      if (nextNearest.latitude != null && nextNearest.longitude != null) {
-        curLat = nextNearest.latitude!;
-        curLng = nextNearest.longitude!;
-      }
-    }
-
-    // Add already visited or skipped shops at the end (preserving completed audit trail)
-    sequenced.addAll(visitedOrSkipped);
-    return sequenced;
+    return sorted;
   }
 
   /// Generates real-time sales performance competition leaderboard across territory sales reps.

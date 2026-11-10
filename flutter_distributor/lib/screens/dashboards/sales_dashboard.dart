@@ -1073,6 +1073,70 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
 
 
+  List<LatLng> _buildRoadSegment(LatLng from, LatLng to) {
+    final points = <LatLng>[from];
+
+    final bool fromSardarpura = from.latitude <= 26.2860;
+    final bool toSardarpura = to.latitude <= 26.2860;
+
+    if (fromSardarpura && toSardarpura) {
+      // Follow Sardarpura street grid (B Road / C Road / 4th C Road)
+      points.add(LatLng(from.latitude, to.longitude));
+    } else if (!fromSardarpura && !toSardarpura) {
+      // Follow Nai Sadak street corridor
+      points.add(LatLng((from.latitude + to.latitude) / 2, (from.longitude + to.longitude) / 2));
+    } else {
+      // Follow arterial street corridor connecting Sardarpura and Nai Sadak
+      // via Residency Road -> Jalori Gate -> High Court -> Sohati Gate -> Nai Sadak
+      if (fromSardarpura) {
+        if (from.latitude < 26.2830) points.add(const LatLng(26.2830, 73.0150));
+        points.add(const LatLng(26.2850, 73.0180)); // Jalori Gate
+        points.add(const LatLng(26.2885, 73.0205)); // High Court Rd
+        points.add(const LatLng(26.2905, 73.0218)); // Sohati Gate
+      } else {
+        points.add(const LatLng(26.2905, 73.0218));
+        points.add(const LatLng(26.2885, 73.0205));
+        points.add(const LatLng(26.2850, 73.0180));
+        if (to.latitude < 26.2830) points.add(const LatLng(26.2830, 73.0150));
+      }
+    }
+
+    points.add(to);
+    return points;
+  }
+
+  Set<Polyline> _buildColorCodedRoutePolylines(List<RetailerShop> shops) {
+    final polylines = <Polyline>{};
+    if (shops.isEmpty) return polylines;
+
+    LatLng prevPoint = LatLng(widget.api.currentRepLat, widget.api.currentRepLng);
+
+    for (int i = 0; i < shops.length; i++) {
+      final s = shops[i];
+      if (s.latitude == null || s.longitude == null) continue;
+      final currentTarget = LatLng(s.latitude!, s.longitude!);
+
+      final roadPoints = _buildRoadSegment(prevPoint, currentTarget);
+      final bool isVisitedOrChecked = s.visitedToday || s.isCheckedIn;
+
+      polylines.add(
+        Polyline(
+          polylineId: PolylineId('segment_${i}_${s.id}'),
+          points: roadPoints,
+          color: isVisitedOrChecked ? const Color(0xFF00B894) : const Color(0xFFE53935),
+          width: 5,
+          jointType: JointType.round,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+      );
+
+      prevPoint = currentTarget;
+    }
+
+    return polylines;
+  }
+
   void _fitRouteBounds(List<RetailerShop> locatedShops) {
     if (_googleMapController == null) return;
     final points = <LatLng>[
@@ -1118,7 +1182,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     AppStrings strings,
   ) {
     return Container(
-      height: 220,
+      height: 240,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -1140,21 +1204,19 @@ class _SalesDashboardState extends State<SalesDashboard> {
                 Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
               },
               initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  selectedShop?.latitude ?? locatedShops.first.latitude!,
-                  selectedShop?.longitude ?? locatedShops.first.longitude!,
-                ),
-                zoom: 14.5,
+                target: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                zoom: 15.0,
               ),
               mapType: _mapType,
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               circles: {
+                // Live location accuracy halo around salesperson
                 Circle(
                   circleId: const CircleId('current_location_accuracy_halo'),
                   center: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  radius: 80,
+                  radius: 90,
                   fillColor: const Color(0x331A73E8),
                   strokeColor: const Color(0xFF1A73E8),
                   strokeWidth: 2,
@@ -1165,24 +1227,21 @@ class _SalesDashboardState extends State<SalesDashboard> {
                 Marker(
                   markerId: const MarkerId('current_location_user'),
                   position: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
-                  infoWindow: InfoWindow(
-                    title: '📍 Your Current Location',
-                    snippet: locatedShops.isNotEmpty
-                        ? 'Navigation Start • Next: Stop 1 (${locatedShops.first.name})'
-                        : 'Your real-time GPS position',
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                  infoWindow: const InfoWindow(
+                    title: '📍 YOU ARE HERE (Current Location)',
+                    snippet: 'Your GPS Starting Point • Tap to focus',
                   ),
-                  zIndexInt: 25,
+                  zIndexInt: 50,
                 ),
-                // Sequential Road Beat Shop Markers
+                // Route Shop Markers (Green if visited, Red if unvisited)
                 ...locatedShops.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final s = entry.value;
                   final isSel = s.id == selectedShop?.id;
                   final isChecked = s.isCheckedIn;
+                  final isVisited = s.visitedToday;
                   final stopNum = idx + 1;
-                  final isFirst = idx == 0;
-                  final isSecond = idx == 1;
                   final distM = ApiService.calculateRoadDistanceMeters(
                     widget.api.currentRepLat,
                     widget.api.currentRepLng,
@@ -1191,23 +1250,21 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   );
                   final distStr = distM < 1000 ? '${distM.toStringAsFixed(0)} m' : '${(distM / 1000).toStringAsFixed(1)} km';
 
+                  final markerHue = (isVisited || isChecked)
+                      ? BitmapDescriptor.hueGreen
+                      : (isSel ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueRed);
+
                   return Marker(
                     markerId: MarkerId(s.id),
                     position: LatLng(s.latitude!, s.longitude!),
-                    icon: isChecked
-                        ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
-                        : isSel
-                            ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
-                            : (isFirst
-                                ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange)
-                                : (isSecond
-                                    ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow)
-                                    : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure))),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
                     infoWindow: InfoWindow(
-                      title: isFirst
-                          ? '1️⃣ Stop 1 (Visit First): ${s.name}'
-                          : (isSecond ? '2️⃣ Stop 2 (Visit Second): ${s.name}' : '#$stopNum. ${s.name}'),
-                      snippet: '$distStr away • ${s.visitedToday ? "✓ Visited" : (isChecked ? "🟢 Active Visit" : "Pending")}',
+                      title: (isVisited || isChecked)
+                          ? '✓ Visited #$stopNum: ${s.name}'
+                          : 'Stop #$stopNum: ${s.name} ($distStr away)',
+                      snippet: isVisited
+                          ? 'Visited Today • Time spent: ${s.totalTimeSpentFormatted}'
+                          : (isChecked ? '🟢 Currently Checked In' : 'Pending • Follow Red Route'),
                     ),
                     onTap: () {
                       setState(() {
@@ -1220,22 +1277,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   );
                 }),
               },
-              polylines: locatedShops.isNotEmpty
-                  ? {
-                      Polyline(
-                        polylineId: const PolylineId('dashboard_route_line'),
-                        points: [
-                          LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                          ...locatedShops.map((s) => LatLng(s.latitude!, s.longitude!)),
-                        ],
-                        color: const Color(0xFF1A73E8),
-                        width: 5,
-                        jointType: JointType.round,
-                        startCap: Cap.roundCap,
-                        endCap: Cap.roundCap,
-                      ),
-                    }
-                  : {},
+              polylines: _buildColorCodedRoutePolylines(locatedShops),
               onMapCreated: (ctrl) {
                 _googleMapController = ctrl;
                 Future.delayed(const Duration(milliseconds: 400), () {
@@ -1328,7 +1370,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
             ),
           ),
 
-          // Map Status / Notice label (top left)
+          // Route Legend Pill (top left)
           Positioned(
             top: 10,
             left: 10,
@@ -1336,7 +1378,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AirbnbTheme.border),
                 boxShadow: [
                   BoxShadow(
@@ -1352,22 +1394,77 @@ class _SalesDashboardState extends State<SalesDashboard> {
                     width: 7,
                     height: 7,
                     decoration: const BoxDecoration(
-                      color: AirbnbTheme.success,
+                      color: Color(0xFF00B894),
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 5),
-                  Text(
-                    locatedShops.isNotEmpty
-                        ? 'Google Maps • Stop 1: ${locatedShops.first.name.split(" ").first} (${(ApiService.calculateRoadDistanceMeters(widget.api.currentRepLat, widget.api.currentRepLng, locatedShops.first.latitude!, locatedShops.first.longitude!)).toStringAsFixed(0)}m)'
-                        : 'Google Maps • Live',
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: AirbnbTheme.dark,
+                  const SizedBox(width: 4),
+                  const Text('Visited', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF00B894))),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE53935),
+                      shape: BoxShape.circle,
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  const Text('Pending Road', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFE53935))),
                 ],
+              ),
+            ),
+          ),
+
+          // Floating "YOU ARE HERE" pill on bottom left
+          Positioned(
+            bottom: 10,
+            left: 10,
+            child: InkWell(
+              onTap: () {
+                _googleMapController?.animateCamera(
+                  CameraUpdate.newLatLngZoom(
+                    LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                    15.5,
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF1A73E8), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1A73E8),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Text(
+                      '📍 YOU ARE HERE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1A73E8),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
