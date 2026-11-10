@@ -992,10 +992,6 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
   final _searchCtrl = TextEditingController();
   Timer? _stopwatchTimer;
 
-  // Salesperson's active reference GPS coordinate in Jodhpur commercial district
-  static const double _repLat = 26.2850;
-  static const double _repLng = 73.0180;
-
   @override
   void initState() {
     super.initState();
@@ -1016,9 +1012,9 @@ class _SalesRetailersViewState extends State<SalesRetailersView> {
 
   double _getShopDistance(RetailerShop shop) {
     if (shop.latitude == null || shop.longitude == null) return 999999.0;
-    return ApiService.calculateDistanceMeters(
-      _repLat,
-      _repLng,
+    return ApiService.calculateRoadDistanceMeters(
+      widget.api.currentRepLat,
+      widget.api.currentRepLng,
       shop.latitude!,
       shop.longitude!,
     );

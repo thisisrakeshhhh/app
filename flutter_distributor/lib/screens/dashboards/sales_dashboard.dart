@@ -221,7 +221,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     final retailers = widget.api.retailers;
-    final assignedShops = widget.api.assignedRouteShops;
+    final assignedShops = widget.api.dynamicRoadRouteShops;
     final visitedCount = retailers.where((r) => r.visitedToday || r.isCheckedIn).length;
     final activeShop = retailers.cast<RetailerShop?>().firstWhere(
           (r) => r?.isCheckedIn == true,
@@ -294,244 +294,14 @@ class _SalesDashboardState extends State<SalesDashboard> {
           // 2. TODAY'S ASSIGNED BEAT BANNER (Sardarpura & Nai Sadak Route)
           _buildAssignedBeatCard(assignedShops, selectedShop, strings),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
 
-          // 3. ROUTEX 3-STAT CARDS (Customers Visited, Customers Skipped, Total Sales Placed)
-          Row(
-            children: [
-              // 1. Customers Visited
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AirbnbTheme.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.location_on, color: Color(0xFF2563EB), size: 22),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${widget.api.customersVisitedTodayCount}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AirbnbTheme.dark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Customers\nvisited',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey, height: 1.2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 2. Customers Skipped
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AirbnbTheme.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.person_off_outlined, color: Color(0xFFD97706), size: 22),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${widget.api.customersSkippedTodayCount}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AirbnbTheme.dark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Customers\nskipped',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey, height: 1.2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 3. Total Sales Placed
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AirbnbTheme.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.shopping_cart_outlined, color: Color(0xFF16A34A), size: 22),
-                      const SizedBox(height: 6),
-                      Text(
-                        '₹${totalRevenueRupees.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF16A34A),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Total Sales\nPlaced',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AirbnbTheme.grey, height: 1.2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          // 3. QUICK ACTIONS HEADER
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'QUICK ACTIONS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: AirbnbTheme.grey,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              Text(
-                'Total Time: ${widget.api.totalBeatTimeSpentFormatted}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AirbnbTheme.jodhpurBlue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // 4. QUICK ACTION CARDS GRID (RouteX Style)
-          Row(
-            children: [
-              Expanded(
-                child: _buildRouteXActionTile(
-                  title: widget.api.isTripActive ? 'Route stop' : 'Route start',
-                  subtitle: widget.api.isTripActive ? 'End trip & meter' : 'Tap to begin route',
-                  color: const Color(0xFFEF4444),
-                  icon: Icons.alt_route_rounded,
-                  onTap: _showTripInOutDialog,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildRouteXActionTile(
-                  title: 'Order booking',
-                  subtitle: 'Place a new order',
-                  color: const Color(0xFF2563EB),
-                  icon: Icons.assignment_outlined,
-                  onTap: () => widget.onNavigateTab(1),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildRouteXActionTile(
-                  title: 'Emergency order',
-                  subtitle: 'Urgent fulfilment',
-                  color: const Color(0xFF7C3AED),
-                  icon: Icons.bolt_rounded,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Priority emergency order mode active.')),
-                    );
-                    widget.onNavigateTab(1);
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildRouteXActionTile(
-                  title: 'Delivery',
-                  subtitle: 'Confirm deliveries',
-                  color: const Color(0xFF16A34A),
-                  icon: Icons.local_shipping_outlined,
-                  onTap: () => widget.onNavigateTab(3),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildRouteXActionTile(
-                  title: 'Ready stock',
-                  subtitle: 'Van stock & loading',
-                  color: const Color(0xFFEA580C),
-                  icon: Icons.airport_shuttle_outlined,
-                  onTap: _showVanStockReportDialog,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildRouteXActionTile(
-                  title: 'Reports',
-                  subtitle: 'Daily sales summary',
-                  color: const Color(0xFF0D9488),
-                  icon: Icons.bar_chart_rounded,
-                  onTap: _showDailyOrderReport,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _buildUploadPendingTile(),
+          // 3. SALES PERFORMANCE & FLEET COMPETITION LEADERBOARD
+          _buildSalesPerformanceAndLeaderboard(strings),
 
           const SizedBox(height: 18),
 
-          // 2. TIMEFRAME SELECTOR CHIPS
-
-          const SizedBox(height: 18),
-
-          // 2. TIMEFRAME SELECTOR CHIPS
+          // 4. TIMEFRAME SELECTOR CHIPS
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1293,431 +1063,13 @@ class _SalesDashboardState extends State<SalesDashboard> {
     );
   }
 
-  Widget _buildRouteXActionTile({
-    required String title,
-    required String subtitle,
-    required Color color,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildUploadPendingTile() {
-    final pendingCount = widget.api.pendingOutboxCount;
-    return InkWell(
-      onTap: () async {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Syncing pending orders to distributor server...')),
-        );
-        await widget.api.syncPendingOutbox();
-        setState(() {});
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Offline data synchronized successfully!')),
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF854D0E),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF854D0E).withValues(alpha: 0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'Upload pendings',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (pendingCount > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: Colors.amber,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$pendingCount PENDING',
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.black),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const Text(
-                    'Sync offline data to server',
-                    style: TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.sync, color: Colors.white, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
 
-  void _showTripInOutDialog() {
-    final isTripActive = widget.api.isTripActive;
-    final vehicleCtrl = TextEditingController(text: widget.api.activeTripVehicleNo);
-    final meterCtrl = TextEditingController(
-      text: isTripActive ? (int.tryParse(widget.api.activeTripMeterReading) ?? 42850 + 25).toString() : widget.api.activeTripMeterReading,
-    );
-    final routeCtrl = TextEditingController(text: 'Sardarpura Commercial Beat (SAR-02)');
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        titlePadding: EdgeInsets.zero,
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: const BoxDecoration(
-            color: Color(0xFF2563EB),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                onPressed: () => Navigator.pop(ctx),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                isTripActive ? 'RouteX | Trip In Entry' : 'RouteX | Trip Out Entry',
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Blue stats subheader
-              Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E40AF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text('88', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text('11-10-2026', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text('11:29', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
 
-              const Text('Route Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-              const SizedBox(height: 4),
-              TextField(
-                controller: routeCtrl,
-                readOnly: isTripActive,
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                ),
-              ),
-              const SizedBox(height: 10),
 
-              const Text('Vehicle Number', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-              const SizedBox(height: 4),
-              TextField(
-                controller: vehicleCtrl,
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                ),
-              ),
-              const SizedBox(height: 10),
 
-              const Text('SALESMAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-              const SizedBox(height: 4),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AirbnbTheme.lightGrey,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AirbnbTheme.border),
-                ),
-                child: const Text('Akhendera Singh', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(height: 10),
 
-              const Text('METER READING', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-              const SizedBox(height: 4),
-              TextField(
-                controller: meterCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'Enter Odometer Reading',
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AirbnbTheme.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (isTripActive) {
-                widget.api.endTrip(meterReading: meterCtrl.text);
-                Navigator.pop(ctx);
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Trip ended and meter reading saved!')),
-                );
-              } else {
-                widget.api.startTrip(
-                  routeName: routeCtrl.text,
-                  vehicleNo: vehicleCtrl.text,
-                  meterReading: meterCtrl.text,
-                );
-                Navigator.pop(ctx);
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Trip started! Route activated.')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-            ),
-            child: Text(isTripActive ? 'Save Trip End' : 'SAVE'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showVanStockReportDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('RouteX | Ready Stock', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDialogMenuBtn('VAN Loading', Icons.upload_rounded, () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('VAN Loading confirmed.')));
-            }),
-            const SizedBox(height: 8),
-            _buildDialogMenuBtn('Direct Stock Loading', Icons.move_to_inbox, () {
-              Navigator.pop(ctx);
-            }),
-            const SizedBox(height: 8),
-            _buildDialogMenuBtn('Ready Stock Billing', Icons.receipt_long, () {
-              Navigator.pop(ctx);
-              widget.onNavigateTab(1);
-            }),
-            const SizedBox(height: 8),
-            _buildDialogMenuBtn('VAN Unloading', Icons.download_rounded, () {
-              Navigator.pop(ctx);
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDialogMenuBtn(String label, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        decoration: BoxDecoration(
-          color: AirbnbTheme.lightGrey,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: AirbnbTheme.jodhpurBlue),
-            const SizedBox(width: 10),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AirbnbTheme.dark)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDailyOrderReport() {
-    final orders = widget.api.orders;
-    final totalOrderValue = orders.fold(0, (sum, o) => sum + o.totalPaise) / 100.0;
-    const double discount = 0.0;
-    final double netTotal = totalOrderValue - discount;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('RouteX | Sales Order Report', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDBEAFE),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('Order Value', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF1E40AF))),
-                        const SizedBox(height: 4),
-                        Text('₹${totalOrderValue.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E40AF))),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('Discount', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF166534))),
-                        const SizedBox(height: 4),
-                        Text('₹${discount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF166534))),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFCE7F3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('Total Amount', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF9D174D))),
-                        const SizedBox(height: 4),
-                        Text('₹${netTotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF9D174D))),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '${orders.length} orders booked today during route beats.',
-              style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildInteractiveMap(
     List<RetailerShop> locatedShops,
@@ -2182,7 +1534,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Sequential Beat Route (A ➔ B ➔ C ➔ D) • ${assignedShops.length} Active Stops',
+            'Road-Aware Nearest Route (Live Real-Time Dynamic Sequence) • ${assignedShops.length} Active Stops',
             style: const TextStyle(
               color: Color(0xFFB2BEC3),
               fontSize: 12,
@@ -2460,6 +1812,372 @@ class _SalesDashboardState extends State<SalesDashboard> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalesPerformanceAndLeaderboard(AppStrings strings) {
+    final leaderboard = widget.api.getSalesLeaderboard();
+    final currentRep = leaderboard.firstWhere(
+      (r) => r.isCurrentRep,
+      orElse: () => leaderboard.first,
+    );
+    final myRank = leaderboard.indexOf(currentRep) + 1;
+    final topRep = leaderboard.first;
+    final double gapToLeader = (topRep.salesRevenueRupees - currentRep.salesRevenueRupees).clamp(0.0, double.infinity);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AirbnbTheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.emoji_events_rounded, color: Color(0xFFD97706), size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'FLEET COMPETITION',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: AirbnbTheme.grey,
+                        ),
+                      ),
+                      Text(
+                        'Sales Rep Leaderboard',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: AirbnbTheme.dark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.stars_rounded, color: Colors.amberAccent, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Rank #$myRank of ${leaderboard.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Current Sales Rep Performance Hero Card
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF1E3A8A).withValues(alpha: 0.06),
+                  const Color(0xFF3B82F6).withValues(alpha: 0.03),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: AirbnbTheme.jodhpurBlue,
+                          child: const Text('YOU', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w900)),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              currentRep.repName,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                            ),
+                            Text(
+                              currentRep.beatName,
+                              style: const TextStyle(fontSize: 10.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        currentRep.badge,
+                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Colors.amber.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Target Achievement Progress Bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '₹${currentRep.salesRevenueRupees.toStringAsFixed(0)} achieved',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
+                    ),
+                    Text(
+                      'Target: ₹${currentRep.targetRevenueRupees.toStringAsFixed(0)} (${currentRep.targetAchievementPercent.toStringAsFixed(0)}%)',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: (currentRep.targetAchievementPercent / 100.0).clamp(0.0, 1.0),
+                    minHeight: 7,
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Metrics Chips
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AirbnbTheme.border),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('Strike Rate', style: TextStyle(fontSize: 9.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${currentRep.strikeRatePercent.toStringAsFixed(0)}%',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AirbnbTheme.border),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('Visited Shops', style: TextStyle(fontSize: 9.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${currentRep.visitsCompleted}/${currentRep.totalAssignedShops}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AirbnbTheme.border),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('Orders Booked', style: TextStyle(fontSize: 9.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${currentRep.ordersBooked}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF2563EB)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (gapToLeader > 0) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '🔥 Only ₹${gapToLeader.toStringAsFixed(0)} needed to catch #${topRep.repName} for 1st place!',
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFFD97706)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Territory Peer Rankings List
+          const Text(
+            'TODAY\'S FLEET RANKINGS',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: AirbnbTheme.grey,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...leaderboard.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final rep = entry.value;
+            final rank = idx + 1;
+            final isMe = rep.isCurrentRep;
+
+            String medal = '#$rank';
+            Color rankColor = const Color(0xFF64748B);
+            if (rank == 1) {
+              medal = '🥇';
+              rankColor = const Color(0xFFF59E0B);
+            } else if (rank == 2) {
+              medal = '🥈';
+              rankColor = const Color(0xFF94A3B8);
+            } else if (rank == 3) {
+              medal = '🥉';
+              rankColor = const Color(0xFFB45309);
+            }
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isMe ? const Color(0xFFEFF6FF) : AirbnbTheme.lightGrey,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isMe ? const Color(0xFF3B82F6) : Colors.transparent,
+                  width: isMe ? 1.5 : 0.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: Text(
+                      medal,
+                      style: TextStyle(fontSize: rank <= 3 ? 15 : 12, fontWeight: FontWeight.w900, color: rankColor),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              rep.repName,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: isMe ? FontWeight.w900 : FontWeight.w700,
+                                color: isMe ? const Color(0xFF1E3A8A) : AirbnbTheme.dark,
+                              ),
+                            ),
+                            if (isMe) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text('YOU', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          '${rep.beatName} • ${rep.visitsCompleted}/${rep.totalAssignedShops} visits',
+                          style: const TextStyle(fontSize: 10, color: AirbnbTheme.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '₹${rep.salesRevenueRupees.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF16A34A)),
+                      ),
+                      Text(
+                        rep.badge,
+                        style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w700, color: AirbnbTheme.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

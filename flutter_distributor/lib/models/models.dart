@@ -913,3 +913,40 @@ class StaffMember {
     createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
   );
 }
+
+/// Sales Representative Peer Performance & Competition Leaderboard Entry
+class SalesRepLeaderboardEntry {
+  final String id;
+  final String repName;
+  final String beatName;
+  final double salesRevenueRupees;
+  final int visitsCompleted;
+  final int totalAssignedShops;
+  final int ordersBooked;
+  final double targetRevenueRupees;
+  final bool isCurrentRep;
+  final String badge;
+
+  const SalesRepLeaderboardEntry({
+    required this.id,
+    required this.repName,
+    required this.beatName,
+    required this.salesRevenueRupees,
+    required this.visitsCompleted,
+    required this.totalAssignedShops,
+    required this.ordersBooked,
+    required this.targetRevenueRupees,
+    this.isCurrentRep = false,
+    this.badge = '',
+  });
+
+  double get targetAchievementPercent {
+    if (targetRevenueRupees <= 0) return 0.0;
+    return ((salesRevenueRupees / targetRevenueRupees) * 100.0).clamp(0.0, 200.0);
+  }
+
+  double get strikeRatePercent {
+    if (totalAssignedShops <= 0) return 0.0;
+    return ((visitsCompleted / totalAssignedShops) * 100.0).clamp(0.0, 100.0);
+  }
+}

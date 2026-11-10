@@ -441,6 +441,20 @@ class ApiService extends ChangeNotifier {
     return 12742000 * asin(sqrt(a)); // 2 * R * 1000 meters
   }
 
+  /// Calculates practical road routing distance taking into account Jodhpur urban street network circuity,
+  /// one-way market lanes (Nai Sadak/Tripolia), and arterial corridors.
+  static double calculateRoadDistanceMeters(double lat1, double lon1, double lat2, double lon2) {
+    final straight = calculateDistanceMeters(lat1, lon1, lat2, lon2);
+    if (straight == 0) return 0.0;
+    // In dense bazaar zones (Nai Sadak, Ghanta Ghar, Tripolia Bazaar - lat > 26.2890),
+    // narrow medieval streets require ~1.40x road travel factor.
+    // In planned commercial grids (Sardarpura B/C Road - lat <= 26.2890), factor is ~1.25x.
+    final bool inOldBazaar = (lat1 > 26.2890 || lat2 > 26.2890);
+    final bool crossesZones = (lat1 < 26.2850 && lat2 > 26.2890) || (lat1 > 26.2890 && lat2 < 26.2850);
+    final factor = crossesZones ? 1.50 : (inOldBazaar ? 1.38 : 1.25);
+    return (straight * factor).roundToDouble();
+  }
+
   DuplicateCheckResult checkDuplicateRetailer({
     required String phone,
     required String name,
@@ -1276,6 +1290,18 @@ class ApiService extends ChangeNotifier {
         );
   }
 
+  double _currentRepLat = 26.2850;
+  double _currentRepLng = 73.0180;
+
+  double get currentRepLat => _currentRepLat;
+  double get currentRepLng => _currentRepLng;
+
+  void updateRepLocation(double lat, double lng) {
+    _currentRepLat = lat;
+    _currentRepLng = lng;
+    notifyListeners();
+  }
+
   void startShopVisit(String shopId) {
     if (_activeVisitShopId != null && _activeVisitShopId != shopId) {
       endShopVisit(_activeVisitShopId!);
@@ -1287,6 +1313,10 @@ class ApiService extends ChangeNotifier {
     if (shop != null) {
       shop.startVisit();
       _activeVisitShopId = shopId;
+      if (shop.latitude != null && shop.longitude != null) {
+        _currentRepLat = shop.latitude!;
+        _currentRepLng = shop.longitude!;
+      }
       notifyListeners();
     }
   }
@@ -1300,6 +1330,10 @@ class ApiService extends ChangeNotifier {
       final elapsed = shop.endVisit();
       if (_activeVisitShopId == shopId) {
         _activeVisitShopId = null;
+      }
+      if (shop.latitude != null && shop.longitude != null) {
+        _currentRepLat = shop.latitude!;
+        _currentRepLng = shop.longitude!;
       }
       repository.updateRetailerVisit(
         shop.id,
@@ -1683,6 +1717,137 @@ class ApiService extends ChangeNotifier {
     final assigned = _retailers.where((r) => isAssignedBeatShop(r.id)).toList();
     final extras = _retailers.where((r) => _extraVisitShopIds.contains(r.id) && !assigned.contains(r)).toList();
     return [...assigned, ...extras];
+  }
+
+  /// Dynamically calculates road-aware nearest sequencing for today's beat stops.
+  /// Instead of fixed 1->2->3->4, it starts from the rep's current real-time location,
+  /// calculates road distance to each unvisited shop, and dynamically sequences from nearest to furthest.
+  /// If the rep is currently checked in at a shop, that shop is pinned as active stop #1,
+  /// and subsequent stops are calculated from that shop's position.
+  List<RetailerShop> get dynamicRoadRouteShops {
+    final allAssigned = assignedRouteShops;
+    if (allAssigned.isEmpty) return [];
+
+    // Current reference coordinate: active checked-in shop, or salesperson's live location
+    double refLat = _currentRepLat;
+    double refLng = _currentRepLng;
+
+    final activeShop = activeVisitShop;
+    if (activeShop != null && activeShop.latitude != null && activeShop.longitude != null) {
+      refLat = activeShop.latitude!;
+      refLng = activeShop.longitude!;
+    }
+
+    final pending = allAssigned.where((s) => !s.visitedToday && !s.isSkipped && !s.isCheckedIn).toList();
+    final visitedOrSkipped = allAssigned.where((s) => s.visitedToday || s.isSkipped).toList();
+
+    // Dynamically order pending shops using Nearest-Neighbor along the road network
+    final sequenced = <RetailerShop>[];
+    if (activeShop != null && allAssigned.any((s) => s.id == activeShop.id)) {
+      sequenced.add(activeShop);
+    }
+
+    var remaining = List<RetailerShop>.from(pending);
+    double curLat = refLat;
+    double curLng = refLng;
+
+    while (remaining.isNotEmpty) {
+      remaining.sort((a, b) {
+        final distA = (a.latitude != null && a.longitude != null)
+            ? calculateRoadDistanceMeters(curLat, curLng, a.latitude!, a.longitude!)
+            : 9999999.0;
+        final distB = (b.latitude != null && b.longitude != null)
+            ? calculateRoadDistanceMeters(curLat, curLng, b.latitude!, b.longitude!)
+            : 9999999.0;
+        return distA.compareTo(distB);
+      });
+
+      final nextNearest = remaining.removeAt(0);
+      sequenced.add(nextNearest);
+      if (nextNearest.latitude != null && nextNearest.longitude != null) {
+        curLat = nextNearest.latitude!;
+        curLng = nextNearest.longitude!;
+      }
+    }
+
+    // Add already visited or skipped shops at the end (preserving completed audit trail)
+    sequenced.addAll(visitedOrSkipped);
+    return sequenced;
+  }
+
+  /// Generates real-time sales performance competition leaderboard across territory sales reps.
+  List<SalesRepLeaderboardEntry> getSalesLeaderboard() {
+    // Current rep's real performance from today's orders & visits
+    final currentRepRevenue = orders.fold(0, (sum, o) => sum + o.totalPaise) / 100.0;
+    final currentRepOrdersCount = orders.length;
+    final currentRepVisitsCount = customersVisitedTodayCount;
+    final totalBeatShops = assignedRouteShops.length;
+    const double currentRepTarget = 75000.0; // ₹75,000 daily beat quota
+
+    final currentRepEntry = SalesRepLeaderboardEntry(
+      id: 'rep_current_akhendera',
+      repName: 'Akhendera Singh (You)',
+      beatName: 'Sardarpura & Nai Sadak Route',
+      salesRevenueRupees: currentRepRevenue,
+      visitsCompleted: currentRepVisitsCount,
+      totalAssignedShops: totalBeatShops > 0 ? totalBeatShops : 6,
+      ordersBooked: currentRepOrdersCount,
+      targetRevenueRupees: currentRepTarget,
+      isCurrentRep: true,
+      badge: currentRepRevenue >= 50000 ? '⚡ ON FIRE' : '📍 IN FIELD',
+    );
+
+    // Fellow territory reps in the Jodhpur distributor fleet
+    final peerReps = <SalesRepLeaderboardEntry>[
+      const SalesRepLeaderboardEntry(
+        id: 'rep_mahendra',
+        repName: 'Mahendra Rathore',
+        beatName: 'Sardarpura Beat (B & C Road)',
+        salesRevenueRupees: 68200.0,
+        visitsCompleted: 8,
+        totalAssignedShops: 9,
+        ordersBooked: 7,
+        targetRevenueRupees: 75000.0,
+        badge: '🏆 FLEET LEADER',
+      ),
+      const SalesRepLeaderboardEntry(
+        id: 'rep_suresh',
+        repName: 'Suresh Bishnoi',
+        beatName: 'Sojati Gate & Station Road Beat',
+        salesRevenueRupees: 41800.0,
+        visitsCompleted: 5,
+        totalAssignedShops: 8,
+        ordersBooked: 4,
+        targetRevenueRupees: 65000.0,
+        badge: '🎯 CONSISTENT',
+      ),
+      const SalesRepLeaderboardEntry(
+        id: 'rep_manish',
+        repName: 'Manish Gehlot',
+        beatName: 'Mandore Commercial Beat',
+        salesRevenueRupees: 32150.0,
+        visitsCompleted: 4,
+        totalAssignedShops: 7,
+        ordersBooked: 3,
+        targetRevenueRupees: 60000.0,
+        badge: '📈 RISING',
+      ),
+      const SalesRepLeaderboardEntry(
+        id: 'rep_dinesh',
+        repName: 'Dinesh Parihar',
+        beatName: 'Ratanada Circuit Beat',
+        salesRevenueRupees: 24500.0,
+        visitsCompleted: 3,
+        totalAssignedShops: 6,
+        ordersBooked: 2,
+        targetRevenueRupees: 55000.0,
+        badge: '📍 IN FIELD',
+      ),
+    ];
+
+    final all = <SalesRepLeaderboardEntry>[currentRepEntry, ...peerReps];
+    all.sort((a, b) => b.salesRevenueRupees.compareTo(a.salesRevenueRupees));
+    return all;
   }
 
   void setCartUnit(String productId, OrderUnit unit) {
