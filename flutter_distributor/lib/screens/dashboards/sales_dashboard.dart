@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -46,16 +47,56 @@ class _SalesDashboardState extends State<SalesDashboard> {
   MapType _mapType = MapType.normal;
   GoogleMapController? _googleMapController;
   Timer? _stopwatchTimer;
+  BitmapDescriptor? _currentLocationBlueDotIcon;
 
   @override
   void initState() {
     super.initState();
+    _initCurrentLocationIcon();
     // 1-second live ticker for active visit stopwatch and time spent
     _stopwatchTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && widget.api.activeVisitShopId != null) {
         setState(() {});
       }
     });
+  }
+
+  Future<void> _initCurrentLocationIcon() async {
+    try {
+      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(pictureRecorder);
+      const double size = 80.0;
+
+      // 1. Soft radial shadow / glow
+      final Paint glowPaint = Paint()
+        ..color = const Color(0x401A73E8)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      canvas.drawCircle(const Offset(size / 2, size / 2), 32, glowPaint);
+
+      // 2. Thick crisp white border (Google Maps iconic white ring)
+      final Paint whiteRingPaint = Paint()..color = Colors.white;
+      canvas.drawCircle(const Offset(size / 2, size / 2), 22, whiteRingPaint);
+
+      // 3. Google Maps Royal Blue solid center circle
+      final Paint blueDotPaint = Paint()..color = const Color(0xFF1A73E8);
+      canvas.drawCircle(const Offset(size / 2, size / 2), 15, blueDotPaint);
+
+      // 4. Center pure white dot (tiny core highlight)
+      final Paint centerCorePaint = Paint()..color = Colors.white;
+      canvas.drawCircle(const Offset(size / 2, size / 2), 4, centerCorePaint);
+
+      final ui.Image image = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData != null) {
+        final bytes = byteData.buffer.asUint8List();
+        final icon = BitmapDescriptor.bytes(bytes);
+        if (mounted) {
+          setState(() {
+            _currentLocationBlueDotIcon = icon;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -1212,27 +1253,39 @@ class _SalesDashboardState extends State<SalesDashboard> {
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               circles: {
-                // Live location accuracy halo around salesperson
+                // Outer Google Maps accuracy circle
                 Circle(
-                  circleId: const CircleId('current_location_accuracy_halo'),
+                  circleId: const CircleId('current_location_outer_accuracy_circle'),
                   center: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  radius: 90,
-                  fillColor: const Color(0x331A73E8),
-                  strokeColor: const Color(0xFF1A73E8),
+                  radius: 120,
+                  fillColor: const Color(0x201A73E8),
+                  strokeColor: const Color(0x661A73E8),
                   strokeWidth: 2,
+                  zIndex: 1,
+                ),
+                // Inner Google Maps pulse circle
+                Circle(
+                  circleId: const CircleId('current_location_inner_pulse_circle'),
+                  center: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+                  radius: 45,
+                  fillColor: const Color(0x351A73E8),
+                  strokeColor: const Color(0x991A73E8),
+                  strokeWidth: 2,
+                  zIndex: 2,
                 ),
               },
               markers: {
-                // Live Current Location Marker (Salesperson)
+                // Live Current Location Marker (Google Maps Circular Blue Dot)
                 Marker(
                   markerId: const MarkerId('current_location_user'),
                   position: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                  icon: _currentLocationBlueDotIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                  anchor: const Offset(0.5, 0.5),
                   infoWindow: const InfoWindow(
-                    title: '📍 YOU ARE HERE (Current Location)',
-                    snippet: 'Your GPS Starting Point • Tap to focus',
+                    title: '📍 Current Location (You Are Here)',
+                    snippet: 'GPS Starting Point • Tap to center',
                   ),
-                  zIndexInt: 50,
+                  zIndexInt: 100,
                 ),
                 // Route Shop Markers (Green if visited, Red if unvisited)
                 ...locatedShops.asMap().entries.map((entry) {
