@@ -2628,10 +2628,11 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
               const Text('Items to Pick from Godown Shelves:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
               const SizedBox(height: 6),
 
-              // Item rows with Checkboxes
+              // Item rows with Checkboxes (Option C: Original Unit + Equivalent Pieces)
               ...ord.items.map((it) {
                 final isChecked = pickedSet.contains(it.product.id);
                 final prod = widget.api.products.firstWhere((p) => p.id == it.product.id, orElse: () => it.product);
+                final totalEquivalentPcs = it.totalPieces;
 
                 return InkWell(
                   onTap: () {
@@ -2645,43 +2646,105 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                     });
                   },
                   borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isChecked ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isChecked ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                      ),
+                    ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          isChecked ? Icons.check_box : Icons.check_box_outline_blank,
-                          size: 18,
-                          color: isChecked ? AirbnbTheme.success : AirbnbTheme.grey,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Icon(
+                            isChecked ? Icons.check_box : Icons.check_box_outline_blank,
+                            size: 20,
+                            color: isChecked ? AirbnbTheme.success : AirbnbTheme.grey,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '${it.quantity} x ${it.unit.label} ${it.product.name}',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: isChecked ? TextDecoration.lineThrough : null,
-                                  color: isChecked ? AirbnbTheme.grey : AirbnbTheme.dark,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                                    ),
+                                    child: Text(
+                                      '${it.quantity} ${it.unit.label}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF1D4ED8),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      it.product.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        decoration: isChecked ? TextDecoration.lineThrough : null,
+                                        color: isChecked ? AirbnbTheme.grey : AirbnbTheme.dark,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 3),
                               Text(
-                                'Godown Available: ${prod.godownStockBoxes} bxs',
+                                'Godown Stock: ${prod.godownStockBoxes} bxs (${prod.godownStockBoxes * prod.boxQty} pcs) • Pack: 1 Strip = ${prod.stripQty} pcs',
                                 style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: prod.godownStockBoxes > 0 ? AirbnbTheme.success : Colors.red,
+                                  fontSize: 10,
+                                  color: prod.godownStockBoxes > 0 ? const Color(0xFF059669) : Colors.red,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Text(
-                          '${it.totalPieces} pcs',
-                          style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isChecked ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isChecked ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '= $totalEquivalentPcs pcs',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: isChecked ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                                ),
+                              ),
+                              Text(
+                                '(${it.unit.label})',
+                                style: const TextStyle(fontSize: 9, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
