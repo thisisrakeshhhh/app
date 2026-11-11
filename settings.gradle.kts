@@ -23,5 +23,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "RouteFlow"
-include(":app")
+include(":android")
+project(":android").projectDir = file("android")
  

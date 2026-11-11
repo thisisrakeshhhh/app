@@ -101,7 +101,7 @@ void main() {
       final salesDir = Directory('lib/features/sales');
       if (!salesDir.existsSync()) {
         // Fallback for execution from different working dir
-        final altDir = Directory('flutter_distributor/lib/features/sales');
+        final altDir = Directory('flutter/lib/features/sales');
         if (altDir.existsSync()) {
           _assertNoHardcodedTextLiterals(altDir);
           return;
