@@ -189,7 +189,7 @@ void main() {
       expect(find.byIcon(Icons.swap_horiz), findsNothing);
     });
 
-    testWidgets('6. WAREHOUSE role mounts WarehouseDashboard with 5 warehouse tabs', (tester) async {
+    testWidgets('6. WAREHOUSE role mounts WarehouseDashboard with 4 streamlined warehouse tabs', (tester) async {
       final authService = createAuthWithRole('WAREHOUSE', 'Mukesh Godown');
       await authService.login('inventory_mgr', 'RouteFlow@2026!');
 
@@ -210,12 +210,11 @@ void main() {
       expect(find.textContaining('Basni Industrial Area Phase II'), findsOneWidget);
       expect(find.text('Godown Stock'), findsWidgets);
 
-      // Check 5 Warehouse Navigation Items
+      // Check 4 Warehouse Navigation Items (Streamlined: Home, Godown Stock, Pick & Pack, Handover to Driver)
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Godown Stock'), findsWidgets);
-      expect(find.text('Inward'), findsWidgets);
       expect(find.text('Pick & Pack'), findsWidgets);
-      expect(find.text('Load Van'), findsOneWidget);
+      expect(find.text('Handover to Driver'), findsWidgets);
 
       // Verify no other dashboard or manual role switcher exists
       expect(find.byType(SalesDashboard), findsNothing);

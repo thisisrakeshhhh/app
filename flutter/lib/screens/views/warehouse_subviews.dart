@@ -141,6 +141,89 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
     );
   }
 
+  void _showQuickAddBoxesDialog(ProductItem product) {
+    final qtyCtrl = TextEditingController(text: '10');
+    final truckCtrl = TextEditingController(text: 'RJ-19-GA-1102');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.add_box, color: Color(0xFF059669)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Add Stock to Godown (माल जोड़ें)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('SKU: ${product.name}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+            Text('Current Godown Stock: ${product.godownStockBoxes} Boxes (${product.boxQty} pcs/box)',
+                style: const TextStyle(fontSize: 11.5, color: AirbnbTheme.grey)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: qtyCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Boxes to Add (पेटी की संख्या) *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.inventory_2),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: truckCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Truck / Reference No. (गाड़ी नंबर)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.local_shipping),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AirbnbTheme.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final addedBoxes = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+              if (addedBoxes <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid box quantity (> 0)')),
+                );
+                return;
+              }
+              widget.api.restockProduct(product.id, addedBoxes);
+              Navigator.pop(ctx);
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Added +$addedBoxes boxes to ${product.name}! New stock: ${product.godownStockBoxes} bxs'),
+                  backgroundColor: const Color(0xFF059669),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('+ Add to Stock'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAdjustStockSheet(ProductItem product) {
     int countedBoxes = product.godownStockBoxes;
     String selectedReason = 'Physical stock audit (भौतिक स्टॉक ऑडिट)';
@@ -357,16 +440,33 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                       ),
                     ],
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddEditSheet(),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('+ Add SKU', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AirbnbTheme.coral,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => WarehouseInwardView.showAsSheet(context, widget.api),
+                        icon: const Icon(Icons.input_rounded, size: 14),
+                        label: const Text('+ Inward', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddEditSheet(),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('+ Add SKU', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AirbnbTheme.coral,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1084,17 +1184,35 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              ElevatedButton.icon(
-                                onPressed: () => _showAdjustStockSheet(prod),
-                                icon: const Icon(Icons.tune, size: 14),
-                                label: const Text('Adjust Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                                  foregroundColor: AirbnbTheme.jodhpurBlue,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showQuickAddBoxesDialog(prod),
+                                    icon: const Icon(Icons.add_box, size: 14),
+                                    label: const Text('+ Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF059669),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showAdjustStockSheet(prod),
+                                    icon: const Icon(Icons.tune, size: 14),
+                                    label: const Text('Adjust Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
+                                      foregroundColor: AirbnbTheme.jodhpurBlue,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1701,6 +1819,34 @@ void showAddTruckDialog({
 class WarehouseInwardView extends StatefulWidget {
   final ApiService api;
   const WarehouseInwardView({super.key, required this.api});
+
+  static Future<void> showAsSheet(BuildContext context, ApiService api) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.9,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
+              ),
+              Expanded(child: WarehouseInwardView(api: api)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   State<WarehouseInwardView> createState() => _WarehouseInwardViewState();
@@ -2835,7 +2981,7 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                               child: Text('Mark Packed & Ready', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AirbnbTheme.success,
+                              backgroundColor: ord.isOwnerApproved ? AirbnbTheme.success : const Color(0xFF16A34A),
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -3474,7 +3620,7 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
               children: [
                 Expanded(
                   child: Text(
-                    'Orders Loaded for ${activeTruck.vehicleNumber}',
+                    'Packed Orders: Handover to Driver (${activeTruck.vehicleNumber})',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
@@ -3505,17 +3651,18 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Order #${ord.orderNumber} • ${ord.shopName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                        Text('₹${ord.totalRupees.toStringAsFixed(0)} • ${ord.items.length} items', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
+                        Text('₹${ord.totalRupees.toStringAsFixed(0)} • ${ord.items.length} items • Driver: ${activeTruck.driverName}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.handshake_outlined, size: 14),
                     onPressed: () {
                       widget.api.advanceOrderStage(ord.id);
                       if (mounted) setState(() {});
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Dispatched Order #${ord.orderNumber} for delivery!')),
+                        SnackBar(content: Text('Handed over Order #${ord.orderNumber} to Driver ${activeTruck.driverName}!')),
                       );
                     },
                     style: ElevatedButton.styleFrom(
@@ -3524,7 +3671,7 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                    child: const Text('Dispatch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                    label: const Text('Handover to Driver', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),

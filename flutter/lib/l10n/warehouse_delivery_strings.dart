@@ -235,6 +235,32 @@ class WdStrings {
     }
   }
 
+  String get handoverToDriverTitle {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Handover to Driver (Delivery)';
+      case AppLanguage.hinglish:
+        return 'Driver ko Handover (Delivery)';
+      case AppLanguage.hi:
+        return 'ड्राइवर को हैंडओवर (डिलीवरी)';
+      case AppLanguage.gu:
+        return 'ડ્રાઈવરને હેન્ડઓવર (ડિલિવરી)';
+    }
+  }
+
+  String get handoverToDriverBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Handover to Driver';
+      case AppLanguage.hinglish:
+        return 'Driver ko Handover Karein';
+      case AppLanguage.hi:
+        return 'ड्राइवर को सौंपें';
+      case AppLanguage.gu:
+        return 'ડ્રાઈવરને સોંપો';
+    }
+  }
+
   String get truckNumberLabel {
     switch (lang) {
       case AppLanguage.en:

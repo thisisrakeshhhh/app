@@ -823,9 +823,8 @@ class _RoleShellState extends State<RoleShell> {
               onNavigateTab: (t) => setState(() => _currentTabIndex = t),
             ),
           1 => WarehouseStockView(api: widget.api),
-          2 => WarehouseInwardView(api: widget.api),
-          3 => WarehousePickingView(api: widget.api),
-          4 => WarehouseLoadingView(api: widget.api),
+          2 => WarehousePickingView(api: widget.api),
+          3 => WarehouseLoadingView(api: widget.api),
           _ => WarehouseDashboard(
               api: widget.api,
               onNavigateTab: (t) => setState(() => _currentTabIndex = t),
@@ -885,9 +884,8 @@ class _RoleShellState extends State<RoleShell> {
       CanonicalRole.warehouse => const [
           _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),
           _RoleNavItem(label: 'Godown Stock', icon: Icons.inventory_2, unselectedIcon: Icons.inventory_2_outlined),
-          _RoleNavItem(label: 'Inward', icon: Icons.input_rounded, unselectedIcon: Icons.input_outlined),
           _RoleNavItem(label: 'Pick & Pack', icon: Icons.checklist, unselectedIcon: Icons.checklist_outlined),
-          _RoleNavItem(label: 'Load Van', icon: Icons.local_shipping, unselectedIcon: Icons.local_shipping_outlined),
+          _RoleNavItem(label: 'Handover to Driver', icon: Icons.local_shipping, unselectedIcon: Icons.local_shipping_outlined),
         ],
       CanonicalRole.delivery => const [
           _RoleNavItem(label: 'Home', icon: Icons.home, unselectedIcon: Icons.home_outlined),

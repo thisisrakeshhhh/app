@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 import '../views/add_edit_inventory_item_sheet.dart';
+import '../views/warehouse_subviews.dart';
 
 /// Modern, Polished FMCG Godown & Warehouse Landing Dashboard.
 /// Supports 4 languages: English, Hinglish, Hindi (हिन्दी), and Gujarati (ગુજરાતી).
@@ -392,7 +393,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         ),
                       ),
                       ElevatedButton(
-                        onPressed: () => widget.onNavigateTab(3),
+                        onPressed: () => widget.onNavigateTab(2),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFD97706),
                           foregroundColor: Colors.white,
@@ -419,12 +420,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 children: [
                   Expanded(
                     child: _buildOperationCard(
-                      icon: Icons.local_shipping_rounded,
+                      icon: Icons.inventory_2_rounded,
                       color: const Color(0xFF059669),
-                      title: strings.truckInwardTitle,
-                      subtitle: strings.truckInwardSubtitle,
-                      badge: 'NEW',
-                      onTap: () => widget.onNavigateTab(2),
+                      title: strings.stockListTitle,
+                      subtitle: strings.stockListSubtitle(totalBoxes),
+                      badge: 'CRUD',
+                      onTap: () => widget.onNavigateTab(1),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -435,7 +436,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                       title: strings.pickPackTitle,
                       subtitle: strings.pickPackSubtitle(readyToPickCount, waitingApprovalCount),
                       badge: pendingOrders.isNotEmpty ? '${pendingOrders.length}' : null,
-                      onTap: () => widget.onNavigateTab(3),
+                      onTap: () => widget.onNavigateTab(2),
                     ),
                   ),
                 ],
@@ -447,23 +448,23 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 children: [
                   Expanded(
                     child: _buildOperationCard(
-                      icon: Icons.inventory_2_rounded,
+                      icon: Icons.local_shipping_rounded,
                       color: const Color(0xFFD97706),
-                      title: strings.stockListTitle,
-                      subtitle: strings.stockListSubtitle(totalBoxes),
+                      title: 'Handover to Driver',
+                      subtitle: 'Van loading & driver dispatch',
                       badge: null,
-                      onTap: () => widget.onNavigateTab(1),
+                      onTap: () => widget.onNavigateTab(3),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildOperationCard(
-                      icon: Icons.receipt_long_rounded,
+                      icon: Icons.input_rounded,
                       color: const Color(0xFF7C3AED),
-                      title: strings.movementRegisterTitle,
-                      subtitle: strings.movementRegisterSubtitle,
-                      badge: null,
-                      onTap: () => widget.onNavigateTab(4),
+                      title: strings.truckInwardTitle,
+                      subtitle: strings.truckInwardSubtitle,
+                      badge: 'NEW',
+                      onTap: () => WarehouseInwardView.showAsSheet(context, widget.api),
                     ),
                   ),
                 ],
@@ -480,7 +481,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
                   ),
                   TextButton(
-                    onPressed: () => widget.onNavigateTab(4),
+                    onPressed: () => widget.onNavigateTab(3),
                     child: Text(strings.viewAllBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue)),
                   ),
                 ],
@@ -514,7 +515,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
                   ),
                   TextButton(
-                    onPressed: () => widget.onNavigateTab(4),
+                    onPressed: () => widget.onNavigateTab(3),
                     child: Text(strings.viewAllBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue)),
                   ),
                 ],
