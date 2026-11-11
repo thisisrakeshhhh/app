@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../l10n/language_controller.dart';
+import '../../l10n/warehouse_delivery_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
@@ -22,9 +24,11 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
   final List<String> _categories = [
     'All',
+    'Juices & Cold Drinks',
     'Traditional Namkeen',
     'Potato Wafers',
     'Extruded Snacks & Fryums',
+    'Biscuits & Bakery',
     'Bakery & Confectionery',
   ];
 
@@ -1708,12 +1712,22 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
   final _supplierCtrl = TextEditingController(text: 'Bikaji Foods Central Plant');
 
   ProductItem? _selectedProduct;
+  String _selectedInwardCategory = 'All';
   final _boxQtyCtrl = TextEditingController(text: '10');
   final _stripQtyCtrl = TextEditingController(text: '0');
   final _pieceQtyCtrl = TextEditingController(text: '0');
 
   final List<TruckInwardItem> _inwardCart = [];
   bool _isSaving = false;
+
+  final List<String> _inwardCategories = [
+    'All',
+    'Juices & Cold Drinks',
+    'Traditional Namkeen',
+    'Potato Wafers',
+    'Extruded Snacks & Fryums',
+    'Biscuits & Bakery',
+  ];
 
   @override
   void initState() {
@@ -1735,9 +1749,10 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
   }
 
   void _addItemToCart() {
+    final s = WdStrings.current;
     if (_selectedProduct == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया कोई सामान चुनें (Please select product)')),
+        SnackBar(content: Text(s.selectProductLabel)),
       );
       return;
     }
@@ -1748,7 +1763,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
 
     if (boxes <= 0 && strips <= 0 && pieces <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया कम से कम 1 पेटी, लड़ी या पीस दर्ज करें')),
+        const SnackBar(content: Text('Please enter at least 1 box, strip or piece')),
       );
       return;
     }
@@ -1779,9 +1794,9 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
 
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✓  कार्ट में जोड़ा गया'),
-        duration: const Duration(seconds: 1),
+      const SnackBar(
+        content: Text('✓ Added to intake cart'),
+        duration: Duration(seconds: 1),
       ),
     );
   }
@@ -1790,14 +1805,14 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
     final truckNum = _truckCtrl.text.trim();
     if (truckNum.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया गाड़ी / ट्रक नंबर दर्ज करें (Enter Truck Number)')),
+        const SnackBar(content: Text('Please enter Truck / Vehicle Number')),
       );
       return;
     }
 
     if (_inwardCart.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया कम से कम एक सामान लिस्ट में जोड़ें (Cart is empty)')),
+        const SnackBar(content: Text('Intake cart is empty. Add at least 1 SKU.')),
       );
       return;
     }
@@ -1822,7 +1837,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
             backgroundColor: const Color(0xFF059669),
             duration: const Duration(seconds: 3),
             content: Text(
-              '✅ ट्रक $truckNum का माल ($totalCartons पेटी) गोदाम DB में सफलता से जमा हो गया!',
+              '✅ Truck $truckNum received ($totalCartons cartons) saved to Godown DB!',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -1840,7 +1855,19 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
 
   @override
   Widget build(BuildContext context) {
-    final products = widget.api.products;
+    final s = WdStrings.current;
+    final currentLang = LanguageController.instance.currentLanguage;
+    final allProducts = widget.api.products;
+    final filteredProducts = _selectedInwardCategory == 'All'
+        ? allProducts
+        : allProducts.where((p) => p.category == _selectedInwardCategory).toList();
+
+    if (_selectedProduct == null || !filteredProducts.contains(_selectedProduct)) {
+      if (filteredProducts.isNotEmpty) {
+        _selectedProduct = filteredProducts.first;
+      }
+    }
+
     final totalCartBoxes = _inwardCart.fold<int>(0, (sum, i) => sum + i.boxes);
     final totalCartPieces = _inwardCart.fold<int>(0, (sum, i) => sum + i.pieces);
 
@@ -1854,14 +1881,14 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withValues(alpha: 0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1876,39 +1903,39 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.local_shipping, color: Colors.white, size: 18),
+                          child: const Icon(Icons.local_shipping, color: Color(0xFF34D399), size: 18),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          'TRUCK INWARD (ट्रक आवक)',
-                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
+                        Text(
+                          s.inwardHeaderTitle,
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
                         ),
                       ],
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text('Real-Time DB', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                      child: const Text('Real-Time DB', style: TextStyle(color: Color(0xFF93C5FD), fontSize: 10, fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: _truckCtrl,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: 1),
                   decoration: InputDecoration(
-                    labelText: 'गाड़ी / ट्रक नंबर (Truck Number) *',
+                    labelText: s.truckNumberLabel,
                     labelStyle: const TextStyle(color: Color(0xFFBFDBFE), fontSize: 12),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.12),
+                    fillColor: Colors.white.withValues(alpha: 0.1),
                     prefixIcon: const Icon(Icons.pin, color: Colors.white70, size: 18),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1922,10 +1949,10 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                         controller: _driverCtrl,
                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                         decoration: InputDecoration(
-                          labelText: 'ड्राइवर (Driver Name)',
+                          labelText: s.driverNameLabel,
                           labelStyle: const TextStyle(color: Color(0xFFBFDBFE), fontSize: 11),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.12),
+                          fillColor: Colors.white.withValues(alpha: 0.1),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         ),
@@ -1937,10 +1964,10 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                         controller: _supplierCtrl,
                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                         decoration: InputDecoration(
-                          labelText: 'फैक्ट्री / प्लांट (Plant)',
+                          labelText: s.supplierLabel,
                           labelStyle: const TextStyle(color: Color(0xFFBFDBFE), fontSize: 11),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.12),
+                          fillColor: Colors.white.withValues(alpha: 0.1),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         ),
@@ -1959,38 +1986,93 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.add_shopping_cart, color: AirbnbTheme.jodhpurBlue, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'सामान लिस्ट में जोड़ें (Add Items to Truck)',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AirbnbTheme.dark),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.add_shopping_cart, color: Color(0xFF2563EB), size: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          s.selectProductLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AirbnbTheme.dark),
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
+                // Inward Category Filter Chips (Juices, Namkeen, Biscuits, Wafers)
+                SizedBox(
+                  height: 32,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _inwardCategories.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                    itemBuilder: (ctx, idx) {
+                      final cat = _inwardCategories[idx];
+                      final isSel = _selectedInwardCategory == cat;
+                      return ChoiceChip(
+                        label: Text(
+                          s.categoryName(cat),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                            color: isSel ? Colors.white : const Color(0xFF475569),
+                          ),
+                        ),
+                        selected: isSel,
+                        selectedColor: const Color(0xFF0F172A),
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedInwardCategory = cat;
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
                 // Product Dropdown
                 DropdownButtonFormField<ProductItem>(
                   initialValue: _selectedProduct,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'सामान चुनें (Select Product)',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: InputDecoration(
+                    labelText: s.selectProductLabel,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  items: products.map((p) {
+                  items: filteredProducts.map((p) {
+                    final localizedName = p.nameForLanguage(currentLang);
                     return DropdownMenuItem<ProductItem>(
                       value: p,
                       child: Text(
-                        '${p.name} (स्टॉक: ${p.godownStockBoxes} पेटी)',
+                        '$localizedName (${p.godownStockBoxes} ${s.boxesUnit})',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
@@ -2008,7 +2090,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('पेटी (Boxes)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                          Text(s.boxUnitLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                           const SizedBox(height: 4),
                           TextField(
                             controller: _boxQtyCtrl,
@@ -2030,7 +2112,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('लड़ी (Strips)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                          Text(s.stripUnitLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                           const SizedBox(height: 4),
                           TextField(
                             controller: _stripQtyCtrl,
@@ -2052,7 +2134,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('खुला पीस (Pieces)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                          Text(s.pieceUnitLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                           const SizedBox(height: 4),
                           TextField(
                             controller: _pieceQtyCtrl,
@@ -2072,6 +2154,34 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                   ],
                 ),
 
+                const SizedBox(height: 10),
+
+                // Quick Quantity Presets (+1, +5, +10, +25)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [5, 10, 25, 50].map((step) {
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: InkWell(
+                        onTap: () {
+                          final cur = int.tryParse(_boxQtyCtrl.text.trim()) ?? 0;
+                          setState(() => _boxQtyCtrl.text = '${cur + step}');
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Text('+$step', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
                 const SizedBox(height: 14),
 
                 SizedBox(
@@ -2079,7 +2189,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                   child: ElevatedButton.icon(
                     onPressed: _addItemToCart,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('+ लिस्ट में जोड़ें (+ Add to Cart)', style: TextStyle(fontWeight: FontWeight.w800)),
+                    label: Text(s.addToCartBtn, style: const TextStyle(fontWeight: FontWeight.w800)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1E3A8A),
                       foregroundColor: Colors.white,
@@ -2099,12 +2209,12 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ट्रक का सामान (${_inwardCart.length} आइटम्स)',
+                'Truck Intake Cart (${_inwardCart.length} SKUs)',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
               ),
               if (_inwardCart.isNotEmpty)
                 Text(
-                  'कुल: $totalCartBoxes पेटी $totalCartPieces पीस',
+                  'Total: $totalCartBoxes ${s.boxesUnit} $totalCartPieces Pcs',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF059669)),
                 ),
             ],
@@ -2124,9 +2234,9 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                 children: [
                   Icon(Icons.shopping_cart_outlined, size: 36, color: Color(0xFF94A3B8)),
                   SizedBox(height: 8),
-                  Text('ट्रक में कोई सामान नहीं जोड़ा गया है', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                  Text('Intake cart is empty', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
                   SizedBox(height: 4),
-                  Text('ऊपर दिए फॉर्म से सामान और पेटी/पीस संख्या जोड़ें', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                  Text('Add cartons from the form above to record delivery into godown stock', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
                 ],
               ),
             )
@@ -2166,7 +2276,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${it.boxes} पेटी • ${it.strips} लड़ी • ${it.pieces} पीस',
+                              '${it.boxes} ${s.boxesUnit} • ${it.strips} Strips • ${it.pieces} Pcs',
                               style: const TextStyle(fontSize: 11.5, color: Color(0xFF059669), fontWeight: FontWeight.w700),
                             ),
                           ],
@@ -2188,7 +2298,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
 
           const SizedBox(height: 20),
 
-          // 4. BIG GREEN COMMIT BUTTON
+          // 4. BIG COMMIT BUTTON
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -2197,7 +2307,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.check_circle, size: 20),
               label: Text(
-                _isSaving ? 'गोदाम में सेव हो रहा है...' : '✓ गोदाम में माल जमा करें (Save to Godown DB)',
+                _isSaving ? 'Saving to Godown DB...' : s.saveToGodownBtn,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
               ),
               style: ElevatedButton.styleFrom(
@@ -2205,7 +2315,7 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
+                elevation: 1,
               ),
             ),
           ),
@@ -2214,7 +2324,6 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
     );
   }
 }
-
 
 class WarehousePickingView extends StatefulWidget {
   final ApiService api;
@@ -2471,9 +2580,7 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            ord.isOwnerApproved
-                                ? '✓ Owner Approved (मालिक ने पास कर दिया)'
-                                : '⏳ Waiting for Owner Approval (मालिक की मंज़ूरी का इंतज़ार है)',
+                            WdStrings.current.ownerApprovalStatus(ord.isOwnerApproved),
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
@@ -2481,9 +2588,7 @@ class _WarehousePickingViewState extends State<WarehousePickingView> {
                             ),
                           ),
                           Text(
-                            ord.isOwnerApproved
-                                ? 'Ready for packing & van dispatch'
-                                : 'मालिक की मंजूरी के बाद ही माल पैक किया जाएगा',
+                            WdStrings.current.ownerApprovalSubtitle(ord.isOwnerApproved),
                             style: TextStyle(
                               fontSize: 10,
                               color: ord.isOwnerApproved ? const Color(0xFF166534) : const Color(0xFFB45309),
@@ -2861,6 +2966,7 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
 
     @override
   Widget build(BuildContext context) {
+    final s = WdStrings.current;
     return DefaultTabController(
       length: 3,
       child: Column(
@@ -2871,9 +2977,9 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Vehicle Loading & Registers (आवक - जावक)',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
+                Text(
+                  s.loadingAndRegistersHeader,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
                 ),
                 const SizedBox(height: 8),
                 TabBar(
@@ -2883,9 +2989,9 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
                   indicatorWeight: 3,
                   labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
                   tabs: [
-                    const Tab(text: '🚛 वैन में लोड'),
-                    Tab(text: '🚚 कब माल आया (${widget.api.truckInwardLog.length})'),
-                    Tab(text: '📤 कहाँ माल गया (${widget.api.stockDispatchLog.length})'),
+                    Tab(text: s.loadingDockTab),
+                    Tab(text: s.inwardLogTab(widget.api.truckInwardLog.length)),
+                    Tab(text: s.dispatchLogTab(widget.api.stockDispatchLog.length)),
                   ],
                 ),
               ],
@@ -3368,17 +3474,18 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
 
   Widget _buildInwardLogView(BuildContext context) {
     final inwardLog = widget.api.truckInwardLog;
+    final s = WdStrings.current;
 
     if (inwardLog.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.local_shipping_outlined, size: 48, color: AirbnbTheme.grey),
-            SizedBox(height: 12),
-            Text('कोई आवक दर्ज नहीं हुई है', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            SizedBox(height: 4),
-            Text('ट्रक आवक टैब से नया माल दर्ज करें', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+          children: [
+            const Icon(Icons.local_shipping_outlined, size: 48, color: AirbnbTheme.grey),
+            const SizedBox(height: 12),
+            Text(s.noInwardLogged, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(s.addInwardFromTabHint, style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
           ],
         ),
       );
@@ -3433,25 +3540,25 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
                       color: const Color(0xFF10B981).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('गोदाम में जमा ✓', style: TextStyle(color: Color(0xFF059669), fontSize: 10.5, fontWeight: FontWeight.w800)),
+                    child: Text(s.godownReceivedBadge, style: const TextStyle(color: Color(0xFF059669), fontSize: 10.5, fontWeight: FontWeight.w800)),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text('चालक: ${inw.driverName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                  Text('${s.driverLabel}: ${inw.driverName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
                   const SizedBox(width: 8),
-                  Text('• प्लांट: ${inw.supplier}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                  Text('• ${s.plantSupplierLabel}: ${inw.supplier}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
-                'कब आया: ${inw.arrivedAt.day}/${inw.arrivedAt.month}/${inw.arrivedAt.year} at ${inw.arrivedAt.hour.toString().padLeft(2, '0')}:${inw.arrivedAt.minute.toString().padLeft(2, '0')}',
+                '${s.arrivedAtLabel}: ${inw.arrivedAt.day}/${inw.arrivedAt.month}/${inw.arrivedAt.year} at ${inw.arrivedAt.hour.toString().padLeft(2, '0')}:${inw.arrivedAt.minute.toString().padLeft(2, '0')}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
               ),
               const Divider(height: 18),
-              const Text('क्या क्या माल आया (Items Inward):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+              Text(s.itemsInwardHeader, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
               const SizedBox(height: 6),
               ...inw.items.map((item) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
@@ -3465,7 +3572,7 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
                           ),
                         ),
                         Text(
-                          '${item.boxes} पेटी ${item.strips > 0 ? "• ${item.strips} लड़ी " : ""}${item.pieces > 0 ? "• ${item.pieces} पीस" : ""}',
+                          '${item.boxes} ${s.boxesUnit} ${item.strips > 0 ? "• ${item.strips} ${s.stripsUnit} " : ""}${item.pieces > 0 ? "• ${item.pieces} ${s.piecesUnit}" : ""}',
                           style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
                         ),
                       ],
@@ -3475,8 +3582,8 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('कुल आवक (Total Received):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
-                  Text('${inw.totalCartons} पेटी (${inw.totalPieces} कुल पीस)', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                  Text(s.totalReceivedLabel, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                  Text('${inw.totalCartons} ${s.boxesUnit} (${inw.totalPieces} ${s.piecesUnit})', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
                 ],
               ),
             ],
@@ -3488,17 +3595,18 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
 
   Widget _buildDispatchLogView(BuildContext context) {
     final dispatchLog = widget.api.stockDispatchLog;
+    final s = WdStrings.current;
 
     if (dispatchLog.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.outbox_rounded, size: 48, color: AirbnbTheme.grey),
-            SizedBox(height: 12),
-            Text('कोई जावक दर्ज नहीं हुई है', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            SizedBox(height: 4),
-            Text('ऑर्डर पैक होने पर यहाँ अपने आप दिखेगा', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
+          children: [
+            const Icon(Icons.outbox_rounded, size: 48, color: AirbnbTheme.grey),
+            const SizedBox(height: 12),
+            Text(s.noDispatchLogged, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(s.autoDispatchHint, style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
           ],
         ),
       );
@@ -3554,22 +3662,22 @@ class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('ऑर्डर: #${dsp.orderNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+                  Text('${s.orderLabel}: #${dsp.orderNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
                   Text(
-                    'कब गया: ${dsp.dispatchedAt.day}/${dsp.dispatchedAt.month} ${dsp.dispatchedAt.hour.toString().padLeft(2, '0')}:${dsp.dispatchedAt.minute.toString().padLeft(2, '0')}',
+                    '${s.dispatchedAtLabel}: ${dsp.dispatchedAt.day}/${dsp.dispatchedAt.month} ${dsp.dispatchedAt.hour.toString().padLeft(2, '0')}:${dsp.dispatchedAt.minute.toString().padLeft(2, '0')}',
                     style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
                   ),
                 ],
               ),
               const Divider(height: 16),
-              const Text('क्या क्या सामान गया:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+              Text(s.itemsDispatchedHeader, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
               const SizedBox(height: 4),
               Text(
                 dsp.itemsSummary,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF059669)),
               ),
               const SizedBox(height: 6),
-              Text('कुल पेटी रवाना: ${dsp.totalCartons} Boxes', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+              Text('${s.totalCartonsDispatched} ${dsp.totalCartons} ${s.boxesUnit}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
             ],
           ),
         );

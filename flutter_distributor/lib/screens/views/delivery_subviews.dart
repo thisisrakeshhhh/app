@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/warehouse_delivery_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
@@ -204,6 +205,7 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
   @override
   Widget build(BuildContext context) {
     final stops = widget.api.deliveryStops;
+    final s = WdStrings.current;
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -261,7 +263,7 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                       border: Border.all(color: stop.isDelivered ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
                     ),
                     child: Text(
-                      stop.isDelivered ? '✅ हो गई (DELIVERED)' : '🚚 डिलीवरी बाकी',
+                      stop.isDelivered ? s.deliveredBadge : s.deliveryPendingBadge,
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -292,9 +294,9 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'दुकान का पूरा पता (Delivery Address):',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569)),
+                          Text(
+                            s.deliveryAddressLabel,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569)),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -323,7 +325,7 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'दुकानदार: ${stop.ownerName}',
+                        '${s.shopkeeperLabel} ${stop.ownerName}',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
                       ),
                     ),
@@ -376,9 +378,9 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('सामान (Boxes)', style: TextStyle(fontSize: 10, color: Color(0xFF1E40AF))),
+                              Text(s.itemsBoxesLabel, style: const TextStyle(fontSize: 10, color: Color(0xFF1E40AF))),
                               Text(
-                                '${stop.itemCount} पेटी',
+                                '${stop.itemCount} ${s.boxesUnit}',
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A)),
                               ),
                             ],
@@ -410,7 +412,7 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                stop.codAmountPaise > 0 ? 'कैश लेना है (COD)' : 'पहले से चुकता',
+                                stop.codAmountPaise > 0 ? s.codToCollectLabel : s.alreadyPaidLabel,
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: stop.codAmountPaise > 0 ? const Color(0xFF991B1B) : const Color(0xFF166534),
@@ -448,14 +450,14 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: const Color(0xFF059669),
-                              content: Text('✅ ${stop.shopName} की डिलीवरी पूरी हो गई!'),
+                              content: Text('✅ ${stop.shopName} (${s.deliveredBadge})'),
                             ),
                           );
                         },
                         icon: const Icon(Icons.check_circle, size: 20),
-                        label: const Text(
-                          '✓ डिलीवरी हो गई (Mark Delivered)',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                        label: Text(
+                          s.markDeliveredBtn,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF059669),
@@ -487,15 +489,15 @@ class _DeliveryStopsViewState extends State<DeliveryStopsView> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFF86EFAC)),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 18),
-                        SizedBox(width: 8),
+                        const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 18),
+                        const SizedBox(width: 8),
                         Text(
-                          'सामान डिलीवर हो चुका है (Delivered ✓)',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF15803D)),
+                          s.deliveredConfirmedText,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF15803D)),
                         ),
                       ],
                     ),

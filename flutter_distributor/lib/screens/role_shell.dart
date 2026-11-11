@@ -731,9 +731,8 @@ class _RoleShellState extends State<RoleShell> {
             },
           ),
 
-          // Language switch button for sales role
-          if (canonicalRole == CanonicalRole.sales)
-            const SalesLanguageSwitchAction(),
+          // Universal language switcher (English, Hinglish, Hindi, Gujarati) across all roles
+          const SalesLanguageSwitchAction(),
 
           // Accountant / GST button (available for owner, admin, warehouse, delivery; hidden for sales)
           if (canonicalRole != CanonicalRole.sales)

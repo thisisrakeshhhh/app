@@ -1,3 +1,5 @@
+import '../l10n/app_language.dart';
+
 enum AppRole {
   sales,
   inventory,
@@ -186,6 +188,7 @@ class ProductItem {
   final String id;
   final String name;
   final String hindiName;
+  final String gujaratiName;
   final String category;
   final int mrpPaise; // Authoritative retail maximum price in integer paise
   double get mrpRupees => mrpPaise / 100.0; // Display helper
@@ -209,6 +212,7 @@ class ProductItem {
     required this.id,
     required this.name,
     required this.hindiName,
+    this.gujaratiName = '',
     required this.category,
     int? mrpPaise,
     double? mrpRupees,
@@ -229,6 +233,18 @@ class ProductItem {
     this.isArchived = false,
   })  : mrpPaise = mrpPaise ?? (mrpRupees != null ? (mrpRupees * 100).round() : 0),
         costPricePaise = costPricePaise ?? (piecePricePaise * 85 ~/ 100);
+
+  String nameForLanguage(AppLanguage lang) {
+    switch (lang) {
+      case AppLanguage.hi:
+        return hindiName.isNotEmpty ? hindiName : name;
+      case AppLanguage.gu:
+        return gujaratiName.isNotEmpty ? gujaratiName : (hindiName.isNotEmpty ? hindiName : name);
+      case AppLanguage.hinglish:
+      case AppLanguage.en:
+        return name;
+    }
+  }
 
   bool get isLowStock => godownStockBoxes > 0 && godownStockBoxes <= reorderLevelBoxes;
   bool get isOutOfStock => godownStockBoxes <= 0;
@@ -256,6 +272,7 @@ class ProductItem {
     String? id,
     String? name,
     String? hindiName,
+    String? gujaratiName,
     String? category,
     int? mrpPaise,
     int? piecePricePaise,
@@ -278,6 +295,7 @@ class ProductItem {
       id: id ?? this.id,
       name: name ?? this.name,
       hindiName: hindiName ?? this.hindiName,
+      gujaratiName: gujaratiName ?? this.gujaratiName,
       category: category ?? this.category,
       mrpPaise: mrpPaise ?? this.mrpPaise,
       piecePricePaise: piecePricePaise ?? this.piecePricePaise,

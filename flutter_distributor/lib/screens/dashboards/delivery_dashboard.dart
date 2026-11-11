@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/warehouse_delivery_strings.dart';
 import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 
@@ -366,7 +367,7 @@ class DeliveryDashboard extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: const Color(0xFF059669),
-                                content: Text('✅ ${stop.shopName} की डिलीवरी दर्ज हो गई!'),
+                                content: Text('✅ ${stop.shopName} (${WdStrings.current.deliveredBadge})'),
                               ),
                             );
                           }
