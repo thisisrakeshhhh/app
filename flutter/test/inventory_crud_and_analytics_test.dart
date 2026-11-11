@@ -134,8 +134,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Banner checks
-      expect(find.text('CENTRAL FMCG GODOWN'), findsOneWidget);
-      expect(find.textContaining('Basni Industrial Area Phase II'), findsOneWidget);
+      expect(find.text('Real Bites Central Logistics Depot'), findsOneWidget);
+      expect(find.textContaining('Manoj Kumar'), findsOneWidget);
       expect(find.text('+ Add SKU'), findsOneWidget);
 
       // KPI card checks

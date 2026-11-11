@@ -995,228 +995,302 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                     final isOut = prod.isOutOfStock;
                     final isExpiring = prod.isExpiringSoon || prod.isExpired;
 
+                    // Category accent color
+                    final categoryColor = switch (prod.category) {
+                      'Traditional Namkeen' => const Color(0xFFD97706),
+                      'Potato Wafers' => const Color(0xFF4F46E5),
+                      'Extruded Snacks & Fryums' => const Color(0xFFE11D48),
+                      'Juices & Cold Drinks' => const Color(0xFF059669),
+                      'Biscuits & Bakery' || 'Bakery & Confectionery' => const Color(0xFFB45309),
+                      _ => const Color(0xFF2563EB),
+                    };
+
+                    final categoryIcon = switch (prod.category) {
+                      'Traditional Namkeen' => Icons.bakery_dining_rounded,
+                      'Potato Wafers' => Icons.lunch_dining_rounded,
+                      'Extruded Snacks & Fryums' => Icons.fastfood_rounded,
+                      'Juices & Cold Drinks' => Icons.local_drink_rounded,
+                      _ => Icons.cookie_rounded,
+                    };
+
                     return Container(
-                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isOut ? Colors.red.shade300 : (isLow ? Colors.orange.shade300 : AirbnbTheme.border),
-                          width: isLow || isOut ? 1.2 : 0.8,
+                          color: isOut ? const Color(0xFFFCA5A5) : (isLow ? const Color(0xFFFCD34D) : const Color(0xFFE2E8F0)),
+                          width: isLow || isOut ? 1.4 : 1,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: Column(
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Category Badge Container
+                              // Left Category Accent Strip
                               Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: isOut
-                                      ? Colors.red.shade50
-                                      : (isLow
-                                          ? Colors.orange.shade50
-                                          : AirbnbTheme.jodhpurBlue.withValues(alpha: 0.08)),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  Icons.inventory_2,
-                                  color: isOut
-                                      ? Colors.red.shade700
-                                      : (isLow ? Colors.orange.shade800 : AirbnbTheme.jodhpurBlue),
-                                  size: 22,
-                                ),
+                                width: 5,
+                                color: categoryColor,
                               ),
-                              const SizedBox(width: 10),
-
-                              // Name & Category Details
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            prod.name,
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                                          ),
-                                        ),
-                                        // Edit & Delete CRUD Buttons
-                                        InkWell(
-                                          onTap: () => _showAddEditSheet(prod),
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(4),
-                                            child: Icon(Icons.edit_outlined, size: 16, color: AirbnbTheme.jodhpurBlue),
-                                          ),
-                                        ),
-                                        InkWell(
-                                          onTap: () => _confirmDeleteSku(prod),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(4),
-                                            child: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade400),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(
-                                      '${prod.hindiName} • ${prod.category}',
-                                      style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
-                                    ),
-                                    const SizedBox(height: 6),
-
-                                    // Chips Row (Batch, Expiry, Units)
-                                    Wrap(
-                                      spacing: 4,
-                                      runSpacing: 4,
-                                      children: [
-                                        // Batch
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AirbnbTheme.lightGrey,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            'Batch: ${prod.batchNumber}',
-                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                                          ),
-                                        ),
-
-                                        // Expiry Chip
-                                        if (prod.expiryDate != null)
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // 1. Header: Category Tag + Name + Edit/Delete
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              color: isExpiring ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(
-                                                color: isExpiring ? Colors.amber.shade600 : AirbnbTheme.border,
-                                              ),
+                                              color: categoryColor.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(10),
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
+                                            child: Icon(categoryIcon, color: categoryColor, size: 20),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Icon(Icons.timelapse, size: 10, color: isExpiring ? Colors.amber.shade900 : AirbnbTheme.grey),
-                                                const SizedBox(width: 3),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        prod.name,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.w900,
+                                                          fontSize: 14.5,
+                                                          color: Color(0xFF0F172A),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    // Action Icons
+                                                    InkWell(
+                                                      onTap: () => _showAddEditSheet(prod),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.all(4),
+                                                        margin: const EdgeInsets.only(left: 4),
+                                                        child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF2563EB)),
+                                                      ),
+                                                    ),
+                                                    InkWell(
+                                                      onTap: () => _confirmDeleteSku(prod),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.all(4),
+                                                        margin: const EdgeInsets.only(left: 4),
+                                                        child: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 2),
                                                 Text(
-                                                  prod.isExpired
-                                                      ? 'Expired!'
-                                                      : (prod.isExpiringSoon
-                                                          ? 'Exp: ${prod.daysUntilExpiry}d left'
-                                                          : 'Exp: ${prod.expiryDate!.day}/${prod.expiryDate!.month}/${prod.expiryDate!.year}'),
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: isExpiring ? Colors.amber.shade900 : AirbnbTheme.grey,
-                                                  ),
+                                                  '${prod.category} • SKU: ${prod.id} • MRP: ₹${prod.mrpRupees.toStringAsFixed(0)}',
+                                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                                                 ),
                                               ],
                                             ),
                                           ),
+                                        ],
+                                      ),
 
-                                        // Status Chip
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: isOut
-                                                ? Colors.red.shade100
-                                                : (isLow ? Colors.orange.shade100 : Colors.green.shade50),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            isOut ? 'Out of Stock' : (isLow ? 'Low Stock' : 'In Stock'),
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w800,
-                                              color: isOut
-                                                  ? Colors.red.shade800
-                                                  : (isLow ? Colors.orange.shade900 : Colors.green.shade800),
+                                      const SizedBox(height: 12),
+
+                                      // 2. Multi-Unit Pricing Matrix Container
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text('PIECE (1 Pc)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8))),
+                                                  const SizedBox(height: 1),
+                                                  Text('₹${(prod.piecePricePaise / 100).toStringAsFixed(1)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                                                ],
+                                              ),
                                             ),
+                                            Container(width: 1, height: 22, color: const Color(0xFFCBD5E1)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('STRIP (${prod.stripQty} pcs)', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8))),
+                                                  const SizedBox(height: 1),
+                                                  Text('₹${(prod.priceForUnit(OrderUnit.strip) / 100).toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                                                ],
+                                              ),
+                                            ),
+                                            Container(width: 1, height: 22, color: const Color(0xFFCBD5E1)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('BOX (${prod.boxQty} pcs)', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8))),
+                                                  const SizedBox(height: 1),
+                                                  Text('₹${(prod.priceForUnit(OrderUnit.box) / 100).toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF2563EB))),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 10),
+
+                                      // 3. Stock Level & Valuation Row
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    '${prod.godownStockBoxes} Boxes',
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w900,
+                                                      color: isOut ? const Color(0xFFDC2626) : (isLow ? const Color(0xFFD97706) : const Color(0xFF059669)),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    '(${prod.godownStockBoxes * prod.boxQty} pcs)',
+                                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 1),
+                                              Text(
+                                                'Valuation: ₹${prod.godownValuationRupees.toStringAsFixed(0)} • Van: ${prod.carStockBoxes} bxs',
+                                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                                              ),
+                                            ],
+                                          ),
+                                          // Status Pill
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: isOut
+                                                  ? const Color(0xFFFEE2E2)
+                                                  : (isLow ? const Color(0xFFFEF3C7) : const Color(0xFFECFDF5)),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: isOut
+                                                    ? const Color(0xFFFCA5A5)
+                                                    : (isLow ? const Color(0xFFFCD34D) : const Color(0xFFA7F3D0)),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              isOut ? 'OUT OF STOCK' : (isLow ? 'LOW STOCK' : 'IN STOCK'),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w800,
+                                                color: isOut
+                                                    ? const Color(0xFF991B1B)
+                                                    : (isLow ? const Color(0xFF92400E) : const Color(0xFF065F46)),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      // Batch & Expiry Tag
+                                      if (prod.expiryDate != null) ...[
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: isExpiring ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: isExpiring ? const Color(0xFFFCD34D) : const Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.event_outlined, size: 11, color: isExpiring ? const Color(0xFFD97706) : const Color(0xFF64748B)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Batch: ${prod.batchNumber} • Expiry: ${prod.expiryDate!.day}/${prod.expiryDate!.month}/${prod.expiryDate!.year} (${prod.daysUntilExpiry}d left)',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: isExpiring ? const Color(0xFF92400E) : const Color(0xFF475569),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
 
-                          const Divider(height: 16),
+                                      const SizedBox(height: 10),
+                                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                      const SizedBox(height: 10),
 
-                          // Bottom Row: Stock Quantity, Valuation & Adjust Button
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${prod.godownStockBoxes} Boxes (${prod.boxQty} pcs/box)',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                        color: isOut ? Colors.red : (isLow ? Colors.orange.shade800 : AirbnbTheme.dark),
+                                      // 4. Action Buttons Bar
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            onPressed: () => _showQuickAddBoxesDialog(prod),
+                                            icon: const Icon(Icons.add_box, size: 14),
+                                            label: const Text('+ Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF059669),
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                          ),
+                                          ElevatedButton.icon(
+                                            onPressed: () => _showAdjustStockSheet(prod),
+                                            icon: const Icon(Icons.tune, size: 14),
+                                            label: const Text('Adjust Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                              foregroundColor: const Color(0xFF2563EB),
+                                              elevation: 0,
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                    Text(
-                                      'Wholesale: ₹${(prod.piecePricePaise / 100).toStringAsFixed(1)}/pc • ₹${(prod.priceForUnit(OrderUnit.strip) / 100).toStringAsFixed(0)}/strip • ₹${(prod.priceForUnit(OrderUnit.box) / 100).toStringAsFixed(0)}/box',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue),
-                                    ),
-                                    Text(
-                                      'Valuation: ₹${prod.godownValuationRupees.toStringAsFixed(0)} • MRP ₹${prod.mrpRupees.toStringAsFixed(0)}',
-                                      style: const TextStyle(fontSize: 10, color: AirbnbTheme.grey),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ElevatedButton.icon(
-                                    onPressed: () => _showQuickAddBoxesDialog(prod),
-                                    icon: const Icon(Icons.add_box, size: 14),
-                                    label: const Text('+ Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF059669),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  ElevatedButton.icon(
-                                    onPressed: () => _showAdjustStockSheet(prod),
-                                    icon: const Icon(Icons.tune, size: 14),
-                                    label: const Text('Adjust Stock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                                      foregroundColor: AirbnbTheme.jodhpurBlue,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                  ),
-                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     );
                   },

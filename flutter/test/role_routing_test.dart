@@ -206,8 +206,8 @@ void main() {
 
       // Check Warehouse Dashboard Landing Content
       expect(find.byType(WarehouseDashboard), findsOneWidget);
-      expect(find.text('CENTRAL FMCG GODOWN'), findsOneWidget);
-      expect(find.textContaining('Basni Industrial Area Phase II'), findsOneWidget);
+      expect(find.text('Real Bites Central Logistics Depot'), findsOneWidget);
+      expect(find.textContaining('Manoj Kumar'), findsOneWidget);
       expect(find.text('Godown Stock'), findsWidgets);
 
       // Check 4 Warehouse Navigation Items (Streamlined: Home, Godown Stock, Pick & Pack, Handover to Driver)
