@@ -168,6 +168,93 @@ class ApiService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds all missing Real Bites FMCG catalog items into the local SQLite DB
+  /// (and enqueues CREATE_PRODUCT outbox mutations when an authenticated session is active).
+  Future<int> seedRealBitesCatalogToDb() async {
+    final existingIds = _products.map((p) => p.id).toSet();
+    final savedProducts = List<ProductItem>.from(_products);
+    final savedRetailers = List<RetailerShop>.from(_retailers);
+    final savedOrders = List<DistributorOrder>.from(_orders);
+    final savedTrucks = List<DeliveryTruck>.from(_deliveryTrucks);
+
+    _initializeData();
+    final catalogTemplate = List<ProductItem>.from(_products);
+
+    // Restore existing live collections before merging missing items
+    _products = savedProducts;
+    _retailers = savedRetailers;
+    _orders
+      ..clear()
+      ..addAll(savedOrders);
+    _deliveryTrucks
+      ..clear()
+      ..addAll(savedTrucks);
+
+    final missing = catalogTemplate.where((p) => !existingIds.contains(p.id)).toList();
+    if (missing.isEmpty) return 0;
+
+    final session = currentSession;
+    if (session != null && session.activeOrganizationId.isNotEmpty && session.userId.isNotEmpty) {
+      for (final p in missing) {
+        final units = [
+          ProductPackagingUnit(
+            id: '${p.id}_piece',
+            productId: p.id,
+            unitName: 'Piece',
+            multiplierToBase: 1,
+            isBaseUnit: true,
+            allowLooseSale: true,
+            wholesalePricePaise: p.piecePricePaise,
+            mrpPaise: p.mrpPaise,
+          ),
+          ProductPackagingUnit(
+            id: '${p.id}_strip',
+            productId: p.id,
+            unitName: 'Strip',
+            multiplierToBase: p.stripQty,
+            isBaseUnit: false,
+            allowLooseSale: true,
+            wholesalePricePaise: p.priceForUnit(OrderUnit.strip),
+            mrpPaise: p.mrpPaise * p.stripQty,
+          ),
+          ProductPackagingUnit(
+            id: '${p.id}_box',
+            productId: p.id,
+            unitName: 'Box',
+            multiplierToBase: p.boxQty,
+            isBaseUnit: false,
+            allowLooseSale: false,
+            wholesalePricePaise: p.priceForUnit(OrderUnit.box),
+            mrpPaise: p.mrpPaise * p.boxQty,
+          ),
+        ];
+        await createProductDurable(
+          id: p.id,
+          name: p.name,
+          hindiName: p.hindiName,
+          category: p.category,
+          mrpRupees: p.mrpRupees,
+          piecePricePaise: p.piecePricePaise,
+          stripQty: p.stripQty,
+          boxQty: p.boxQty,
+          gstRate: p.gstRate,
+          units: units,
+          idempotencyKey: 'seed_${session.activeOrganizationId}_${p.id}',
+        );
+        if (p.godownStockBoxes > 0) {
+          restockProduct(p.id, p.godownStockBoxes);
+        }
+      }
+    } else {
+      await repository.seedIfEmpty(missing, const []);
+      _products.addAll(missing);
+    }
+
+    await repository.backfillLegacyProductUnitsAndPrices();
+    notifyListeners();
+    return missing.length;
+  }
+
   bool _salesV2Enabled = false;
 
   /// Whether Sales V2 4-tab navigation and screens are active.
@@ -4512,7 +4599,19 @@ class ApiService extends ChangeNotifier {
       final dbRetailers = await repository.getAllRetailers();
       if (capturedGen != _transientGeneration) return;
       if (dbProducts.isNotEmpty) {
-        _products = dbProducts;
+        if (_isDemoModeLoaded && _products.isNotEmpty) {
+          final dbProdIds = dbProducts.map((p) => p.id).toSet();
+          final missingSeedProds = _products.where((p) => !dbProdIds.contains(p.id)).toList();
+          if (missingSeedProds.isNotEmpty) {
+            await repository.seedIfEmpty(missingSeedProds, const []);
+            await repository.backfillLegacyProductUnitsAndPrices();
+            _products = [...dbProducts, ...missingSeedProds];
+          } else {
+            _products = dbProducts;
+          }
+        } else {
+          _products = dbProducts;
+        }
       }
       if (dbRetailers.isNotEmpty) {
         final dbIds = dbRetailers.map((r) => r.id).toSet();

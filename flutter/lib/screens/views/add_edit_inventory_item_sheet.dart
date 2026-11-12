@@ -128,7 +128,7 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
     });
   }
 
-  void _saveItem() {
+  Future<void> _saveItem() async {
     if (!_formKey.currentState!.validate()) return;
 
     final id = _idController.text.trim();
@@ -193,11 +193,62 @@ class _AddEditInventoryItemSheetState extends State<AddEditInventoryItemSheet> {
 
     if (_isEditing) {
       widget.api.updateProduct(product);
+    } else if (widget.api.currentSession != null) {
+      final units = [
+        ProductPackagingUnit(
+          id: '${id}_piece',
+          productId: id,
+          unitName: 'Piece',
+          multiplierToBase: 1,
+          isBaseUnit: true,
+          allowLooseSale: true,
+          wholesalePricePaise: piecePricePaise,
+          mrpPaise: mrpPaise,
+        ),
+        ProductPackagingUnit(
+          id: '${id}_strip',
+          productId: id,
+          unitName: 'Strip',
+          multiplierToBase: stripQty,
+          isBaseUnit: false,
+          allowLooseSale: true,
+          wholesalePricePaise: stripPricePaise,
+          mrpPaise: mrpPaise * stripQty,
+        ),
+        ProductPackagingUnit(
+          id: '${id}_box',
+          productId: id,
+          unitName: 'Box',
+          multiplierToBase: boxQty,
+          isBaseUnit: false,
+          allowLooseSale: false,
+          wholesalePricePaise: boxPricePaise,
+          mrpPaise: mrpPaise * boxQty,
+        ),
+      ];
+      await widget.api.createProductDurable(
+        id: id,
+        name: name,
+        hindiName: hindiName,
+        category: _selectedCategory,
+        mrpRupees: mrpPaise / 100.0,
+        piecePricePaise: piecePricePaise,
+        stripQty: stripQty,
+        boxQty: boxQty,
+        gstRate: _selectedGstRate,
+        units: units,
+        idempotencyKey: 'create_${id}_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (godownBoxes > 0) {
+        widget.api.restockProduct(id, godownBoxes);
+      }
     } else {
       widget.api.addProduct(product);
     }
 
-    Navigator.pop(context, product);
+    if (mounted) {
+      Navigator.pop(context, product);
+    }
   }
 
   Future<void> _pickExpiryDate() async {

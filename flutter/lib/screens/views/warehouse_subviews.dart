@@ -997,6 +997,63 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
           ),
         ),
 
+        if (allProducts.length <= 3)
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cloud_download_outlined, size: 20, color: Color(0xFF2563EB)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Only ${allProducts.length} SKU(s) in DB',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+                      ),
+                      const Text(
+                        'Import Real Bites FMCG catalog items into your database.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final added = await widget.api.seedRealBitesCatalogToDb();
+                    if (mounted) setState(() {});
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(added > 0
+                            ? 'Added $added Real Bites FMCG items to database!'
+                            : 'All Real Bites items are already in database.'),
+                        backgroundColor: const Color(0xFF059669),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Add Items to DB', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+          ),
+
         // Product Catalog List
         Expanded(
           child: filtered.isEmpty
