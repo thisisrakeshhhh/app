@@ -207,6 +207,7 @@ class ProductItem {
   final int reorderLevelBoxes;
   final int costPricePaise;
   final bool isArchived;
+  final String shelfLocation;
 
   ProductItem({
     required this.id,
@@ -231,6 +232,7 @@ class ProductItem {
     this.reorderLevelBoxes = 30,
     int? costPricePaise,
     this.isArchived = false,
+    this.shelfLocation = '',
   })  : mrpPaise = mrpPaise ?? (mrpRupees != null ? (mrpRupees * 100).round() : 0),
         costPricePaise = costPricePaise ?? (piecePricePaise * 85 ~/ 100);
 
@@ -290,6 +292,7 @@ class ProductItem {
     int? reorderLevelBoxes,
     int? costPricePaise,
     bool? isArchived,
+    String? shelfLocation,
   }) {
     return ProductItem(
       id: id ?? this.id,
@@ -313,6 +316,7 @@ class ProductItem {
       reorderLevelBoxes: reorderLevelBoxes ?? this.reorderLevelBoxes,
       costPricePaise: costPricePaise ?? this.costPricePaise,
       isArchived: isArchived ?? this.isArchived,
+      shelfLocation: shelfLocation ?? this.shelfLocation,
     );
   }
 
@@ -680,6 +684,17 @@ extension OrderLifecycleExt on OrderLifecycleStage {
   }
 }
 
+enum WarehouseTaskStage {
+  waitingApproval,
+  approvedToPick,
+  assignedToWorker,
+  pickingInProgress,
+  waitingPacking,
+  packingInProgress,
+  packedReady,
+  handedOver,
+}
+
 class DistributorOrder {
   final String id;
   final String orderNumber;
@@ -699,6 +714,37 @@ class DistributorOrder {
   bool isPaid;
   bool isOwnerApproved;
 
+  // Warehouse workflow tracking (optional, backward-compatible)
+  WarehouseTaskStage? warehouseTaskStage;
+  String assignedWorkerName;
+  String packingWorkerName;
+  int packedCartonCount;
+  String handedOverBy;
+  String receivedByDriver;
+  DateTime? handedOverAt;
+  final Map<String, int> pickedLineQuantities;
+  final Map<String, int> damagedLineQuantities;
+  final Map<String, String> lineIssueNotes;
+
+  WarehouseTaskStage get effectiveWarehouseStage {
+    if (stage == OrderLifecycleStage.orderSend || stage == OrderLifecycleStage.delivered) {
+      return WarehouseTaskStage.handedOver;
+    }
+    if (stage == OrderLifecycleStage.readyStock) {
+      return WarehouseTaskStage.packedReady;
+    }
+    if (!isOwnerApproved) {
+      return WarehouseTaskStage.waitingApproval;
+    }
+    if (warehouseTaskStage != null && warehouseTaskStage != WarehouseTaskStage.waitingApproval) {
+      return warehouseTaskStage!;
+    }
+    if (assignedWorkerName.isNotEmpty) {
+      return WarehouseTaskStage.assignedToWorker;
+    }
+    return WarehouseTaskStage.approvedToPick;
+  }
+
   DistributorOrder({
     required this.id,
     required this.orderNumber,
@@ -717,7 +763,19 @@ class DistributorOrder {
     required this.createdAt,
     this.isPaid = false,
     this.isOwnerApproved = false,
-  });
+    this.warehouseTaskStage,
+    this.assignedWorkerName = '',
+    this.packingWorkerName = '',
+    this.packedCartonCount = 1,
+    this.handedOverBy = '',
+    this.receivedByDriver = '',
+    this.handedOverAt,
+    Map<String, int>? pickedLineQuantities,
+    Map<String, int>? damagedLineQuantities,
+    Map<String, String>? lineIssueNotes,
+  })  : pickedLineQuantities = pickedLineQuantities ?? {},
+        damagedLineQuantities = damagedLineQuantities ?? {},
+        lineIssueNotes = lineIssueNotes ?? {};
 
   double get totalRupees => totalPaise / 100.0;
   double get taxableRupees => taxablePaise / 100.0;

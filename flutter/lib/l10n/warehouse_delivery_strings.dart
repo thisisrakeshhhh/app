@@ -861,25 +861,325 @@ class WdStrings {
     if (approved) {
       switch (lang) {
         case AppLanguage.en:
-          return 'Ready for packing & van dispatch';
+          return 'Ready for picking & packing';
         case AppLanguage.hinglish:
-          return 'Packing aur van dispatch ke liye taiyar';
+          return 'Picking aur packing ke liye taiyar';
         case AppLanguage.hi:
-          return 'पैकिंग और वैन रवानगी के लिए तैयार';
+          return 'पिकिंग और पैकिंग के लिए तैयार';
         case AppLanguage.gu:
-          return 'પેકિંગ અને વાન ડિસ્પેચ માટે તૈયાર';
+          return 'પીકિંગ અને પેકિંગ માટે તૈયાર';
       }
     } else {
       switch (lang) {
         case AppLanguage.en:
-          return 'Goods will be packed once owner approves';
+          return 'Owner approval required before picking';
         case AppLanguage.hinglish:
-          return 'Owner ki manzoori ke baad hi pack kiya jayega';
+          return 'Owner ki manzoori ke baad hi pick hoga';
         case AppLanguage.hi:
-          return 'मालिक की मंजूरी के बाद ही माल पैक किया जाएगा';
+          return 'मालिक की मंज़ूरी के बाद ही पिक होगा';
         case AppLanguage.gu:
-          return 'માલિકની મંજૂરી પછી જ માલ પેક થશે';
+          return 'માલિકની મંજૂરી પછી જ પીક થશે';
       }
+    }
+  }
+
+  // --- REDESIGNED INVENTORY HOME & GODOWN STRINGS ---
+  String get warehouseSubtitle {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Main Warehouse • Morning Shift';
+      case AppLanguage.hinglish:
+        return 'Main Godown • Morning Shift';
+      case AppLanguage.hi:
+        return 'मुख्य गोदाम • सुबह की शिफ्ट';
+      case AppLanguage.gu:
+        return 'મુખ્ય ગોડાઉન • સવારની શિફ્ટ';
+    }
+  }
+
+  String get godownOverviewTitle {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Godown Overview';
+      case AppLanguage.hinglish:
+        return 'Godown Stock Summary';
+      case AppLanguage.hi:
+        return 'गोदाम स्टॉक सारांश';
+      case AppLanguage.gu:
+        return 'ગોડાઉન સ્ટોક સારાંશ';
+    }
+  }
+
+  String get totalSkusLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Total SKUs';
+      case AppLanguage.hinglish:
+        return 'Kul Products';
+      case AppLanguage.hi:
+        return 'कुल प्रोडक्ट';
+      case AppLanguage.gu:
+        return 'કુલ પ્રોડક્ટ';
+    }
+  }
+
+  String get physicalStockLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Physical Stock';
+      case AppLanguage.hinglish:
+        return 'Godown Me Maal';
+      case AppLanguage.hi:
+        return 'गोदाम में माल';
+      case AppLanguage.gu:
+        return 'ગોડાઉનમાં માલ';
+    }
+  }
+
+  String get reservedStockLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Reserved';
+      case AppLanguage.hinglish:
+        return 'Booked / Reserved';
+      case AppLanguage.hi:
+        return 'रिज़र्व्ड';
+      case AppLanguage.gu:
+        return 'રિઝર્વ્ડ';
+    }
+  }
+
+  String get availableStockLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Available';
+      case AppLanguage.hinglish:
+        return 'Khali / Available';
+      case AppLanguage.hi:
+        return 'उपलब्ध स्टॉक';
+      case AppLanguage.gu:
+        return 'ઉપલબ્ધ સ્ટોક';
+    }
+  }
+
+  String get todaysOperationsTitle {
+    switch (lang) {
+      case AppLanguage.en:
+        return "Today's Operations";
+      case AppLanguage.hinglish:
+        return 'Aaj Ka Kaam';
+      case AppLanguage.hi:
+        return 'आज के कार्य';
+      case AppLanguage.gu:
+        return 'આજનું કામ';
+    }
+  }
+
+  String get waitingApprovalLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Waiting Owner Approval';
+      case AppLanguage.hinglish:
+        return 'Owner Manzoori Baaki';
+      case AppLanguage.hi:
+        return 'मालिक मंज़ूरी बाकी';
+      case AppLanguage.gu:
+        return 'માલિક મંજૂરી બાકી';
+    }
+  }
+
+  String get approvedToPickLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Approved • To Pick';
+      case AppLanguage.hinglish:
+        return 'Pass • Pick Karna Hai';
+      case AppLanguage.hi:
+        return 'पास • पिक करना है';
+      case AppLanguage.gu:
+        return 'પાસ • પીક કરવાનું છે';
+    }
+  }
+
+  String get pickingInProgressLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Picking in Progress';
+      case AppLanguage.hinglish:
+        return 'Pick Ho Raha Hai';
+      case AppLanguage.hi:
+        return 'पिकिंग चालू है';
+      case AppLanguage.gu:
+        return 'પીકિંગ ચાલુ છે';
+    }
+  }
+
+  String get waitingPackingLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Waiting for Packing';
+      case AppLanguage.hinglish:
+        return 'Packing Baaki Hai';
+      case AppLanguage.hi:
+        return 'पैकिंग बाकी है';
+      case AppLanguage.gu:
+        return 'પેકિંગ બાકી છે';
+    }
+  }
+
+  String get packedReadyLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Packed • Ready to Dispatch';
+      case AppLanguage.hinglish:
+        return 'Packed • Dispatch Taiyar';
+      case AppLanguage.hi:
+        return 'पैक • रवानगी तैयार';
+      case AppLanguage.gu:
+        return 'પેક • ડિસ્પેચ તૈયાર';
+    }
+  }
+
+  String get vehiclesLoadingLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Vehicles Loading';
+      case AppLanguage.hinglish:
+        return 'Gadi Load Ho Rahi';
+      case AppLanguage.hi:
+        return 'गाड़ी लोडिंग';
+      case AppLanguage.gu:
+        return 'વાહન લોડિંગ';
+    }
+  }
+
+  String get handedOverLabel {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Handed Over to Delivery';
+      case AppLanguage.hinglish:
+        return 'Driver Ko Diya Gaya';
+      case AppLanguage.hi:
+        return 'ड्राइवर को सौंपा गया';
+      case AppLanguage.gu:
+        return 'ડ્રાઇવરને સોંપાયેલ';
+    }
+  }
+
+  String get receiveStockGrnBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Receive Stock (GRN)';
+      case AppLanguage.hinglish:
+        return 'Naya Maal Jodo (GRN)';
+      case AppLanguage.hi:
+        return 'नया माल जोड़ें (GRN)';
+      case AppLanguage.gu:
+        return 'નવો માલ ઉમેરો (GRN)';
+    }
+  }
+
+  String get addProductBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Add Product';
+      case AppLanguage.hinglish:
+        return 'Naya Product Jodo';
+      case AppLanguage.hi:
+        return 'नया प्रोडक्ट जोड़ें';
+      case AppLanguage.gu:
+        return 'નવું પ્રોડક્ટ ઉમેરો';
+    }
+  }
+
+  String get adjustStockBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Adjust Stock';
+      case AppLanguage.hinglish:
+        return 'Stock Sudhaar';
+      case AppLanguage.hi:
+        return 'स्टॉक सुधार';
+      case AppLanguage.gu:
+        return 'સ્ટોક સુધારો';
+    }
+  }
+
+  String get startPickingBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'START PICKING';
+      case AppLanguage.hinglish:
+        return 'ORDER UTHAO (PICK)';
+      case AppLanguage.hi:
+        return 'ऑर्डर उठाएं (पिक करें)';
+      case AppLanguage.gu:
+        return 'ઓર્ડર ઉઠાવો (પીક)';
+    }
+  }
+
+  String get verifyAndPackBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'VERIFY & PACK';
+      case AppLanguage.hinglish:
+        return 'CHECK AUR PACK KARO';
+      case AppLanguage.hi:
+        return 'जांचें और पैक करें';
+      case AppLanguage.gu:
+        return 'તપાસો અને પેક કરો';
+    }
+  }
+
+  String get handoverConfirmBtn {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'Handover to Driver';
+      case AppLanguage.hinglish:
+        return 'Driver Ko Saupo';
+      case AppLanguage.hi:
+        return 'ड्राइवर को सौंपें';
+      case AppLanguage.gu:
+        return 'ડ્રાઇવરને સોંપો';
+    }
+  }
+
+  String get noApprovedOrdersEmpty {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'No approved orders waiting to be picked right now.';
+      case AppLanguage.hinglish:
+        return 'Abhi koi pass order picking ke liye baaki nahi hai.';
+      case AppLanguage.hi:
+        return 'अभी कोई स्वीकृत ऑर्डर पिकिंग के लिए बाकी नहीं है।';
+      case AppLanguage.gu:
+        return 'અત્યારે કોઈ મંજૂર ઓર્ડર પીકિંગ માટે બાકી નથી.';
+    }
+  }
+
+  String get noInwardLogsYet {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'No truck inward shipments recorded yet.';
+      case AppLanguage.hinglish:
+        return 'Abhi koi truck inward entry nahi hui hai.';
+      case AppLanguage.hi:
+        return 'अभी तक कोई ट्रक आवक दर्ज नहीं हुई है।';
+      case AppLanguage.gu:
+        return 'હજુ સુધી કોઈ ટ્રક આવક નોંધાઈ નથી.';
+    }
+  }
+
+  String get noDispatchLogsYet {
+    switch (lang) {
+      case AppLanguage.en:
+        return 'No driver handovers / dispatches recorded yet.';
+      case AppLanguage.hinglish:
+        return 'Abhi koi driver handover ya dispatch nahi hua hai.';
+      case AppLanguage.hi:
+        return 'अभी तक कोई ड्राइवर हैंडओवर या डिस्पैच दर्ज नहीं हुआ है।';
+      case AppLanguage.gu:
+        return 'હજુ સુધી કોઈ ડ્રાઇવર હેન્ડઓવર કે ડિસ્પેચ નોંધાયું નથી.';
     }
   }
 }

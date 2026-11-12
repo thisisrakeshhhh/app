@@ -6,6 +6,9 @@ import '../../services/api_service.dart';
 import '../../theme/airbnb_theme.dart';
 import 'add_edit_inventory_item_sheet.dart';
 
+export 'warehouse_pick_pack_view.dart';
+export 'warehouse_vehicle_handover_view.dart';
+
 /// 1. Warehouse Stock View: Live Godown inventory with full CRUD, Expiry Radar, and Analytics.
 class WarehouseStockView extends StatefulWidget {
   final ApiService api;
@@ -373,11 +376,29 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                     child: ElevatedButton(
                       onPressed: difference == 0
                           ? () => Navigator.pop(ctx)
-                          : () {
+                          : () async {
+                              if (selectedReason.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Adjustment reason is required.')),
+                                );
+                                return;
+                              }
+                              final messenger = ScaffoldMessenger.of(context);
                               widget.api.restockProduct(product.id, difference);
-                              Navigator.pop(ctx);
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              await widget.api.repository.recordStockMovement(
+                                productId: product.id,
+                                movementType: 'AUDIT_ADJUSTMENT',
+                                cartonDelta: difference,
+                                loosePieceDelta: 0,
+                                reason: selectedReason.trim(),
+                                newGodownCartons: product.godownStockBoxes,
+                                newGodownLoosePieces: 0,
+                                newCarCartons: product.carStockBoxes,
+                                newCarLoosePieces: 0,
+                              );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) setState(() {});
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     'Recorded physical count of $countedBoxes boxes (${difference >= 0 ? "+$difference" : "$difference"}). Reason: $selectedReason',
@@ -409,56 +430,76 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
   @override
   Widget build(BuildContext context) {
-    final allProducts = widget.api.products;
-    final totalValuation = allProducts.fold<double>(0.0, (sum, p) => sum + p.godownValuationRupees);
-    final nearExpiryCount = allProducts.where((p) => p.isExpiringSoon || p.isExpired).length;
+    return ListenableBuilder(
+      listenable: Listenable.merge([widget.api, LanguageController.instance]),
+      builder: (context, _) {
+        final s = WdStrings.current;
+        final allProducts = widget.api.products.where((p) => !p.isArchived).toList();
+        final totalValuation = allProducts.fold<double>(0.0, (sum, p) => sum + p.godownValuationRupees);
+        final nearExpiryCount = allProducts.where((p) => p.isExpiringSoon || p.isExpired).length;
 
-    return Column(
-      children: [
-        // 1. TOP HEADER & SUB-NAVIGATOR (Catalog, Expiry Radar, Analytics)
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: AirbnbTheme.border)),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Godown Stock',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AirbnbTheme.dark),
-                        ),
-                        Text(
-                          '${allProducts.length} SKUs • Total Value: ₹${(totalValuation / 100000).toStringAsFixed(2)} Lakhs',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddEditSheet(),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('+ Add SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AirbnbTheme.coral,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
+        return Column(
+          children: [
+            // 1. TOP HEADER & SUB-NAVIGATOR (Catalog, Expiry Radar, Analytics)
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: AirbnbTheme.border)),
               ),
-              const SizedBox(height: 8),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.godownStock,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AirbnbTheme.dark),
+                            ),
+                            Text(
+                              '${allProducts.length} ${s.totalSkusLabel} • ₹${(totalValuation / 100000).toStringAsFixed(2)} L',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      OutlinedButton.icon(
+                        onPressed: () => WarehouseInwardView.showAsSheet(context, widget.api),
+                        icon: const Icon(Icons.input_rounded, size: 15),
+                        label: const Text('GRN', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF059669),
+                          side: const BorderSide(color: Color(0xFFA7F3D0)),
+                          backgroundColor: const Color(0xFFECFDF5),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddEditSheet(),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('+ Add SKU', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
 
               // TWO-STOCK LOCATION TOGGLE (Godown vs Truck Stock)
               Container(
@@ -565,33 +606,18 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
         // 2. ACTIVE VIEW BODY
         Expanded(
-          child: Stack(
-            children: [
-              _stockLocation == 'truck'
-                  ? _buildTruckStockView()
-                  : switch (_subTabIndex) {
-                      0 => _buildCatalogView(allProducts),
-                      1 => _buildExpiryRadarView(allProducts),
-                      2 => _buildAnalyticsView(allProducts, totalValuation),
-                      _ => _buildCatalogView(allProducts),
-                    },
-              if (_stockLocation == 'godown')
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: FloatingActionButton.extended(
-                    onPressed: () => _showAddEditSheet(),
-                    icon: const Icon(Icons.add, size: 20),
-                    label: const Text('Add Product', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                    backgroundColor: AirbnbTheme.coral,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                  ),
-                ),
-            ],
-          ),
+          child: _stockLocation == 'truck'
+              ? _buildTruckStockView()
+              : switch (_subTabIndex) {
+                  0 => _buildCatalogView(allProducts),
+                  1 => _buildExpiryRadarView(allProducts),
+                  2 => _buildAnalyticsView(allProducts, totalValuation),
+                  _ => _buildCatalogView(allProducts),
+                },
         ),
       ],
+    );
+      },
     );
   }
 
@@ -1051,17 +1077,26 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // 1. Header: Category Tag + Name + Edit/Delete
+                                      // 1. Header: Image/Placeholder + Name + SKU + MRP + Edit/Delete
                                       Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.all(8),
+                                            width: 44,
+                                            height: 44,
                                             decoration: BoxDecoration(
                                               color: categoryColor.withValues(alpha: 0.12),
                                               borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: categoryColor.withValues(alpha: 0.25)),
                                             ),
-                                            child: Icon(categoryIcon, color: categoryColor, size: 20),
+                                            clipBehavior: Clip.antiAlias,
+                                            child: prod.imageUrl.isNotEmpty
+                                                ? Image.network(
+                                                    prod.imageUrl,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (_, _, _) => Icon(categoryIcon, color: categoryColor, size: 22),
+                                                  )
+                                                : Icon(categoryIcon, color: categoryColor, size: 22),
                                           ),
                                           const SizedBox(width: 10),
                                           Expanded(
@@ -1072,7 +1107,7 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                                                   children: [
                                                     Expanded(
                                                       child: Text(
-                                                        prod.name,
+                                                        prod.nameForLanguage(LanguageController.instance.currentLanguage),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
                                                         style: const TextStyle(
@@ -1106,8 +1141,27 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                                                 const SizedBox(height: 2),
                                                 Text(
                                                   '${prod.category} • SKU: ${prod.id} • MRP: ₹${prod.mrpRupees.toStringAsFixed(0)}',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
                                                   style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                                                 ),
+                                                if (prod.shelfLocation.isNotEmpty) ...[
+                                                  const SizedBox(height: 3),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.shelves, size: 11, color: Color(0xFF2563EB)),
+                                                      const SizedBox(width: 4),
+                                                      Flexible(
+                                                        child: Text(
+                                                          'Rack/Shelf: ${prod.shelfLocation}',
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF1D4ED8), fontWeight: FontWeight.w700),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                           ),
@@ -1166,63 +1220,112 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
                                       const SizedBox(height: 10),
 
-                                      // 3. Stock Level & Valuation Row
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Column(
+                                      // 3. Physical / Reserved / Available Stock & Valuation
+                                      Builder(
+                                        builder: (context) {
+                                          final s = WdStrings.current;
+                                          final reservedPcs = widget.api.pendingBookingPieces(prod.id);
+                                          final reservedBxs = widget.api.pendingBookingBoxes(prod.id);
+                                          final availPcs = widget.api.availableGodownPieces(prod.id);
+                                          final availBxs = widget.api.availableGodownBoxes(prod.id);
+                                          final physPcs = prod.godownStockBoxes * prod.boxQty;
+
+                                          return Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                 children: [
-                                                  Text(
-                                                    '${prod.godownStockBoxes} Boxes',
-                                                    style: TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight: FontWeight.w900,
-                                                      color: isOut ? const Color(0xFFDC2626) : (isLow ? const Color(0xFFD97706) : const Color(0xFF059669)),
+                                                  Expanded(
+                                                    child: Row(
+                                                      children: [
+                                                        Text(
+                                                          '${prod.godownStockBoxes} ${s.boxesUnit}',
+                                                          style: TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight: FontWeight.w900,
+                                                            color: isOut ? const Color(0xFFDC2626) : (isLow ? const Color(0xFFD97706) : const Color(0xFF059669)),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        Flexible(
+                                                          child: Text(
+                                                            '($physPcs pcs)',
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    '(${prod.godownStockBoxes * prod.boxQty} pcs)',
-                                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: isOut
+                                                          ? const Color(0xFFFEE2E2)
+                                                          : (isLow ? const Color(0xFFFEF3C7) : const Color(0xFFECFDF5)),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(
+                                                        color: isOut
+                                                            ? const Color(0xFFFCA5A5)
+                                                            : (isLow ? const Color(0xFFFCD34D) : const Color(0xFFA7F3D0)),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      isOut ? 'OUT OF STOCK' : (isLow ? 'LOW STOCK' : 'IN STOCK'),
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w800,
+                                                        color: isOut
+                                                            ? const Color(0xFF991B1B)
+                                                            : (isLow ? const Color(0xFF92400E) : const Color(0xFF065F46)),
+                                                      ),
+                                                    ),
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 1),
+                                              const SizedBox(height: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF8FAFC),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        '${s.reservedStockLabel}: $reservedBxs bxs ($reservedPcs pcs)',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFFD97706)),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Expanded(
+                                                      child: Text(
+                                                        '${s.availableStockLabel}: $availBxs bxs ($availPcs pcs)',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        textAlign: TextAlign.end,
+                                                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
                                               Text(
-                                                'Valuation: ₹${prod.godownValuationRupees.toStringAsFixed(0)} • Van: ${prod.carStockBoxes} bxs',
+                                                '${s.stockValuation}: ₹${prod.godownValuationRupees.toStringAsFixed(0)} • Van: ${prod.carStockBoxes} bxs',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
                                               ),
                                             ],
-                                          ),
-                                          // Status Pill
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: isOut
-                                                  ? const Color(0xFFFEE2E2)
-                                                  : (isLow ? const Color(0xFFFEF3C7) : const Color(0xFFECFDF5)),
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(
-                                                color: isOut
-                                                    ? const Color(0xFFFCA5A5)
-                                                    : (isLow ? const Color(0xFFFCD34D) : const Color(0xFFA7F3D0)),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              isOut ? 'OUT OF STOCK' : (isLow ? 'LOW STOCK' : 'IN STOCK'),
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w800,
-                                                color: isOut
-                                                    ? const Color(0xFF991B1B)
-                                                    : (isLow ? const Color(0xFF92400E) : const Color(0xFF065F46)),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                          );
+                                        },
                                       ),
 
                                       // Batch & Expiry Tag
@@ -2553,1427 +2656,3 @@ class _WarehouseInwardViewState extends State<WarehouseInwardView> {
   }
 }
 
-class WarehousePickingView extends StatefulWidget {
-  final ApiService api;
-  const WarehousePickingView({super.key, required this.api});
-
-  @override
-  State<WarehousePickingView> createState() => _WarehousePickingViewState();
-}
-
-class _WarehousePickingViewState extends State<WarehousePickingView> {
-  // Track picked item IDs per order: orderId -> Set of item product IDs
-  final Map<String, Set<String>> _pickedItems = {};
-
-  @override
-  Widget build(BuildContext context) {
-    final bookingOrders = widget.api.bookingOrders;
-    final readyOrders = widget.api.readyStockOrders;
-    final trucks = widget.api.deliveryTrucks;
-
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Sales Orders Pick List (बिक्री ऑर्डर सूची)',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            '${bookingOrders.length} New Orders received from Sales reps',
-                            style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFDBA74)),
-                      ),
-                      child: Text(
-                        '${bookingOrders.length} To Pick',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFFEA580C),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TabBar(
-                  labelColor: AirbnbTheme.jodhpurBlue,
-                  unselectedLabelColor: AirbnbTheme.grey,
-                  indicatorColor: AirbnbTheme.jodhpurBlue,
-                  indicatorWeight: 3,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                  tabs: [
-                    Tab(text: 'Incoming to Pick (${bookingOrders.length})'),
-                    Tab(text: 'Ready & Staged (${readyOrders.length})'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildIncomingOrdersList(bookingOrders, trucks),
-                _buildReadyOrdersList(readyOrders),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIncomingOrdersList(List<DistributorOrder> orders, List<DeliveryTruck> trucks) {
-    if (orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.inventory, size: 48, color: AirbnbTheme.grey),
-            SizedBox(height: 12),
-            Text('No Pending Orders in Picking Queue', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            SizedBox(height: 4),
-            Text('All placed orders have been picked and packed for delivery.', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: orders.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (ctx, idx) {
-        final ord = orders[idx];
-        final pickedSet = _pickedItems[ord.id] ?? {};
-        final allItemsPicked = ord.items.isNotEmpty && ord.items.every((it) => pickedSet.contains(it.product.id));
-
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AirbnbTheme.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.receipt_long, size: 16, color: AirbnbTheme.jodhpurBlue),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Order #${ord.orderNumber}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: allItemsPicked ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: allItemsPicked ? const Color(0xFF86EFAC) : const Color(0xFFFED7AA)),
-                    ),
-                    child: Text(
-                      allItemsPicked ? 'ALL PICKED' : 'PICKING QUEUE',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        color: allItemsPicked ? AirbnbTheme.success : const Color(0xFFEA580C),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Retailer: ${ord.shopName} • Assigned Car: ${ord.assignedCarNumber}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AirbnbTheme.dark),
-              ),
-              if (ord.address.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(ord.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                ),
-              const SizedBox(height: 8),
-
-              // Target Truck Selector
-              Row(
-                children: [
-                  const Text('Assign Truck: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: AirbnbTheme.lightGrey,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AirbnbTheme.border),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: trucks.any((t) => t.vehicleNumber == ord.assignedCarNumber)
-                              ? ord.assignedCarNumber
-                              : trucks.first.vehicleNumber,
-                          isDense: true,
-                          isExpanded: true,
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                          items: trucks
-                              .map((t) => DropdownMenuItem(
-                                    value: t.vehicleNumber,
-                                    child: Text('${t.vehicleNumber} (${t.vehicleModel})', overflow: TextOverflow.ellipsis),
-                                  ))
-                              .toList(),
-                          onChanged: (newCar) {
-                            if (newCar != null) {
-                              setState(() {
-                                ord.assignedCarNumber = newCar;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // OWNER APPROVAL STATUS & ACTION BANNER
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: ord.isOwnerApproved ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: ord.isOwnerApproved ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      ord.isOwnerApproved ? Icons.verified : Icons.hourglass_top,
-                      color: ord.isOwnerApproved ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            WdStrings.current.ownerApprovalStatus(ord.isOwnerApproved),
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              color: ord.isOwnerApproved ? const Color(0xFF15803D) : const Color(0xFF92400E),
-                            ),
-                          ),
-                          Text(
-                            WdStrings.current.ownerApprovalSubtitle(ord.isOwnerApproved),
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: ord.isOwnerApproved ? const Color(0xFF166534) : const Color(0xFFB45309),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!ord.isOwnerApproved)
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          widget.api.approveOrderByOwner(ord.id);
-                          setState(() {});
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Order #${ord.orderNumber} approved by Owner! Now ready to pick.'),
-                              backgroundColor: AirbnbTheme.success,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.bolt, size: 14),
-                        label: const Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD97706),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const Divider(height: 18),
-              const Text('Items to Pick from Godown Shelves:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.grey)),
-              const SizedBox(height: 6),
-
-              // Item rows with Checkboxes (Option C: Original Unit + Equivalent Pieces)
-              ...ord.items.map((it) {
-                final isChecked = pickedSet.contains(it.product.id);
-                final prod = widget.api.products.firstWhere((p) => p.id == it.product.id, orElse: () => it.product);
-                final totalEquivalentPcs = it.totalPieces;
-
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (isChecked) {
-                        pickedSet.remove(it.product.id);
-                      } else {
-                        pickedSet.add(it.product.id);
-                      }
-                      _pickedItems[ord.id] = pickedSet;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isChecked ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isChecked ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Icon(
-                            isChecked ? Icons.check_box : Icons.check_box_outline_blank,
-                            size: 20,
-                            color: isChecked ? AirbnbTheme.success : AirbnbTheme.grey,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF6FF),
-                                      borderRadius: BorderRadius.circular(5),
-                                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                                    ),
-                                    child: Text(
-                                      '${it.quantity} ${it.unit.label}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF1D4ED8),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      it.product.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        decoration: isChecked ? TextDecoration.lineThrough : null,
-                                        color: isChecked ? AirbnbTheme.grey : AirbnbTheme.dark,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                'Godown Stock: ${prod.godownStockBoxes} bxs (${prod.godownStockBoxes * prod.boxQty} pcs) • Pack: 1 Strip = ${prod.stripQty} pcs',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: prod.godownStockBoxes > 0 ? const Color(0xFF059669) : Colors.red,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isChecked ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isChecked ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '= $totalEquivalentPcs pcs',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: isChecked ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                                ),
-                              ),
-                              Text(
-                                '(${it.unit.label})',
-                                style: const TextStyle(fontSize: 9, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-
-              const Divider(height: 18),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Order Value: ',
-                              style: TextStyle(fontSize: 11.5, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              '₹${ord.totalRupees.toStringAsFixed(0)}',
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: AirbnbTheme.dark),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(color: AirbnbTheme.border),
-                          ),
-                          child: Text(
-                            'Mode: ${ord.paymentMode}',
-                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: OutlinedButton(
-                            onPressed: () {
-                              setState(() {
-                                final allIds = ord.items.map((it) => it.product.id).toSet();
-                                _pickedItems[ord.id] = allIds;
-                              });
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AirbnbTheme.jodhpurBlue,
-                              side: BorderSide(color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.5)),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: const Text('Pick All', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 3,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              ord.isOwnerApproved = true;
-                              widget.api.pickAndPackOrder(ord.id);
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Order #${ord.orderNumber} packed and logged for dispatch!'),
-                                  backgroundColor: AirbnbTheme.success,
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.check_circle_outline, size: 14),
-                            label: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Mark Packed & Ready', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ord.isOwnerApproved ? AirbnbTheme.success : const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildReadyOrdersList(List<DistributorOrder> orders) {
-    if (orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.checklist_rtl, size: 48, color: AirbnbTheme.grey),
-            SizedBox(height: 12),
-            Text('No Orders Staged for Delivery Yet', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            SizedBox(height: 4),
-            Text('Orders picked from the queue appear here ready for truck loading.', style: TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: orders.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (ctx, idx) {
-        final ord = orders[idx];
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AirbnbTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Order #${ord.orderNumber}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(6)),
-                    child: const Text('READY FOR LOADING', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: AirbnbTheme.success)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text('${ord.shopName} • Assigned Truck: ${ord.assignedCarNumber}', style: const TextStyle(fontSize: 11.5, color: AirbnbTheme.grey)),
-              const Divider(height: 16),
-              ...ord.items.map((it) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('${it.quantity} x ${it.unit.label} ${it.product.name}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        Text('₹${(it.totalPaise / 100).toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                      ],
-                    ),
-                  )),
-              const Divider(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Total: ₹${ord.totalRupees.toStringAsFixed(0)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      widget.api.advanceOrderStage(ord.id);
-                      setState(() {});
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Order #${ord.orderNumber} loaded and out for delivery!'),
-                          backgroundColor: AirbnbTheme.jodhpurBlue,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.local_shipping, size: 14),
-                    label: const Text('Dispatch on Route'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AirbnbTheme.jodhpurBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// 4. Warehouse Multi-Truck Loading Dock View:
-/// Multi-truck fleet management, loading stock from Godown to Trucks (- Godown, + Truck),
-/// unloading stock back to Godown (+ Godown, - Truck), and dispatching delivery orders.
-class WarehouseLoadingView extends StatefulWidget {
-  final ApiService api;
-  const WarehouseLoadingView({super.key, required this.api});
-
-  @override
-  State<WarehouseLoadingView> createState() => _WarehouseLoadingViewState();
-}
-
-class _WarehouseLoadingViewState extends State<WarehouseLoadingView> {
-  void _showCustomLoadDialog(ProductItem product, DeliveryTruck truck) {
-    final qtyCtrl = TextEditingController(text: '10');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Load ${product.name} to ${truck.vehicleNumber}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Available in Godown: ${product.godownStockBoxes} Boxes', style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
-            Text('Currently on Truck: ${truck.getStockForProduct(product.id)} Boxes', style: const TextStyle(fontSize: 12, color: AirbnbTheme.jodhpurBlue, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: qtyCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Quantity to Load (Boxes)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
-              if (qty <= 0 || qty > product.godownStockBoxes) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Invalid quantity! Must be between 1 and ${product.godownStockBoxes} boxes.')),
-                );
-                return;
-              }
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(ctx);
-              await widget.api.transferStockToCar(product.id, qty, targetTruckId: truck.id);
-              if (mounted) setState(() {});
-              messenger.showSnackBar(
-                SnackBar(content: Text('Loaded $qty boxes of ${product.name} into ${truck.vehicleNumber}!')),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AirbnbTheme.jodhpurBlue, foregroundColor: Colors.white),
-            child: const Text('Confirm Load'),
-          ),
-        ],
-      ),
-    );
-  }
-
-    @override
-  Widget build(BuildContext context) {
-    final s = WdStrings.current;
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  s.loadingAndRegistersHeader,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                ),
-                const SizedBox(height: 8),
-                TabBar(
-                  labelColor: AirbnbTheme.jodhpurBlue,
-                  unselectedLabelColor: AirbnbTheme.grey,
-                  indicatorColor: AirbnbTheme.jodhpurBlue,
-                  indicatorWeight: 3,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-                  tabs: [
-                    Tab(text: s.loadingDockTab),
-                    Tab(text: s.inwardLogTab(widget.api.truckInwardLog.length)),
-                    Tab(text: s.dispatchLogTab(widget.api.stockDispatchLog.length)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildLoadingDock(context),
-                _buildInwardLogView(context),
-                _buildDispatchLogView(context),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingDock(BuildContext context) {
-    final prods = widget.api.products;
-    final trucks = widget.api.deliveryTrucks;
-    final activeTruck = widget.api.activeTruck;
-    final assignedOrders = widget.api.readyStockOrders.where((o) => o.assignedCarNumber == activeTruck.vehicleNumber).toList();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Truck Fleet Tabs
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                ...trucks.map((truck) {
-                  final isSelected = truck.id == activeTruck.id;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text('${truck.vehicleNumber} (${truck.vehicleModel})'),
-                      selected: isSelected,
-                      selectedColor: AirbnbTheme.jodhpurBlue,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AirbnbTheme.dark,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            widget.api.selectTruck(truck.id);
-                          });
-                        }
-                      },
-                    ),
-                  );
-                }),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    avatar: const Icon(Icons.add, size: 16, color: AirbnbTheme.jodhpurBlue),
-                    label: const Text('+ Add Truck', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AirbnbTheme.jodhpurBlue)),
-                    backgroundColor: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.1),
-                    side: BorderSide(color: AirbnbTheme.jodhpurBlue.withValues(alpha: 0.3)),
-                    onPressed: () => showAddTruckDialog(
-                      context: context,
-                      api: widget.api,
-                      onAdded: () => setState(() {}),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 2. Active Truck Profile & Capacity Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AirbnbTheme.dark,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Vehicle Loading Dock', style: TextStyle(fontSize: 11, color: Color(0xFFB2BEC3))),
-                        const SizedBox(height: 2),
-                        Text(widget.api.carNumber, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${widget.api.totalCarBoxes} Boxes Loaded in Van',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF60A5FA), fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                      child: Text(activeTruck.vehicleModel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Driver: ${activeTruck.driverName}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                    Text('${activeTruck.capacityUtilizationPercent.toStringAsFixed(0)}% Capacity', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (activeTruck.capacityUtilizationPercent / 100).clamp(0.0, 1.0),
-                    minHeight: 6,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF60A5FA)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Transfer Stock to Van', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-              Text(
-                'Godown Stock reduces instantly',
-                style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // 3. Stock Transfer List
-          ...prods.map((p) {
-            final inTruckBoxes = activeTruck.getStockForProduct(p.id);
-            final hasGodownStock = p.godownStockBoxes > 0;
-            final canLoad5 = p.godownStockBoxes >= 5;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AirbnbTheme.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Row: Category icon, SKU title, Brand/Category tag
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.fastfood_rounded, color: Color(0xFFB45309), size: 20),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      p.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14.5,
-                                        color: AirbnbTheme.dark,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Text(
-                                      p.id,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF475569),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${p.category} • ₹${((p.piecePricePaise * p.boxQty) / 100).toStringAsFixed(0)}/bx (${p.boxQty} pcs)',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Middle Row: Godown vs In-Van Stock Badges
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              const Icon(Icons.warehouse_rounded, size: 14, color: Color(0xFF64748B)),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  'Godown: ${p.godownStockBoxes} bxs',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: p.godownStockBoxes > 0 ? const Color(0xFF334155) : Colors.red.shade700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(width: 1, height: 16, color: const Color(0xFFCBD5E1)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              const Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF2563EB)),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  'In Van: $inTruckBoxes bxs',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1D4ED8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-                  const Divider(height: 1),
-
-                  // Bottom Action Bar: Stepper & Quick Actions
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Left: [-1] and [+1 Box] actions
-                        Row(
-                          children: [
-                            if (inTruckBoxes > 0)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: ElevatedButton(
-                                  onPressed: () async {
-                                    await widget.api.transferStockToCar(p.id, -1, targetTruckId: activeTruck.id);
-                                    if (mounted) setState(() {});
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red.shade600,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                  child: const Text('-1', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                                ),
-                              ),
-                            ElevatedButton.icon(
-                              onPressed: hasGodownStock
-                                  ? () async {
-                                      final messenger = ScaffoldMessenger.of(context);
-                                      await widget.api.transferStockToCar(p.id, 1, targetTruckId: activeTruck.id);
-                                      if (mounted) setState(() {});
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text('Loaded 1 box of ${p.name} into van!'),
-                                          duration: const Duration(milliseconds: 600),
-                                        ),
-                                      );
-                                    }
-                                  : null,
-                              icon: const Icon(Icons.add, size: 14),
-                              label: const Text('+1 Box', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AirbnbTheme.jodhpurBlue,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Right: Quick Load +5 & Custom
-                        Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed: canLoad5
-                                  ? () async {
-                                      final messenger = ScaffoldMessenger.of(context);
-                                      await widget.api.transferStockToCar(p.id, 5, targetTruckId: activeTruck.id);
-                                      if (mounted) setState(() {});
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text('Loaded 5 boxes of ${p.name} into van!'),
-                                          duration: const Duration(milliseconds: 600),
-                                        ),
-                                      );
-                                    }
-                                  : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0F172A),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                              ),
-                              child: const Text('+5', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                            ),
-                            const SizedBox(width: 6),
-                            OutlinedButton(
-                              onPressed: hasGodownStock
-                                  ? () => _showCustomLoadDialog(p, activeTruck)
-                                  : null,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AirbnbTheme.jodhpurBlue,
-                                side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                              ),
-                              child: const Text('Custom', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-
-          if (assignedOrders.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Packed Orders: Handover to Driver (${activeTruck.vehicleNumber})',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(6)),
-                  child: Text('${assignedOrders.length} Ready', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: AirbnbTheme.success)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...assignedOrders.map((ord) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AirbnbTheme.border),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Order #${ord.orderNumber} • ${ord.shopName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                        Text('₹${ord.totalRupees.toStringAsFixed(0)} • ${ord.items.length} items • Driver: ${activeTruck.driverName}', style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.handshake_outlined, size: 14),
-                    onPressed: () {
-                      widget.api.advanceOrderStage(ord.id);
-                      if (mounted) setState(() {});
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Handed over Order #${ord.orderNumber} to Driver ${activeTruck.driverName}!')),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AirbnbTheme.success,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    ),
-                    label: const Text('Handover to Driver', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInwardLogView(BuildContext context) {
-    final inwardLog = widget.api.truckInwardLog;
-    final s = WdStrings.current;
-
-    if (inwardLog.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.local_shipping_outlined, size: 48, color: AirbnbTheme.grey),
-            const SizedBox(height: 12),
-            Text(s.noInwardLogged, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(s.addInwardFromTabHint, style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      itemCount: inwardLog.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (ctx, idx) {
-        final inw = inwardLog[idx];
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.local_shipping, color: Color(0xFF2563EB), size: 18),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        inw.truckNumber,
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(s.godownReceivedBadge, style: const TextStyle(color: Color(0xFF059669), fontSize: 10.5, fontWeight: FontWeight.w800)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text('${s.driverLabel}: ${inw.driverName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
-                  const SizedBox(width: 8),
-                  Text('• ${s.plantSupplierLabel}: ${inw.supplier}', style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${s.arrivedAtLabel}: ${inw.arrivedAt.day}/${inw.arrivedAt.month}/${inw.arrivedAt.year} at ${inw.arrivedAt.hour.toString().padLeft(2, '0')}:${inw.arrivedAt.minute.toString().padLeft(2, '0')}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-              ),
-              const Divider(height: 18),
-              Text(s.itemsInwardHeader, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
-              const SizedBox(height: 6),
-              ...inw.items.map((item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '• ${item.productName}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                          ),
-                        ),
-                        Text(
-                          '${item.boxes} ${s.boxesUnit} ${item.strips > 0 ? "• ${item.strips} ${s.stripsUnit} " : ""}${item.pieces > 0 ? "• ${item.pieces} ${s.piecesUnit}" : ""}',
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
-                        ),
-                      ],
-                    ),
-                  )),
-              const Divider(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(s.totalReceivedLabel, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
-                  Text('${inw.totalCartons} ${s.boxesUnit} (${inw.totalPieces} ${s.piecesUnit})', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDispatchLogView(BuildContext context) {
-    final dispatchLog = widget.api.stockDispatchLog;
-    final s = WdStrings.current;
-
-    if (dispatchLog.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.outbox_rounded, size: 48, color: AirbnbTheme.grey),
-            const SizedBox(height: 12),
-            Text(s.noDispatchLogged, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(s.autoDispatchHint, style: const TextStyle(fontSize: 12, color: AirbnbTheme.grey)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      itemCount: dispatchLog.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (ctx, idx) {
-        final dsp = dispatchLog[idx];
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      dsp.shopName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(dsp.deliveryVehicle, style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 10.5, fontWeight: FontWeight.w800)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(dsp.shopArea, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('${s.orderLabel}: #${dsp.orderNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-                  Text(
-                    '${s.dispatchedAtLabel}: ${dsp.dispatchedAt.day}/${dsp.dispatchedAt.month} ${dsp.dispatchedAt.hour.toString().padLeft(2, '0')}:${dsp.dispatchedAt.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
-              const Divider(height: 16),
-              Text(s.itemsDispatchedHeader, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
-              const SizedBox(height: 4),
-              Text(
-                dsp.itemsSummary,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF059669)),
-              ),
-              const SizedBox(height: 6),
-              Text('${s.totalCartonsDispatched} ${dsp.totalCartons} ${s.boxesUnit}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}

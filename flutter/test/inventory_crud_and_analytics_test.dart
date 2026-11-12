@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lala_distributor/data/local/app_database.dart';
 import 'package:lala_distributor/data/local/local_repository.dart';
+import 'package:lala_distributor/l10n/app_language.dart';
+import 'package:lala_distributor/l10n/language_controller.dart';
 import 'package:lala_distributor/models/models.dart';
 import 'package:lala_distributor/screens/dashboards/warehouse_dashboard.dart';
 import 'package:lala_distributor/screens/views/add_edit_inventory_item_sheet.dart';
@@ -16,6 +18,7 @@ void main() {
     late ApiService api;
 
     setUp(() async {
+      LanguageController.instance.setLanguage(AppLanguage.en);
       db = AppDatabase(NativeDatabase.memory());
       repo = LocalRepository(db);
       api = ApiService.internalForTesting(
@@ -268,7 +271,12 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('7. Feature 2: Sales Orders Pick List (WarehousePickingView) lists incoming orders from sales reps, line items, and truck assignment', (tester) async {
+    testWidgets('7. Feature 2: Pick & Pack enforces Owner Approval Gate and completes Picking -> Packing transitions', (tester) async {
+      // Ensure at least one unapproved and one approved booking order exist
+      if (api.bookingOrders.isNotEmpty) {
+        api.bookingOrders.first.isOwnerApproved = false;
+      }
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -278,29 +286,48 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Sales Orders Pick List'), findsOneWidget);
-      expect(find.textContaining('Incoming to Pick'), findsOneWidget);
+      // Inventory workers must NEVER see an Approve button
+      expect(find.text('Approve'), findsNothing);
+      expect(find.textContaining('Approved • To Pick'), findsOneWidget);
+      expect(find.textContaining('Waiting Owner Approval'), findsOneWidget);
 
       if (api.bookingOrders.isNotEmpty) {
         final firstBooking = api.bookingOrders.first;
+        // Unapproved order cannot be started or packed
+        expect(api.startPickingOrder(firstBooking.id), isFalse);
+        expect(api.completePackingOrder(firstBooking.id, cartonCount: 1), isFalse);
+
+        // Owner approves order
+        api.approveOrderByOwner(firstBooking.id);
+        await tester.pumpAndSettle();
+
         expect(find.text('Order #${firstBooking.orderNumber}'), findsOneWidget);
-        expect(find.textContaining('Items to Pick from Godown Shelves:'), findsOneWidget);
-        expect(find.text('Mark Packed & Ready'), findsWidgets);
+        expect(find.text('START PICKING'), findsWidgets);
 
-        // Tap "Pick All" button
-        await tester.tap(find.text('Pick All').first);
+        // Tap START PICKING
+        await tester.tap(find.text('START PICKING').first);
         await tester.pumpAndSettle();
 
-        // Tap "Mark Packed & Ready"
-        await tester.tap(find.text('Mark Packed & Ready').first);
+        expect(find.text('Complete Picking -> Move to Packing'), findsOneWidget);
+        await tester.tap(find.text('Complete Picking -> Move to Packing'));
         await tester.pumpAndSettle();
 
-        // Order is now moved to readyStock stage
-        expect(api.orders.firstWhere((o) => o.id == firstBooking.id).stage, equals(OrderLifecycleStage.readyStock));
+        expect(firstBooking.effectiveWarehouseStage, equals(WarehouseTaskStage.waitingPacking));
+
+        // Now tap VERIFY & PACK
+        expect(find.text('VERIFY & PACK'), findsWidgets);
+        await tester.tap(find.text('VERIFY & PACK').first);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Confirm Packing & Mark Ready for Dispatch'));
+        await tester.pumpAndSettle();
+
+        expect(firstBooking.stage, equals(OrderLifecycleStage.readyStock));
+        expect(firstBooking.effectiveWarehouseStage, equals(WarehouseTaskStage.packedReady));
       }
     });
 
-    testWidgets('8. Feature 3: Multi-Truck Stock & Loading Transfer (WarehouseLoadingView) transfers stock (- Godown, + Truck)', (tester) async {
+    testWidgets('8. Feature 3: Vehicle Loading & Handover separates Order Handover and Vehicle Stock Transfer', (tester) async {
       await repo.upsertProduct(api.products.first);
 
       await tester.pumpWidget(
@@ -312,9 +339,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Vehicle Loading Dock'), findsOneWidget);
-      expect(find.text('Transfer Stock to Van'), findsOneWidget);
-      expect(find.textContaining('Boxes Loaded in Van'), findsOneWidget);
+      expect(find.textContaining('Order Handover'), findsOneWidget);
+      expect(find.text('Vehicle Stock Transfer'), findsOneWidget);
+
+      // Switch to Vehicle Stock Transfer tab
+      await tester.tap(find.text('Vehicle Stock Transfer'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Transfer Stock from Godown to Vehicle'), findsOneWidget);
 
       final testProduct = api.products.first;
       final initialGodown = testProduct.godownStockBoxes;
@@ -328,14 +360,59 @@ void main() {
       expect(testProduct.godownStockBoxes, equals(initialGodown - 1));
       expect(testProduct.carStockBoxes, equals(initialTruck + 1));
 
-      // Tap "-1" to unload back to Godown
-      if (find.text('-1').evaluate().isNotEmpty) {
-        await tester.tap(find.text('-1').first);
+      // Tap "-1 Box" to unload back to Godown
+      if (find.text('-1 Box').evaluate().isNotEmpty) {
+        await tester.tap(find.text('-1 Box').first);
         await tester.pumpAndSettle();
 
         expect(testProduct.godownStockBoxes, equals(initialGodown));
         expect(testProduct.carStockBoxes, equals(initialTruck));
       }
+    });
+
+    test('9. Mixed-unit end-to-end order (1 Piece + 2 Strips + 1 Box) preserves CartItem.cartKey and packaging math', () async {
+      final prod = api.products.first;
+      final shop = api.retailers.first;
+      api.selectShop(shop);
+      api.clearCart();
+
+      api.addToCart(prod, OrderUnit.piece, 1);
+      api.addToCart(prod, OrderUnit.strip, 2);
+      api.addToCart(prod, OrderUnit.box, 1);
+
+      final order = await api.confirmOrderDurable(shopId: shop.id, paymentMode: 'Credit');
+      expect(order.items.length, equals(3));
+      expect(order.isOwnerApproved, isFalse);
+
+      final expectedPieces = 1 + (2 * prod.stripQty) + (1 * prod.boxQty);
+      final actualPieces = order.items.fold<int>(0, (sum, it) => sum + it.totalPieces);
+      expect(actualPieces, equals(expectedPieces));
+
+      // Owner approval gate blocks warehouse before approval
+      expect(api.startPickingOrder(order.id), isFalse);
+
+      // Owner approves
+      api.approveOrderByOwner(order.id);
+      expect(api.startPickingOrder(order.id, workerName: 'Manoj Kumar'), isTrue);
+
+      final pickedMap = {for (final it in order.items) it.cartKey: it.quantity};
+      expect(pickedMap.length, equals(3)); // All 3 units tracked separately via cartKey
+      expect(await api.completePickingOrder(order.id, pickedQtyByCartKey: pickedMap), isTrue);
+      expect(api.completePackingOrder(order.id, cartonCount: 2, packingWorkerName: 'Manoj Kumar'), isTrue);
+      expect(order.stage, equals(OrderLifecycleStage.readyStock));
+
+      expect(
+        api.confirmOrderHandoverToDriver(
+          order.id,
+          handedOverBy: 'Manoj Kumar',
+          receivedByDriver: 'Ramesh Choudhary',
+          vehicleNumber: 'RJ-19-GB-4021',
+        ),
+        isTrue,
+      );
+      expect(order.stage, equals(OrderLifecycleStage.orderSend));
+      expect(order.handedOverBy, equals('Manoj Kumar'));
+      expect(order.receivedByDriver, equals('Ramesh Choudhary'));
     });
   });
 }

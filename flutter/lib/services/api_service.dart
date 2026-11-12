@@ -1715,29 +1715,135 @@ class ApiService extends ChangeNotifier {
     }
   }
 
-  /// Warehouse worker picks and packs an approved order
-  void pickAndPackOrder(String orderId) {
+  /// Warehouse worker picks and packs an approved order (legacy direct helper).
+  /// Enforces owner approval gate: unapproved orders cannot be picked or packed.
+  bool pickAndPackOrder(String orderId) {
     final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
-    if (idx != -1) {
-      final order = _orders[idx];
-      order.stage = OrderLifecycleStage.readyStock;
+    if (idx == -1) return false;
+    final order = _orders[idx];
+    if (!order.isOwnerApproved) return false;
+    order.stage = OrderLifecycleStage.readyStock;
+    order.warehouseTaskStage = WarehouseTaskStage.packedReady;
+    notifyListeners();
+    return true;
+  }
 
-      final summary = order.items.map((i) => '${i.quantity} ${i.unit.name.toUpperCase()} ${i.product.name}').join(', ');
-      final totalBoxes = order.items.fold<int>(0, (sum, i) => sum + (i.unit == OrderUnit.box ? i.quantity : 1));
+  /// Starts picking for an owner-approved order.
+  bool startPickingOrder(String orderId, {String workerName = 'Manoj Kumar'}) {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx == -1) return false;
+    final order = _orders[idx];
+    if (!order.isOwnerApproved || order.stage != OrderLifecycleStage.booking) return false;
+    order.assignedWorkerName = workerName;
+    order.warehouseTaskStage = WarehouseTaskStage.pickingInProgress;
+    notifyListeners();
+    return true;
+  }
 
-      _stockDispatchLog.insert(0, StockDispatchEntry(
+  /// Completes picking with per-line picked & damaged quantities (keyed by CartItem.cartKey)
+  /// and moves the order to Waiting for Packing.
+  Future<bool> completePickingOrder(
+    String orderId, {
+    required Map<String, int> pickedQtyByCartKey,
+    Map<String, int>? damagedQtyByCartKey,
+    Map<String, String>? issueNotes,
+  }) async {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx == -1) return false;
+    final order = _orders[idx];
+    if (!order.isOwnerApproved || order.stage != OrderLifecycleStage.booking) return false;
+
+    order.pickedLineQuantities
+      ..clear()
+      ..addAll(pickedQtyByCartKey);
+    order.damagedLineQuantities
+      ..clear()
+      ..addAll(damagedQtyByCartKey ?? {});
+    order.lineIssueNotes
+      ..clear()
+      ..addAll(issueNotes ?? {});
+
+    // Record auditable movement for any damaged items found during picking
+    if (damagedQtyByCartKey != null) {
+      for (final item in order.items) {
+        final damagedQty = damagedQtyByCartKey[item.cartKey] ?? 0;
+        if (damagedQty > 0) {
+          final damagedPcs = damagedQty * item.product.piecesForUnit(item.unit);
+          await repository.recordStockMovement(
+            productId: item.product.id,
+            movementType: 'DAMAGED_IN_PICKING',
+            cartonDelta: 0,
+            loosePieceDelta: -damagedPcs,
+            reason: issueNotes?[item.cartKey] ?? 'Damaged/missing reported during picking (${order.orderNumber})',
+            newGodownCartons: item.product.godownStockBoxes,
+            newGodownLoosePieces: 0,
+            newCarCartons: item.product.carStockBoxes,
+            newCarLoosePieces: 0,
+          );
+        }
+      }
+    }
+
+    order.warehouseTaskStage = WarehouseTaskStage.waitingPacking;
+    notifyListeners();
+    return true;
+  }
+
+  /// Verifies packing and moves the order to Packed / Ready for Dispatch.
+  bool completePackingOrder(
+    String orderId, {
+    required int cartonCount,
+    String packingWorkerName = 'Manoj Kumar',
+  }) {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx == -1) return false;
+    final order = _orders[idx];
+    if (!order.isOwnerApproved || order.stage != OrderLifecycleStage.booking) return false;
+
+    order.packedCartonCount = cartonCount > 0 ? cartonCount : 1;
+    order.packingWorkerName = packingWorkerName;
+    order.warehouseTaskStage = WarehouseTaskStage.packedReady;
+    order.stage = OrderLifecycleStage.readyStock;
+    notifyListeners();
+    return true;
+  }
+
+  /// Explicit handover confirmation from Warehouse Manager to Delivery Driver.
+  bool confirmOrderHandoverToDriver(
+    String orderId, {
+    required String handedOverBy,
+    required String receivedByDriver,
+    required String vehicleNumber,
+  }) {
+    final idx = _orders.indexWhere((o) => o.id == orderId || o.orderNumber == orderId);
+    if (idx == -1) return false;
+    final order = _orders[idx];
+    if (!order.isOwnerApproved || order.stage != OrderLifecycleStage.readyStock) return false;
+
+    order.handedOverBy = handedOverBy;
+    order.receivedByDriver = receivedByDriver;
+    order.handedOverAt = DateTime.now();
+    order.assignedCarNumber = vehicleNumber;
+    order.warehouseTaskStage = WarehouseTaskStage.handedOver;
+    order.stage = OrderLifecycleStage.orderSend;
+
+    final summary = order.items.map((i) => '${i.quantity} ${i.unit.name.toUpperCase()} ${i.product.name}').join(', ');
+    _stockDispatchLog.insert(
+      0,
+      StockDispatchEntry(
         id: 'DSP-${DateTime.now().millisecondsSinceEpoch % 100000}',
         orderNumber: order.orderNumber,
         shopName: order.shopName,
         shopArea: order.address,
-        dispatchedAt: DateTime.now(),
-        deliveryVehicle: order.assignedCarNumber,
+        dispatchedAt: order.handedOverAt!,
+        deliveryVehicle: vehicleNumber,
         itemsSummary: summary,
-        totalCartons: totalBoxes,
-      ));
+        totalCartons: order.packedCartonCount,
+      ),
+    );
 
-      notifyListeners();
-    }
+    notifyListeners();
+    return true;
   }
 
   /// Delivery driver marks delivery complete
