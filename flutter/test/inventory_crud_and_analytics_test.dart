@@ -134,7 +134,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Banner checks
-      expect(find.text('Real Bites Central Logistics Depot'), findsOneWidget);
+      expect(find.text('Welcome, Manoj Kumar!'), findsOneWidget);
       expect(find.textContaining('Manoj Kumar'), findsOneWidget);
       expect(find.text('+ Add SKU'), findsOneWidget);
 
@@ -156,7 +156,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Top title and "+ Add SKU" button
-      expect(find.text('Godown Inventory (गोदाम स्टॉक)'), findsOneWidget);
+      expect(find.text('Godown Stock'), findsWidgets);
       expect(find.text('+ Add SKU'), findsOneWidget);
 
       // Sub-tabs

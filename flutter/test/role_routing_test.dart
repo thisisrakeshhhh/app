@@ -206,7 +206,7 @@ void main() {
 
       // Check Warehouse Dashboard Landing Content
       expect(find.byType(WarehouseDashboard), findsOneWidget);
-      expect(find.text('Real Bites Central Logistics Depot'), findsOneWidget);
+      expect(find.text('Welcome, Manoj Kumar!'), findsOneWidget);
       expect(find.textContaining('Manoj Kumar'), findsOneWidget);
       expect(find.text('Godown Stock'), findsWidgets);
 

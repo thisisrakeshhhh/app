@@ -107,7 +107,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: const Color(0xFF60A5FA).withValues(alpha: 0.3)),
                                 ),
-                                child: const Icon(Icons.warehouse_rounded, color: Color(0xFF60A5FA), size: 24),
+                                child: const Icon(Icons.waving_hand_rounded, color: Color(0xFFFCD34D), size: 24),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -115,10 +115,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Real Bites Central Logistics Depot',
+                                      'Welcome, Manoj Kumar!',
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 14.5,
+                                        fontSize: 15.5,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: -0.2,
                                       ),
@@ -137,7 +137,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         const SizedBox(width: 5),
                                         const Expanded(
                                           child: Text(
-                                            'Manoj Kumar • Wednesday, 11 Nov 2026',
+                                            'Warehouse & Inventory Hub • Live Shift',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(

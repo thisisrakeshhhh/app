@@ -427,46 +427,34 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Godown Inventory (गोदाम स्टॉक)',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AirbnbTheme.dark),
-                      ),
-                      Text(
-                        '${allProducts.length} SKUs • Total Value: ₹${(totalValuation / 100000).toStringAsFixed(2)} Lakhs',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Godown Stock',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AirbnbTheme.dark),
+                        ),
+                        Text(
+                          '${allProducts.length} SKUs • Total Value: ₹${(totalValuation / 100000).toStringAsFixed(2)} Lakhs',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AirbnbTheme.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () => WarehouseInwardView.showAsSheet(context, widget.api),
-                        icon: const Icon(Icons.input_rounded, size: 14),
-                        label: const Text('+ Inward', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddEditSheet(),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('+ Add SKU', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AirbnbTheme.coral,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddEditSheet(),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+ Add SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AirbnbTheme.coral,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
                   ),
                 ],
               ),
@@ -577,14 +565,31 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
 
         // 2. ACTIVE VIEW BODY
         Expanded(
-          child: _stockLocation == 'truck'
-              ? _buildTruckStockView()
-              : switch (_subTabIndex) {
-                  0 => _buildCatalogView(allProducts),
-                  1 => _buildExpiryRadarView(allProducts),
-                  2 => _buildAnalyticsView(allProducts, totalValuation),
-                  _ => _buildCatalogView(allProducts),
-                },
+          child: Stack(
+            children: [
+              _stockLocation == 'truck'
+                  ? _buildTruckStockView()
+                  : switch (_subTabIndex) {
+                      0 => _buildCatalogView(allProducts),
+                      1 => _buildExpiryRadarView(allProducts),
+                      2 => _buildAnalyticsView(allProducts, totalValuation),
+                      _ => _buildCatalogView(allProducts),
+                    },
+              if (_stockLocation == 'godown')
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: FloatingActionButton.extended(
+                    onPressed: () => _showAddEditSheet(),
+                    icon: const Icon(Icons.add, size: 20),
+                    label: const Text('Add Product', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                    backgroundColor: AirbnbTheme.coral,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -1237,12 +1242,15 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
                                             children: [
                                               Icon(Icons.event_outlined, size: 11, color: isExpiring ? const Color(0xFFD97706) : const Color(0xFF64748B)),
                                               const SizedBox(width: 4),
-                                              Text(
-                                                'Batch: ${prod.batchNumber} • Expiry: ${prod.expiryDate!.day}/${prod.expiryDate!.month}/${prod.expiryDate!.year} (${prod.daysUntilExpiry}d left)',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: isExpiring ? const Color(0xFF92400E) : const Color(0xFF475569),
+                                              Flexible(
+                                                child: Text(
+                                                  'Batch: ${prod.batchNumber} • Expiry: ${prod.expiryDate!.day}/${prod.expiryDate!.month}/${prod.expiryDate!.year} (${prod.daysUntilExpiry}d left)',
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: isExpiring ? const Color(0xFF92400E) : const Color(0xFF475569),
+                                                  ),
                                                 ),
                                               ),
                                             ],
