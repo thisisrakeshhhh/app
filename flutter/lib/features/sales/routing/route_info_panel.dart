@@ -112,6 +112,18 @@ class RouteInfoPanel extends StatelessWidget {
                     'Cached Road',
                     style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF00B894)),
                   ),
+                )
+              else if (activeLeg?.status == RouteLegStatus.success)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A73E8).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Live Road',
+                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF1A73E8)),
+                  ),
                 ),
             ],
           ),
@@ -126,7 +138,9 @@ class RouteInfoPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hasActiveLeg ? activeLeg.destinationName : 'Beat Completed',
+                      hasActiveLeg
+                          ? activeLeg.destinationName
+                          : (remainingStops > 0 ? 'No Route Available' : 'Beat Completed'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -159,9 +173,13 @@ class RouteInfoPanel extends StatelessWidget {
                         ],
                       )
                     else
-                      const Text(
-                        'All assigned shops visited!',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF059669), fontWeight: FontWeight.w600),
+                      Text(
+                        remainingStops > 0 ? 'Locations missing or routing unavailable' : 'All assigned shops visited!',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: remainingStops > 0 ? AirbnbTheme.grey : const Color(0xFF059669),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                   ],
                 ),

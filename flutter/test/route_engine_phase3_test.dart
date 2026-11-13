@@ -206,6 +206,78 @@ void main() {
         speedAccuracy: 0.5,
       );
       expect(detector.checkDeviation(pos: offRoute2, activePolyline: polyline), isTrue);
+
+      // Test 6e: Rerouting cooldown suppresses subsequent immediate deviations
+      final offRoute3 = Position(
+        longitude: 76.7620,
+        latitude: 30.7254,
+        timestamp: DateTime.now(),
+        accuracy: 12.0,
+        altitude: 0.0,
+        altitudeAccuracy: 0.0,
+        heading: 90.0,
+        headingAccuracy: 10.0,
+        speed: 5.0,
+        speedAccuracy: 0.5,
+      );
+      expect(detector.checkDeviation(pos: offRoute3, activePolyline: polyline), isFalse);
+
+      // Test 6f: Poor GPS accuracy (> 35m) is discarded
+      detector.reset();
+      final poorAccuracyPos = Position(
+        longitude: 76.7650,
+        latitude: 30.7250,
+        timestamp: DateTime.now(),
+        accuracy: 55.0, // High uncertainty / GPS drift
+        altitude: 0.0,
+        altitudeAccuracy: 0.0,
+        heading: 90.0,
+        headingAccuracy: 10.0,
+        speed: 5.0,
+        speedAccuracy: 0.5,
+      );
+      expect(RouteDeviationDetector.isReliableGps(poorAccuracyPos), isFalse);
+      expect(detector.checkDeviation(pos: poorAccuracyPos, activePolyline: polyline), isFalse);
+
+      // Test 6g: Return to route resets consecutive deviation counter
+      detector.reset();
+      expect(detector.checkDeviation(pos: offRoute1, activePolyline: polyline), isFalse); // observation 1
+      final backOnRoadPos = Position(
+        longitude: 76.7600, // On the line
+        latitude: 30.7250,
+        timestamp: DateTime.now(),
+        accuracy: 10.0,
+        altitude: 0.0,
+        altitudeAccuracy: 0.0,
+        heading: 90.0,
+        headingAccuracy: 10.0,
+        speed: 4.0,
+        speedAccuracy: 0.5,
+      );
+      expect(detector.checkDeviation(pos: backOnRoadPos, activePolyline: polyline), isFalse); // resets counter
+      // Next off route is observation 1 again, should not trigger reroute
+      expect(detector.checkDeviation(pos: offRoute1, activePolyline: polyline), isFalse);
+    });
+
+    test('6b. RouteCacheRepository rejects approximate fallback legs from road cache', () {
+      final cache = RouteCacheRepository();
+      final approxLeg = RouteLeg(
+        origin: const LatLng(30.7225, 76.7620),
+        destination: const LatLng(30.7300, 76.7700),
+        originId: 'orig',
+        destinationId: 'dest',
+        destinationName: 'Sharma General Store',
+        geometry: const [LatLng(30.7225, 76.7620), LatLng(30.7300, 76.7700)],
+        distanceMeters: 1200,
+        durationSeconds: 180,
+        status: RouteLegStatus.approximateFallback,
+        provider: 'ApproximateFallback',
+        calculatedAt: DateTime.now(),
+      );
+
+      cache.putLeg(approxLeg);
+      expect(cache.count, equals(0)); // Never cached
+      expect(cache.getLeg(30.7225, 76.7620, 30.7300, 76.7700), isNull);
     });
 
     // 5. Route Engine Service tests
@@ -345,6 +417,83 @@ void main() {
       await tester.tap(find.text('Navigate'));
       await tester.pump();
       expect(navTapped, isTrue);
+    });
+
+    testWidgets('10. RouteInfoPanel displays Offline Estimate badge and ~ prefix for approximate fallback', (tester) async {
+      final approxLeg = RouteLeg(
+        origin: const LatLng(30.7200, 76.7600),
+        destination: const LatLng(30.7230, 76.7630),
+        originId: 'rep',
+        destinationId: 'shop_1',
+        destinationName: 'Punjab Kirana',
+        geometry: const [LatLng(30.7200, 76.7600), LatLng(30.7230, 76.7630)],
+        distanceMeters: 3100,
+        durationSeconds: 500,
+        status: RouteLegStatus.approximateFallback,
+        provider: 'ApproximateFallback',
+        calculatedAt: DateTime.now(),
+      );
+
+      expect(approxLeg.formattedDistance, equals('~3.1 km'));
+      expect(approxLeg.formattedDuration, equals('~8 min'));
+
+      final plan = BeatRoutePlan(
+        beatId: 'beat_1',
+        beatName: 'Chandigarh Beat',
+        legs: [approxLeg],
+        totalStops: 3,
+        completedStops: 0,
+        updatedAt: DateTime.now(),
+      );
+
+      expect(plan.hasApproximateLegs, isTrue);
+      expect(plan.formattedRemainingDistance, equals('~3.1 km'));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RouteInfoPanel(
+              plan: plan,
+              isCalculating: false,
+              onNavigatePressed: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Offline Estimate'), findsOneWidget);
+      expect(find.text('~3.1 km'), findsOneWidget);
+      expect(find.text('~8 min'), findsOneWidget);
+    });
+
+    testWidgets('11. RouteInfoPanel shows No Route Available when coordinates are missing and stops remain', (tester) async {
+      final plan = BeatRoutePlan(
+        beatId: 'beat_1',
+        beatName: 'Chandigarh Beat',
+        legs: const [],
+        totalStops: 3,
+        completedStops: 1, // 2 stops remaining
+        updatedAt: DateTime(2026, 11, 13),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RouteInfoPanel(
+              plan: plan,
+              isCalculating: false,
+              onNavigatePressed: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('No Route Available'), findsOneWidget);
+      expect(find.text('Locations missing or routing unavailable'), findsOneWidget);
+      expect(find.text('Beat Completed'), findsNothing);
+      expect(find.text('All assigned shops visited!'), findsNothing);
     });
   });
 }

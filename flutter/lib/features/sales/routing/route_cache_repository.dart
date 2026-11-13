@@ -42,8 +42,10 @@ class RouteCacheRepository {
     return null;
   }
 
-  /// Stores a successfully calculated leg in cache.
+  /// Stores a successfully calculated road leg in cache.
+  /// Approximate fallback legs are never stored in the road geometry cache.
   void putLeg(RouteLeg leg) {
+    if (!leg.isRoadFollowing) return;
     final key = makeKey(
       leg.origin.latitude,
       leg.origin.longitude,

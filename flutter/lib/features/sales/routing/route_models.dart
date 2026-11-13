@@ -40,19 +40,21 @@ class RouteLeg {
   bool get isApproximate => status == RouteLegStatus.approximateFallback;
 
   String get formattedDistance {
+    final prefix = isApproximate ? '~' : '';
     if (distanceMeters < 1000) {
-      return '${distanceMeters.toStringAsFixed(0)} m';
+      return '$prefix${distanceMeters.toStringAsFixed(0)} m';
     }
-    return '${(distanceMeters / 1000).toStringAsFixed(1)} km';
+    return '$prefix${(distanceMeters / 1000).toStringAsFixed(1)} km';
   }
 
   String get formattedDuration {
+    final prefix = isApproximate ? '~' : '';
     final mins = (durationSeconds / 60).round();
     if (mins < 1) return '< 1 min';
-    if (mins < 60) return '$mins min';
+    if (mins < 60) return '$prefix$mins min';
     final hours = mins ~/ 60;
     final remMins = mins % 60;
-    return '${hours}h ${remMins}m';
+    return '$prefix${hours}h ${remMins}m';
   }
 
   Map<String, dynamic> toJson() => {
@@ -118,20 +120,25 @@ class BeatRoutePlan {
   /// Total remaining estimated driving duration across all pending legs.
   double get remainingDurationSeconds => legs.fold(0.0, (sum, leg) => sum + leg.durationSeconds);
 
+  /// Whether any pending leg relies on approximate offline fallback.
+  bool get hasApproximateLegs => legs.any((leg) => leg.isApproximate);
+
   String get formattedRemainingDistance {
     final dist = remainingDistanceMeters;
+    final prefix = hasApproximateLegs ? '~' : '';
     if (dist < 1000) {
-      return '${dist.toStringAsFixed(0)} m';
+      return '$prefix${dist.toStringAsFixed(0)} m';
     }
-    return '${(dist / 1000).toStringAsFixed(1)} km';
+    return '$prefix${(dist / 1000).toStringAsFixed(1)} km';
   }
 
   String get formattedRemainingDuration {
     final mins = (remainingDurationSeconds / 60).round();
+    final prefix = hasApproximateLegs ? '~' : '';
     if (mins < 1) return '< 1 min';
-    if (mins < 60) return '$mins min';
+    if (mins < 60) return '$prefix$mins min';
     final hours = mins ~/ 60;
     final remMins = mins % 60;
-    return '${hours}h ${remMins}m';
+    return '$prefix${hours}h ${remMins}m';
   }
 }
