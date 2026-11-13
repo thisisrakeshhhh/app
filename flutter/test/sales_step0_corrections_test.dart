@@ -6,7 +6,9 @@ import 'package:http/testing.dart';
 import 'package:lala_distributor/data/auth/auth_repository.dart';
 import 'package:lala_distributor/data/auth/secure_token_storage.dart';
 import 'package:lala_distributor/domain/auth/tenant_boundary_gate.dart';
+import 'package:lala_distributor/features/sales/widgets/sales_map_markers.dart';
 import 'package:lala_distributor/models/models.dart';
+import 'package:lala_distributor/screens/dashboards/sales_dashboard.dart';
 import 'package:lala_distributor/screens/role_shell.dart';
 import 'package:lala_distributor/screens/views/sales_route_map_view.dart';
 import 'package:lala_distributor/services/api_service.dart';
@@ -222,7 +224,8 @@ void main() {
           home: RoleShell(api: api, authService: ownerAuth),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Owner MUST see Accountant & GST Summary button
       expect(find.byTooltip('Accountant GST Summary'), findsOneWidget);
@@ -236,7 +239,8 @@ void main() {
           home: RoleShell(api: api, authService: salesAuth),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Sales rep MUST NOT see Accountant & GST Summary button
       expect(find.byTooltip('Accountant GST Summary'), findsNothing);
@@ -251,11 +255,93 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Should display honest route sketch label
       expect(find.text('Route sketch (not to scale)'), findsOneWidget);
       expect(find.byType(CustomPaint), findsWidgets);
+    });
+
+    testWidgets('7. Phase 2 MarkerCache generates distinct keys and updates cleanly across shop status transitions', (tester) async {
+      final cache = SalesMapMarkerCache();
+
+      // Keys for pending -> next -> checkedIn -> visited must all be unique
+      final pendingKey = SalesMapMarkerCache.shopKey(1, isVisited: false, isCheckedIn: false, isNext: false);
+      final nextKey = SalesMapMarkerCache.shopKey(1, isVisited: false, isCheckedIn: false, isNext: true);
+      final checkedInKey = SalesMapMarkerCache.shopKey(1, isVisited: false, isCheckedIn: true, isNext: false);
+      final visitedKey = SalesMapMarkerCache.shopKey(1, isVisited: true, isCheckedIn: false, isNext: false);
+
+      expect({pendingKey, nextKey, checkedInKey, visitedKey}.length, equals(4));
+
+      await tester.runAsync(() async {
+        // Prewarm pending & next
+        int updates = 0;
+        await cache.prewarmShopMarkers(
+          count: 3,
+          nextPendingIndex: 0,
+          onUpdated: () => updates++,
+        );
+        expect(updates, equals(1));
+        expect(cache.getCached(nextKey), isNotNull);
+
+        // Transition stop #1 to checked-in and stop #2 to next
+        await cache.prewarmShopMarkers(
+          count: 3,
+          checkedInIndices: {0},
+          nextPendingIndex: 1,
+          onUpdated: () => updates++,
+        );
+        expect(updates, equals(2));
+        expect(cache.getCached(checkedInKey), isNotNull);
+
+        // Transition stop #1 to completed visit
+        await cache.prewarmShopMarkers(
+          count: 3,
+          visitedIndices: {0},
+          nextPendingIndex: 1,
+          onUpdated: () => updates++,
+        );
+        expect(updates, equals(3));
+        expect(cache.getCached(visitedKey), isNotNull);
+
+        // Godown, cluster, and heading markers render & cache cleanly
+        final godown = await cache.getGodownMarker();
+        final cluster = await cache.getClusterMarker(12);
+        final repHeading = await cache.getRepBlueDot(withHeadingCone: true);
+        final repDot = await cache.getRepBlueDot(withHeadingCone: false);
+        expect(godown, isNotNull);
+        expect(cluster, isNotNull);
+        expect(repHeading, isNotNull);
+        expect(repDot, isNotNull);
+      });
+    });
+
+    testWidgets('8. Phase 2 SalesDashboard preserves beat, Continue Route, Add Shop, and renders compact map controls', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SalesDashboard(
+              api: api,
+              onNavigateTab: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // All Phase 2 map controls must be present
+      expect(find.byTooltip('My Location'), findsOneWidget);
+      expect(find.byTooltip('Focus Next Shop'), findsOneWidget);
+      expect(find.byTooltip('Recenter Route'), findsOneWidget);
+      expect(find.byTooltip('Show All Shops'), findsOneWidget);
+      expect(find.byTooltip('Fullscreen Map'), findsOneWidget);
+      expect(find.byTooltip('Zoom In'), findsOneWidget);
+      expect(find.byTooltip('Zoom Out'), findsOneWidget);
+
+      // Existing workflow buttons preserved
+      expect(find.text('+ Add Shop'), findsWidgets);
     });
   });
 }

@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../features/sales/widgets/sales_map_markers.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -49,6 +49,11 @@ class _SalesDashboardState extends State<SalesDashboard> {
   GoogleMapController? _googleMapController;
   Timer? _stopwatchTimer;
   BitmapDescriptor? _currentLocationBlueDotIcon;
+  BitmapDescriptor? _godownMarkerIcon;
+  final SalesMapMarkerCache _markerCache = SalesMapMarkerCache();
+  double? _repHeading;
+  double _currentZoom = 14.5;
+  bool _isMapFullscreen = false;
   StreamSubscription<Position>? _positionSubscription;
 
   @override
@@ -66,10 +71,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
   Future<void> _initRealPhoneLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        // Location services disabled on device
-      }
+      await Geolocator.isLocationServiceEnabled();
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -89,6 +91,11 @@ class _SalesDashboardState extends State<SalesDashboard> {
       } catch (_) {}
 
       if (position != null && mounted) {
+        final reliableHeading = _extractReliableHeading(position);
+        if (reliableHeading != _repHeading) {
+          _repHeading = reliableHeading;
+          _initCurrentLocationIcon();
+        }
         widget.api.updateRepLocation(position.latitude, position.longitude);
         _googleMapController?.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15.0),
@@ -102,46 +109,34 @@ class _SalesDashboardState extends State<SalesDashboard> {
         ),
       ).listen((pos) {
         if (mounted) {
+          final reliableHeading = _extractReliableHeading(pos);
+          if (reliableHeading != _repHeading) {
+            _repHeading = reliableHeading;
+            _initCurrentLocationIcon();
+          }
           widget.api.updateRepLocation(pos.latitude, pos.longitude);
         }
       });
     } catch (_) {}
   }
 
+  /// Returns heading in degrees only when GPS heading is valid and accurate (<= 45°).
+  double? _extractReliableHeading(Position pos) {
+    if (pos.heading < 0 || pos.headingAccuracy <= 0 || pos.headingAccuracy > 45.0) {
+      return null;
+    }
+    return pos.heading;
+  }
+
   Future<void> _initCurrentLocationIcon() async {
     try {
-      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-      final Canvas canvas = Canvas(pictureRecorder);
-      const double size = 80.0;
-
-      // 1. Soft radial shadow / glow
-      final Paint glowPaint = Paint()
-        ..color = const Color(0x401A73E8)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-      canvas.drawCircle(const Offset(size / 2, size / 2), 32, glowPaint);
-
-      // 2. Thick crisp white border (Google Maps iconic white ring)
-      final Paint whiteRingPaint = Paint()..color = Colors.white;
-      canvas.drawCircle(const Offset(size / 2, size / 2), 22, whiteRingPaint);
-
-      // 3. Google Maps Royal Blue solid center circle
-      final Paint blueDotPaint = Paint()..color = const Color(0xFF1A73E8);
-      canvas.drawCircle(const Offset(size / 2, size / 2), 15, blueDotPaint);
-
-      // 4. Center pure white dot (tiny core highlight)
-      final Paint centerCorePaint = Paint()..color = Colors.white;
-      canvas.drawCircle(const Offset(size / 2, size / 2), 4, centerCorePaint);
-
-      final ui.Image image = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData != null) {
-        final bytes = byteData.buffer.asUint8List();
-        final icon = BitmapDescriptor.bytes(bytes);
-        if (mounted) {
-          setState(() {
-            _currentLocationBlueDotIcon = icon;
-          });
-        }
+      final repIcon = await _markerCache.getRepBlueDot(withHeadingCone: _repHeading != null);
+      final godownIcon = await _markerCache.getGodownMarker();
+      if (mounted) {
+        setState(() {
+          _currentLocationBlueDotIcon = repIcon;
+          _godownMarkerIcon = godownIcon;
+        });
       }
     } catch (_) {}
   }
@@ -1312,14 +1307,259 @@ class _SalesDashboardState extends State<SalesDashboard> {
     } catch (_) {}
   }
 
+  WarehouseHub? _activeGodownHub() {
+    final hubs = widget.api.warehouseHubs.where((h) => h.latitude != null && h.longitude != null).toList();
+    if (hubs.isEmpty) return null;
+    final isJodhpur = widget.api.activeTerritory == 'jodhpur';
+    for (final h in hubs) {
+      final isJodhpurHub = h.latitude! < 29.0;
+      if (isJodhpur == isJodhpurHub) return h;
+    }
+    return hubs.first;
+  }
+
+  int? _findNextPendingIndex(List<RetailerShop> shops) {
+    for (int i = 0; i < shops.length; i++) {
+      if (!shops[i].visitedToday && !shops[i].isCheckedIn) return i;
+    }
+    return null;
+  }
+
+  void _recenterPendingRoute(List<RetailerShop> locatedShops) {
+    final pending = locatedShops.where((s) => !s.visitedToday && !s.isCheckedIn).toList();
+    if (pending.isEmpty) {
+      _fitRouteBounds(locatedShops);
+      return;
+    }
+    _fitRouteBounds(pending);
+  }
+
+  void _focusNextPendingShop(List<RetailerShop> locatedShops) {
+    final nextIdx = _findNextPendingIndex(locatedShops);
+    if (nextIdx == null) {
+      _fitRouteBounds(locatedShops);
+      return;
+    }
+    final nextShop = locatedShops[nextIdx];
+    setState(() => _selectedStopIndex = nextIdx);
+    _googleMapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(LatLng(nextShop.latitude!, nextShop.longitude!), 16.2),
+    );
+  }
+
+  Widget _mapControlButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    Color iconColor = AirbnbTheme.dark,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AirbnbTheme.border),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+            ],
+          ),
+          child: Icon(icon, size: 16, color: iconColor),
+        ),
+      ),
+    );
+  }
+
+  Set<Marker> _buildPhase2Markers(
+    List<RetailerShop> locatedShops,
+    int? nextPendingIndex,
+  ) {
+    final visitedSet = <int>{};
+    final checkedInSet = <int>{};
+    for (int i = 0; i < locatedShops.length; i++) {
+      if (locatedShops[i].visitedToday) {
+        visitedSet.add(i);
+      } else if (locatedShops[i].isCheckedIn) {
+        checkedInSet.add(i);
+      }
+    }
+    _markerCache.prewarmShopMarkers(
+      count: locatedShops.length,
+      visitedIndices: visitedSet,
+      checkedInIndices: checkedInSet,
+      nextPendingIndex: nextPendingIndex,
+      onUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+
+    final markers = <Marker>{
+      // 1. Live Salesperson GPS Marker with optional heading cone
+      Marker(
+        markerId: const MarkerId('current_location_user'),
+        position: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
+        icon: _currentLocationBlueDotIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        anchor: const Offset(0.5, 0.5),
+        flat: true,
+        rotation: _repHeading ?? 0.0,
+        infoWindow: const InfoWindow(
+          title: 'Current Location (You Are Here)',
+          snippet: 'Live GPS Position',
+        ),
+        zIndexInt: 100,
+      ),
+    };
+
+    // 2. Starting Godown / Warehouse Marker
+    final godown = _activeGodownHub();
+    if (godown != null && godown.latitude != null && godown.longitude != null) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('godown_${godown.id}'),
+          position: LatLng(godown.latitude!, godown.longitude!),
+          icon: _godownMarkerIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          anchor: const Offset(0.5, 0.5),
+          infoWindow: InfoWindow(
+            title: godown.name,
+            snippet: 'Starting Godown • ${godown.address}',
+          ),
+          zIndexInt: 80,
+        ),
+      );
+    }
+
+    // 3. Lightweight Grid Clustering for large routes (> 25 stops) when zoomed out
+    if (locatedShops.length > 25 && _currentZoom < 13.0) {
+      const double gridDeg = 0.012;
+      final buckets = <String, List<int>>{};
+      for (int i = 0; i < locatedShops.length; i++) {
+        final s = locatedShops[i];
+        final gx = (s.latitude! / gridDeg).floor();
+        final gy = (s.longitude! / gridDeg).floor();
+        buckets.putIfAbsent('${gx}_$gy', () => []).add(i);
+      }
+      for (final entry in buckets.entries) {
+        final indices = entry.value;
+        if (indices.length == 1) {
+          markers.add(_buildSingleShopMarker(locatedShops, indices.first, nextPendingIndex));
+        } else {
+          double avgLat = 0;
+          double avgLng = 0;
+          for (final idx in indices) {
+            avgLat += locatedShops[idx].latitude!;
+            avgLng += locatedShops[idx].longitude!;
+          }
+          avgLat /= indices.length;
+          avgLng /= indices.length;
+          final clusterIcon = _markerCache.getCached('cluster_${indices.length}');
+          if (clusterIcon == null) {
+            _markerCache.getClusterMarker(indices.length).then((_) {
+              if (mounted) setState(() {});
+            });
+          }
+          markers.add(
+            Marker(
+              markerId: MarkerId('cluster_${entry.key}'),
+              position: LatLng(avgLat, avgLng),
+              icon: clusterIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+              infoWindow: InfoWindow(
+                title: '${indices.length} Shops in Area',
+                snippet: 'Tap to zoom in',
+              ),
+              onTap: () {
+                _googleMapController?.animateCamera(
+                  CameraUpdate.newLatLngZoom(LatLng(avgLat, avgLng), 14.5),
+                );
+              },
+            ),
+          );
+        }
+      }
+      return markers;
+    }
+
+    // 4. Numbered Shop Markers (Visited=Green, Next Pending=Bright Amber, Pending=Red)
+    for (int i = 0; i < locatedShops.length; i++) {
+      markers.add(_buildSingleShopMarker(locatedShops, i, nextPendingIndex));
+    }
+
+    return markers;
+  }
+
+  Marker _buildSingleShopMarker(
+    List<RetailerShop> locatedShops,
+    int idx,
+    int? nextPendingIndex,
+  ) {
+    final s = locatedShops[idx];
+    final isVisited = s.visitedToday;
+    final isCheckedIn = !isVisited && s.isCheckedIn;
+    final isNext = !isVisited && !isCheckedIn && nextPendingIndex == idx;
+    final stopNum = idx + 1;
+
+    final key = SalesMapMarkerCache.shopKey(
+      stopNum,
+      isVisited: isVisited,
+      isCheckedIn: isCheckedIn,
+      isNext: isNext,
+    );
+    final cachedIcon = _markerCache.getCached(key);
+    final fallbackHue = isVisited
+        ? BitmapDescriptor.hueGreen
+        : (isCheckedIn
+            ? BitmapDescriptor.hueCyan
+            : (isNext ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueRed));
+
+    final distM = ApiService.calculateRoadDistanceMeters(
+      widget.api.currentRepLat,
+      widget.api.currentRepLng,
+      s.latitude!,
+      s.longitude!,
+    );
+    final distStr = distM < 1000 ? '${distM.toStringAsFixed(0)} m' : '${(distM / 1000).toStringAsFixed(1)} km';
+
+    return Marker(
+      markerId: MarkerId(s.id),
+      position: LatLng(s.latitude!, s.longitude!),
+      icon: cachedIcon ?? BitmapDescriptor.defaultMarkerWithHue(fallbackHue),
+      anchor: const Offset(0.5, 0.88),
+      zIndexInt: isCheckedIn ? 95 : (isNext ? 90 : (isVisited ? 40 : 60)),
+      infoWindow: InfoWindow(
+        title: isVisited
+            ? '✓ Completed #$stopNum: ${s.name}'
+            : (isCheckedIn
+                ? '● Visiting #$stopNum: ${s.name}'
+                : (isNext ? '★ Next #$stopNum: ${s.name} ($distStr)' : 'Stop #$stopNum: ${s.name} ($distStr)')),
+        snippet: isVisited
+            ? 'Visit Completed • Time spent: ${s.totalTimeSpentFormatted}'
+            : (isCheckedIn ? 'Currently Checked In • Active Visit' : (isNext ? 'Next Recommended Stop' : 'Pending Stop')),
+      ),
+      onTap: () {
+        setState(() {
+          _selectedStopIndex = idx;
+        });
+        _googleMapController?.animateCamera(
+          CameraUpdate.newLatLng(LatLng(s.latitude!, s.longitude!)),
+        );
+      },
+    );
+  }
+
   Widget _buildInteractiveMap(
     List<RetailerShop> locatedShops,
     RetailerShop? selectedShop,
     RetailerShop? activeShop,
     AppStrings strings,
   ) {
-    return Container(
-      height: 240,
+    final nextPendingIndex = _findNextPendingIndex(locatedShops);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      height: _isMapFullscreen ? 480 : 260,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -1348,6 +1588,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
+              onCameraMove: (camPos) {
+                _currentZoom = camPos.zoom;
+              },
               circles: {
                 // Outer Google Maps accuracy circle
                 Circle(
@@ -1370,62 +1613,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                   zIndex: 2,
                 ),
               },
-              markers: {
-                // Live Current Location Marker (Google Maps Circular Blue Dot)
-                Marker(
-                  markerId: const MarkerId('current_location_user'),
-                  position: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  icon: _currentLocationBlueDotIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-                  anchor: const Offset(0.5, 0.5),
-                  infoWindow: const InfoWindow(
-                    title: '📍 Current Location (You Are Here)',
-                    snippet: 'GPS Starting Point • Tap to center',
-                  ),
-                  zIndexInt: 100,
-                ),
-                // Route Shop Markers (Green if visited, Red if unvisited)
-                ...locatedShops.asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final s = entry.value;
-                  final isSel = s.id == selectedShop?.id;
-                  final isChecked = s.isCheckedIn;
-                  final isVisited = s.visitedToday;
-                  final stopNum = idx + 1;
-                  final distM = ApiService.calculateRoadDistanceMeters(
-                    widget.api.currentRepLat,
-                    widget.api.currentRepLng,
-                    s.latitude!,
-                    s.longitude!,
-                  );
-                  final distStr = distM < 1000 ? '${distM.toStringAsFixed(0)} m' : '${(distM / 1000).toStringAsFixed(1)} km';
-
-                  final markerHue = (isVisited || isChecked)
-                      ? BitmapDescriptor.hueGreen
-                      : (isSel ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueRed);
-
-                  return Marker(
-                    markerId: MarkerId(s.id),
-                    position: LatLng(s.latitude!, s.longitude!),
-                    icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
-                    infoWindow: InfoWindow(
-                      title: (isVisited || isChecked)
-                          ? '✓ Visited #$stopNum: ${s.name}'
-                          : 'Stop #$stopNum: ${s.name} ($distStr away)',
-                      snippet: isVisited
-                          ? 'Visited Today • Time spent: ${s.totalTimeSpentFormatted}'
-                          : (isChecked ? '🟢 Currently Checked In' : 'Pending • Follow Red Route'),
-                    ),
-                    onTap: () {
-                      setState(() {
-                        _selectedStopIndex = idx;
-                      });
-                      _googleMapController?.animateCamera(
-                        CameraUpdate.newLatLng(LatLng(s.latitude!, s.longitude!)),
-                      );
-                    },
-                  );
-                }),
-              },
+              markers: _buildPhase2Markers(locatedShops, nextPendingIndex),
               polylines: _buildColorCodedRoutePolylines(locatedShops),
               onMapCreated: (ctrl) {
                 _googleMapController = ctrl;
@@ -1435,15 +1623,41 @@ class _SalesDashboardState extends State<SalesDashboard> {
               },
             ),
 
-          // Top Controls Overlay
+          // Top-Right Map Mode Controls (Fullscreen, Satellite)
           Positioned(
             top: 10,
             right: 10,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // My Current Location GPS button
-                InkWell(
+                _mapControlButton(
+                  icon: _isMapFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                  tooltip: _isMapFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map',
+                  onTap: () => setState(() => _isMapFullscreen = !_isMapFullscreen),
+                ),
+                const SizedBox(width: 5),
+                _mapControlButton(
+                  icon: _mapType == MapType.normal ? Icons.satellite_alt : Icons.map,
+                  tooltip: 'Switch Map Type',
+                  onTap: () => setState(() {
+                    _mapType = _mapType == MapType.normal ? MapType.hybrid : MapType.normal;
+                  }),
+                ),
+              ],
+            ),
+          ),
+
+          // Second-Row Top-Left Route Controls (My Location, Focus Next, Recenter, Show All)
+          Positioned(
+            top: 42,
+            left: 10,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _mapControlButton(
+                  icon: Icons.my_location,
+                  tooltip: 'My Location',
+                  iconColor: const Color(0xFF1A73E8),
                   onTap: () async {
                     try {
                       final pos = await Geolocator.getCurrentPosition(
@@ -1453,6 +1667,11 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         ),
                       );
                       if (mounted) {
+                        final h = _extractReliableHeading(pos);
+                        if (h != _repHeading) {
+                          _repHeading = h;
+                          _initCurrentLocationIcon();
+                        }
                         widget.api.updateRepLocation(pos.latitude, pos.longitude);
                       }
                     } catch (_) {}
@@ -1463,69 +1682,49 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         16.0,
                       ),
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('📍 Centered on your phone\'s live GPS location'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AirbnbTheme.border),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                      ],
-                    ),
-                    child: const Icon(Icons.my_location, size: 16, color: Color(0xFF1A73E8)),
-                  ),
                 ),
-                const SizedBox(width: 6),
-                // Fit All Beat Shops button
-                InkWell(
-                  onTap: () {
-                    _fitRouteBounds(locatedShops);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AirbnbTheme.border),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                      ],
-                    ),
-                    child: const Icon(Icons.fullscreen_rounded, size: 16, color: AirbnbTheme.dark),
-                  ),
+                const SizedBox(width: 5),
+                _mapControlButton(
+                  icon: Icons.near_me_rounded,
+                  tooltip: 'Focus Next Shop',
+                  iconColor: const Color(0xFFF59E0B),
+                  onTap: () => _focusNextPendingShop(locatedShops),
                 ),
-                const SizedBox(width: 6),
-                // Satellite/Normal Switcher
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _mapType = _mapType == MapType.normal ? MapType.hybrid : MapType.normal;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AirbnbTheme.border),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
-                      ],
-                    ),
-                    child: Icon(
-                      _mapType == MapType.normal ? Icons.satellite_alt : Icons.map,
-                      size: 16,
-                      color: AirbnbTheme.dark,
-                    ),
-                  ),
+                const SizedBox(width: 5),
+                _mapControlButton(
+                  icon: Icons.alt_route_rounded,
+                  tooltip: 'Recenter Route',
+                  iconColor: AirbnbTheme.jodhpurBlue,
+                  onTap: () => _recenterPendingRoute(locatedShops),
+                ),
+                const SizedBox(width: 5),
+                _mapControlButton(
+                  icon: Icons.fit_screen_outlined,
+                  tooltip: 'Show All Shops',
+                  onTap: () => _fitRouteBounds(locatedShops),
+                ),
+              ],
+            ),
+          ),
+
+          // Right-Side Compact Zoom In / Zoom Out Controls
+          Positioned(
+            right: 10,
+            top: 52,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _mapControlButton(
+                  icon: Icons.add,
+                  tooltip: 'Zoom In',
+                  onTap: () => _googleMapController?.animateCamera(CameraUpdate.zoomIn()),
+                ),
+                const SizedBox(height: 4),
+                _mapControlButton(
+                  icon: Icons.remove,
+                  tooltip: 'Zoom Out',
+                  onTap: () => _googleMapController?.animateCamera(CameraUpdate.zoomOut()),
                 ),
               ],
             ),
