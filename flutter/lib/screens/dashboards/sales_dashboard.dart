@@ -4,6 +4,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../features/sales/routing/external_navigation_service.dart';
+import '../../features/sales/routing/route_deviation_detector.dart';
+import '../../features/sales/routing/route_engine_service.dart';
+import '../../features/sales/routing/route_info_panel.dart';
+import '../../features/sales/routing/route_models.dart';
 import '../../features/sales/widgets/sales_map_markers.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
@@ -51,6 +56,10 @@ class _SalesDashboardState extends State<SalesDashboard> {
   BitmapDescriptor? _currentLocationBlueDotIcon;
   BitmapDescriptor? _godownMarkerIcon;
   final SalesMapMarkerCache _markerCache = SalesMapMarkerCache();
+  final RouteEngineService _routeEngine = RouteEngineService();
+  final RouteDeviationDetector _deviationDetector = RouteDeviationDetector();
+  BeatRoutePlan? _currentRoutePlan;
+  bool _isRouteEngineCalculating = false;
   double? _repHeading;
   double _currentZoom = 14.5;
   bool _isMapFullscreen = false;
@@ -61,6 +70,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     super.initState();
     _initCurrentLocationIcon();
     _initRealPhoneLocation();
+    _computeBeatRoute();
     // 1-second live ticker for active visit stopwatch and time spent
     _stopwatchTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && widget.api.activeVisitShopId != null) {
@@ -91,12 +101,13 @@ class _SalesDashboardState extends State<SalesDashboard> {
       } catch (_) {}
 
       if (position != null && mounted) {
-        final reliableHeading = _extractReliableHeading(position);
+        final reliableHeading = RouteDeviationDetector.extractReliableHeading(position);
         if (reliableHeading != _repHeading) {
           _repHeading = reliableHeading;
           _initCurrentLocationIcon();
         }
         widget.api.updateRepLocation(position.latitude, position.longitude);
+        _computeBeatRoute();
         _googleMapController?.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15.0),
         );
@@ -109,23 +120,112 @@ class _SalesDashboardState extends State<SalesDashboard> {
         ),
       ).listen((pos) {
         if (mounted) {
-          final reliableHeading = _extractReliableHeading(pos);
+          final reliableHeading = RouteDeviationDetector.extractReliableHeading(pos);
           if (reliableHeading != _repHeading) {
             _repHeading = reliableHeading;
             _initCurrentLocationIcon();
           }
           widget.api.updateRepLocation(pos.latitude, pos.longitude);
+          _handleGpsMovementAndDeviation(pos);
         }
       });
     } catch (_) {}
   }
 
-  /// Returns heading in degrees only when GPS heading is valid and accurate (<= 45°).
-  double? _extractReliableHeading(Position pos) {
-    if (pos.heading < 0 || pos.headingAccuracy <= 0 || pos.headingAccuracy > 45.0) {
-      return null;
+  /// Calculates or refreshes the full sequential road route across the assigned beat.
+  Future<void> _computeBeatRoute() async {
+    if (_isRouteEngineCalculating || !mounted) return;
+    setState(() => _isRouteEngineCalculating = true);
+
+    try {
+      final repPos = LatLng(widget.api.currentRepLat, widget.api.currentRepLng);
+      final assigned = widget.api.assignedRouteShops;
+      final plan = await _routeEngine.buildBeatRoute(
+        repPosition: repPos,
+        assignedShops: assigned,
+        beatId: widget.api.activeTerritory,
+        beatName: widget.api.activeTerritoryName,
+        godown: _activeGodownHub(),
+      );
+      if (mounted) {
+        setState(() {
+          _currentRoutePlan = plan;
+          _isRouteEngineCalculating = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isRouteEngineCalculating = false);
     }
-    return pos.heading;
+  }
+
+  /// Evaluates GPS position against the active road leg to detect deviation and reroute.
+  void _handleGpsMovementAndDeviation(Position pos) {
+    if (_currentRoutePlan == null || _currentRoutePlan!.legs.isEmpty) return;
+
+    final activeLeg = _currentRoutePlan!.activeLeg;
+    if (activeLeg == null || activeLeg.geometry.isEmpty) return;
+
+    final hasDeviated = _deviationDetector.checkDeviation(
+      pos: pos,
+      activePolyline: activeLeg.geometry,
+    );
+
+    if (hasDeviated) {
+      final assigned = widget.api.assignedRouteShops;
+      final nextIdx = _findNextPendingIndex(assigned);
+      if (nextIdx != null && nextIdx < assigned.length) {
+        final nextShop = assigned[nextIdx];
+        _routeEngine.rerouteActiveLeg(
+          newRepPosition: LatLng(pos.latitude, pos.longitude),
+          nextShop: nextShop,
+        ).then((updatedPlan) {
+          if (mounted && updatedPlan != null) {
+            setState(() => _currentRoutePlan = updatedPlan);
+          }
+        });
+      }
+    }
+  }
+
+  /// Launches Google Maps turn-by-turn navigation directly to the next pending stop.
+  Future<void> _launchNextShopNavigation() async {
+    final assigned = widget.api.assignedRouteShops;
+    final nextIdx = _findNextPendingIndex(assigned);
+    if (nextIdx == null || nextIdx >= assigned.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All assigned shops are already visited!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final nextShop = assigned[nextIdx];
+    if (nextShop.latitude == null || nextShop.longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Coordinates unavailable for ${nextShop.name}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final launched = await ExternalNavigationService.launchTurnByTurn(
+      latitude: nextShop.latitude!,
+      longitude: nextShop.longitude!,
+      destinationLabel: nextShop.name,
+    );
+
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Opening Google Maps navigation to ${nextShop.name}...'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _initCurrentLocationIcon() async {
@@ -391,7 +491,14 @@ class _SalesDashboardState extends State<SalesDashboard> {
           // 1. EMBEDDED INTERACTIVE ROUTE MAP (Directly below navbar)
           _buildInteractiveMap(locatedShops, selectedShop, activeShop, strings),
 
-          const SizedBox(height: 12),
+          // 1b. PHASE 3 ROUTE INTELLIGENCE & NAVIGATION CARD
+          RouteInfoPanel(
+            plan: _currentRoutePlan,
+            isCalculating: _isRouteEngineCalculating,
+            onNavigatePressed: _launchNextShopNavigation,
+          ),
+
+          const SizedBox(height: 8),
 
           // 2. TODAY'S ASSIGNED BEAT BANNER (Sardarpura & Nai Sadak Route)
           _buildAssignedBeatCard(assignedShops, selectedShop, strings),
@@ -1208,6 +1315,33 @@ class _SalesDashboardState extends State<SalesDashboard> {
     final polylines = <Polyline>{};
     if (shops.isEmpty) return polylines;
 
+    // If RouteEngine has calculated real road geometry, render real road polylines
+    if (_currentRoutePlan != null && _currentRoutePlan!.legs.isNotEmpty) {
+      final legs = _currentRoutePlan!.legs;
+      for (int i = 0; i < legs.length; i++) {
+        final leg = legs[i];
+        final isFirstActive = i == 0;
+        final isApprox = leg.isApproximate;
+
+        polylines.add(
+          Polyline(
+            polylineId: PolylineId('engine_leg_${i}_${leg.destinationId}'),
+            points: leg.geometry,
+            color: isFirstActive
+                ? const Color(0xFF1A73E8) // Prominent Blue for Active Navigation Leg
+                : const Color(0xFFE53935), // Red for pending beat legs
+            width: isFirstActive ? 6 : 4,
+            patterns: isApprox ? [PatternItem.dash(16), PatternItem.gap(10)] : const [],
+            jointType: JointType.round,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+          ),
+        );
+      }
+      return polylines;
+    }
+
+    // Fallback: Grid-based road corridor lines from Phase 2
     final firstLocated = shops.where((s) => s.latitude != null && s.longitude != null).firstOrNull;
     if (firstLocated == null) return polylines;
 
@@ -1218,11 +1352,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
     LatLng prevPoint;
     int startIndex = 0;
     if (distToFirst < 35000) {
-      // Rep is physically in or near this city beat corridor - connect rep's live dot to stop 1
       prevPoint = LatLng(repLat, repLng);
       startIndex = 0;
     } else {
-      // Rep is in a different city - start the route clean from stop 1
       prevPoint = LatLng(firstLocated.latitude!, firstLocated.longitude!);
       startIndex = 1;
     }
@@ -1667,7 +1799,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
                         ),
                       );
                       if (mounted) {
-                        final h = _extractReliableHeading(pos);
+                        final h = RouteDeviationDetector.extractReliableHeading(pos);
                         if (h != _repHeading) {
                           _repHeading = h;
                           _initCurrentLocationIcon();
@@ -2069,8 +2201,8 @@ class _SalesDashboardState extends State<SalesDashboard> {
             width: double.infinity,
             child: ElevatedButton.icon(
               key: const ValueKey('continue_route_btn'),
-              onPressed: () => widget.onNavigateTab(2),
-              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              onPressed: _launchNextShopNavigation,
+              icon: const Icon(Icons.navigation_rounded, size: 20),
               label: Text(strings.t('continue_route'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AirbnbTheme.coral,
