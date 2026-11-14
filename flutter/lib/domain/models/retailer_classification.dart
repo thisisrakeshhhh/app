@@ -1,11 +1,11 @@
-/// Domain model representing Retailer Classification in FMCG distribution.
+/// Domain model representing Retailer Classification and Beat Scheduling in FMCG distribution.
 ///
-/// Canonical Classes:
-/// - `A`: Top retail / supermarket. High volume, daily beat, 14 days credit terms, ₹50,000 credit limit.
-/// - `B`: Standard busy kirana store. Medium volume, alternate days beat, 7 days credit terms, ₹25,000 credit limit.
-/// - `C`: Small kirana / tea stall / paan shop. Low volume, twice-weekly beat, 3 days credit terms, ₹10,000 credit limit.
-/// - `D`: High credit risk / defaulter. Weekly beat, 0 days credit terms, ₹0 credit limit (Strictly Cash Only).
-/// - `NEW`: Newly onboarded shop pending owner approval. Daily beat, 0 days terms, ₹0 credit limit (Cash Only).
+/// Canonical Classification Tiers:
+/// - `A`: Top retail / supermarket. High volume, daily beat frequency.
+/// - `B`: Standard busy kirana store. Medium volume, alternate days beat frequency.
+/// - `C`: Small kirana / tea stall / paan shop. Low volume, twice-weekly beat frequency.
+/// - `D`: High credit risk / defaulter. Weekly beat frequency (Strictly Cash Only).
+/// - `NEW`: Newly onboarded shop pending owner verification (Cash Only).
 class RetailerClassification {
   RetailerClassification._();
 
@@ -42,39 +42,6 @@ class RetailerClassification {
     return 'Class $code';
   }
 
-  /// Default credit limit in paise for each classification.
-  static int defaultCreditLimitPaise(String? raw) {
-    switch (normalize(raw)) {
-      case classA:
-        return 5000000; // ₹50,000
-      case classB:
-        return 2500000; // ₹25,000
-      case classC:
-        return 1000000; // ₹10,000
-      case classD:
-        return 0; // ₹0 (Cash on Delivery)
-      case classNew:
-      default:
-        return 0; // ₹0 (Unapproved new shops are cash-first)
-    }
-  }
-
-  /// Default payment terms in days for each classification.
-  static int defaultCreditDays(String? raw) {
-    switch (normalize(raw)) {
-      case classA:
-        return 14;
-      case classB:
-        return 7;
-      case classC:
-        return 3;
-      case classD:
-      case classNew:
-      default:
-        return 0;
-    }
-  }
-
   /// Recommended beat visit frequency in days.
   static int defaultVisitFrequencyDays(String? raw) {
     switch (normalize(raw)) {
@@ -90,6 +57,22 @@ class RetailerClassification {
       default:
         return 1; // Active follow-up
     }
+  }
+
+  /// Baseline default credit limit in paise for each classification tier.
+  ///
+  /// NOTE: This is a configurable baseline guideline (from distributor class settings),
+  /// NOT a fixed universal business rule. An individual retailer's stored negotiated
+  /// credit limit takes precedence and is NEVER overwritten by baseline defaults.
+  static int defaultCreditLimitPaise(String? raw) {
+    return RetailerCreditPolicy.getBaselinePolicy(raw).baselineCreditLimitPaise;
+  }
+
+  /// Baseline default credit payment terms in days.
+  ///
+  /// NOTE: An individual retailer's negotiated payment terms take precedence.
+  static int defaultCreditDays(String? raw) {
+    return RetailerCreditPolicy.getBaselinePolicy(raw).baselineCreditDays;
   }
 
   /// Returns whether a retailer with the given class and credit limit is eligible
@@ -150,5 +133,48 @@ class RetailerClassification {
       return true;
     }
     return false;
+  }
+}
+
+/// Represents distributor-configurable baseline credit policy guidelines.
+///
+/// These represent initial default templates that can be configured by distributor
+/// management (OWNER/ADMIN) via class settings. They do NOT override or overwrite
+/// an individual retailer's explicitly negotiated credit limit or payment terms.
+class RetailerCreditPolicy {
+  final int baselineCreditLimitPaise;
+  final int baselineCreditDays;
+
+  const RetailerCreditPolicy({
+    required this.baselineCreditLimitPaise,
+    required this.baselineCreditDays,
+  });
+
+  /// Baseline guidelines per class tier.
+  static RetailerCreditPolicy getBaselinePolicy(String? classType) {
+    switch (RetailerClassification.normalize(classType)) {
+      case RetailerClassification.classA:
+        return const RetailerCreditPolicy(
+          baselineCreditLimitPaise: 5000000, // ₹50,000 baseline guideline
+          baselineCreditDays: 14,
+        );
+      case RetailerClassification.classB:
+        return const RetailerCreditPolicy(
+          baselineCreditLimitPaise: 2500000, // ₹25,000 baseline guideline
+          baselineCreditDays: 7,
+        );
+      case RetailerClassification.classC:
+        return const RetailerCreditPolicy(
+          baselineCreditLimitPaise: 1000000, // ₹10,000 baseline guideline
+          baselineCreditDays: 3,
+        );
+      case RetailerClassification.classD:
+      case RetailerClassification.classNew:
+      default:
+        return const RetailerCreditPolicy(
+          baselineCreditLimitPaise: 0, // Strictly cash on delivery
+          baselineCreditDays: 0,
+        );
+    }
   }
 }

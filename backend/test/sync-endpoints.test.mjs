@@ -666,4 +666,191 @@ describe('RouteFlow Phase C: Real Cloudflare D1 Sync Endpoints & Integrity Suite
     const jsonOk = await resOk.json();
     assert.equal(jsonOk.retailer.creditLimitPaise, 0, 'Salesperson shop must have 0 credit limit on legacy route');
   });
+
+  test('14. Backend Duplicate Protection: Same-company duplicate phone rejected with 409', async () => {
+    // Attempt to create shop with phone '9829011111' which already exists in comp_1 (from Test 2)
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_dup_phone_01',
+        organizationId: 'comp_1',
+        mutations: [
+          {
+            mutationId: 'mut_dup_phone_01',
+            idempotencyKey: `idem_dup_phone_${Date.now()}`,
+            mutationType: 'CREATE_RETAILER',
+            payload: {
+              shopName: 'Duplicate Phone Store',
+              phone: '+91 98290 11111', // Varied formatting, same normalized mobile
+              classification: 'NEW',
+              defaultCreditLimitPaise: 0
+            }
+          }
+        ]
+      })
+    });
+    assert.equal(res.status, 409, 'Must reject duplicate phone in same tenant with 409 Conflict');
+    const json = await res.json();
+    assert.equal(json.error, 'DUPLICATE_RETAILER_PHONE');
+  });
+
+  test('15. Multi-Tenant Independence: Cross-company duplicate phone allowed', async () => {
+    // Comp 2 creating a retailer with the exact same phone '9829011111'
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${comp2OwnerToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_comp2_same_phone',
+        organizationId: 'comp_2',
+        mutations: [
+          {
+            mutationId: 'mut_comp2_shp_01',
+            idempotencyKey: `idem_comp2_same_phone_${Date.now()}`,
+            mutationType: 'CREATE_RETAILER',
+            payload: {
+              shopName: 'Comp 2 Independent Store',
+              phone: '9829011111',
+              classification: 'NEW',
+              defaultCreditLimitPaise: 0
+            }
+          }
+        ]
+      })
+    });
+    assert.equal(res.status, 200, 'Different company must be permitted to register same mobile');
+    const json = await res.json();
+    assert.equal(json.results[0].status, 'COMMITTED');
+  });
+
+  test('16. Concurrency & Idempotency: Simultaneous duplicate requests race and idempotent replay', async () => {
+    const racePhone = '9829088888';
+    const idemKeyA = `idem_race_a_${Date.now()}`;
+    const idemKeyB = `idem_race_b_${Date.now()}`;
+
+    // Two simultaneous requests competing to register the same mobile number in comp_1
+    const [resA, resB] = await Promise.all([
+      fetch(`${BASE_URL}/sync/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+        body: JSON.stringify({
+          clientBatchId: 'batch_race_a',
+          organizationId: 'comp_1',
+          mutations: [{
+            mutationId: 'mut_race_a',
+            idempotencyKey: idemKeyA,
+            mutationType: 'CREATE_RETAILER',
+            payload: { shopName: 'Race Store A', phone: racePhone, classification: 'NEW', defaultCreditLimitPaise: 0 }
+          }]
+        })
+      }),
+      fetch(`${BASE_URL}/sync/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+        body: JSON.stringify({
+          clientBatchId: 'batch_race_b',
+          organizationId: 'comp_1',
+          mutations: [{
+            mutationId: 'mut_race_b',
+            idempotencyKey: idemKeyB,
+            mutationType: 'CREATE_RETAILER',
+            payload: { shopName: 'Race Store B', phone: racePhone, classification: 'NEW', defaultCreditLimitPaise: 0 }
+          }]
+        })
+      })
+    ]);
+
+    const statuses = [resA.status, resB.status].sort();
+    assert.deepEqual(statuses, [200, 409], 'Exactly one concurrent request must succeed (200) and one must be rejected (409)');
+
+    // Successful request replay with same idempotency key returns cached committed result
+    const winningKey = resA.status === 200 ? idemKeyA : idemKeyB;
+    const winningShopName = resA.status === 200 ? 'Race Store A' : 'Race Store B';
+    const replayRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_replay',
+        organizationId: 'comp_1',
+        mutations: [{
+          mutationId: 'mut_replay_01',
+          idempotencyKey: winningKey,
+          mutationType: 'CREATE_RETAILER',
+          payload: { shopName: winningShopName, phone: racePhone, classification: 'NEW', defaultCreditLimitPaise: 0 }
+        }]
+      })
+    });
+    assert.equal(replayRes.status, 200, 'Idempotent replay must succeed');
+    const replayJson = await replayRes.json();
+    assert.equal(replayJson.results[0].status, 'COMMITTED');
+    assert.equal(replayJson.results[0].cached, true, 'Must return cached result');
+  });
+
+  test('17. Legacy Formatted Phone Matching: Matches seeded phone with country code or trunk 0', async () => {
+    // Seeded R1 in comp_1 has contact_number '9829012345'
+    const resTrunk = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${salesToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_legacy_phone',
+        organizationId: 'comp_1',
+        mutations: [{
+          mutationId: 'mut_legacy_phone_01',
+          idempotencyKey: `idem_legacy_${Date.now()}`,
+          mutationType: 'CREATE_RETAILER',
+          payload: {
+            shopName: 'Legacy Conflicting Shop',
+            phone: '09829012345', // Starts with trunk 0
+            classification: 'NEW',
+            defaultCreditLimitPaise: 0
+          }
+        }]
+      })
+    });
+    assert.equal(resTrunk.status, 409, 'Must reject phone matching existing retailer even with trunk 0 prefix');
+    const json = await resTrunk.json();
+    assert.equal(json.error, 'DUPLICATE_RETAILER_PHONE');
+  });
+
+  test('18. Owner/Admin Configurable Credit Policy: Owner can assign negotiated credit limit', async () => {
+    const ownerIdemKey = `idem_owner_credit_${Date.now()}`;
+    const negotiatedCredit = 3500000; // ₹35,000 negotiated term (distinct from default 25,000)
+
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ownerToken}` },
+      body: JSON.stringify({
+        clientBatchId: 'batch_owner_credit',
+        organizationId: 'comp_1',
+        mutations: [{
+          mutationId: 'mut_owner_shp_01',
+          idempotencyKey: ownerIdemKey,
+          mutationType: 'CREATE_RETAILER',
+          payload: {
+            shopName: 'Super Royal Mart',
+            ownerName: 'Devendra Singh',
+            phone: '9829077777',
+            classification: 'B',
+            defaultCreditLimitPaise: negotiatedCredit,
+            route: 'BEAT-04'
+          }
+        }]
+      })
+    });
+    assert.equal(res.status, 200, 'Owner must be permitted to configure class B and negotiated credit');
+    const json = await res.json();
+    assert.equal(json.results[0].status, 'COMMITTED');
+
+    // Pull delta to verify preserved credit limit in D1
+    const pull = await fetch(`${BASE_URL}/sync/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ownerToken}` },
+      body: JSON.stringify({ organizationId: 'comp_1', limit: 100 })
+    });
+    const pullJson = await pull.json();
+    const createdShop = pullJson.delta.retailers.find(r => r.phone === '9829077777');
+    assert.ok(createdShop, 'Created shop must be returned in pull delta');
+    assert.equal(createdShop.classification, 'B');
+    assert.equal(createdShop.creditLimitPaise, negotiatedCredit, 'Negotiated credit limit must be stored in D1');
+  });
 });

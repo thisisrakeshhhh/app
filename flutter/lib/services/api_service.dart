@@ -853,6 +853,7 @@ class ApiService extends ChangeNotifier {
     String? whatsappPhone,
     String? gstType,
     String? panNumber,
+    int? customCreditLimitPaise,
   }) async {
     final session = currentSession;
     if (session == null) {
@@ -917,7 +918,10 @@ class ApiService extends ChangeNotifier {
     final isSales = session.activeRole.toUpperCase() == 'SALES';
     final targetClass = RetailerClassification.normalize(suggestedClass);
     final effectiveClass = isSales ? 'NEW' : targetClass;
-    final effectiveCredit = isSales ? 0 : RetailerClassification.defaultCreditLimitPaise(effectiveClass);
+    // Credit policy: sales cannot grant credit; owner/admin can assign negotiated or baseline limit
+    final effectiveCredit = isSales
+        ? 0
+        : (customCreditLimitPaise ?? RetailerCreditPolicy.getBaselinePolicy(effectiveClass).baselineCreditLimitPaise);
 
     final newShop = RetailerShop(
       id: provisionalRetailerId,

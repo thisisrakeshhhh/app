@@ -169,6 +169,24 @@ export function syncRouter(authMiddleware: any) {
         const gstin = payload?.gstin ?? null;
         const ownerName = payload?.ownerName ?? null;
 
+        // Backend Duplicate Phone Detection (Tenant-scoped, handles both canonical 10-digit and legacy formats)
+        if (contactNumber && contactNumber.length === 10) {
+          const candidates = await c.env.DB.prepare(
+            `SELECT id, name, contact_number FROM retailers 
+             WHERE company_id = ? 
+               AND (contact_number = ? OR contact_number LIKE ?)`
+          ).bind(tenantId, contactNumber, `%${contactNumber}`).all<any>();
+
+          const duplicate = candidates.results?.find(r => normalizeIndianPhone(r.contact_number) === contactNumber);
+          if (duplicate) {
+            return c.json({
+              success: false,
+              error: 'DUPLICATE_RETAILER_PHONE',
+              message: `Retailer with phone number '${contactNumber}' already exists in your organization: '${duplicate.name}' (${duplicate.id})`
+            }, 409);
+          }
+        }
+
         currentSeq++;
 
         // Atomic insertion of retailer + audit log
@@ -199,6 +217,13 @@ export function syncRouter(authMiddleware: any) {
           ]);
         } catch (e: any) {
           const msg = `${e?.message || ''} ${e?.cause?.message || ''} ${e?.cause || ''} ${String(e)}`;
+          if (msg.includes('DUPLICATE_RETAILER_PHONE')) {
+            return c.json({
+              success: false,
+              error: 'DUPLICATE_RETAILER_PHONE',
+              message: `A retailer with mobile number '${contactNumber}' already exists in your organization`
+            }, 409);
+          }
           if (msg.includes('UNIQUE constraint failed') && (msg.includes('idempotency_key') || msg.includes('server_outbox_audit'))) {
             const concurrentAudit = await c.env.DB.prepare(
               'SELECT * FROM server_outbox_audit WHERE organization_id = ? AND idempotency_key = ?'

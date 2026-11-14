@@ -30,11 +30,64 @@ class RetailerBusinessValidator {
     r'^[1-9][0-9]{5}$',
   );
 
-  /// Validates whether [gstin] conforms to the standard 15-character GSTIN structure.
-  static bool isValidGstin(String? gstin) {
+  /// Alphanumeric code table for Indian GSTIN Luhn Modulo-36 check-digit algorithm.
+  static const String _base36Chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  /// Validates whether [gstin] conforms to the standard 15-character GSTIN structure (regex).
+  static bool isValidGstinStructure(String? gstin) {
     if (gstin == null) return false;
     final clean = gstin.trim().toUpperCase();
     return clean.length == 15 && gstinRegex.hasMatch(clean);
+  }
+
+  /// Computes the 15th check digit for a 14-character GSTIN prefix using the
+  /// official GSTN Luhn Modulo-36 algorithm.
+  ///
+  /// Returns null if the prefix is not 14 characters or contains characters outside [0-9A-Z].
+  static String? computeGstinCheckDigit(String gstin14) {
+    final clean = gstin14.trim().toUpperCase();
+    if (clean.length != 14) return null;
+
+    var sum = 0;
+    for (var i = 0; i < 14; i++) {
+      final cp = _base36Chars.indexOf(clean[i]);
+      if (cp == -1) return null;
+
+      // Alternating weight factor: 1 for even index (0, 2, 4...), 2 for odd index (1, 3, 5...)
+      final factor = (i % 2 == 0) ? 1 : 2;
+      final product = cp * factor;
+
+      // Hash: quotient + remainder upon dividing by 36
+      final quotient = product ~/ 36;
+      final remainder = product % 36;
+      sum += quotient + remainder;
+    }
+
+    final checkCode = (36 - (sum % 36)) % 36;
+    return _base36Chars[checkCode];
+  }
+
+  /// Verifies whether the 15th character of [gstin] matches the official GSTN
+  /// Luhn Modulo-36 checksum calculation.
+  static bool isValidGstinChecksum(String? gstin) {
+    if (gstin == null) return false;
+    final clean = gstin.trim().toUpperCase();
+    if (clean.length != 15) return false;
+
+    final expectedCheckDigit = computeGstinCheckDigit(clean.substring(0, 14));
+    if (expectedCheckDigit == null) return false;
+
+    return clean[14] == expectedCheckDigit;
+  }
+
+  /// Validates [gstin]. By default checks structural conformance.
+  /// When [verifyChecksum] is `true`, also validates the Modulo-36 check digit.
+  static bool isValidGstin(String? gstin, {bool verifyChecksum = false}) {
+    if (!isValidGstinStructure(gstin)) return false;
+    if (verifyChecksum) {
+      return isValidGstinChecksum(gstin);
+    }
+    return true;
   }
 
   /// Normalizes GSTIN to uppercase trimmed string, or `null` if empty.
@@ -60,7 +113,7 @@ class RetailerBusinessValidator {
 
   /// Derives the 10-character PAN from a 15-character GSTIN (characters 3 through 12).
   ///
-  /// For example, GSTIN `08AAACH1234F1Z5` -> PAN `AAACH1234F`.
+  /// For example, GSTIN `27AAPFU0939F1ZV` -> PAN `AAPFU0939F`.
   static String? extractPanFromGstin(String? gstin) {
     if (gstin == null) return null;
     final clean = gstin.trim().toUpperCase();

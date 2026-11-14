@@ -174,22 +174,39 @@ void main() {
     });
   });
 
-  group('Checkpoint 3: Statutory Business Identifiers (GSTIN, PAN & Pincode)', () {
-    test('1. Validates standard 15-character GSTIN structure', () {
-      expect(RetailerBusinessValidator.isValidGstin('08AAACH1234F1Z5'), isTrue);
-      expect(RetailerBusinessValidator.isValidGstin('07AAAAA0000A1Z5'), isTrue);
+  group('Checkpoint 3: Statutory Business Identifiers (GSTIN Structure, PAN & Modulo-36 Checksum)', () {
+    test('1. Validates standard 15-character statutory GSTIN structure (regex)', () {
+      expect(RetailerBusinessValidator.isValidGstinStructure('08AAACH1234F1Z5'), isTrue);
+      expect(RetailerBusinessValidator.isValidGstinStructure('07AAAAA0000A1Z5'), isTrue);
 
-      // Invalid GSTINs
-      expect(RetailerBusinessValidator.isValidGstin('08AAACH1234F1'), isFalse); // Too short
-      expect(RetailerBusinessValidator.isValidGstin('08AAACH1234F1X5'), isFalse); // 14th char not Z
-      expect(RetailerBusinessValidator.isValidGstin('invalid_gstin_str'), isFalse);
-      expect(RetailerBusinessValidator.isValidGstin(null), isFalse);
+      // Invalid GSTIN structures
+      expect(RetailerBusinessValidator.isValidGstinStructure('08AAACH1234F1'), isFalse); // Too short
+      expect(RetailerBusinessValidator.isValidGstinStructure('08AAACH1234F1X5'), isFalse); // 14th char not Z
+      expect(RetailerBusinessValidator.isValidGstinStructure('invalid_gstin_str'), isFalse);
+      expect(RetailerBusinessValidator.isValidGstinStructure(null), isFalse);
     });
 
-    test('2. Automatically extracts and validates 10-character PAN from GSTIN', () {
-      const gstin = '08AAACH1234F1Z5';
+    test('2. Computes and verifies official Indian GSTN Luhn Modulo-36 check-digit', () {
+      // Official GSTN example: 27AAPFU0939F1Z => check digit V
+      const prefix = '27AAPFU0939F1Z';
+      final checkDigit = RetailerBusinessValidator.computeGstinCheckDigit(prefix);
+      expect(checkDigit, equals('V'));
+
+      const validGstinWithChecksum = '27AAPFU0939F1ZV';
+      expect(RetailerBusinessValidator.isValidGstinChecksum(validGstinWithChecksum), isTrue);
+      expect(RetailerBusinessValidator.isValidGstin(validGstinWithChecksum, verifyChecksum: true), isTrue);
+
+      // Tampered 15th character (X instead of V) fails checksum validation
+      const invalidChecksumGstin = '27AAPFU0939F1ZX';
+      expect(RetailerBusinessValidator.isValidGstinStructure(invalidChecksumGstin), isTrue); // Structure ok
+      expect(RetailerBusinessValidator.isValidGstinChecksum(invalidChecksumGstin), isFalse); // Checksum fails!
+      expect(RetailerBusinessValidator.isValidGstin(invalidChecksumGstin, verifyChecksum: true), isFalse);
+    });
+
+    test('3. Automatically extracts and validates 10-character PAN from GSTIN', () {
+      const gstin = '27AAPFU0939F1ZV';
       final pan = RetailerBusinessValidator.extractPanFromGstin(gstin);
-      expect(pan, equals('AAACH1234F'));
+      expect(pan, equals('AAPFU0939F'));
       expect(RetailerBusinessValidator.isValidPan(pan), isTrue);
 
       // Resolves explicit PAN when given, falls back to GSTIN extraction
@@ -199,11 +216,11 @@ void main() {
       );
       expect(
         RetailerBusinessValidator.resolvePan(pan: null, gstin: gstin),
-        equals('AAACH1234F'),
+        equals('AAPFU0939F'),
       );
     });
 
-    test('3. Validates 6-digit Indian postal PIN codes', () {
+    test('4. Validates 6-digit Indian postal PIN codes', () {
       expect(RetailerBusinessValidator.isValidPincode('342001'), isTrue); // Jodhpur
       expect(RetailerBusinessValidator.isValidPincode('160017'), isTrue); // Chandigarh
 
@@ -371,6 +388,70 @@ void main() {
       expect(foundOrg1, isNotNull);
       expect(foundOrg1!.id, equals('ret_org1_01'));
       expect(foundOrg1.createdByUserId, equals('usr_org1'));
+    });
+
+    test('6. Owner/Admin can configure custom negotiated credit limit distinct from baseline guidelines', () async {
+      final ownerSession = UserSession(
+        userId: 'usr_owner_ramesh',
+        name: 'Ramesh Patel',
+        activeOrganizationId: 'org_jodhpur_dist',
+        activeRole: 'OWNER',
+        organizations: [
+          OrganizationMembership(
+            id: 'org_jodhpur_dist',
+            name: 'Jodhpur FMCG Distributors',
+            role: 'OWNER',
+            isActive: true,
+          ),
+        ],
+      );
+
+      final ownerApi = ApiService.internalForTesting(
+        database: db,
+        localRepo: repo,
+        sessionProvider: () => ownerSession,
+      );
+
+      const negotiatedCredit = 6000000; // ₹60,000 negotiated credit (distinct from standard class B ₹25,000)
+      final createdShop = await ownerApi.createRetailerDurable(
+        name: 'Premier Wholesale Mart',
+        ownerName: 'Devendra Singh',
+        phone: '9829077777',
+        address: 'Industrial Area',
+        area: 'Basni',
+        suggestedClass: 'CLASS_B',
+        customCreditLimitPaise: negotiatedCredit,
+      );
+
+      expect(createdShop.classType, equals('B'));
+      expect(createdShop.creditLimitPaise, equals(negotiatedCredit));
+      expect(createdShop.canUseCredit, isTrue);
+
+      final dbShop = await repo.findRetailerByPhone('9829077777');
+      expect(dbShop, isNotNull);
+      expect(dbShop!.creditLimitPaise, equals(negotiatedCredit));
+    });
+
+    test('7. Existing retailer negotiated credit is strictly preserved upon details update', () async {
+      // Seeded shop RET-JDH-01 has negotiated creditLimitPaise: 5000000 (₹50,000)
+      final shopBefore = await repo.getRetailerById('RET-JDH-01');
+      expect(shopBefore, isNotNull);
+      expect(shopBefore!.creditLimitPaise, equals(5000000));
+
+      // Updating name, address, or phone preserves credit limit
+      await repo.updateRetailerDetails(
+        id: 'RET-JDH-01',
+        name: 'Shree Ganesh Mega Kirana',
+        ownerName: 'Ramprasad Maheshwari',
+        phone: '+91 98290 12345',
+        address: 'Shop 14, Nai Sadak Circle',
+        area: 'Nai Sadak',
+      );
+
+      final shopAfter = await repo.getRetailerById('RET-JDH-01');
+      expect(shopAfter, isNotNull);
+      expect(shopAfter!.name, equals('Shree Ganesh Mega Kirana'));
+      expect(shopAfter.creditLimitPaise, equals(5000000), reason: 'Negotiated credit limit must never be wiped');
     });
   });
 }
