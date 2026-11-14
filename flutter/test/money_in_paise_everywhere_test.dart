@@ -223,9 +223,9 @@ void main() {
           ('p3', 'Soap Bar Special', 'साबुन', 'Personal Care', 37.50, 3100, 6, 36, 1700000000);
       ''');
 
-      // Upgrade with AppDatabase target schemaVersion = 6
+      // Upgrade with AppDatabase target schemaVersion = 7
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
-      expect(upgradedDb.schemaVersion, equals(6));
+      expect(upgradedDb.schemaVersion, equals(7));
 
       final repo = LocalRepository(upgradedDb);
       final products = await repo.getAllProducts();

@@ -21,13 +21,16 @@ abstract class RouteProvider {
 /// Real road-following routing provider using Open Source Routing Machine (OSRM).
 /// Fully free, no paid API keys required, works reliably across Indian roads.
 class OsrmRouteProvider implements RouteProvider {
-  final http.Client _client;
+  http.Client? _client;
   final String baseUrl;
 
   OsrmRouteProvider({
     http.Client? client,
     this.baseUrl = 'https://router.project-osrm.org',
-  })  : _client = client ?? http.Client();
+    // ignore: prefer_initializing_formals
+  }) : _client = client;
+
+  http.Client get _effectiveClient => _client ??= http.Client();
 
   @override
   String get name => 'OSRM';
@@ -49,7 +52,7 @@ class OsrmRouteProvider implements RouteProvider {
     );
 
     try {
-      final response = await _client.get(url).timeout(const Duration(seconds: 7));
+      final response = await _effectiveClient.get(url).timeout(const Duration(seconds: 7));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['code'] == 'Ok' && (data['routes'] as List).isNotEmpty) {

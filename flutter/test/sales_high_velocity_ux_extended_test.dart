@@ -130,6 +130,8 @@ void main() {
 
     testWidgets('4. Today screen displays Continue Route button with next pending shop', (tester) async {
       int navigatedToTab = -1;
+      await tester.binding.setSurfaceSize(const Size(800, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

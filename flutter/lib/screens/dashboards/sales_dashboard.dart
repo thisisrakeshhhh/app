@@ -202,6 +202,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     }
 
     final nextShop = assigned[nextIdx];
+    widget.onNavigateTab(2);
     if (nextShop.latitude == null || nextShop.longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -914,14 +914,15 @@ class ApiService extends ChangeNotifier {
       gstin: cleanGstin,
     );
 
-    // Sales reps can only add shops with class = NEW, credit = 0 (Cash only)
+    // Sales reps can only add shops with class = NEW, credit = 0 (Cash only).
+    // If not sales and a custom negotiated credit limit is explicitly assigned by Owner/Admin,
+    // assign the target class and negotiated credit limit immediately.
+    // Otherwise, newly created shops start as 'NEW' (cash-only, 0 credit) pending owner review/approval.
     final isSales = session.activeRole.toUpperCase() == 'SALES';
     final targetClass = RetailerClassification.normalize(suggestedClass);
-    final effectiveClass = isSales ? 'NEW' : targetClass;
-    // Credit policy: sales cannot grant credit; owner/admin can assign negotiated or baseline limit
-    final effectiveCredit = isSales
-        ? 0
-        : (customCreditLimitPaise ?? RetailerCreditPolicy.getBaselinePolicy(effectiveClass).baselineCreditLimitPaise);
+    final hasExplicitOwnerAssignment = !isSales && customCreditLimitPaise != null;
+    final effectiveClass = hasExplicitOwnerAssignment ? targetClass : 'NEW';
+    final effectiveCredit = hasExplicitOwnerAssignment ? customCreditLimitPaise : 0;
 
     final newShop = RetailerShop(
       id: provisionalRetailerId,

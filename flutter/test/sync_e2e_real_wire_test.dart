@@ -123,7 +123,7 @@ void main() {
         mutationType: 'CREATE_RETAILER',
         payloadJson: jsonEncode({
           'shopName': 'Wire Test Kirana',
-          'phone': '9829012345',
+          'phone': '9829098765',
           'classification': 'NEW',
           'defaultCreditLimitPaise': 0,
         }),

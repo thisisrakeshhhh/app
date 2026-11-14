@@ -78,8 +78,8 @@ void main() {
       await db.close();
     });
 
-    test('4. Fresh install initializes Drift schema version 6 with spatial columns', () async {
-      expect(db.schemaVersion, equals(6));
+    test('4. Fresh install initializes Drift schema version 7 with spatial columns', () async {
+      expect(db.schemaVersion, equals(7));
 
       // Retailers table with latitude and longitude
       await repository.upsertRetailer(
@@ -219,9 +219,9 @@ void main() {
         VALUES ('RET-LEGACY-01', 'Old City General Store', 'Gopal Das', '9829011111', 'Sojati Gate', 'Old City', 1000000, 200000, 1700000000);
       ''');
 
-      // Open with Drift AppDatabase target schemaVersion = 6
+      // Open with Drift AppDatabase target schemaVersion = 7
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
-      expect(upgradedDb.schemaVersion, equals(6));
+      expect(upgradedDb.schemaVersion, equals(7));
 
       // Verify warehouse_hubs table now exists
       final tablesAfter = await upgradedDb.customSelect(
