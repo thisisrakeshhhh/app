@@ -426,6 +426,74 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  // Checkpoint 2: Reservation & FEFO Stock Management
+  Future<void> reserveProductStock({
+    required String productId,
+    required int pieces,
+    required String orderId,
+    String? reason,
+  }) async {
+    await repository.reserveStock(
+      productId: productId,
+      pieces: pieces,
+      orderId: orderId,
+      reason: reason,
+    );
+    final updated = await repository.getAllProducts();
+    _products = updated;
+    notifyListeners();
+  }
+
+  Future<void> releaseProductStock({
+    required String productId,
+    required int pieces,
+    required String orderId,
+    String? reason,
+  }) async {
+    await repository.releaseStockReservation(
+      productId: productId,
+      pieces: pieces,
+      orderId: orderId,
+      reason: reason,
+    );
+    final updated = await repository.getAllProducts();
+    _products = updated;
+    notifyListeners();
+  }
+
+  Future<void> adjustProductStock({
+    required String productId,
+    required int cartonDelta,
+    required int loosePieceDelta,
+    required String reason,
+    String? idempotencyKey,
+  }) async {
+    await repository.adjustStock(
+      productId: productId,
+      cartonDelta: cartonDelta,
+      loosePieceDelta: loosePieceDelta,
+      reason: reason,
+      idempotencyKey: idempotencyKey,
+    );
+    final updated = await repository.getAllProducts();
+    _products = updated;
+    notifyListeners();
+  }
+
+  Future<List<ProductBatch>> getProductBatches(String productId, {bool activeOnly = true}) {
+    return repository.getBatchesForProduct(productId, activeOnly: activeOnly);
+  }
+
+  Future<List<BatchPickAllocation>> getFefoPickingPlan({
+    required String productId,
+    required int requiredPieces,
+  }) {
+    return repository.planFefoPicking(
+      productId: productId,
+      requiredPieces: requiredPieces,
+    );
+  }
+
   void removeProduct(String productId) {
     _products.removeWhere((p) => p.id == productId);
     _cart.remove(productId);

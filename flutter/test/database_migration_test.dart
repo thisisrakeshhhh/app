@@ -97,7 +97,7 @@ void main() {
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
       final repo = LocalRepository(upgradedDb);
 
-      expect(upgradedDb.schemaVersion, equals(6));
+      expect(upgradedDb.schemaVersion, equals(7));
 
       // Requirement 1: Products preserved and new isArchived column defaulted to false
       final products = await repo.getAllProducts();
@@ -150,8 +150,8 @@ void main() {
       await db.close();
     });
 
-    test('Fresh install initializes schema version 6 correctly', () async {
-      expect(db.schemaVersion, equals(6));
+    test('Fresh install initializes schema version 7 correctly', () async {
+      expect(db.schemaVersion, equals(7));
       expect(await repository.getMetadata('schema_initialized'), isNull);
       expect(await db.select(db.products).get(), isEmpty);
       expect(await db.select(db.inventoryMovements).get(), isEmpty);
@@ -485,7 +485,7 @@ void main() {
 
       // Open v4 database with AppDatabase target schemaVersion = 5
       final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
-      expect(upgradedDb.schemaVersion, equals(6));
+      expect(upgradedDb.schemaVersion, equals(7));
 
       // Verify v4 data preserved
       final repo = LocalRepository(upgradedDb);
@@ -509,6 +509,167 @@ void main() {
 
       final classSettingsCount = await upgradedDb.customSelect("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='class_settings';").getSingle();
       expect(classSettingsCount.read<int>('cnt'), equals(1));
+
+      await upgradedDb.close();
+    });
+
+    test('Drift Schema Version 6 -> Version 7 migration adds reserved stock columns and product_batches table without data loss', () async {
+      final rawDb = sqlite3.openInMemory();
+
+      // Setup exact v6 schema
+      rawDb.execute('''
+        CREATE TABLE products (
+          id TEXT NOT NULL PRIMARY KEY,
+          name TEXT NOT NULL,
+          hindi_name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          mrp_rupees REAL NOT NULL,
+          mrp_paise INTEGER NOT NULL DEFAULT 0,
+          piece_price_paise INTEGER NOT NULL,
+          strip_qty INTEGER NOT NULL,
+          box_qty INTEGER NOT NULL,
+          gst_rate REAL NOT NULL DEFAULT 18.0,
+          badge TEXT NOT NULL DEFAULT '',
+          image_url TEXT NOT NULL DEFAULT '',
+          is_archived INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE retailers (
+          id TEXT NOT NULL PRIMARY KEY,
+          name TEXT NOT NULL,
+          owner_name TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          address TEXT NOT NULL,
+          area TEXT NOT NULL,
+          credit_limit_paise INTEGER NOT NULL,
+          outstanding_paise INTEGER NOT NULL,
+          latitude REAL,
+          longitude REAL,
+          class_type TEXT NOT NULL DEFAULT 'NEW',
+          class_source TEXT NOT NULL DEFAULT 'MANUAL',
+          route_id TEXT,
+          shop_type TEXT NOT NULL DEFAULT 'KIRANA',
+          gstin TEXT,
+          pincode TEXT,
+          landmark TEXT,
+          status TEXT NOT NULL DEFAULT 'ACTIVE',
+          created_by_user_id TEXT,
+          location_accuracy_meters REAL,
+          sync_status TEXT NOT NULL DEFAULT 'PENDING',
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE inventory_snapshots (
+          product_id TEXT NOT NULL PRIMARY KEY REFERENCES products (id),
+          godown_cartons INTEGER NOT NULL DEFAULT 0,
+          godown_loose_pieces INTEGER NOT NULL DEFAULT 0,
+          car_cartons INTEGER NOT NULL DEFAULT 0,
+          car_loose_pieces INTEGER NOT NULL DEFAULT 0,
+          damaged_cartons INTEGER NOT NULL DEFAULT 0,
+          damaged_loose_pieces INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE inventory_movements (
+          id TEXT NOT NULL PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products (id),
+          movement_type TEXT NOT NULL,
+          carton_delta INTEGER NOT NULL,
+          loose_piece_delta INTEGER NOT NULL,
+          reason TEXT NOT NULL DEFAULT '',
+          location_id TEXT,
+          invoice_number TEXT,
+          batch_number TEXT,
+          supplier_name TEXT,
+          idempotency_key TEXT,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE database_metadata (
+          key TEXT NOT NULL PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE outbox_mutations (
+          id TEXT NOT NULL PRIMARY KEY,
+          organization_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          idempotency_key TEXT NOT NULL UNIQUE,
+          mutation_type TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          sequence_order INTEGER NOT NULL,
+          sync_status TEXT NOT NULL DEFAULT 'PENDING',
+          provisional_business_id TEXT,
+          lease_token TEXT,
+          lease_generation INTEGER NOT NULL DEFAULT 0,
+          lease_expires_at_ms INTEGER,
+          attempt_count INTEGER NOT NULL DEFAULT 0,
+          last_error_code TEXT,
+          next_retry_at_ms INTEGER,
+          created_at_epoch_ms INTEGER NOT NULL,
+          synced_at_epoch_ms INTEGER
+        );
+
+        CREATE TABLE product_units (
+          id TEXT NOT NULL PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products (id),
+          unit_name TEXT NOT NULL,
+          multiplier_to_base INTEGER NOT NULL,
+          is_base_unit INTEGER NOT NULL DEFAULT 0,
+          allow_loose_sale INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE unit_prices (
+          id TEXT NOT NULL PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products (id),
+          unit_name TEXT NOT NULL,
+          wholesale_price_paise INTEGER NOT NULL,
+          mrp_paise INTEGER NOT NULL,
+          min_order_qty INTEGER NOT NULL DEFAULT 1,
+          updated_at INTEGER NOT NULL
+        );
+
+        PRAGMA user_version = 6;
+      ''');
+
+      // Insert real v6 records
+      rawDb.execute('''
+        INSERT INTO products (id, name, hindi_name, category, mrp_rupees, mrp_paise, piece_price_paise, strip_qty, box_qty, created_at)
+        VALUES ('prod_v6_biscuit', 'Parle-G Gold', 'पारले-जी गोल्ड', 'Biscuits', 10.0, 1000, 800, 10, 50, 1700000000);
+
+        INSERT INTO inventory_snapshots (product_id, godown_cartons, godown_loose_pieces, car_cartons, car_loose_pieces, damaged_cartons, damaged_loose_pieces, updated_at)
+        VALUES ('prod_v6_biscuit', 25, 10, 5, 2, 0, 0, 1700000000);
+      ''');
+
+      // Open v6 database with AppDatabase target schemaVersion = 7
+      final upgradedDb = AppDatabase(NativeDatabase.opened(rawDb));
+      expect(upgradedDb.schemaVersion, equals(7));
+
+      // Verify v6 data preserved and new reserved columns defaulted to 0
+      final repo = LocalRepository(upgradedDb);
+      final products = await repo.getAllProducts();
+      expect(products.length, equals(1));
+      final p = products.first;
+      expect(p.id, equals('prod_v6_biscuit'));
+      expect(p.godownStockBoxes, equals(25));
+      expect(p.godownReservedBoxes, equals(0));
+      expect(p.godownReservedPieces, equals(0));
+      expect(p.availableGodownBoxes, equals(25));
+
+      // Verify product_batches table created
+      final batchesTableCount = await upgradedDb.customSelect(
+        "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='product_batches';",
+      ).getSingle();
+      expect(batchesTableCount.read<int>('cnt'), equals(1));
+
+      // Verify idx_batches_fefo index created
+      final fefoIndexCount = await upgradedDb.customSelect(
+        "SELECT count(*) as cnt FROM sqlite_master WHERE type='index' AND name='idx_batches_fefo';",
+      ).getSingle();
+      expect(fefoIndexCount.read<int>('cnt'), equals(1));
 
       await upgradedDb.close();
     });

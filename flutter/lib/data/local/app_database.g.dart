@@ -2262,6 +2262,29 @@ class $InventorySnapshotsTable extends InventorySnapshots
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _reservedCartonsMeta = const VerificationMeta(
+    'reservedCartons',
+  );
+  @override
+  late final GeneratedColumn<int> reservedCartons = GeneratedColumn<int>(
+    'reserved_cartons',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _reservedLoosePiecesMeta =
+      const VerificationMeta('reservedLoosePieces');
+  @override
+  late final GeneratedColumn<int> reservedLoosePieces = GeneratedColumn<int>(
+    'reserved_loose_pieces',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -2282,6 +2305,8 @@ class $InventorySnapshotsTable extends InventorySnapshots
     carLoosePieces,
     damagedCartons,
     damagedLoosePieces,
+    reservedCartons,
+    reservedLoosePieces,
     updatedAt,
   ];
   @override
@@ -2355,6 +2380,24 @@ class $InventorySnapshotsTable extends InventorySnapshots
         ),
       );
     }
+    if (data.containsKey('reserved_cartons')) {
+      context.handle(
+        _reservedCartonsMeta,
+        reservedCartons.isAcceptableOrUnknown(
+          data['reserved_cartons']!,
+          _reservedCartonsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reserved_loose_pieces')) {
+      context.handle(
+        _reservedLoosePiecesMeta,
+        reservedLoosePieces.isAcceptableOrUnknown(
+          data['reserved_loose_pieces']!,
+          _reservedLoosePiecesMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -2400,6 +2443,14 @@ class $InventorySnapshotsTable extends InventorySnapshots
         DriftSqlType.int,
         data['${effectivePrefix}damaged_loose_pieces'],
       )!,
+      reservedCartons: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reserved_cartons'],
+      )!,
+      reservedLoosePieces: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reserved_loose_pieces'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -2422,6 +2473,8 @@ class InventorySnapshotEntry extends DataClass
   final int carLoosePieces;
   final int damagedCartons;
   final int damagedLoosePieces;
+  final int reservedCartons;
+  final int reservedLoosePieces;
   final DateTime updatedAt;
   const InventorySnapshotEntry({
     required this.productId,
@@ -2431,6 +2484,8 @@ class InventorySnapshotEntry extends DataClass
     required this.carLoosePieces,
     required this.damagedCartons,
     required this.damagedLoosePieces,
+    required this.reservedCartons,
+    required this.reservedLoosePieces,
     required this.updatedAt,
   });
   @override
@@ -2443,6 +2498,8 @@ class InventorySnapshotEntry extends DataClass
     map['car_loose_pieces'] = Variable<int>(carLoosePieces);
     map['damaged_cartons'] = Variable<int>(damagedCartons);
     map['damaged_loose_pieces'] = Variable<int>(damagedLoosePieces);
+    map['reserved_cartons'] = Variable<int>(reservedCartons);
+    map['reserved_loose_pieces'] = Variable<int>(reservedLoosePieces);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -2456,6 +2513,8 @@ class InventorySnapshotEntry extends DataClass
       carLoosePieces: Value(carLoosePieces),
       damagedCartons: Value(damagedCartons),
       damagedLoosePieces: Value(damagedLoosePieces),
+      reservedCartons: Value(reservedCartons),
+      reservedLoosePieces: Value(reservedLoosePieces),
       updatedAt: Value(updatedAt),
     );
   }
@@ -2473,6 +2532,10 @@ class InventorySnapshotEntry extends DataClass
       carLoosePieces: serializer.fromJson<int>(json['carLoosePieces']),
       damagedCartons: serializer.fromJson<int>(json['damagedCartons']),
       damagedLoosePieces: serializer.fromJson<int>(json['damagedLoosePieces']),
+      reservedCartons: serializer.fromJson<int>(json['reservedCartons']),
+      reservedLoosePieces: serializer.fromJson<int>(
+        json['reservedLoosePieces'],
+      ),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -2487,6 +2550,8 @@ class InventorySnapshotEntry extends DataClass
       'carLoosePieces': serializer.toJson<int>(carLoosePieces),
       'damagedCartons': serializer.toJson<int>(damagedCartons),
       'damagedLoosePieces': serializer.toJson<int>(damagedLoosePieces),
+      'reservedCartons': serializer.toJson<int>(reservedCartons),
+      'reservedLoosePieces': serializer.toJson<int>(reservedLoosePieces),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -2499,6 +2564,8 @@ class InventorySnapshotEntry extends DataClass
     int? carLoosePieces,
     int? damagedCartons,
     int? damagedLoosePieces,
+    int? reservedCartons,
+    int? reservedLoosePieces,
     DateTime? updatedAt,
   }) => InventorySnapshotEntry(
     productId: productId ?? this.productId,
@@ -2508,6 +2575,8 @@ class InventorySnapshotEntry extends DataClass
     carLoosePieces: carLoosePieces ?? this.carLoosePieces,
     damagedCartons: damagedCartons ?? this.damagedCartons,
     damagedLoosePieces: damagedLoosePieces ?? this.damagedLoosePieces,
+    reservedCartons: reservedCartons ?? this.reservedCartons,
+    reservedLoosePieces: reservedLoosePieces ?? this.reservedLoosePieces,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   InventorySnapshotEntry copyWithCompanion(InventorySnapshotsCompanion data) {
@@ -2531,6 +2600,12 @@ class InventorySnapshotEntry extends DataClass
       damagedLoosePieces: data.damagedLoosePieces.present
           ? data.damagedLoosePieces.value
           : this.damagedLoosePieces,
+      reservedCartons: data.reservedCartons.present
+          ? data.reservedCartons.value
+          : this.reservedCartons,
+      reservedLoosePieces: data.reservedLoosePieces.present
+          ? data.reservedLoosePieces.value
+          : this.reservedLoosePieces,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -2545,6 +2620,8 @@ class InventorySnapshotEntry extends DataClass
           ..write('carLoosePieces: $carLoosePieces, ')
           ..write('damagedCartons: $damagedCartons, ')
           ..write('damagedLoosePieces: $damagedLoosePieces, ')
+          ..write('reservedCartons: $reservedCartons, ')
+          ..write('reservedLoosePieces: $reservedLoosePieces, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -2559,6 +2636,8 @@ class InventorySnapshotEntry extends DataClass
     carLoosePieces,
     damagedCartons,
     damagedLoosePieces,
+    reservedCartons,
+    reservedLoosePieces,
     updatedAt,
   );
   @override
@@ -2572,6 +2651,8 @@ class InventorySnapshotEntry extends DataClass
           other.carLoosePieces == this.carLoosePieces &&
           other.damagedCartons == this.damagedCartons &&
           other.damagedLoosePieces == this.damagedLoosePieces &&
+          other.reservedCartons == this.reservedCartons &&
+          other.reservedLoosePieces == this.reservedLoosePieces &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -2584,6 +2665,8 @@ class InventorySnapshotsCompanion
   final Value<int> carLoosePieces;
   final Value<int> damagedCartons;
   final Value<int> damagedLoosePieces;
+  final Value<int> reservedCartons;
+  final Value<int> reservedLoosePieces;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const InventorySnapshotsCompanion({
@@ -2594,6 +2677,8 @@ class InventorySnapshotsCompanion
     this.carLoosePieces = const Value.absent(),
     this.damagedCartons = const Value.absent(),
     this.damagedLoosePieces = const Value.absent(),
+    this.reservedCartons = const Value.absent(),
+    this.reservedLoosePieces = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2605,6 +2690,8 @@ class InventorySnapshotsCompanion
     this.carLoosePieces = const Value.absent(),
     this.damagedCartons = const Value.absent(),
     this.damagedLoosePieces = const Value.absent(),
+    this.reservedCartons = const Value.absent(),
+    this.reservedLoosePieces = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : productId = Value(productId),
@@ -2617,6 +2704,8 @@ class InventorySnapshotsCompanion
     Expression<int>? carLoosePieces,
     Expression<int>? damagedCartons,
     Expression<int>? damagedLoosePieces,
+    Expression<int>? reservedCartons,
+    Expression<int>? reservedLoosePieces,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -2629,6 +2718,9 @@ class InventorySnapshotsCompanion
       if (damagedCartons != null) 'damaged_cartons': damagedCartons,
       if (damagedLoosePieces != null)
         'damaged_loose_pieces': damagedLoosePieces,
+      if (reservedCartons != null) 'reserved_cartons': reservedCartons,
+      if (reservedLoosePieces != null)
+        'reserved_loose_pieces': reservedLoosePieces,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2642,6 +2734,8 @@ class InventorySnapshotsCompanion
     Value<int>? carLoosePieces,
     Value<int>? damagedCartons,
     Value<int>? damagedLoosePieces,
+    Value<int>? reservedCartons,
+    Value<int>? reservedLoosePieces,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -2653,6 +2747,8 @@ class InventorySnapshotsCompanion
       carLoosePieces: carLoosePieces ?? this.carLoosePieces,
       damagedCartons: damagedCartons ?? this.damagedCartons,
       damagedLoosePieces: damagedLoosePieces ?? this.damagedLoosePieces,
+      reservedCartons: reservedCartons ?? this.reservedCartons,
+      reservedLoosePieces: reservedLoosePieces ?? this.reservedLoosePieces,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2682,6 +2778,12 @@ class InventorySnapshotsCompanion
     if (damagedLoosePieces.present) {
       map['damaged_loose_pieces'] = Variable<int>(damagedLoosePieces.value);
     }
+    if (reservedCartons.present) {
+      map['reserved_cartons'] = Variable<int>(reservedCartons.value);
+    }
+    if (reservedLoosePieces.present) {
+      map['reserved_loose_pieces'] = Variable<int>(reservedLoosePieces.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -2701,6 +2803,8 @@ class InventorySnapshotsCompanion
           ..write('carLoosePieces: $carLoosePieces, ')
           ..write('damagedCartons: $damagedCartons, ')
           ..write('damagedLoosePieces: $damagedLoosePieces, ')
+          ..write('reservedCartons: $reservedCartons, ')
+          ..write('reservedLoosePieces: $reservedLoosePieces, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -8555,6 +8659,724 @@ class VisitsCompanion extends UpdateCompanion<VisitEntry> {
   }
 }
 
+class $ProductBatchesTable extends ProductBatches
+    with TableInfo<$ProductBatchesTable, ProductBatchEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProductBatchesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES products (id)',
+    ),
+  );
+  static const VerificationMeta _batchNoMeta = const VerificationMeta(
+    'batchNo',
+  );
+  @override
+  late final GeneratedColumn<String> batchNo = GeneratedColumn<String>(
+    'batch_no',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mfgDateMeta = const VerificationMeta(
+    'mfgDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> mfgDate = GeneratedColumn<DateTime>(
+    'mfg_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expiryDateMeta = const VerificationMeta(
+    'expiryDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiryDate = GeneratedColumn<DateTime>(
+    'expiry_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rackBinMeta = const VerificationMeta(
+    'rackBin',
+  );
+  @override
+  late final GeneratedColumn<String> rackBin = GeneratedColumn<String>(
+    'rack_bin',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedQuantityMeta = const VerificationMeta(
+    'receivedQuantity',
+  );
+  @override
+  late final GeneratedColumn<int> receivedQuantity = GeneratedColumn<int>(
+    'received_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _remainingQuantityMeta = const VerificationMeta(
+    'remainingQuantity',
+  );
+  @override
+  late final GeneratedColumn<int> remainingQuantity = GeneratedColumn<int>(
+    'remaining_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _committedQuantityMeta = const VerificationMeta(
+    'committedQuantity',
+  );
+  @override
+  late final GeneratedColumn<int> committedQuantity = GeneratedColumn<int>(
+    'committed_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('ACTIVE'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    productId,
+    batchNo,
+    mfgDate,
+    expiryDate,
+    rackBin,
+    receivedQuantity,
+    remainingQuantity,
+    committedQuantity,
+    status,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'product_batches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProductBatchEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_productIdMeta);
+    }
+    if (data.containsKey('batch_no')) {
+      context.handle(
+        _batchNoMeta,
+        batchNo.isAcceptableOrUnknown(data['batch_no']!, _batchNoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_batchNoMeta);
+    }
+    if (data.containsKey('mfg_date')) {
+      context.handle(
+        _mfgDateMeta,
+        mfgDate.isAcceptableOrUnknown(data['mfg_date']!, _mfgDateMeta),
+      );
+    }
+    if (data.containsKey('expiry_date')) {
+      context.handle(
+        _expiryDateMeta,
+        expiryDate.isAcceptableOrUnknown(data['expiry_date']!, _expiryDateMeta),
+      );
+    }
+    if (data.containsKey('rack_bin')) {
+      context.handle(
+        _rackBinMeta,
+        rackBin.isAcceptableOrUnknown(data['rack_bin']!, _rackBinMeta),
+      );
+    }
+    if (data.containsKey('received_quantity')) {
+      context.handle(
+        _receivedQuantityMeta,
+        receivedQuantity.isAcceptableOrUnknown(
+          data['received_quantity']!,
+          _receivedQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remaining_quantity')) {
+      context.handle(
+        _remainingQuantityMeta,
+        remainingQuantity.isAcceptableOrUnknown(
+          data['remaining_quantity']!,
+          _remainingQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('committed_quantity')) {
+      context.handle(
+        _committedQuantityMeta,
+        committedQuantity.isAcceptableOrUnknown(
+          data['committed_quantity']!,
+          _committedQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ProductBatchEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProductBatchEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      )!,
+      batchNo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}batch_no'],
+      )!,
+      mfgDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}mfg_date'],
+      ),
+      expiryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expiry_date'],
+      ),
+      rackBin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rack_bin'],
+      ),
+      receivedQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}received_quantity'],
+      )!,
+      remainingQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remaining_quantity'],
+      )!,
+      committedQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}committed_quantity'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProductBatchesTable createAlias(String alias) {
+    return $ProductBatchesTable(attachedDatabase, alias);
+  }
+}
+
+class ProductBatchEntry extends DataClass
+    implements Insertable<ProductBatchEntry> {
+  final String id;
+  final String productId;
+  final String batchNo;
+  final DateTime? mfgDate;
+  final DateTime? expiryDate;
+  final String? rackBin;
+  final int receivedQuantity;
+  final int remainingQuantity;
+  final int committedQuantity;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const ProductBatchEntry({
+    required this.id,
+    required this.productId,
+    required this.batchNo,
+    this.mfgDate,
+    this.expiryDate,
+    this.rackBin,
+    required this.receivedQuantity,
+    required this.remainingQuantity,
+    required this.committedQuantity,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['product_id'] = Variable<String>(productId);
+    map['batch_no'] = Variable<String>(batchNo);
+    if (!nullToAbsent || mfgDate != null) {
+      map['mfg_date'] = Variable<DateTime>(mfgDate);
+    }
+    if (!nullToAbsent || expiryDate != null) {
+      map['expiry_date'] = Variable<DateTime>(expiryDate);
+    }
+    if (!nullToAbsent || rackBin != null) {
+      map['rack_bin'] = Variable<String>(rackBin);
+    }
+    map['received_quantity'] = Variable<int>(receivedQuantity);
+    map['remaining_quantity'] = Variable<int>(remainingQuantity);
+    map['committed_quantity'] = Variable<int>(committedQuantity);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ProductBatchesCompanion toCompanion(bool nullToAbsent) {
+    return ProductBatchesCompanion(
+      id: Value(id),
+      productId: Value(productId),
+      batchNo: Value(batchNo),
+      mfgDate: mfgDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mfgDate),
+      expiryDate: expiryDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiryDate),
+      rackBin: rackBin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rackBin),
+      receivedQuantity: Value(receivedQuantity),
+      remainingQuantity: Value(remainingQuantity),
+      committedQuantity: Value(committedQuantity),
+      status: Value(status),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ProductBatchEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProductBatchEntry(
+      id: serializer.fromJson<String>(json['id']),
+      productId: serializer.fromJson<String>(json['productId']),
+      batchNo: serializer.fromJson<String>(json['batchNo']),
+      mfgDate: serializer.fromJson<DateTime?>(json['mfgDate']),
+      expiryDate: serializer.fromJson<DateTime?>(json['expiryDate']),
+      rackBin: serializer.fromJson<String?>(json['rackBin']),
+      receivedQuantity: serializer.fromJson<int>(json['receivedQuantity']),
+      remainingQuantity: serializer.fromJson<int>(json['remainingQuantity']),
+      committedQuantity: serializer.fromJson<int>(json['committedQuantity']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'productId': serializer.toJson<String>(productId),
+      'batchNo': serializer.toJson<String>(batchNo),
+      'mfgDate': serializer.toJson<DateTime?>(mfgDate),
+      'expiryDate': serializer.toJson<DateTime?>(expiryDate),
+      'rackBin': serializer.toJson<String?>(rackBin),
+      'receivedQuantity': serializer.toJson<int>(receivedQuantity),
+      'remainingQuantity': serializer.toJson<int>(remainingQuantity),
+      'committedQuantity': serializer.toJson<int>(committedQuantity),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ProductBatchEntry copyWith({
+    String? id,
+    String? productId,
+    String? batchNo,
+    Value<DateTime?> mfgDate = const Value.absent(),
+    Value<DateTime?> expiryDate = const Value.absent(),
+    Value<String?> rackBin = const Value.absent(),
+    int? receivedQuantity,
+    int? remainingQuantity,
+    int? committedQuantity,
+    String? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => ProductBatchEntry(
+    id: id ?? this.id,
+    productId: productId ?? this.productId,
+    batchNo: batchNo ?? this.batchNo,
+    mfgDate: mfgDate.present ? mfgDate.value : this.mfgDate,
+    expiryDate: expiryDate.present ? expiryDate.value : this.expiryDate,
+    rackBin: rackBin.present ? rackBin.value : this.rackBin,
+    receivedQuantity: receivedQuantity ?? this.receivedQuantity,
+    remainingQuantity: remainingQuantity ?? this.remainingQuantity,
+    committedQuantity: committedQuantity ?? this.committedQuantity,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ProductBatchEntry copyWithCompanion(ProductBatchesCompanion data) {
+    return ProductBatchEntry(
+      id: data.id.present ? data.id.value : this.id,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      batchNo: data.batchNo.present ? data.batchNo.value : this.batchNo,
+      mfgDate: data.mfgDate.present ? data.mfgDate.value : this.mfgDate,
+      expiryDate: data.expiryDate.present
+          ? data.expiryDate.value
+          : this.expiryDate,
+      rackBin: data.rackBin.present ? data.rackBin.value : this.rackBin,
+      receivedQuantity: data.receivedQuantity.present
+          ? data.receivedQuantity.value
+          : this.receivedQuantity,
+      remainingQuantity: data.remainingQuantity.present
+          ? data.remainingQuantity.value
+          : this.remainingQuantity,
+      committedQuantity: data.committedQuantity.present
+          ? data.committedQuantity.value
+          : this.committedQuantity,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProductBatchEntry(')
+          ..write('id: $id, ')
+          ..write('productId: $productId, ')
+          ..write('batchNo: $batchNo, ')
+          ..write('mfgDate: $mfgDate, ')
+          ..write('expiryDate: $expiryDate, ')
+          ..write('rackBin: $rackBin, ')
+          ..write('receivedQuantity: $receivedQuantity, ')
+          ..write('remainingQuantity: $remainingQuantity, ')
+          ..write('committedQuantity: $committedQuantity, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    productId,
+    batchNo,
+    mfgDate,
+    expiryDate,
+    rackBin,
+    receivedQuantity,
+    remainingQuantity,
+    committedQuantity,
+    status,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProductBatchEntry &&
+          other.id == this.id &&
+          other.productId == this.productId &&
+          other.batchNo == this.batchNo &&
+          other.mfgDate == this.mfgDate &&
+          other.expiryDate == this.expiryDate &&
+          other.rackBin == this.rackBin &&
+          other.receivedQuantity == this.receivedQuantity &&
+          other.remainingQuantity == this.remainingQuantity &&
+          other.committedQuantity == this.committedQuantity &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ProductBatchesCompanion extends UpdateCompanion<ProductBatchEntry> {
+  final Value<String> id;
+  final Value<String> productId;
+  final Value<String> batchNo;
+  final Value<DateTime?> mfgDate;
+  final Value<DateTime?> expiryDate;
+  final Value<String?> rackBin;
+  final Value<int> receivedQuantity;
+  final Value<int> remainingQuantity;
+  final Value<int> committedQuantity;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ProductBatchesCompanion({
+    this.id = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.batchNo = const Value.absent(),
+    this.mfgDate = const Value.absent(),
+    this.expiryDate = const Value.absent(),
+    this.rackBin = const Value.absent(),
+    this.receivedQuantity = const Value.absent(),
+    this.remainingQuantity = const Value.absent(),
+    this.committedQuantity = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProductBatchesCompanion.insert({
+    required String id,
+    required String productId,
+    required String batchNo,
+    this.mfgDate = const Value.absent(),
+    this.expiryDate = const Value.absent(),
+    this.rackBin = const Value.absent(),
+    this.receivedQuantity = const Value.absent(),
+    this.remainingQuantity = const Value.absent(),
+    this.committedQuantity = const Value.absent(),
+    this.status = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       productId = Value(productId),
+       batchNo = Value(batchNo),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ProductBatchEntry> custom({
+    Expression<String>? id,
+    Expression<String>? productId,
+    Expression<String>? batchNo,
+    Expression<DateTime>? mfgDate,
+    Expression<DateTime>? expiryDate,
+    Expression<String>? rackBin,
+    Expression<int>? receivedQuantity,
+    Expression<int>? remainingQuantity,
+    Expression<int>? committedQuantity,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (productId != null) 'product_id': productId,
+      if (batchNo != null) 'batch_no': batchNo,
+      if (mfgDate != null) 'mfg_date': mfgDate,
+      if (expiryDate != null) 'expiry_date': expiryDate,
+      if (rackBin != null) 'rack_bin': rackBin,
+      if (receivedQuantity != null) 'received_quantity': receivedQuantity,
+      if (remainingQuantity != null) 'remaining_quantity': remainingQuantity,
+      if (committedQuantity != null) 'committed_quantity': committedQuantity,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProductBatchesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? productId,
+    Value<String>? batchNo,
+    Value<DateTime?>? mfgDate,
+    Value<DateTime?>? expiryDate,
+    Value<String?>? rackBin,
+    Value<int>? receivedQuantity,
+    Value<int>? remainingQuantity,
+    Value<int>? committedQuantity,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ProductBatchesCompanion(
+      id: id ?? this.id,
+      productId: productId ?? this.productId,
+      batchNo: batchNo ?? this.batchNo,
+      mfgDate: mfgDate ?? this.mfgDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      rackBin: rackBin ?? this.rackBin,
+      receivedQuantity: receivedQuantity ?? this.receivedQuantity,
+      remainingQuantity: remainingQuantity ?? this.remainingQuantity,
+      committedQuantity: committedQuantity ?? this.committedQuantity,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (batchNo.present) {
+      map['batch_no'] = Variable<String>(batchNo.value);
+    }
+    if (mfgDate.present) {
+      map['mfg_date'] = Variable<DateTime>(mfgDate.value);
+    }
+    if (expiryDate.present) {
+      map['expiry_date'] = Variable<DateTime>(expiryDate.value);
+    }
+    if (rackBin.present) {
+      map['rack_bin'] = Variable<String>(rackBin.value);
+    }
+    if (receivedQuantity.present) {
+      map['received_quantity'] = Variable<int>(receivedQuantity.value);
+    }
+    if (remainingQuantity.present) {
+      map['remaining_quantity'] = Variable<int>(remainingQuantity.value);
+    }
+    if (committedQuantity.present) {
+      map['committed_quantity'] = Variable<int>(committedQuantity.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProductBatchesCompanion(')
+          ..write('id: $id, ')
+          ..write('productId: $productId, ')
+          ..write('batchNo: $batchNo, ')
+          ..write('mfgDate: $mfgDate, ')
+          ..write('expiryDate: $expiryDate, ')
+          ..write('rackBin: $rackBin, ')
+          ..write('receivedQuantity: $receivedQuantity, ')
+          ..write('remainingQuantity: $remainingQuantity, ')
+          ..write('committedQuantity: $committedQuantity, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8579,6 +9401,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocationsTable locations = $LocationsTable(this);
   late final $CartDraftsTable cartDrafts = $CartDraftsTable(this);
   late final $VisitsTable visits = $VisitsTable(this);
+  late final $ProductBatchesTable productBatches = $ProductBatchesTable(this);
   late final OutboxDao outboxDao = OutboxDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -8600,6 +9423,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     locations,
     cartDrafts,
     visits,
+    productBatches,
   ];
 }
 
@@ -8723,6 +9547,24 @@ final class $$ProductsTableReferences
     ).filter((f) => f.productId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_unitPricesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ProductBatchesTable, List<ProductBatchEntry>>
+  _productBatchesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.productBatches,
+    aliasName: 'products__id__product_batches__product_id',
+  );
+
+  $$ProductBatchesTableProcessedTableManager get productBatchesRefs {
+    final manager = $$ProductBatchesTableTableManager(
+      $_db,
+      $_db.productBatches,
+    ).filter((f) => f.productId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_productBatchesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -8899,6 +9741,31 @@ class $$ProductsTableFilterComposer
           }) => $$UnitPricesTableFilterComposer(
             $db: $db,
             $table: $db.unitPrices,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> productBatchesRefs(
+    Expression<bool> Function($$ProductBatchesTableFilterComposer f) f,
+  ) {
+    final $$ProductBatchesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.productBatches,
+      getReferencedColumn: (t) => t.productId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductBatchesTableFilterComposer(
+            $db: $db,
+            $table: $db.productBatches,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -9145,6 +10012,31 @@ class $$ProductsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> productBatchesRefs<T extends Object>(
+    Expression<T> Function($$ProductBatchesTableAnnotationComposer a) f,
+  ) {
+    final $$ProductBatchesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.productBatches,
+      getReferencedColumn: (t) => t.productId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductBatchesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.productBatches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ProductsTableTableManager
@@ -9165,6 +10057,7 @@ class $$ProductsTableTableManager
             bool inventoryMovementsRefs,
             bool productUnitsRefs,
             bool unitPricesRefs,
+            bool productBatchesRefs,
           })
         > {
   $$ProductsTableTableManager(_$AppDatabase db, $ProductsTable table)
@@ -9260,6 +10153,7 @@ class $$ProductsTableTableManager
                 inventoryMovementsRefs = false,
                 productUnitsRefs = false,
                 unitPricesRefs = false,
+                productBatchesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -9268,6 +10162,7 @@ class $$ProductsTableTableManager
                     if (inventoryMovementsRefs) db.inventoryMovements,
                     if (productUnitsRefs) db.productUnits,
                     if (unitPricesRefs) db.unitPrices,
+                    if (productBatchesRefs) db.productBatches,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -9352,6 +10247,26 @@ class $$ProductsTableTableManager
                           referencedColumn: 'product_id',
                           typedResults: items,
                         ),
+                      if (productBatchesRefs)
+                        await $_getPrefetchedDataByColumns<
+                          ProductEntry,
+                          $ProductsTable,
+                          ProductBatchEntry,
+                          $ProductBatchesTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ProductsTableReferences
+                              ._productBatchesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ProductsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).productBatchesRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'product_id',
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -9377,6 +10292,7 @@ typedef $$ProductsTableProcessedTableManager =
         bool inventoryMovementsRefs,
         bool productUnitsRefs,
         bool unitPricesRefs,
+        bool productBatchesRefs,
       })
     >;
 typedef $$RetailersTableCreateCompanionBuilder =
@@ -10181,6 +11097,8 @@ typedef $$InventorySnapshotsTableCreateCompanionBuilder =
       Value<int> carLoosePieces,
       Value<int> damagedCartons,
       Value<int> damagedLoosePieces,
+      Value<int> reservedCartons,
+      Value<int> reservedLoosePieces,
       required DateTime updatedAt,
       Value<int> rowid,
     });
@@ -10193,6 +11111,8 @@ typedef $$InventorySnapshotsTableUpdateCompanionBuilder =
       Value<int> carLoosePieces,
       Value<int> damagedCartons,
       Value<int> damagedLoosePieces,
+      Value<int> reservedCartons,
+      Value<int> reservedLoosePieces,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -10267,6 +11187,16 @@ class $$InventorySnapshotsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get reservedCartons => $composableBuilder(
+    column: $table.reservedCartons,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reservedLoosePieces => $composableBuilder(
+    column: $table.reservedLoosePieces,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
@@ -10332,6 +11262,16 @@ class $$InventorySnapshotsTableOrderingComposer
 
   ColumnOrderings<int> get damagedLoosePieces => $composableBuilder(
     column: $table.damagedLoosePieces,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reservedCartons => $composableBuilder(
+    column: $table.reservedCartons,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reservedLoosePieces => $composableBuilder(
+    column: $table.reservedLoosePieces,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10403,6 +11343,16 @@ class $$InventorySnapshotsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get reservedCartons => $composableBuilder(
+    column: $table.reservedCartons,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reservedLoosePieces => $composableBuilder(
+    column: $table.reservedLoosePieces,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
@@ -10470,6 +11420,8 @@ class $$InventorySnapshotsTableTableManager
                 Value<int> carLoosePieces = const Value.absent(),
                 Value<int> damagedCartons = const Value.absent(),
                 Value<int> damagedLoosePieces = const Value.absent(),
+                Value<int> reservedCartons = const Value.absent(),
+                Value<int> reservedLoosePieces = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InventorySnapshotsCompanion(
@@ -10480,6 +11432,8 @@ class $$InventorySnapshotsTableTableManager
                 carLoosePieces: carLoosePieces,
                 damagedCartons: damagedCartons,
                 damagedLoosePieces: damagedLoosePieces,
+                reservedCartons: reservedCartons,
+                reservedLoosePieces: reservedLoosePieces,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -10492,6 +11446,8 @@ class $$InventorySnapshotsTableTableManager
                 Value<int> carLoosePieces = const Value.absent(),
                 Value<int> damagedCartons = const Value.absent(),
                 Value<int> damagedLoosePieces = const Value.absent(),
+                Value<int> reservedCartons = const Value.absent(),
+                Value<int> reservedLoosePieces = const Value.absent(),
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
               }) => InventorySnapshotsCompanion.insert(
@@ -10502,6 +11458,8 @@ class $$InventorySnapshotsTableTableManager
                 carLoosePieces: carLoosePieces,
                 damagedCartons: damagedCartons,
                 damagedLoosePieces: damagedLoosePieces,
+                reservedCartons: reservedCartons,
+                reservedLoosePieces: reservedLoosePieces,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -14416,6 +15374,472 @@ typedef $$VisitsTableProcessedTableManager =
       VisitEntry,
       PrefetchHooks Function({bool retailerId})
     >;
+typedef $$ProductBatchesTableCreateCompanionBuilder =
+    ProductBatchesCompanion Function({
+      required String id,
+      required String productId,
+      required String batchNo,
+      Value<DateTime?> mfgDate,
+      Value<DateTime?> expiryDate,
+      Value<String?> rackBin,
+      Value<int> receivedQuantity,
+      Value<int> remainingQuantity,
+      Value<int> committedQuantity,
+      Value<String> status,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ProductBatchesTableUpdateCompanionBuilder =
+    ProductBatchesCompanion Function({
+      Value<String> id,
+      Value<String> productId,
+      Value<String> batchNo,
+      Value<DateTime?> mfgDate,
+      Value<DateTime?> expiryDate,
+      Value<String?> rackBin,
+      Value<int> receivedQuantity,
+      Value<int> remainingQuantity,
+      Value<int> committedQuantity,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$ProductBatchesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ProductBatchesTable, ProductBatchEntry> {
+  $$ProductBatchesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ProductsTable _productIdTable(_$AppDatabase db) =>
+      db.products.createAlias('product_batches__product_id__products__id');
+
+  $$ProductsTableProcessedTableManager get productId {
+    final $_column = $_itemColumn<String>('product_id')!;
+
+    final manager = $$ProductsTableTableManager(
+      $_db,
+      $_db.products,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_productIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ProductBatchesTableFilterComposer
+    extends Composer<_$AppDatabase, $ProductBatchesTable> {
+  $$ProductBatchesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get batchNo => $composableBuilder(
+    column: $table.batchNo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get mfgDate => $composableBuilder(
+    column: $table.mfgDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rackBin => $composableBuilder(
+    column: $table.rackBin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get receivedQuantity => $composableBuilder(
+    column: $table.receivedQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remainingQuantity => $composableBuilder(
+    column: $table.remainingQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get committedQuantity => $composableBuilder(
+    column: $table.committedQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ProductsTableFilterComposer get productId {
+    final $$ProductsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.productId,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableFilterComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProductBatchesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProductBatchesTable> {
+  $$ProductBatchesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get batchNo => $composableBuilder(
+    column: $table.batchNo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get mfgDate => $composableBuilder(
+    column: $table.mfgDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rackBin => $composableBuilder(
+    column: $table.rackBin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get receivedQuantity => $composableBuilder(
+    column: $table.receivedQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remainingQuantity => $composableBuilder(
+    column: $table.remainingQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get committedQuantity => $composableBuilder(
+    column: $table.committedQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ProductsTableOrderingComposer get productId {
+    final $$ProductsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.productId,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableOrderingComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProductBatchesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProductBatchesTable> {
+  $$ProductBatchesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get batchNo =>
+      $composableBuilder(column: $table.batchNo, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get mfgDate =>
+      $composableBuilder(column: $table.mfgDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rackBin =>
+      $composableBuilder(column: $table.rackBin, builder: (column) => column);
+
+  GeneratedColumn<int> get receivedQuantity => $composableBuilder(
+    column: $table.receivedQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get remainingQuantity => $composableBuilder(
+    column: $table.remainingQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get committedQuantity => $composableBuilder(
+    column: $table.committedQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ProductsTableAnnotationComposer get productId {
+    final $$ProductsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.productId,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProductBatchesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProductBatchesTable,
+          ProductBatchEntry,
+          $$ProductBatchesTableFilterComposer,
+          $$ProductBatchesTableOrderingComposer,
+          $$ProductBatchesTableAnnotationComposer,
+          $$ProductBatchesTableCreateCompanionBuilder,
+          $$ProductBatchesTableUpdateCompanionBuilder,
+          (ProductBatchEntry, $$ProductBatchesTableReferences),
+          ProductBatchEntry,
+          PrefetchHooks Function({bool productId})
+        > {
+  $$ProductBatchesTableTableManager(
+    _$AppDatabase db,
+    $ProductBatchesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProductBatchesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProductBatchesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProductBatchesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> productId = const Value.absent(),
+                Value<String> batchNo = const Value.absent(),
+                Value<DateTime?> mfgDate = const Value.absent(),
+                Value<DateTime?> expiryDate = const Value.absent(),
+                Value<String?> rackBin = const Value.absent(),
+                Value<int> receivedQuantity = const Value.absent(),
+                Value<int> remainingQuantity = const Value.absent(),
+                Value<int> committedQuantity = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProductBatchesCompanion(
+                id: id,
+                productId: productId,
+                batchNo: batchNo,
+                mfgDate: mfgDate,
+                expiryDate: expiryDate,
+                rackBin: rackBin,
+                receivedQuantity: receivedQuantity,
+                remainingQuantity: remainingQuantity,
+                committedQuantity: committedQuantity,
+                status: status,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String productId,
+                required String batchNo,
+                Value<DateTime?> mfgDate = const Value.absent(),
+                Value<DateTime?> expiryDate = const Value.absent(),
+                Value<String?> rackBin = const Value.absent(),
+                Value<int> receivedQuantity = const Value.absent(),
+                Value<int> remainingQuantity = const Value.absent(),
+                Value<int> committedQuantity = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ProductBatchesCompanion.insert(
+                id: id,
+                productId: productId,
+                batchNo: batchNo,
+                mfgDate: mfgDate,
+                expiryDate: expiryDate,
+                rackBin: rackBin,
+                receivedQuantity: receivedQuantity,
+                remainingQuantity: remainingQuantity,
+                committedQuantity: committedQuantity,
+                status: status,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProductBatchesTable, ProductBatchEntry>(table),
+                  $$ProductBatchesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({productId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (productId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.productId,
+                                referencedTable: $$ProductBatchesTableReferences
+                                    ._productIdTable(db),
+                                referencedColumn:
+                                    $$ProductBatchesTableReferences
+                                        ._productIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ProductBatchesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProductBatchesTable,
+      ProductBatchEntry,
+      $$ProductBatchesTableFilterComposer,
+      $$ProductBatchesTableOrderingComposer,
+      $$ProductBatchesTableAnnotationComposer,
+      $$ProductBatchesTableCreateCompanionBuilder,
+      $$ProductBatchesTableUpdateCompanionBuilder,
+      (ProductBatchEntry, $$ProductBatchesTableReferences),
+      ProductBatchEntry,
+      PrefetchHooks Function({bool productId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14450,4 +15874,6 @@ class $AppDatabaseManager {
       $$CartDraftsTableTableManager(_db, _db.cartDrafts);
   $$VisitsTableTableManager get visits =>
       $$VisitsTableTableManager(_db, _db.visits);
+  $$ProductBatchesTableTableManager get productBatches =>
+      $$ProductBatchesTableTableManager(_db, _db.productBatches);
 }

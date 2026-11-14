@@ -70,10 +70,31 @@ class InventorySnapshots extends Table {
   IntColumn get carLoosePieces => integer().withDefault(const Constant(0))();
   IntColumn get damagedCartons => integer().withDefault(const Constant(0))();
   IntColumn get damagedLoosePieces => integer().withDefault(const Constant(0))();
+  IntColumn get reservedCartons => integer().withDefault(const Constant(0))();
+  IntColumn get reservedLoosePieces => integer().withDefault(const Constant(0))();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {productId};
+}
+
+@DataClassName('ProductBatchEntry')
+class ProductBatches extends Table {
+  TextColumn get id => text()();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get batchNo => text()();
+  DateTimeColumn get mfgDate => dateTime().nullable()();
+  DateTimeColumn get expiryDate => dateTime().nullable()();
+  TextColumn get rackBin => text().nullable()();
+  IntColumn get receivedQuantity => integer().withDefault(const Constant(0))();
+  IntColumn get remainingQuantity => integer().withDefault(const Constant(0))();
+  IntColumn get committedQuantity => integer().withDefault(const Constant(0))();
+  TextColumn get status => text().withDefault(const Constant('ACTIVE'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 @DataClassName('InventoryMovementEntry')
@@ -275,6 +296,7 @@ LazyDatabase _openConnection() {
     Locations,
     CartDrafts,
     Visits,
+    ProductBatches,
   ],
   daos: [
     OutboxDao,
@@ -284,7 +306,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -301,6 +323,7 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_route_stops_route_retailer ON route_stops (route_id, retailer_id);');
         await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_product_units_prod_unit ON product_units (product_id, unit_name);');
         await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_unit_prices_prod_unit ON unit_prices (product_id, unit_name);');
+        await customStatement('CREATE INDEX IF NOT EXISTS idx_batches_fefo ON product_batches (product_id, expiry_date, remaining_quantity);');
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2 && to >= 2) {
@@ -364,6 +387,15 @@ class AppDatabase extends _$AppDatabase {
           // Version 5 -> Version 6: Add mrp_paise to products and backfill from mrp_rupees
           await m.addColumn(products, products.mrpPaise);
           await customStatement('UPDATE products SET mrp_paise = CAST(ROUND(mrp_rupees * 100) AS INTEGER) WHERE mrp_paise = 0;');
+        }
+        if (from < 7 && to >= 7) {
+          // Version 6 -> Version 7: Add reserved stock tracking to inventory_snapshots and create product_batches
+          await m.addColumn(inventorySnapshots, inventorySnapshots.reservedCartons);
+          await m.addColumn(inventorySnapshots, inventorySnapshots.reservedLoosePieces);
+          await m.createTable(productBatches);
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_batches_fefo ON product_batches (product_id, expiry_date, remaining_quantity);',
+          );
         }
       },
       beforeOpen: (details) async {

@@ -109,6 +109,8 @@ void main() {
               carLoosePieces: 5,
               damagedCartons: 0,
               damagedLoosePieces: 0,
+              reservedCartons: 0,
+              reservedLoosePieces: 0,
               updatedAt: now,
             ),
           );

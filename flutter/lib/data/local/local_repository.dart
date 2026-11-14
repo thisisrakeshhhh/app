@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import '../../domain/models/inventory_math.dart';
 import '../../models/models.dart';
 import 'app_database.dart';
 
@@ -62,6 +63,8 @@ class LocalRepository {
         boxQty: p.boxQty,
         gstRate: p.gstRate,
         godownStockBoxes: snap?.godownCartons ?? 0,
+        godownReservedBoxes: snap?.reservedCartons ?? 0,
+        godownReservedPieces: snap?.reservedLoosePieces ?? 0,
         carStockBoxes: snap?.carCartons ?? 0,
         badge: p.badge,
         imageUrl: p.imageUrl,
@@ -424,6 +427,10 @@ class LocalRepository {
     }
 
     await db.transaction(() async {
+      final existingSnap = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .getSingleOrNull();
+
       await db.into(db.inventorySnapshots).insertOnConflictUpdate(
         InventorySnapshotsCompanion(
           productId: Value(productId),
@@ -431,6 +438,10 @@ class LocalRepository {
           godownLoosePieces: Value(newGodownLoosePieces),
           carCartons: Value(newCarCartons),
           carLoosePieces: Value(newCarLoosePieces),
+          damagedCartons: Value(existingSnap?.damagedCartons ?? 0),
+          damagedLoosePieces: Value(existingSnap?.damagedLoosePieces ?? 0),
+          reservedCartons: Value(existingSnap?.reservedCartons ?? 0),
+          reservedLoosePieces: Value(existingSnap?.reservedLoosePieces ?? 0),
           updatedAt: Value(DateTime.now()),
         ),
       );
@@ -502,6 +513,8 @@ class LocalRepository {
       final currentCarLoose = current?.carLoosePieces ?? 0;
       final currentDamagedCartons = current?.damagedCartons ?? 0;
       final currentDamagedLoose = current?.damagedLoosePieces ?? 0;
+      final currentReservedCartons = current?.reservedCartons ?? 0;
+      final currentReservedLoose = current?.reservedLoosePieces ?? 0;
 
       final updatedGodownCartons = currentGodownCartons + cartonsReceived;
       final updatedGodownLoose = currentGodownLoose + loosePiecesReceived;
@@ -517,6 +530,8 @@ class LocalRepository {
           carLoosePieces: Value(currentCarLoose),
           damagedCartons: Value(updatedDamagedCartons),
           damagedLoosePieces: Value(updatedDamagedLoose),
+          reservedCartons: Value(currentReservedCartons),
+          reservedLoosePieces: Value(currentReservedLoose),
           updatedAt: Value(DateTime.now()),
         ),
       );
@@ -587,6 +602,8 @@ class LocalRepository {
       final currentCarLoose = current?.carLoosePieces ?? 0;
       final currentDamagedCartons = current?.damagedCartons ?? 0;
       final currentDamagedLoose = current?.damagedLoosePieces ?? 0;
+      final currentReservedCartons = current?.reservedCartons ?? 0;
+      final currentReservedLoose = current?.reservedLoosePieces ?? 0;
 
       final updatedGodownCartons = currentGodownCartons - original.cartonDelta;
       final updatedGodownLoose = currentGodownLoose - original.loosePieceDelta;
@@ -600,6 +617,8 @@ class LocalRepository {
           carLoosePieces: Value(currentCarLoose),
           damagedCartons: Value(currentDamagedCartons),
           damagedLoosePieces: Value(currentDamagedLoose),
+          reservedCartons: Value(currentReservedCartons),
+          reservedLoosePieces: Value(currentReservedLoose),
           updatedAt: Value(DateTime.now()),
         ),
       );
@@ -622,6 +641,408 @@ class LocalRepository {
         ),
       );
     });
+  }
+
+  // ===========================================================================
+  // Checkpoint 2 — Products & Inventory Foundation (Reservation, Adjustment & FEFO)
+  // ===========================================================================
+
+  /// Atomically reserves [pieces] units for [orderId].
+  /// Prevents overselling by asserting available stock >= pieces.
+  /// Logs an auditable, idempotent movement into [InventoryMovements].
+  Future<void> reserveStock({
+    required String productId,
+    required int pieces,
+    required String orderId,
+    String? reason,
+  }) async {
+    if (pieces <= 0) {
+      throw ArgumentError('Pieces to reserve must be greater than zero: $pieces');
+    }
+
+    final idempotencyKey = 'reserve_${orderId}_$productId';
+
+    await db.transaction(() async {
+      // 1. Idempotency check: if this reservation was already processed, exit safely
+      final existingMovement = await (db.select(db.inventoryMovements)
+            ..where((tbl) => tbl.idempotencyKey.equals(idempotencyKey)))
+          .getSingleOrNull();
+      if (existingMovement != null) {
+        return;
+      }
+
+      // 2. Fetch product & current snapshot
+      final product = await (db.select(db.products)
+            ..where((tbl) => tbl.id.equals(productId)))
+          .getSingleOrNull();
+      if (product == null) {
+        throw StateError('Cannot reserve stock: Product $productId does not exist');
+      }
+
+      final snap = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .getSingleOrNull();
+      if (snap == null) {
+        throw StateError('Cannot reserve stock: No inventory snapshot for product $productId');
+      }
+
+      final stock = InventoryStock(
+        cartons: snap.godownCartons,
+        loosePieces: snap.godownLoosePieces,
+        piecesPerCarton: product.boxQty,
+        reservedCartons: snap.reservedCartons,
+        reservedLoosePieces: snap.reservedLoosePieces,
+      );
+
+      // Throws StateError with INSUFFICIENT_STOCK if available < pieces
+      final updatedStock = stock.reservePieces(pieces);
+
+      // 3. Atomically update snapshot in SQLite
+      await (db.update(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .write(
+        InventorySnapshotsCompanion(
+          reservedCartons: Value(updatedStock.reservedCartons),
+          reservedLoosePieces: Value(updatedStock.reservedLoosePieces),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      // 4. Create immutable audit movement entry
+      final now = DateTime.now();
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value('mov_res_${now.microsecondsSinceEpoch}_$productId'),
+          productId: Value(productId),
+          movementType: const Value('STOCK_RESERVE'),
+          cartonDelta: Value(pieces ~/ product.boxQty),
+          loosePieceDelta: Value(pieces % product.boxQty),
+          reason: Value(reason ?? 'Stock reserved for order $orderId'),
+          invoiceNumber: Value(orderId),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  /// Releases [pieces] units previously reserved for [orderId].
+  /// Logs an auditable, idempotent movement into [InventoryMovements].
+  Future<void> releaseStockReservation({
+    required String productId,
+    required int pieces,
+    required String orderId,
+    String? reason,
+  }) async {
+    if (pieces <= 0) {
+      throw ArgumentError('Pieces to release must be greater than zero: $pieces');
+    }
+
+    final idempotencyKey = 'release_${orderId}_$productId';
+
+    await db.transaction(() async {
+      final existingMovement = await (db.select(db.inventoryMovements)
+            ..where((tbl) => tbl.idempotencyKey.equals(idempotencyKey)))
+          .getSingleOrNull();
+      if (existingMovement != null) {
+        return;
+      }
+
+      final product = await (db.select(db.products)
+            ..where((tbl) => tbl.id.equals(productId)))
+          .getSingleOrNull();
+      if (product == null) {
+        throw StateError('Cannot release stock: Product $productId does not exist');
+      }
+
+      final snap = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .getSingleOrNull();
+      if (snap == null) {
+        throw StateError('Cannot release stock: No inventory snapshot for product $productId');
+      }
+
+      final stock = InventoryStock(
+        cartons: snap.godownCartons,
+        loosePieces: snap.godownLoosePieces,
+        piecesPerCarton: product.boxQty,
+        reservedCartons: snap.reservedCartons,
+        reservedLoosePieces: snap.reservedLoosePieces,
+      );
+
+      final updatedStock = stock.releaseReservation(pieces);
+
+      await (db.update(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .write(
+        InventorySnapshotsCompanion(
+          reservedCartons: Value(updatedStock.reservedCartons),
+          reservedLoosePieces: Value(updatedStock.reservedLoosePieces),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      final now = DateTime.now();
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value('mov_rel_${now.microsecondsSinceEpoch}_$productId'),
+          productId: Value(productId),
+          movementType: const Value('STOCK_RELEASE'),
+          cartonDelta: Value(-(pieces ~/ product.boxQty)),
+          loosePieceDelta: Value(-(pieces % product.boxQty)),
+          reason: Value(reason ?? 'Stock reservation released for order $orderId'),
+          invoiceNumber: Value(orderId),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  /// Fulfills/dispatches [pieces] units reserved for [orderId].
+  /// Decrements physical stock and releases reservation simultaneously.
+  Future<void> commitAndDeductStock({
+    required String productId,
+    required int pieces,
+    required String orderId,
+    String? reason,
+  }) async {
+    if (pieces <= 0) {
+      throw ArgumentError('Pieces to commit must be greater than zero: $pieces');
+    }
+
+    final idempotencyKey = 'dispatch_${orderId}_$productId';
+
+    await db.transaction(() async {
+      final existingMovement = await (db.select(db.inventoryMovements)
+            ..where((tbl) => tbl.idempotencyKey.equals(idempotencyKey)))
+          .getSingleOrNull();
+      if (existingMovement != null) {
+        return;
+      }
+
+      final product = await (db.select(db.products)
+            ..where((tbl) => tbl.id.equals(productId)))
+          .getSingleOrNull();
+      if (product == null) {
+        throw StateError('Cannot commit stock: Product $productId does not exist');
+      }
+
+      final snap = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .getSingleOrNull();
+      if (snap == null) {
+        throw StateError('Cannot commit stock: No inventory snapshot for product $productId');
+      }
+
+      final stock = InventoryStock(
+        cartons: snap.godownCartons,
+        loosePieces: snap.godownLoosePieces,
+        piecesPerCarton: product.boxQty,
+        reservedCartons: snap.reservedCartons,
+        reservedLoosePieces: snap.reservedLoosePieces,
+      );
+
+      final updatedStock = stock.commitAndDeductReserved(pieces);
+
+      await (db.update(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .write(
+        InventorySnapshotsCompanion(
+          godownCartons: Value(updatedStock.cartons),
+          godownLoosePieces: Value(updatedStock.loosePieces),
+          reservedCartons: Value(updatedStock.reservedCartons),
+          reservedLoosePieces: Value(updatedStock.reservedLoosePieces),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      final now = DateTime.now();
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value('mov_dsp_${now.microsecondsSinceEpoch}_$productId'),
+          productId: Value(productId),
+          movementType: const Value('DISPATCH'),
+          cartonDelta: Value(-(pieces ~/ product.boxQty)),
+          loosePieceDelta: Value(-(pieces % product.boxQty)),
+          reason: Value(reason ?? 'Stock dispatched for order $orderId'),
+          invoiceNumber: Value(orderId),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  /// Adjusts godown inventory (audit reconciliation / damage write-off).
+  /// Verifies physical stock cannot be negative or less than reserved stock.
+  Future<void> adjustStock({
+    required String productId,
+    required int cartonDelta,
+    required int loosePieceDelta,
+    required String reason,
+    String? idempotencyKey,
+  }) async {
+    await db.transaction(() async {
+      if (idempotencyKey != null) {
+        final existingMovement = await (db.select(db.inventoryMovements)
+              ..where((tbl) => tbl.idempotencyKey.equals(idempotencyKey)))
+            .getSingleOrNull();
+        if (existingMovement != null) {
+          return;
+        }
+      }
+
+      final product = await (db.select(db.products)
+            ..where((tbl) => tbl.id.equals(productId)))
+          .getSingleOrNull();
+      if (product == null) {
+        throw StateError('Cannot adjust stock: Product $productId does not exist');
+      }
+
+      final snap = await (db.select(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .getSingleOrNull();
+      if (snap == null) {
+        throw StateError('Cannot adjust stock: No inventory snapshot for product $productId');
+      }
+
+      final stock = InventoryStock(
+        cartons: snap.godownCartons,
+        loosePieces: snap.godownLoosePieces,
+        piecesPerCarton: product.boxQty,
+        reservedCartons: snap.reservedCartons,
+        reservedLoosePieces: snap.reservedLoosePieces,
+      );
+
+      final updatedStock = stock.adjustStock(
+        cartonDelta: cartonDelta,
+        loosePieceDelta: loosePieceDelta,
+      );
+
+      await (db.update(db.inventorySnapshots)
+            ..where((tbl) => tbl.productId.equals(productId)))
+          .write(
+        InventorySnapshotsCompanion(
+          godownCartons: Value(updatedStock.cartons),
+          godownLoosePieces: Value(updatedStock.loosePieces),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      final now = DateTime.now();
+      await db.into(db.inventoryMovements).insert(
+        InventoryMovementsCompanion(
+          id: Value('mov_adj_${now.microsecondsSinceEpoch}_$productId'),
+          productId: Value(productId),
+          movementType: const Value('ADJUSTMENT'),
+          cartonDelta: Value(cartonDelta),
+          loosePieceDelta: Value(loosePieceDelta),
+          reason: Value(reason),
+          idempotencyKey: Value(idempotencyKey),
+          createdAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  /// Inserts or updates a product batch in local SQLite
+  Future<void> upsertBatch(ProductBatch batch) async {
+    await db.into(db.productBatches).insertOnConflictUpdate(
+      ProductBatchesCompanion(
+        id: Value(batch.id),
+        productId: Value(batch.productId),
+        batchNo: Value(batch.batchNo),
+        mfgDate: Value(batch.mfgDate),
+        expiryDate: Value(batch.expiryDate),
+        rackBin: Value(batch.rackBin),
+        receivedQuantity: Value(batch.receivedQuantity),
+        remainingQuantity: Value(batch.remainingQuantity),
+        committedQuantity: Value(batch.committedQuantity),
+        status: Value(batch.status.code),
+        createdAt: Value(batch.createdAt),
+        updatedAt: Value(batch.updatedAt),
+      ),
+    );
+  }
+
+  /// Returns batches for a product sorted according to First-Expired-First-Out (FEFO) rules:
+  /// 1. Expiry date ascending (earliest expiry first; null expiries sorted last)
+  /// 2. Remaining quantity descending
+  /// 3. Creation date ascending
+  Future<List<ProductBatch>> getBatchesForProduct(
+    String productId, {
+    bool activeOnly = true,
+  }) async {
+    final query = db.select(db.productBatches)
+      ..where((tbl) => tbl.productId.equals(productId));
+    if (activeOnly) {
+      query.where((tbl) => tbl.status.equals('ACTIVE') & tbl.remainingQuantity.isBiggerThanValue(0));
+    }
+    final rows = await query.get();
+
+    final batches = rows.map((r) => ProductBatch(
+      id: r.id,
+      productId: r.productId,
+      batchNo: r.batchNo,
+      mfgDate: r.mfgDate,
+      expiryDate: r.expiryDate,
+      rackBin: r.rackBin,
+      receivedQuantity: r.receivedQuantity,
+      remainingQuantity: r.remainingQuantity,
+      committedQuantity: r.committedQuantity,
+      status: BatchStatusExt.fromCode(r.status),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    )).toList();
+
+    batches.sort((a, b) {
+      // FEFO rule: earliest expiry first
+      if (a.expiryDate == null && b.expiryDate == null) {
+        final remCmp = b.remainingQuantity.compareTo(a.remainingQuantity);
+        if (remCmp != 0) return remCmp;
+        return a.createdAt.compareTo(b.createdAt);
+      }
+      if (a.expiryDate == null) return 1; // nulls last
+      if (b.expiryDate == null) return -1;
+
+      final expCmp = a.expiryDate!.compareTo(b.expiryDate!);
+      if (expCmp != 0) return expCmp;
+
+      final remCmp = b.remainingQuantity.compareTo(a.remainingQuantity);
+      if (remCmp != 0) return remCmp;
+
+      return a.createdAt.compareTo(b.createdAt);
+    });
+
+    return batches;
+  }
+
+  /// Calculates a FEFO batch picking allocation plan for [requiredPieces]
+  Future<List<BatchPickAllocation>> planFefoPicking({
+    required String productId,
+    required int requiredPieces,
+  }) async {
+    if (requiredPieces <= 0) return [];
+
+    final activeBatches = await getBatchesForProduct(productId, activeOnly: true);
+    final allocations = <BatchPickAllocation>[];
+    int remainingToAllocate = requiredPieces;
+
+    for (final batch in activeBatches) {
+      if (remainingToAllocate <= 0) break;
+      final availableInBatch = batch.availableQuantity;
+      if (availableInBatch <= 0) continue;
+
+      final take = remainingToAllocate < availableInBatch ? remainingToAllocate : availableInBatch;
+      allocations.add(BatchPickAllocation(
+        batch: batch,
+        allocatedPieces: take,
+      ));
+      remainingToAllocate -= take;
+    }
+
+    return allocations;
   }
 
   // Cart Drafts Persistence

@@ -184,6 +184,130 @@ class ProductPackagingUnit {
       );
 }
 
+enum BatchStatus {
+  active,
+  depleted,
+  expired,
+  recalled,
+}
+
+extension BatchStatusExt on BatchStatus {
+  String get code {
+    switch (this) {
+      case BatchStatus.active:
+        return 'ACTIVE';
+      case BatchStatus.depleted:
+        return 'DEPLETED';
+      case BatchStatus.expired:
+        return 'EXPIRED';
+      case BatchStatus.recalled:
+        return 'RECALLED';
+    }
+  }
+
+  static BatchStatus fromCode(String code) {
+    switch (code.toUpperCase()) {
+      case 'DEPLETED':
+        return BatchStatus.depleted;
+      case 'EXPIRED':
+        return BatchStatus.expired;
+      case 'RECALLED':
+        return BatchStatus.recalled;
+      case 'ACTIVE':
+      default:
+        return BatchStatus.active;
+    }
+  }
+}
+
+class ProductBatch {
+  final String id;
+  final String productId;
+  final String batchNo;
+  final DateTime? mfgDate;
+  final DateTime? expiryDate;
+  final String? rackBin;
+  final int receivedQuantity;
+  final int remainingQuantity;
+  final int committedQuantity;
+  final BatchStatus status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const ProductBatch({
+    required this.id,
+    required this.productId,
+    required this.batchNo,
+    this.mfgDate,
+    this.expiryDate,
+    this.rackBin,
+    required this.receivedQuantity,
+    required this.remainingQuantity,
+    this.committedQuantity = 0,
+    this.status = BatchStatus.active,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  /// Available units in this batch (uncommitted)
+  int get availableQuantity {
+    final net = remainingQuantity - committedQuantity;
+    return net > 0 ? net : 0;
+  }
+
+  bool get isExpired {
+    if (expiryDate == null) return false;
+    final now = DateTime.now();
+    return expiryDate!.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
+  int? get daysUntilExpiry {
+    if (expiryDate == null) return null;
+    final now = DateTime.now();
+    return expiryDate!.difference(DateTime(now.year, now.month, now.day)).inDays;
+  }
+
+  ProductBatch copyWith({
+    String? id,
+    String? productId,
+    String? batchNo,
+    DateTime? mfgDate,
+    DateTime? expiryDate,
+    String? rackBin,
+    int? receivedQuantity,
+    int? remainingQuantity,
+    int? committedQuantity,
+    BatchStatus? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return ProductBatch(
+      id: id ?? this.id,
+      productId: productId ?? this.productId,
+      batchNo: batchNo ?? this.batchNo,
+      mfgDate: mfgDate ?? this.mfgDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      rackBin: rackBin ?? this.rackBin,
+      receivedQuantity: receivedQuantity ?? this.receivedQuantity,
+      remainingQuantity: remainingQuantity ?? this.remainingQuantity,
+      committedQuantity: committedQuantity ?? this.committedQuantity,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+class BatchPickAllocation {
+  final ProductBatch batch;
+  final int allocatedPieces;
+
+  const BatchPickAllocation({
+    required this.batch,
+    required this.allocatedPieces,
+  });
+}
+
 class ProductItem {
   final String id;
   final String name;
@@ -196,7 +320,9 @@ class ProductItem {
   final int stripQty; // Pieces in 1 hanging strip / ladi
   final int boxQty; // Pieces in 1 box / carton / peti
   final double gstRate; // e.g. 12.0 or 18.0 or 5.0
-  int godownStockBoxes; // Live available in Godown / Warehouse
+  int godownStockBoxes; // Live physical stock in Godown / Warehouse
+  int godownReservedBoxes; // Live reserved boxes in Godown
+  int godownReservedPieces; // Live reserved loose pieces in Godown
   int carStockBoxes; // Live stock loaded in Delivery Car / Van
   final String badge;
   final String imageUrl;
@@ -222,6 +348,8 @@ class ProductItem {
     required this.boxQty,
     this.gstRate = 18.0,
     this.godownStockBoxes = 0,
+    this.godownReservedBoxes = 0,
+    this.godownReservedPieces = 0,
     this.carStockBoxes = 0,
     this.badge = '',
     this.imageUrl = '',
@@ -235,6 +363,16 @@ class ProductItem {
     this.shelfLocation = '',
   })  : mrpPaise = mrpPaise ?? (mrpRupees != null ? (mrpRupees * 100).round() : 0),
         costPricePaise = costPricePaise ?? (piecePricePaise * 85 ~/ 100);
+
+  // Stock calculations: Physical, Reserved, and Available
+  int get physicalGodownPieces => godownStockBoxes * boxQty;
+  int get reservedGodownPieces => (godownReservedBoxes * boxQty) + godownReservedPieces;
+  int get availableGodownPieces {
+    final net = physicalGodownPieces - reservedGodownPieces;
+    return net > 0 ? net : 0;
+  }
+  int get availableGodownBoxes => availableGodownPieces ~/ boxQty;
+  int get availableGodownLoosePieces => availableGodownPieces % boxQty;
 
   String nameForLanguage(AppLanguage lang) {
     switch (lang) {
@@ -282,6 +420,8 @@ class ProductItem {
     int? boxQty,
     double? gstRate,
     int? godownStockBoxes,
+    int? godownReservedBoxes,
+    int? godownReservedPieces,
     int? carStockBoxes,
     String? badge,
     String? imageUrl,
@@ -306,6 +446,8 @@ class ProductItem {
       boxQty: boxQty ?? this.boxQty,
       gstRate: gstRate ?? this.gstRate,
       godownStockBoxes: godownStockBoxes ?? this.godownStockBoxes,
+      godownReservedBoxes: godownReservedBoxes ?? this.godownReservedBoxes,
+      godownReservedPieces: godownReservedPieces ?? this.godownReservedPieces,
       carStockBoxes: carStockBoxes ?? this.carStockBoxes,
       badge: badge ?? this.badge,
       imageUrl: imageUrl ?? this.imageUrl,
