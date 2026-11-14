@@ -55,7 +55,7 @@ class SalesMapMarkerCache {
       fillColor: const Color(0xFF0F172A),
       ringColor: Colors.white,
       glyph: 'G',
-      size: 88,
+      size: 40,
     );
     _cache[key] = icon;
     return icon;
@@ -68,7 +68,7 @@ class SalesMapMarkerCache {
       fillColor: const Color(0xFF1D4ED8),
       ringColor: Colors.white,
       glyph: '$count',
-      size: 88,
+      size: 40,
     );
     _cache[key] = icon;
     return icon;
@@ -80,20 +80,20 @@ class SalesMapMarkerCache {
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    const double size = 96.0;
+    const double size = 48.0;
     const center = Offset(size / 2, size / 2);
 
     if (withHeadingCone) {
       final conePaint = Paint()
         ..shader = ui.Gradient.linear(
-          const Offset(size / 2, 6),
+          const Offset(size / 2, 4),
           center,
           [const Color(0x001A73E8), const Color(0x881A73E8)],
         );
       final path = Path()
         ..moveTo(center.dx, center.dy)
-        ..lineTo(center.dx - 22, 10)
-        ..quadraticBezierTo(center.dx, 2, center.dx + 22, 10)
+        ..lineTo(center.dx - 12, 5)
+        ..quadraticBezierTo(center.dx, 1, center.dx + 12, 5)
         ..close();
       canvas.drawPath(path, conePaint);
     }
@@ -101,17 +101,17 @@ class SalesMapMarkerCache {
     // Soft outer glow
     canvas.drawCircle(
       center,
-      26,
+      14,
       Paint()
         ..color = const Color(0x381A73E8)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
     // Crisp white ring
-    canvas.drawCircle(center, 18, Paint()..color = Colors.white);
+    canvas.drawCircle(center, 10, Paint()..color = Colors.white);
     // Royal blue core
-    canvas.drawCircle(center, 13, Paint()..color = const Color(0xFF1A73E8));
+    canvas.drawCircle(center, 7, Paint()..color = const Color(0xFF1A73E8));
     // Inner white dot
-    canvas.drawCircle(center, 3.5, Paint()..color = Colors.white);
+    canvas.drawCircle(center, 2.0, Paint()..color = Colors.white);
 
     final img = await recorder.endRecording().toImage(size.toInt(), size.toInt());
     final data = await img.toByteData(format: ui.ImageByteFormat.png);
@@ -150,32 +150,32 @@ class SalesMapMarkerCache {
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    const double width = 100.0;
-    const double height = 120.0;
-    const center = Offset(width / 2, 42.0);
-    const double r = 32.0;
-    const tip = Offset(width / 2, 106.0);
+    const double width = 36.0;
+    const double height = 46.0;
+    const center = Offset(width / 2, 15.0);
+    const double r = 12.0;
+    const tip = Offset(width / 2, 41.0);
 
     // 1. Next-Stop Glowing Pulse Ring
     if (hasHighlightRing) {
       canvas.drawCircle(
         center,
-        r + 14,
-        Paint()..color = fillColor.withValues(alpha: 0.16),
+        r + 4.5,
+        Paint()..color = fillColor.withValues(alpha: 0.20),
       );
       canvas.drawCircle(
         center,
-        r + 7,
-        Paint()..color = fillColor.withValues(alpha: 0.30),
+        r + 2.0,
+        Paint()..color = fillColor.withValues(alpha: 0.35),
       );
     }
 
     // 2. Ground Shadow under tip
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(tip.dx, tip.dy + 3), width: 34, height: 10),
+      Rect.fromCenter(center: Offset(tip.dx, tip.dy + 1.5), width: 12, height: 3.5),
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.28)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..color = Colors.black.withValues(alpha: 0.25)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
 
     // 3. Smooth Seamless Teardrop Vector
@@ -193,13 +193,13 @@ class SalesMapMarkerCache {
       largeArc: false,
     );
     pinPath.cubicTo(
-      rightTangX - 2.0, rightTangY + 20.0,
-      tip.dx + 9.0, tip.dy - 12.0,
+      rightTangX - 1.0, rightTangY + 7.0,
+      tip.dx + 3.5, tip.dy - 4.5,
       tip.dx, tip.dy,
     );
     pinPath.cubicTo(
-      tip.dx - 9.0, tip.dy - 12.0,
-      leftTangX + 2.0, leftTangY + 20.0,
+      tip.dx - 3.5, tip.dy - 4.5,
+      leftTangX + 1.0, leftTangY + 7.0,
       leftTangX, leftTangY,
     );
     pinPath.arcToPoint(
@@ -209,12 +209,12 @@ class SalesMapMarkerCache {
     );
     pinPath.close();
 
-    // 4. Pin Drop Shadow
+    // 4. Subtle Pin Shadow
     canvas.drawPath(
-      pinPath.shift(const Offset(0, 3)),
+      pinPath.shift(const Offset(0, 1.5)),
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.20)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+        ..color = Colors.black.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
 
     // 5. Pin Fill with subtle gradient
@@ -224,43 +224,38 @@ class SalesMapMarkerCache {
         tip,
         [
           fillColor,
-          Color.lerp(fillColor, Colors.black, 0.16)!,
+          Color.lerp(fillColor, Colors.black, 0.15)!,
         ],
       );
     canvas.drawPath(pinPath, fillPaint);
 
-    // 6. Crisp White Outer Stroke (2.5px)
+    // 6. Crisp White Outer Stroke (1.5px)
     canvas.drawPath(
       pinPath,
       Paint()
         ..color = Colors.white
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5,
+        ..strokeWidth = 1.5,
     );
 
     // 7. Pure White Circular Inset Disc for Sequence Number
-    const double innerR = 19.5;
-    canvas.drawCircle(
-      Offset(center.dx, center.dy + 1.0),
-      innerR,
-      Paint()..color = Colors.black.withValues(alpha: 0.12),
-    );
+    const double innerR = 7.5;
     canvas.drawCircle(
       center,
       innerR,
       Paint()..color = Colors.white,
     );
 
-    // 8. Stop Number Text in Crisp, Bold Font
-    final textColor = Color.lerp(fillColor, Colors.black, 0.35)!;
+    // 8. Stop Number Text in Small, Sleek, Refined Typography
+    final textColor = Color.lerp(fillColor, Colors.black, 0.40)!;
     final tp = TextPainter(
       text: TextSpan(
         text: label,
         style: TextStyle(
           color: textColor,
-          fontSize: label.length > 2 ? 15 : (label.length == 2 ? 18 : 21),
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.5,
+          fontSize: label.length > 2 ? 6.5 : (label.length == 2 ? 7.5 : 8.5),
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
           height: 1.0,
         ),
       ),
