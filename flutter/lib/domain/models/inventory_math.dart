@@ -17,7 +17,11 @@ class InventoryStock {
         assert(loosePieces >= 0, 'Loose pieces cannot be negative'),
         assert(piecesPerCarton > 0, 'Pieces per carton must be greater than zero'),
         assert(reservedCartons >= 0, 'Reserved cartons cannot be negative'),
-        assert(reservedLoosePieces >= 0, 'Reserved loose pieces cannot be negative');
+        assert(reservedLoosePieces >= 0, 'Reserved loose pieces cannot be negative'),
+        assert(
+          (reservedCartons * piecesPerCarton) + reservedLoosePieces <= (cartons * piecesPerCarton) + loosePieces,
+          'Reserved stock cannot exceed physical stock',
+        );
 
   /// Total physical pieces across unopened cartons and loose pieces
   int get physicalPieces => (cartons * piecesPerCarton) + loosePieces;
@@ -28,11 +32,23 @@ class InventoryStock {
   /// Total reserved pieces across reserved cartons and loose pieces
   int get reservedPieces => (reservedCartons * piecesPerCarton) + reservedLoosePieces;
 
+  /// Whether reserved stock exceeds physical stock (an invalid system state)
+  bool get isOverReserved => reservedPieces > physicalPieces;
+
+  /// Quantity of pieces over-reserved beyond physical stock
+  int get overReservedPieces => isOverReserved ? (reservedPieces - physicalPieces) : 0;
+
   /// Available pieces that can be sold or reserved without overselling:
-  /// Available Stock = Physical Stock - Reserved Stock (clamped at 0)
+  /// Available Stock = Physical Stock - Reserved Stock.
+  /// Throws [StateError] if in an invalid over-reserved state to prevent concealing data corruption.
   int get availablePieces {
-    final net = physicalPieces - reservedPieces;
-    return net > 0 ? net : 0;
+    if (reservedPieces > physicalPieces) {
+      throw StateError(
+        'INVALID_INVENTORY_STATE: Reserved stock ($reservedPieces pieces) exceeds physical stock ($physicalPieces pieces). '
+        'Over-reservation must not be silently masked by max(0, physical - reserved).',
+      );
+    }
+    return physicalPieces - reservedPieces;
   }
 
   /// Available unopened full cartons

@@ -145,6 +145,37 @@ void main() {
       // Reducing physical stock by 4 cartons (80 pcs): 20 physical < 40 reserved -> Prohibited
       expect(() => stock.adjustStock(cartonDelta: -4), throwsA(isA<StateError>()));
     });
+
+    test('Invalid state detection: reserved exceeding physical stock is reported/rejected and never silently hidden', () {
+      // 1. Direct construction assertion rejects invalid over-reservation
+      expect(
+        () => InventoryStock(
+          cartons: 1,
+          loosePieces: 0,
+          piecesPerCarton: 24, // 24 physical
+          reservedCartons: 2, // 48 reserved -> invalid!
+          reservedLoosePieces: 0,
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+
+      // 2. ProductItem with over-reservation flags isOverReserved and throws on availableGodownPieces
+      final invalidProduct = ProductItem(
+        id: 'PROD_INVALID',
+        name: 'Invalid Item',
+        hindiName: 'अमान्य',
+        category: 'Test',
+        piecePricePaise: 1000,
+        stripQty: 10,
+        boxQty: 20,
+        godownStockBoxes: 2, // 40 physical
+        godownReservedBoxes: 3, // 60 reserved -> over-reserved by 20 pieces!
+      );
+
+      expect(invalidProduct.isGodownOverReserved, isTrue);
+      expect(invalidProduct.godownOverReservedPieces, equals(20));
+      expect(() => invalidProduct.availableGodownPieces, throwsA(isA<StateError>()));
+    });
   });
 
   group('Checkpoint 2 — LocalRepository Inventory Ledger & Idempotency', () {

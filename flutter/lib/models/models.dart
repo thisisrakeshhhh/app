@@ -367,9 +367,16 @@ class ProductItem {
   // Stock calculations: Physical, Reserved, and Available
   int get physicalGodownPieces => godownStockBoxes * boxQty;
   int get reservedGodownPieces => (godownReservedBoxes * boxQty) + godownReservedPieces;
+  bool get isGodownOverReserved => reservedGodownPieces > physicalGodownPieces;
+  int get godownOverReservedPieces => isGodownOverReserved ? (reservedGodownPieces - physicalGodownPieces) : 0;
+
   int get availableGodownPieces {
-    final net = physicalGodownPieces - reservedGodownPieces;
-    return net > 0 ? net : 0;
+    if (reservedGodownPieces > physicalGodownPieces) {
+      throw StateError(
+        'INVALID_INVENTORY_STATE for product $id: Reserved stock ($reservedGodownPieces pieces) exceeds physical stock ($physicalGodownPieces pieces).',
+      );
+    }
+    return physicalGodownPieces - reservedGodownPieces;
   }
   int get availableGodownBoxes => availableGodownPieces ~/ boxQty;
   int get availableGodownLoosePieces => availableGodownPieces % boxQty;
