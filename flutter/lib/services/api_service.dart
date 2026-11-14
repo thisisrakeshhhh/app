@@ -2334,7 +2334,7 @@ class ApiService extends ChangeNotifier {
 
     List<RetailerShop> filteredAssigned;
     if (_activeTerritory == 'jodhpur') {
-      final jdh = assigned.where((s) => (s.latitude != null && s.latitude! < 29.0) || s.id.contains('JDH') || (s.routeId ?? '').contains('sardarpura') || (s.routeId ?? '').contains('nai_sadak')).toList();
+      final jdh = assigned.where((s) => (s.latitude != null && s.latitude! < 29.0) || s.id.contains('JDH') || (s.routeId ?? '').contains('sardarpura') || (s.routeId ?? '').contains('nai_sadak') || (s.latitude == null && !s.id.contains('CHD') && !s.id.contains('MOH'))).toList();
       filteredAssigned = jdh.isNotEmpty ? jdh : assigned;
     } else {
       final chd = assigned.where((s) => (s.latitude != null && s.latitude! >= 29.0) || s.id.contains('CHD') || s.id.contains('MOH') || (s.routeId ?? '').contains('chd')).toList();

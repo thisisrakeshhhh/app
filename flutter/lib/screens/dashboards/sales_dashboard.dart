@@ -53,7 +53,6 @@ class _SalesDashboardState extends State<SalesDashboard> {
   MapType _mapType = MapType.normal;
   GoogleMapController? _googleMapController;
   Timer? _stopwatchTimer;
-  BitmapDescriptor? _currentLocationBlueDotIcon;
   BitmapDescriptor? _godownMarkerIcon;
   final SalesMapMarkerCache _markerCache = SalesMapMarkerCache();
   final RouteEngineService _routeEngine = RouteEngineService();
@@ -237,11 +236,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
 
   Future<void> _initCurrentLocationIcon() async {
     try {
-      final repIcon = await _markerCache.getRepBlueDot(withHeadingCone: _repHeading != null);
       final godownIcon = await _markerCache.getGodownMarker();
       if (mounted) {
         setState(() {
-          _currentLocationBlueDotIcon = repIcon;
           _godownMarkerIcon = godownIcon;
         });
       }
@@ -1539,22 +1536,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
       },
     );
 
-    final markers = <Marker>{
-      // 1. Live Salesperson GPS Marker with optional heading cone
-      Marker(
-        markerId: const MarkerId('current_location_user'),
-        position: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-        icon: _currentLocationBlueDotIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        anchor: const Offset(0.5, 0.5),
-        flat: true,
-        rotation: _repHeading ?? 0.0,
-        infoWindow: const InfoWindow(
-          title: 'Current Location (You Are Here)',
-          snippet: 'Live GPS Position',
-        ),
-        zIndexInt: 100,
-      ),
-    };
+    final markers = <Marker>{};
 
     // 2. Starting Godown / Warehouse Marker
     final godown = _activeGodownHub();
@@ -1733,28 +1715,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
               onCameraMove: (camPos) {
                 _currentZoom = camPos.zoom;
               },
-              circles: {
-                // Outer Google Maps accuracy circle
-                Circle(
-                  circleId: const CircleId('current_location_outer_accuracy_circle'),
-                  center: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  radius: 120,
-                  fillColor: const Color(0x201A73E8),
-                  strokeColor: const Color(0x661A73E8),
-                  strokeWidth: 2,
-                  zIndex: 1,
-                ),
-                // Inner Google Maps pulse circle
-                Circle(
-                  circleId: const CircleId('current_location_inner_pulse_circle'),
-                  center: LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                  radius: 45,
-                  fillColor: const Color(0x351A73E8),
-                  strokeColor: const Color(0x991A73E8),
-                  strokeWidth: 2,
-                  zIndex: 2,
-                ),
-              },
+              circles: const {},
               markers: _buildPhase2Markers(locatedShops, nextPendingIndex),
               polylines: _buildColorCodedRoutePolylines(locatedShops),
               onMapCreated: (ctrl) {
@@ -1930,58 +1891,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
             ),
           ),
 
-          // Floating "YOU ARE HERE" pill on bottom left
-          Positioned(
-            bottom: 10,
-            left: 10,
-            child: InkWell(
-              onTap: () {
-                _googleMapController?.animateCamera(
-                  CameraUpdate.newLatLngZoom(
-                    LatLng(widget.api.currentRepLat, widget.api.currentRepLng),
-                    15.5,
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF1A73E8), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF1A73E8),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    const Text(
-                      '📍 YOU ARE HERE',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1A73E8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+
 
           // Bottom Right: "+ Add Shop" Button right on the map!
           Positioned(
@@ -2108,17 +2018,21 @@ class _SalesDashboardState extends State<SalesDashboard> {
               children: [
                 const Icon(
                   Icons.fort_rounded,
-                  size: 16,
+                  size: 15,
                   color: Colors.white,
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Jodhpur Beat — Sardarpura & Nai Sadak Route',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
+                const SizedBox(width: 6),
+                const Flexible(
+                  child: Text(
+                    'Jodhpur Beat — Sardarpura & Nai Sadak Route',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
               ],

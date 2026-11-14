@@ -72,13 +72,14 @@ extension AppLanguageExtension on AppLanguage {
   /// Line height recommended to prevent clipping of matras and diacritics.
   double get lineHeight => isIndic ? 1.4 : 1.2;
 
-  /// Parse from code string, defaulting to Hinglish for sales reps.
+  /// Parse from code string, defaulting to English.
   static AppLanguage fromCode(String? code) {
-    if (code == null) return AppLanguage.hinglish;
+    if (code == null) return AppLanguage.en;
     final lower = code.toLowerCase().trim();
     if (lower == 'en' || lower == 'english') return AppLanguage.en;
     if (lower == 'hi' || lower == 'hindi') return AppLanguage.hi;
     if (lower == 'gu' || lower == 'gujarati') return AppLanguage.gu;
-    return AppLanguage.hinglish;
+    if (lower == 'hinglish') return AppLanguage.hinglish;
+    return AppLanguage.en;
   }
 }

@@ -130,9 +130,9 @@ void main() {
       await freshController.loadSavedLanguage(userId: 'sales_rep_jodhpur');
       expect(freshController.currentLanguage, equals(AppLanguage.hi));
 
-      // Brand new user defaults to Hinglish
+      // Brand new user defaults to English
       await freshController.loadSavedLanguage(userId: 'new_sales_rep');
-      expect(freshController.currentLanguage, equals(AppLanguage.hinglish));
+      expect(freshController.currentLanguage, equals(AppLanguage.en));
     });
 
     test('6. Question 5 SCO / Unit Label: Matches "Shop 12" and "Plot 5B" as unitNo without "SCO" prefix', () {
@@ -204,9 +204,9 @@ void main() {
         ),
       );
 
-      // Initial: Hinglish default
-      expect(find.text('Aaj'), findsOneWidget);
-      expect(find.text('Peti'), findsOneWidget);
+      // Initial: English default
+      expect(find.text('Today'), findsOneWidget);
+      expect(find.text('Box'), findsOneWidget);
 
       // Open picker
       await tester.tap(find.byKey(const Key('btn_open_picker')));
@@ -229,15 +229,15 @@ void main() {
       expect(find.text('आज'), findsOneWidget);
       expect(find.text('पेटी'), findsOneWidget);
 
-      // Open picker again and tap English
+      // Open picker again and tap Hinglish
       await tester.tap(find.byKey(const Key('btn_open_picker')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('English').first);
+      await tester.tap(find.text('Hinglish').first);
       await tester.pumpAndSettle();
 
-      expect(find.text('Today'), findsOneWidget);
-      expect(find.text('Box'), findsOneWidget);
+      expect(find.text('Aaj'), findsOneWidget);
+      expect(find.text('Peti'), findsOneWidget);
     });
 
     testWidgets('8. 130% Text Scale Check: No clipping or overflow on 360dp mobile screen for Indic text', (tester) async {

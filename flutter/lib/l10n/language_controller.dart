@@ -57,7 +57,7 @@ class LanguageController extends ChangeNotifier {
 
   LanguageController({
     LanguageStorageAdapter? storage,
-    AppLanguage initialLanguage = AppLanguage.hinglish,
+    AppLanguage initialLanguage = AppLanguage.en,
   })  : _storage = storage ?? InMemoryLanguageStorage(),
         _currentLanguage = initialLanguage;
 
@@ -82,10 +82,18 @@ class LanguageController extends ChangeNotifier {
     final key = _storageKey(userId);
     final savedCode = await _storage.read(key);
     if (savedCode != null && savedCode.isNotEmpty) {
-      _currentLanguage = AppLanguageExtension.fromCode(savedCode);
+      final parsed = AppLanguageExtension.fromCode(savedCode);
+      if (parsed == AppLanguage.hinglish) {
+        // Migrate previously saved default Hinglish to English
+        _currentLanguage = AppLanguage.en;
+        await _storage.write(key, AppLanguage.en.code);
+      } else {
+        _currentLanguage = parsed;
+      }
     } else {
-      // Default is Hinglish for new sales users
-      _currentLanguage = AppLanguage.hinglish;
+      // Default is English across the entire app
+      _currentLanguage = AppLanguage.en;
+      await _storage.write(key, AppLanguage.en.code);
     }
     notifyListeners();
   }

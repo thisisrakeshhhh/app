@@ -37,7 +37,7 @@ class SalesMapMarkerCache {
         fillColor: isVisited
             ? const Color(0xFF059669) // Emerald Green
             : (isCheckedIn
-                ? const Color(0xFF0284C7) // Sky Blue
+                ? const Color(0xFF7C3AED) // Deep Violet
                 : (isNext ? const Color(0xFFF59E0B) : const Color(0xFFDC2626))), // Amber / Rose Red
         hasHighlightRing: isCheckedIn || isNext,
       );
