@@ -182,6 +182,9 @@ export function syncRouter(authMiddleware: any) {
             return c.json({
               success: false,
               error: 'DUPLICATE_RETAILER_PHONE',
+              mutationId,
+              existingRetailerId: duplicate.id,
+              existingRetailerName: duplicate.name,
               message: `Retailer with phone number '${contactNumber}' already exists in your organization: '${duplicate.name}' (${duplicate.id})`
             }, 409);
           }
@@ -221,6 +224,7 @@ export function syncRouter(authMiddleware: any) {
             return c.json({
               success: false,
               error: 'DUPLICATE_RETAILER_PHONE',
+              mutationId,
               message: `A retailer with mobile number '${contactNumber}' already exists in your organization`
             }, 409);
           }

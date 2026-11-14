@@ -3238,6 +3238,21 @@ class ApiService extends ChangeNotifier {
     if (updated) notifyListeners();
   }
 
+  /// Marks a provisional retailer as REJECTED in memory upon server conflict or rejection.
+  void markProvisionalRetailerRejected(String provisionalId, {required String reason}) {
+    bool updated = false;
+    final rIdx = _retailers.indexWhere((r) => r.id == provisionalId);
+    if (rIdx != -1) {
+      _retailers[rIdx] = _retailers[rIdx].copyWith(syncStatus: 'REJECTED');
+      updated = true;
+    }
+    if (_selectedShop?.id == provisionalId) {
+      _selectedShop = _selectedShop!.copyWith(syncStatus: 'REJECTED');
+      updated = true;
+    }
+    if (updated) notifyListeners();
+  }
+
   /// Rewrites provisional order ID and orderNumber upon server 200 acknowledgment.
   void rewriteProvisionalOrderId(String provisionalId, String serverBusinessId) {
     final oIdx = _orders.indexWhere((o) => o.id == provisionalId);

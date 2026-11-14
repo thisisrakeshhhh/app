@@ -115,9 +115,14 @@ class SyncWorker extends ChangeNotifier {
     String? organizationId,
     String? userId,
     int limit = 50,
+    bool forceRetry = false,
   }) async {
     if (_state == SyncWorkerState.syncing) {
       return SyncPushResult.empty();
+    }
+
+    if (forceRetry) {
+      _consecutiveNetworkFailures = 0;
     }
 
     final orgId = organizationId ?? authService?.activeOrganization?.id ?? 'comp_1';
@@ -159,7 +164,7 @@ class SyncWorker extends ChangeNotifier {
     final readyMutations = <OutboxMutationEntry>[];
     for (final m in pendingMutations) {
       final nextRetry = m.nextRetryAtMs;
-      if (nextRetry != null && nextRetry > nowEpochMs) continue;
+      if (!forceRetry && nextRetry != null && nextRetry > nowEpochMs) continue;
 
       if (m.mutationType == 'CREATE_ORDER') {
         String? orderRetailerId;
@@ -522,8 +527,10 @@ class SyncWorker extends ChangeNotifier {
                   apiService?.releaseOrderReservation(provId, reason: errMsg);
                 }
               } else if (m.mutationType == 'CREATE_RETAILER' && m.provisionalBusinessId != null) {
-                // Cascade rejection to any dependent order in this batch or outbox
                 final provShopId = m.provisionalBusinessId!;
+                await db.outboxDao.markRetailerSyncRejected(provShopId);
+                apiService?.markProvisionalRetailerRejected(provShopId, reason: errMsg);
+                // Cascade rejection to any dependent order in this batch or outbox
                 for (final other in readyMutations) {
                   if (other.mutationType == 'CREATE_ORDER') {
                     try {
@@ -559,33 +566,64 @@ class SyncWorker extends ChangeNotifier {
         return SyncPushResult.success(syncedCount);
       }
 
-      // --- CASE 2: HTTP 409 Conflict (Idempotency Payload Mismatch) ---
+      // --- CASE 2: HTTP 409 Conflict (Idempotency Payload Mismatch or Duplicate Retailer Phone) ---
       if (response.statusCode == 409) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final failedMutationId = body['mutationId'] as String?;
+        final errCode = body['error'] as String? ?? 'IDEMPOTENCY_PAYLOAD_MISMATCH';
         final message = body['message'] as String? ??
-            'Idempotency conflict: this transaction was already registered with different data.';
+            'Conflict: transaction was rejected or already registered with different data.';
 
         if (failedMutationId != null) {
           await db.outboxDao.markFailedPermanent(
             id: failedMutationId,
-            errorCode: 'IDEMPOTENCY_PAYLOAD_MISMATCH',
+            errorCode: errCode,
           );
           final failedMut = readyMutations.cast<OutboxMutationEntry?>().firstWhere(
                 (m) => m?.id == failedMutationId,
                 orElse: () => null,
               );
-          if (failedMut?.mutationType == 'CREATE_ORDER' && failedMut?.provisionalBusinessId != null) {
-            apiService?.releaseOrderReservation(failedMut!.provisionalBusinessId!, reason: message);
+          if (failedMut != null) {
+            if (failedMut.mutationType == 'CREATE_ORDER' && failedMut.provisionalBusinessId != null) {
+              apiService?.releaseOrderReservation(failedMut.provisionalBusinessId!, reason: message);
+            } else if (failedMut.mutationType == 'CREATE_RETAILER' && failedMut.provisionalBusinessId != null) {
+              final provShopId = failedMut.provisionalBusinessId!;
+              await db.outboxDao.markRetailerSyncRejected(provShopId);
+              apiService?.markProvisionalRetailerRejected(provShopId, reason: message);
+              // Also cascade rejection to dependent orders
+              for (final other in readyMutations) {
+                if (other.mutationType == 'CREATE_ORDER') {
+                  try {
+                    final p = jsonDecode(other.payloadJson);
+                    final ordShopId = p['retailer']?['id'] ?? p['retailerId'];
+                    if (ordShopId == provShopId) {
+                      await db.outboxDao.markFailedPermanent(
+                        id: other.id,
+                        errorCode: 'DEPENDENT_SHOP_REJECTED',
+                      );
+                      if (other.provisionalBusinessId != null) {
+                        apiService?.releaseOrderReservation(
+                          other.provisionalBusinessId!,
+                          reason: 'Dependent shop $provShopId was rejected by server',
+                        );
+                      }
+                    }
+                  } catch (_) {}
+                }
+              }
+            }
           }
         } else {
           for (final m in readyMutations) {
             await db.outboxDao.markFailedPermanent(
               id: m.id,
-              errorCode: 'IDEMPOTENCY_PAYLOAD_MISMATCH',
+              errorCode: errCode,
             );
             if (m.mutationType == 'CREATE_ORDER' && m.provisionalBusinessId != null) {
               apiService?.releaseOrderReservation(m.provisionalBusinessId!, reason: message);
+            } else if (m.mutationType == 'CREATE_RETAILER' && m.provisionalBusinessId != null) {
+              await db.outboxDao.markRetailerSyncRejected(m.provisionalBusinessId!);
+              apiService?.markProvisionalRetailerRejected(m.provisionalBusinessId!, reason: message);
             }
           }
         }
@@ -627,6 +665,9 @@ class SyncWorker extends ChangeNotifier {
           await db.outboxDao.markFailedPermanent(id: m.id, errorCode: errCode);
           if (m.mutationType == 'CREATE_ORDER' && m.provisionalBusinessId != null) {
             apiService?.releaseOrderReservation(m.provisionalBusinessId!, reason: message);
+          } else if (m.mutationType == 'CREATE_RETAILER' && m.provisionalBusinessId != null) {
+            await db.outboxDao.markRetailerSyncRejected(m.provisionalBusinessId!);
+            apiService?.markProvisionalRetailerRejected(m.provisionalBusinessId!, reason: message);
           }
         }
         _lastError = message;

@@ -301,9 +301,17 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
 
       // 3. Update local retailers record if applicable
       await db.customStatement(
-        'UPDATE retailers SET id = ? WHERE id = ?;',
+        "UPDATE retailers SET id = ?, sync_status = 'SYNCED' WHERE id = ?;",
         [serverBusinessId, provisionalId],
       );
     });
+  }
+
+  /// Updates the sync_status of a provisional retailer to REJECTED upon terminal server conflict.
+  Future<void> markRetailerSyncRejected(String provisionalId) async {
+    await db.customStatement(
+      "UPDATE retailers SET sync_status = 'REJECTED' WHERE id = ?;",
+      [provisionalId],
+    );
   }
 }
