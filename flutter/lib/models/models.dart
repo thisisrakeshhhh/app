@@ -384,6 +384,13 @@ class ProductItem {
   int get availableGodownBoxes => availableGodownPieces ~/ boxQty;
   int get availableGodownLoosePieces => availableGodownPieces % boxQty;
 
+  int get safeAvailableGodownPieces {
+    if (isGodownOverReserved) return 0;
+    return physicalGodownPieces - reservedGodownPieces;
+  }
+  int get safeAvailableGodownBoxes => boxQty > 0 ? safeAvailableGodownPieces ~/ boxQty : 0;
+  int get safeAvailableGodownLoosePieces => boxQty > 0 ? safeAvailableGodownPieces % boxQty : 0;
+
   String nameForLanguage(AppLanguage lang) {
     switch (lang) {
       case AppLanguage.hi:
@@ -396,8 +403,13 @@ class ProductItem {
     }
   }
 
-  bool get isLowStock => godownStockBoxes > 0 && godownStockBoxes <= reorderLevelBoxes;
-  bool get isOutOfStock => godownStockBoxes <= 0;
+  bool get isLowStock {
+    final availPieces = safeAvailableGodownPieces;
+    return availPieces > 0 && safeAvailableGodownBoxes <= reorderLevelBoxes;
+  }
+
+  bool get isOutOfStock => safeAvailableGodownPieces <= 0;
+  bool get isInStock => !isOutOfStock && !isLowStock;
 
   int? get daysUntilExpiry {
     if (expiryDate == null) return null;

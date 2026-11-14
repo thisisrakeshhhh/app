@@ -909,7 +909,7 @@ class _WarehouseStockViewState extends State<WarehouseStockView> {
           p.batchNumber.toLowerCase().contains(_searchQuery.toLowerCase());
 
       final matchesStatus = switch (_stockStatusFilter) {
-        'In Stock' => p.godownStockBoxes > p.reorderLevelBoxes,
+        'In Stock' => p.isInStock,
         'Low Stock' => p.isLowStock,
         'Out of Stock' => p.isOutOfStock,
         _ => true,

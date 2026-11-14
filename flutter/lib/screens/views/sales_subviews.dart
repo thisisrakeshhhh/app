@@ -544,7 +544,9 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                               child: Text(
                                 p.isOutOfStock
                                     ? '✕ Out of Stock (0 Bxs)'
-                                    : 'Godown: ${p.godownStockBoxes} Bxs (${widget.api.availableGodownBoxes(p.id)} avail)',
+                                    : (p.isLowStock
+                                        ? '⚠ Low Stock (${widget.api.availableGodownBoxes(p.id)} Bxs avail)'
+                                        : 'Godown: ${p.godownStockBoxes} Bxs (${widget.api.availableGodownBoxes(p.id)} avail)'),
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
@@ -672,22 +674,24 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                             ),
                             const SizedBox(width: 4),
                             ElevatedButton.icon(
-                              onPressed: () {
-                                widget.api.addToCart(p, currentUnit, currentQty);
-                                setState(() {});
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Added $currentQty ${currentUnit.shortCode} of ${p.name} to cart!'),
-                                    duration: const Duration(milliseconds: 900),
-                                    backgroundColor: AirbnbTheme.dark,
-                                  ),
-                                );
-                              },
+                              onPressed: p.isOutOfStock
+                                  ? null
+                                  : () {
+                                      widget.api.addToCart(p, currentUnit, currentQty);
+                                      setState(() {});
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Added $currentQty ${currentUnit.shortCode} of ${p.name} to cart!'),
+                                          duration: const Duration(milliseconds: 900),
+                                          backgroundColor: AirbnbTheme.dark,
+                                        ),
+                                      );
+                                    },
                               icon: const Icon(Icons.add_shopping_cart, size: 13),
-                              label: const Text('Add', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                              label: Text(p.isOutOfStock ? 'Sold Out' : 'Add', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AirbnbTheme.coral,
-                                foregroundColor: Colors.white,
+                                backgroundColor: p.isOutOfStock ? Colors.grey[300] : AirbnbTheme.coral,
+                                foregroundColor: p.isOutOfStock ? Colors.grey[600] : Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 visualDensity: VisualDensity.compact,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -2175,8 +2179,10 @@ class _SalesProductsViewState extends State<SalesProductsView> {
                           ),
                           child: Text(
                             p.isOutOfStock
-                                ? 'Out of Stock'
-                                : 'Godown: ${p.godownStockBoxes} Bxs${p.carStockBoxes > 0 ? " • Van: ${p.carStockBoxes} Bxs" : ""}',
+                                ? '✕ Out of Stock (0 Bxs)'
+                                : (p.isLowStock
+                                    ? '⚠ Low Stock (${widget.api.availableGodownBoxes(p.id)} Bxs avail)'
+                                    : 'Godown: ${p.godownStockBoxes} Bxs (${widget.api.availableGodownBoxes(p.id)} avail)'),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,

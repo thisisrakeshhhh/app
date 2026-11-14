@@ -148,6 +148,7 @@ void main() {
       // Verify save button exists
       final saveBtn = find.text(AppStrings.saveShopButton);
       expect(saveBtn, findsOneWidget);
+      await tester.ensureVisible(saveBtn);
       await tester.tap(saveBtn);
       await tester.pumpAndSettle();
 

@@ -82,11 +82,14 @@ void main() {
     expect(find.text('⭐ Class A (Super Mart)'), findsWidgets);
 
     // Tap Kirana Store chip -> Auto switches to Class B
+    await tester.ensureVisible(find.text('🏪 Kirana Store'));
     await tester.tap(find.text('🏪 Kirana Store'));
     await tester.pumpAndSettle();
     expect(find.text('⚡ Class B (Kirana)'), findsWidgets);
 
     // Tap Class C card directly -> Switches to Class C
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, 300));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('class_c_tile')));
     await tester.pumpAndSettle();
     expect(find.text('🏪 Class C (Small Kiosk)'), findsWidgets);
@@ -114,6 +117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Select Super Mart (Class A)
+    await tester.ensureVisible(find.text('🛒 Super Mart'));
     await tester.tap(find.text('🛒 Super Mart'));
     await tester.pumpAndSettle();
 

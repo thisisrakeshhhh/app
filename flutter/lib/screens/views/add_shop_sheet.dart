@@ -212,11 +212,16 @@ class _AddShopSheetState extends State<AddShopSheet> {
     final routes = await widget.api.getAvailableRoutes();
     if (mounted) {
       const preferredRouteId = 'route_sojati_01';
+      final uniqueRoutes = <String, RouteEntry>{};
+      for (final r in routes) {
+        uniqueRoutes.putIfAbsent(r.id, () => r);
+      }
+      final deduped = uniqueRoutes.values.toList();
       setState(() {
-        _availableRoutes = routes;
-        _selectedRouteId ??= routes.any((r) => r.id == preferredRouteId)
+        _availableRoutes = deduped;
+        _selectedRouteId ??= deduped.any((r) => r.id == preferredRouteId)
             ? preferredRouteId
-            : (routes.isNotEmpty ? routes.first.id : 'route_sojati_01');
+            : (deduped.isNotEmpty ? deduped.first.id : 'route_sojati_01');
       });
     }
   }
@@ -1045,7 +1050,9 @@ class _AddShopSheetState extends State<AddShopSheet> {
             if (_availableRoutes.isNotEmpty) ...[
               DropdownButtonFormField<String>(
                 isExpanded: true,
-                initialValue: _selectedRouteId,
+                initialValue: _availableRoutes.any((r) => r.id == _selectedRouteId)
+                    ? _selectedRouteId
+                    : (_availableRoutes.isNotEmpty ? _availableRoutes.first.id : null),
                 decoration: InputDecoration(
                   labelText: AppStrings.routeLabel,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

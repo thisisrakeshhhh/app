@@ -2802,6 +2802,7 @@ class ApiService extends ChangeNotifier {
     // computed dynamically from booking-stage orders, guaranteeing exact piece-level
     // accounting with zero whole-carton loss and zero split-brain discrepancies across restarts.
     _orders.insert(0, order);
+    _syncProductReservations();
     _cart.clear();
     notifyListeners();
     return order;
@@ -2898,6 +2899,7 @@ class ApiService extends ChangeNotifier {
   @visibleForTesting
   void setVirtualReservationForTesting(String productId, int pieces) {
     _testVirtualReservations[productId] = pieces;
+    _syncProductReservations();
     notifyListeners();
   }
 
@@ -3029,7 +3031,7 @@ class ApiService extends ChangeNotifier {
     final epochMs = now.millisecondsSinceEpoch;
     final hexSuffix = Random().nextInt(0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
     final orderNumber = 'LOCAL-ORD-${epochMs % 1000000}-$hexSuffix';
-    final provisionalOrderId = 'ord_${epochMs}_${hexSuffix.toLowerCase()}';
+    final provisionalOrderId = 'ord_temp_${epochMs}_${hexSuffix.toLowerCase()}';
 
     final retailerSnapshot = RetailerSnapshot(
       id: shop.id,
@@ -3102,6 +3104,7 @@ class ApiService extends ChangeNotifier {
       if (existingOrder == null) {
         existingOrder = _reconstructOrderFromPayload(existingPayload);
         _orders.insert(0, existingOrder);
+        _syncProductReservations();
       }
       _cart.clear();
       notifyListeners();
@@ -3127,6 +3130,7 @@ class ApiService extends ChangeNotifier {
     // 4. Construct in-memory DistributorOrder from payload snapshot and register in booking stream
     final confirmedOrder = _reconstructOrderFromPayload(candidatePayload);
     _orders.insert(0, confirmedOrder);
+    _syncProductReservations();
     _cart.clear();
     await repository.deleteCartDraft(shop.id);
     onOutboxMutationEnqueued?.call();
@@ -3270,8 +3274,52 @@ class ApiService extends ChangeNotifier {
     final oIdx = _orders.indexWhere((o) => o.id == provisionalId || o.orderNumber == provisionalId);
     if (oIdx != -1) {
       _orders[oIdx].stage = OrderLifecycleStage.rejected;
+      _syncProductReservations();
       notifyListeners();
     }
+  }
+
+  /// Cancels an in-flight booking or provisional order, releasing all virtual reservations immediately.
+  void cancelOrder(String orderId, {String? reason}) {
+    releaseOrderReservation(orderId, reason: reason ?? 'Order cancelled by user');
+  }
+
+  /// Checks if adding [qty] of [unit] to the cart exceeds available godown stock.
+  bool canAddToCart(ProductItem product, OrderUnit unit, [int qty = 1]) {
+    final currentCartPieces = _cart.values
+        .where((item) => item.product.id == product.id)
+        .fold(0, (sum, item) => sum + item.totalPieces);
+    final additionalPieces = qty * product.piecesForUnit(unit);
+    return (currentCartPieces + additionalPieces) <= availableGodownPieces(product.id);
+  }
+
+  /// Authoritatively syncs reserved quantities across in-memory [_products] and Drift SQLite snapshots.
+  void _syncProductReservations() {
+    for (int i = 0; i < _products.length; i++) {
+      final p = _products[i];
+      final resPieces = pendingBookingPieces(p.id);
+      final resBoxes = p.boxQty > 0 ? resPieces ~/ p.boxQty : 0;
+      final resLoose = p.boxQty > 0 ? resPieces % p.boxQty : 0;
+      if (p.godownReservedBoxes != resBoxes || p.godownReservedPieces != resLoose) {
+        _products[i] = p.copyWith(
+          godownReservedBoxes: resBoxes,
+          godownReservedPieces: resLoose,
+        );
+        _persistSnapshotReservation(p.id, resBoxes, resLoose);
+      }
+    }
+  }
+
+  void _persistSnapshotReservation(String productId, int reservedBoxes, int reservedLoose) {
+    try {
+      (db.update(db.inventorySnapshots)..where((tbl) => tbl.productId.equals(productId))).write(
+        InventorySnapshotsCompanion(
+          reservedCartons: Value(reservedBoxes),
+          reservedLoosePieces: Value(reservedLoose),
+          updatedAt: Value(DateTime.now()),
+        ),
+      ).catchError((_) => 0);
+    } catch (_) {}
   }
 
   /// Updates order stage upon authentic pull delta from office server.
@@ -3299,6 +3347,7 @@ class ApiService extends ChangeNotifier {
           parsed = OrderLifecycleStage.booking;
       }
       _orders[idx].stage = parsed;
+      _syncProductReservations();
       notifyListeners();
     }
   }
@@ -3432,6 +3481,7 @@ class ApiService extends ChangeNotifier {
       o.stage = OrderLifecycleStage.delivered;
       o.isPaid = true;
     }
+    _syncProductReservations();
     notifyListeners();
   }
 
