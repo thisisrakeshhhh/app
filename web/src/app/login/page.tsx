@@ -71,7 +71,7 @@ export default function LoginPage() {
           <div>
             <span className="font-bold text-lg tracking-tight text-[#172033]">RouteFlow</span>
             <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-              Distributor OS
+              Management Console
             </span>
           </div>
         </div>

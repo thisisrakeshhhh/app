@@ -14,7 +14,7 @@ async function runWebsiteTests() {
   console.log('▶ [1/4] PAGE ROUTING & HTTP HEALTH CHECKS');
   const pages = [
     { path: '/', expectedText: 'RouteFlow' },
-    { path: '/login', expectedText: 'Management Console' },
+    { path: '/login', expectedText: 'Sign in to your company' },
     { path: '/dashboard', expectedText: 'RouteFlow' },
     { path: '/privacy', expectedText: 'RouteFlow' }
   ];

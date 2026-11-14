@@ -54,6 +54,8 @@ async function runHardcoreCrudSuite() {
   const testRetailerId = `ret_qa_${stamp}`;
   const initialShopName = `QA Kirana Mart ${stamp}`;
   
+  const testPhone = '9829' + Math.floor(100000 + Math.random() * 900000);
+  
   // 2.1 CREATE
   console.log(`  [C] CREATE: Onboarding new test retailer (${initialShopName})...`);
   const createRetailerRes = await post('/retailers', {
@@ -61,8 +63,8 @@ async function runHardcoreCrudSuite() {
     name: initialShopName,
     beatId: 'BEAT-04',
     address: 'Shop 102, Mansarovar Sector 5, Jaipur',
-    contactNumber: '9829011122',
-    creditLimitPaise: 300000, // ₹3,000.00
+    contactNumber: testPhone,
+    creditLimitPaise: 0, // ₹0 default for Sales creation
     paymentTermsDays: 7,
     latitude: 26.852100,
     longitude: 75.764500
@@ -77,7 +79,7 @@ async function runHardcoreCrudSuite() {
   const foundRetailer = getRetailersRes.data.find(r => r.id === testRetailerId);
   assert.ok(foundRetailer, 'Created retailer must exist in database');
   assert.equal(foundRetailer.name, initialShopName, 'Retailer name must match');
-  assert.equal(foundRetailer.creditLimitPaise, 300000, 'Credit limit must match');
+  assert.equal(foundRetailer.creditLimitPaise, 0, 'Credit limit must default to 0 for Sales creation');
   assert.equal(foundRetailer.isActive, true, 'Retailer must be active upon creation');
   console.log(`      ✓ Retailer Verified: "${foundRetailer.name}", Credit Limit: ₹${foundRetailer.creditLimitPaise / 100}, Active: ${foundRetailer.isActive}`);
 
