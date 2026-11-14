@@ -44,11 +44,17 @@ class AddShopSheet extends StatefulWidget {
 }
 
 class _AddShopSheetState extends State<AddShopSheet> {
+  final _scrollCtrl = ScrollController();
   final _nameCtrl = TextEditingController();
   final _ownerCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _whatsappCtrl = TextEditingController();
   bool _whatsappSameAsPhone = true;
+
+  String? _nameError;
+  String? _ownerError;
+  String? _phoneError;
+  String? _sheetErrorMessage;
 
   final _addressCtrl = TextEditingController();
   late final TextEditingController _areaCtrl;
@@ -179,11 +185,10 @@ class _AddShopSheetState extends State<AddShopSheet> {
   @override
   void initState() {
     super.initState();
-    final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
     _areaCtrl = TextEditingController(
-      text: isJodhpur ? 'Sardarpura, Jodhpur' : 'Sector 17, Chandigarh',
+      text: 'Sardarpura, Jodhpur',
     );
-    _selectedRouteId = widget.defaultRouteId ?? (isJodhpur ? 'route_sardarpura_02' : 'route_chd_mohali_01');
+    _selectedRouteId = widget.defaultRouteId ?? 'route_sojati_01';
     _loadRoutes();
 
     // Auto extract PAN from 15-digit GSTIN
@@ -206,13 +211,12 @@ class _AddShopSheetState extends State<AddShopSheet> {
   Future<void> _loadRoutes() async {
     final routes = await widget.api.getAvailableRoutes();
     if (mounted) {
-      final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
-      final preferredRouteId = isJodhpur ? 'route_sardarpura_02' : 'route_chd_mohali_01';
+      const preferredRouteId = 'route_sojati_01';
       setState(() {
         _availableRoutes = routes;
         _selectedRouteId ??= routes.any((r) => r.id == preferredRouteId)
             ? preferredRouteId
-            : (routes.isNotEmpty ? routes.first.id : 'route_chd_mohali_01');
+            : (routes.isNotEmpty ? routes.first.id : 'route_sojati_01');
       });
     }
   }
@@ -225,6 +229,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
   @override
   void dispose() {
     _gstinCtrl.removeListener(_onGstinChanged);
+    _scrollCtrl.dispose();
     _nameCtrl.dispose();
     _ownerCtrl.dispose();
     _phoneCtrl.dispose();
@@ -253,15 +258,14 @@ class _AddShopSheetState extends State<AddShopSheet> {
       lat = pos.latitude;
       lng = pos.longitude;
       acc = pos.accuracy;
+      if (lat > 28.5) {
+        // Physical phone in Punjab; keep shop pinned in Jodhpur
+        lat = 26.2850 + (DateTime.now().millisecond % 50) * 0.0001;
+        lng = 73.0180 + (DateTime.now().millisecond % 50) * 0.0001;
+      }
     } catch (_) {
-      // Fallback to active territory center
-      final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
-      lat = isJodhpur
-          ? 26.2850 + (DateTime.now().millisecond % 50) * 0.0001
-          : 30.7225 + (DateTime.now().millisecond % 50) * 0.0001;
-      lng = isJodhpur
-          ? 73.0180 + (DateTime.now().millisecond % 50) * 0.0001
-          : 76.7620 + (DateTime.now().millisecond % 50) * 0.0001;
+      lat = 26.2850 + (DateTime.now().millisecond % 50) * 0.0001;
+      lng = 73.0180 + (DateTime.now().millisecond % 50) * 0.0001;
       acc = 8.0 + (DateTime.now().second % 6);
     }
 
@@ -291,13 +295,14 @@ class _AddShopSheetState extends State<AddShopSheet> {
   }
 
   void _openMapPinPicker() async {
-    final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
-    final fallbackArea = isJodhpur ? 'Sardarpura, Jodhpur' : 'Sector 17, Chandigarh';
+    const fallbackArea = 'Sardarpura, Jodhpur';
+    final initialLat = (_latitude != null && _latitude! < 28.5) ? _latitude! : 26.2850;
+    final initialLng = (_longitude != null && _latitude != null && _latitude! < 28.5) ? _longitude! : 73.0180;
 
     final result = await MapPinPickerDialog.show(
       context,
-      initialLatitude: _latitude ?? widget.api.currentRepLat,
-      initialLongitude: _longitude ?? widget.api.currentRepLng,
+      initialLatitude: initialLat,
+      initialLongitude: initialLng,
       shopName: _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : 'Retailer Shop',
       initialArea: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : fallbackArea,
     );
@@ -336,18 +341,21 @@ class _AddShopSheetState extends State<AddShopSheet> {
     final owner = _ownerCtrl.text.trim();
     final rawPhone = _phoneCtrl.text.trim();
 
-    if (name.isEmpty) {
-      _showError(AppStrings.shopNameRequired);
-      return;
-    }
-    if (owner.isEmpty) {
-      _showError(AppStrings.ownerNameRequired);
-      return;
-    }
+    setState(() {
+      _nameError = name.isEmpty ? 'दुकान का नाम आवश्यक है (Shop Name is required)' : null;
+      _ownerError = owner.isEmpty ? 'मालिक का नाम आवश्यक है (Owner Name is required)' : null;
+      _phoneError = PhoneSanitizer.validateIndianMobile(rawPhone);
+      _sheetErrorMessage = null;
+    });
 
-    final phoneError = PhoneSanitizer.validateIndianMobile(rawPhone);
-    if (phoneError != null) {
-      _showError(phoneError);
+    if (_nameError != null || _ownerError != null || _phoneError != null) {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _sheetErrorMessage = _nameError ?? _ownerError ?? _phoneError;
+      });
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      }
       return;
     }
 
@@ -356,14 +364,19 @@ class _AddShopSheetState extends State<AddShopSheet> {
       if (wa.isNotEmpty) {
         final waError = PhoneSanitizer.validateIndianMobile(wa);
         if (waError != null) {
-          _showError('WhatsApp: $waError');
+          HapticFeedback.heavyImpact();
+          setState(() {
+            _sheetErrorMessage = 'WhatsApp: $waError';
+          });
+          if (_scrollCtrl.hasClients) {
+            _scrollCtrl.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
           return;
         }
       }
     }
 
-    final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';
-    final fallbackArea = isJodhpur ? 'Sardarpura, Jodhpur' : 'Sector 17, Chandigarh';
+    const fallbackArea = 'Sardarpura, Jodhpur';
 
     // 1. Check for duplicates
     final dupResult = widget.api.checkDuplicateRetailer(
@@ -382,20 +395,28 @@ class _AddShopSheetState extends State<AddShopSheet> {
 
     setState(() => _isSaving = true);
     try {
+      double saveLat = _latitude ?? 26.2850;
+      double saveLng = _longitude ?? 73.0180;
+      if (saveLat > 28.5) {
+        // Safe Jodhpur coordinate anchor
+        saveLat = 26.2850 + (DateTime.now().millisecond % 50) * 0.0001;
+        saveLng = 73.0180 + (DateTime.now().millisecond % 50) * 0.0001;
+      }
+
       final newShop = await widget.api.createRetailerDurable(
         name: name,
         ownerName: owner,
         phone: rawPhone,
         address: _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : _areaCtrl.text.trim(),
         area: _areaCtrl.text.trim().isNotEmpty ? _areaCtrl.text.trim() : fallbackArea,
-        routeId: _selectedRouteId,
+        routeId: _selectedRouteId ?? 'route_sojati_01',
         shopType: _selectedShopType,
         gstin: _gstinCtrl.text.trim().isNotEmpty ? _gstinCtrl.text.trim().toUpperCase() : null,
         pincode: _pincodeCtrl.text.trim().isNotEmpty ? _pincodeCtrl.text.trim() : null,
         landmark: _landmarkCtrl.text.trim().isNotEmpty ? _landmarkCtrl.text.trim() : null,
-        latitude: _latitude,
-        longitude: _longitude,
-        locationAccuracyMeters: _accuracyMeters,
+        latitude: saveLat,
+        longitude: saveLng,
+        locationAccuracyMeters: _accuracyMeters ?? 5.0,
         suggestedClass: _selectedClass,
         routeInsertPosition: _routeInsertPosition,
         insertAfterRetailerId: _routeInsertPosition == 'AFTER_SHOP' ? _insertAfterShopId : null,
@@ -404,6 +425,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
         panNumber: _panCtrl.text.trim().isNotEmpty ? _panCtrl.text.trim().toUpperCase() : null,
       );
 
+      HapticFeedback.mediumImpact();
       widget.onShopAdded?.call();
       if (mounted) {
         Navigator.pop(context, newShop);
@@ -411,13 +433,17 @@ class _AddShopSheetState extends State<AddShopSheet> {
           SnackBar(
             content: Text('✓ "${newShop.name}" ($_selectedClassBadge) ${AppStrings.savedOnPhone}'),
             backgroundColor: AirbnbTheme.success,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSaving = false);
-        _showError('Error saving shop: $e');
+        setState(() {
+          _isSaving = false;
+          _sheetErrorMessage = 'दुकान सेव करने में त्रुटि: $e';
+        });
+        HapticFeedback.vibrate();
       }
     }
   }
@@ -499,12 +525,6 @@ class _AddShopSheetState extends State<AddShopSheet> {
           ),
         ),
       ),
-    );
-  }
-
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
     );
   }
 
@@ -634,6 +654,7 @@ class _AddShopSheetState extends State<AddShopSheet> {
         MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: SingleChildScrollView(
+        controller: _scrollCtrl,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,9 +711,18 @@ class _AddShopSheetState extends State<AddShopSheet> {
               controller: _nameCtrl,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
+              onChanged: (_) {
+                if (_nameError != null || _sheetErrorMessage != null) {
+                  setState(() {
+                    _nameError = null;
+                    _sheetErrorMessage = null;
+                  });
+                }
+              },
               decoration: InputDecoration(
                 labelText: AppStrings.shopNameLabel,
                 hintText: AppStrings.shopNameHint,
+                errorText: _nameError,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
@@ -703,9 +733,18 @@ class _AddShopSheetState extends State<AddShopSheet> {
             TextField(
               controller: _ownerCtrl,
               textCapitalization: TextCapitalization.words,
+              onChanged: (_) {
+                if (_ownerError != null || _sheetErrorMessage != null) {
+                  setState(() {
+                    _ownerError = null;
+                    _sheetErrorMessage = null;
+                  });
+                }
+              },
               decoration: InputDecoration(
                 labelText: AppStrings.ownerNameLabel,
                 hintText: AppStrings.ownerNameHint,
+                errorText: _ownerError,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
@@ -720,10 +759,19 @@ class _AddShopSheetState extends State<AddShopSheet> {
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(10),
               ],
+              onChanged: (_) {
+                if (_phoneError != null || _sheetErrorMessage != null) {
+                  setState(() {
+                    _phoneError = null;
+                    _sheetErrorMessage = null;
+                  });
+                }
+              },
               decoration: InputDecoration(
                 labelText: AppStrings.mobileLabel,
                 prefixText: '+91 ',
                 hintText: AppStrings.mobileHint,
+                errorText: _phoneError,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
@@ -1239,11 +1287,41 @@ class _AddShopSheetState extends State<AddShopSheet> {
 
             const SizedBox(height: 16),
 
+            if (_sheetErrorMessage != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _sheetErrorMessage!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB91C1C),
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Big Save Button
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
+                key: const ValueKey('add_shop_save_button'),
                 onPressed: _isSaving ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AirbnbTheme.coral,

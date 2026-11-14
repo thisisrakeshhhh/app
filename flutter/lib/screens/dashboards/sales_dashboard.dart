@@ -108,9 +108,15 @@ class _SalesDashboardState extends State<SalesDashboard> {
         }
         widget.api.updateRepLocation(position.latitude, position.longitude);
         _computeBeatRoute();
-        _googleMapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15.0),
-        );
+        if (position.latitude < 28.5) {
+          _googleMapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), 15.0),
+          );
+        } else {
+          final shops = widget.api.dynamicRoadRouteShops;
+          final located = shops.where((s) => s.latitude != null && s.longitude != null).toList();
+          _fitRouteBounds(located);
+        }
       }
 
       _positionSubscription = Geolocator.getPositionStream(
@@ -254,7 +260,7 @@ class _SalesDashboardState extends State<SalesDashboard> {
     final newShop = await AddShopSheet.show(
       context,
       api: widget.api,
-      defaultRouteId: widget.api.activeTerritory == 'jodhpur' ? 'route_sardarpura_02' : 'route_chd_mohali_01',
+      defaultRouteId: 'route_sojati_01',
     );
     if (newShop != null) {
       widget.api.addShopToTodayBeat(newShop.id);
@@ -264,6 +270,9 @@ class _SalesDashboardState extends State<SalesDashboard> {
         setState(() {
           if (idx != -1) _selectedStopIndex = idx;
         });
+        _computeBeatRoute();
+        final located = widget.api.dynamicRoadRouteShops.where((s) => s.latitude != null && s.longitude != null).toList();
+        _fitRouteBounds(located);
       }
     }
   }
@@ -1389,10 +1398,10 @@ class _SalesDashboardState extends State<SalesDashboard> {
   void _fitRouteBounds(List<RetailerShop> locatedShops) {
     if (_googleMapController == null) return;
     if (locatedShops.isEmpty) {
-      final defaultLat = widget.api.activeTerritory == 'jodhpur' ? 26.2850 : 30.7225;
-      final defaultLng = widget.api.activeTerritory == 'jodhpur' ? 73.0180 : 76.7620;
+      const defaultLat = 26.2850;
+      const defaultLng = 73.0180;
       _googleMapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(defaultLat, defaultLng), 14.5),
+        CameraUpdate.newLatLngZoom(const LatLng(defaultLat, defaultLng), 14.5),
       );
       return;
     }
@@ -1401,11 +1410,11 @@ class _SalesDashboardState extends State<SalesDashboard> {
       ...locatedShops.map((s) => LatLng(s.latitude!, s.longitude!)),
     ];
 
-    // Only include rep's phone location if it is nearby this city's cluster (< 35km)
+    // Only include rep's phone location if it is nearby this city's cluster (< 35km) and in Jodhpur
     final repLat = widget.api.currentRepLat;
     final repLng = widget.api.currentRepLng;
     final isRepNearby = points.any((p) => ApiService.calculateDistanceMeters(repLat, repLng, p.latitude, p.longitude) < 35000);
-    if (isRepNearby) {
+    if (isRepNearby && repLat < 28.5) {
       points.add(LatLng(repLat, repLng));
     }
     if (points.isEmpty) return;
@@ -2085,95 +2094,31 @@ class _SalesDashboardState extends State<SalesDashboard> {
             ],
           ),
           const SizedBox(height: 12),
-          // City / Territory Selector Switcher Pills
+          // Jodhpur Exclusive Beat Indicator
           Container(
-            padding: const EdgeInsets.all(3.5),
+            key: const ValueKey('territory_pill_jdh'),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AirbnbTheme.coral.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              border: Border.all(color: AirbnbTheme.coral.withValues(alpha: 0.6)),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Expanded(
-                  child: InkWell(
-                    key: const ValueKey('territory_pill_chd'),
-                    onTap: () {
-                      widget.api.setActiveTerritory('chandigarh_mohali');
-                      setState(() => _selectedStopIndex = 0);
-                      final shops = widget.api.dynamicRoadRouteShops;
-                      final located = shops.where((s) => s.latitude != null && s.longitude != null).toList();
-                      _fitRouteBounds(located);
-                    },
-                    borderRadius: BorderRadius.circular(9),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 7.5),
-                      decoration: BoxDecoration(
-                        color: widget.api.activeTerritory == 'chandigarh_mohali' ? AirbnbTheme.coral : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.location_city_rounded,
-                            size: 14,
-                            color: widget.api.activeTerritory == 'chandigarh_mohali' ? Colors.white : Colors.white70,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Chandigarh & Mohali',
-                            style: TextStyle(
-                              color: widget.api.activeTerritory == 'chandigarh_mohali' ? Colors.white : Colors.white70,
-                              fontSize: 11.5,
-                              fontWeight: widget.api.activeTerritory == 'chandigarh_mohali' ? FontWeight.w800 : FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                const Icon(
+                  Icons.fort_rounded,
+                  size: 16,
+                  color: Colors.white,
                 ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: InkWell(
-                    key: const ValueKey('territory_pill_jdh'),
-                    onTap: () {
-                      widget.api.setActiveTerritory('jodhpur');
-                      setState(() => _selectedStopIndex = 0);
-                      final shops = widget.api.dynamicRoadRouteShops;
-                      final located = shops.where((s) => s.latitude != null && s.longitude != null).toList();
-                      _fitRouteBounds(located);
-                    },
-                    borderRadius: BorderRadius.circular(9),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 7.5),
-                      decoration: BoxDecoration(
-                        color: widget.api.activeTerritory == 'jodhpur' ? AirbnbTheme.coral : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.fort_rounded,
-                            size: 14,
-                            color: widget.api.activeTerritory == 'jodhpur' ? Colors.white : Colors.white70,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Jodhpur (Sardarpura)',
-                            style: TextStyle(
-                              color: widget.api.activeTerritory == 'jodhpur' ? Colors.white : Colors.white70,
-                              fontSize: 11.5,
-                              fontWeight: widget.api.activeTerritory == 'jodhpur' ? FontWeight.w800 : FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Jodhpur Beat — Sardarpura & Nai Sadak Route',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ],

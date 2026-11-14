@@ -730,12 +730,13 @@ class ApiService extends ChangeNotifier {
 
   Future<List<RouteEntry>> getAvailableRoutes() async {
     final list = await repository.getAllRoutes();
-    if (list.isNotEmpty) return list;
+    final jodhpurRoutes = list.where((r) => !r.id.contains('chd') && !r.code.contains('CHD') && !r.name.toLowerCase().contains('chandigarh')).toList();
+    if (jodhpurRoutes.isNotEmpty) return jodhpurRoutes;
     return [
       RouteEntry(
-        id: 'route_chd_mohali_01',
-        name: 'Chandigarh & Mohali Beat Route',
-        code: 'CHD-MOH-01',
+        id: 'route_sojati_01',
+        name: 'Sardarpura & Nai Sadak Route',
+        code: 'JDH-SAR-01',
         dayOfWeek: 'Monday',
         isActive: true,
         createdAt: DateTime.now(),
@@ -743,16 +744,16 @@ class ApiService extends ChangeNotifier {
       RouteEntry(
         id: 'route_sardarpura_02',
         name: 'Sardarpura Commercial Beat',
-        code: 'SAR-02',
-        dayOfWeek: 'Monday',
+        code: 'JDH-SAR-02',
+        dayOfWeek: 'Tuesday',
         isActive: true,
         createdAt: DateTime.now(),
       ),
       RouteEntry(
         id: 'route_nai_sadak_01',
         name: 'Nai Sadak Wholesale Beat',
-        code: 'NAI-01',
-        dayOfWeek: 'Tuesday',
+        code: 'JDH-NAI-01',
+        dayOfWeek: 'Wednesday',
         isActive: true,
         createdAt: DateTime.now(),
       ),
@@ -1498,45 +1499,35 @@ class ApiService extends ChangeNotifier {
         );
   }
 
-  String _activeTerritory = 'chandigarh_mohali'; // 'chandigarh_mohali' or 'jodhpur'
-  bool _userManuallySelectedTerritory = false;
+  String _activeTerritory = 'jodhpur'; // Sales role operates in Jodhpur
 
   String get activeTerritory => _activeTerritory;
 
-  String get activeTerritoryName => _activeTerritory == 'jodhpur'
-      ? 'Sardarpura & Nai Sadak Route'
-      : 'Chandigarh & Mohali Beat Route';
+  String get activeTerritoryName => 'Sardarpura & Nai Sadak Route';
 
-  String get activeTerritoryShortName => _activeTerritory == 'jodhpur'
-      ? 'Jodhpur'
-      : 'Chandigarh & Mohali';
+  String get activeTerritoryShortName => 'Jodhpur';
 
   void setActiveTerritory(String territory, {bool userExplicit = true}) {
-    if (userExplicit) {
-      _userManuallySelectedTerritory = true;
-    }
     if (_activeTerritory != territory) {
       _activeTerritory = territory;
       notifyListeners();
     }
   }
 
-  double _currentRepLat = 30.7225;
-  double _currentRepLng = 76.7620;
+  double _currentRepLat = 26.2800;
+  double _currentRepLng = 73.0200;
 
   double get currentRepLat => _currentRepLat;
   double get currentRepLng => _currentRepLng;
 
   void updateRepLocation(double lat, double lng) {
+    if (_activeTerritory == 'jodhpur' && lat > 28.5) {
+      // Physical device is outside Jodhpur (e.g. testing in Chandigarh)
+      // Do not jump to Chandigarh! Keep rep in Jodhpur beat corridor.
+      return;
+    }
     _currentRepLat = lat;
     _currentRepLng = lng;
-    if (!_userManuallySelectedTerritory) {
-      if (lat >= 29.0 && _activeTerritory != 'chandigarh_mohali') {
-        _activeTerritory = 'chandigarh_mohali';
-      } else if (lat < 29.0 && _activeTerritory != 'jodhpur') {
-        _activeTerritory = 'jodhpur';
-      }
-    }
     notifyListeners();
   }
 

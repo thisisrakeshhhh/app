@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -34,10 +35,10 @@ class SalesMapMarkerCache {
       final icon = await _renderNumberedPin(
         label: '$stopNum',
         fillColor: isVisited
-            ? const Color(0xFF059669)
+            ? const Color(0xFF059669) // Emerald Green
             : (isCheckedIn
-                ? const Color(0xFF0284C7)
-                : (isNext ? const Color(0xFFF59E0B) : const Color(0xFFDC2626))),
+                ? const Color(0xFF0284C7) // Sky Blue
+                : (isNext ? const Color(0xFFF59E0B) : const Color(0xFFDC2626))), // Amber / Rose Red
         hasHighlightRing: isCheckedIn || isNext,
       );
       _cache[key] = icon;
@@ -54,7 +55,7 @@ class SalesMapMarkerCache {
       fillColor: const Color(0xFF0F172A),
       ringColor: Colors.white,
       glyph: 'G',
-      size: 84,
+      size: 88,
     );
     _cache[key] = icon;
     return icon;
@@ -149,56 +150,118 @@ class SalesMapMarkerCache {
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    const double width = 84.0;
-    const double height = 98.0;
-    const center = Offset(width / 2, 38);
+    const double width = 100.0;
+    const double height = 120.0;
+    const center = Offset(width / 2, 42.0);
+    const double r = 32.0;
+    const tip = Offset(width / 2, 106.0);
 
+    // 1. Next-Stop Glowing Pulse Ring
     if (hasHighlightRing) {
       canvas.drawCircle(
         center,
-        35,
-        Paint()..color = fillColor.withValues(alpha: 0.28),
+        r + 14,
+        Paint()..color = fillColor.withValues(alpha: 0.16),
+      );
+      canvas.drawCircle(
+        center,
+        r + 7,
+        Paint()..color = fillColor.withValues(alpha: 0.30),
       );
     }
 
-    // Drop shadow
-    canvas.drawCircle(
-      const Offset(width / 2, 41),
-      26,
+    // 2. Ground Shadow under tip
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(tip.dx, tip.dy + 3), width: 34, height: 10),
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.22)
+        ..color = Colors.black.withValues(alpha: 0.28)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    // 3. Smooth Seamless Teardrop Vector
+    final pinPath = Path();
+    const double tangentAngle = 0.65; // radians below horizontal
+    final double rightTangX = center.dx + r * math.cos(tangentAngle);
+    final double rightTangY = center.dy + r * math.sin(tangentAngle);
+    final double leftTangX = center.dx - r * math.cos(tangentAngle);
+    final double leftTangY = center.dy + r * math.sin(tangentAngle);
+
+    pinPath.moveTo(center.dx, center.dy - r);
+    pinPath.arcToPoint(
+      Offset(rightTangX, rightTangY),
+      radius: const Radius.circular(r),
+      largeArc: false,
+    );
+    pinPath.cubicTo(
+      rightTangX - 2.0, rightTangY + 20.0,
+      tip.dx + 9.0, tip.dy - 12.0,
+      tip.dx, tip.dy,
+    );
+    pinPath.cubicTo(
+      tip.dx - 9.0, tip.dy - 12.0,
+      leftTangX + 2.0, leftTangY + 20.0,
+      leftTangX, leftTangY,
+    );
+    pinPath.arcToPoint(
+      Offset(center.dx, center.dy - r),
+      radius: const Radius.circular(r),
+      largeArc: false,
+    );
+    pinPath.close();
+
+    // 4. Pin Drop Shadow
+    canvas.drawPath(
+      pinPath.shift(const Offset(0, 3)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.20)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
 
-    // Pointer triangle
-    final pointer = Path()
-      ..moveTo(center.dx - 11, 56)
-      ..lineTo(center.dx + 11, 56)
-      ..lineTo(center.dx, 88)
-      ..close();
-    canvas.drawPath(pointer, Paint()..color = Colors.white);
+    // 5. Pin Fill with subtle gradient
+    final fillPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(center.dx, center.dy - r),
+        tip,
+        [
+          fillColor,
+          Color.lerp(fillColor, Colors.black, 0.16)!,
+        ],
+      );
+    canvas.drawPath(pinPath, fillPaint);
+
+    // 6. Crisp White Outer Stroke (2.5px)
     canvas.drawPath(
-      Path()
-        ..moveTo(center.dx - 8, 55)
-        ..lineTo(center.dx + 8, 55)
-        ..lineTo(center.dx, 83)
-        ..close(),
-      Paint()..color = fillColor,
+      pinPath,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
     );
 
-    // White border circle
-    canvas.drawCircle(center, 27, Paint()..color = Colors.white);
-    // Colored circle
-    canvas.drawCircle(center, 23, Paint()..color = fillColor);
+    // 7. Pure White Circular Inset Disc for Sequence Number
+    const double innerR = 19.5;
+    canvas.drawCircle(
+      Offset(center.dx, center.dy + 1.0),
+      innerR,
+      Paint()..color = Colors.black.withValues(alpha: 0.12),
+    );
+    canvas.drawCircle(
+      center,
+      innerR,
+      Paint()..color = Colors.white,
+    );
 
-    // Stop number text
+    // 8. Stop Number Text in Crisp, Bold Font
+    final textColor = Color.lerp(fillColor, Colors.black, 0.35)!;
     final tp = TextPainter(
       text: TextSpan(
         text: label,
         style: TextStyle(
-          color: Colors.white,
-          fontSize: label.length > 2 ? 19 : 23,
+          color: textColor,
+          fontSize: label.length > 2 ? 15 : (label.length == 2 ? 18 : 21),
           fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+          height: 1.0,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -221,22 +284,29 @@ class SalesMapMarkerCache {
     final center = Offset(size / 2, size / 2);
 
     canvas.drawCircle(
-      center,
-      size * 0.42,
+      Offset(center.dx, center.dy + 2),
+      size * 0.44,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.22)
+        ..color = Colors.black.withValues(alpha: 0.25)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
-    canvas.drawCircle(center, size * 0.38, Paint()..color = ringColor);
-    canvas.drawCircle(center, size * 0.32, Paint()..color = fillColor);
+    canvas.drawCircle(center, size * 0.40, Paint()..color = ringColor);
+    final fillPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(center.dx, center.dy - size * 0.34),
+        Offset(center.dx, center.dy + size * 0.34),
+        [fillColor, Color.lerp(fillColor, Colors.black, 0.22)!],
+      );
+    canvas.drawCircle(center, size * 0.34, fillPaint);
 
     final tp = TextPainter(
       text: TextSpan(
         text: glyph,
         style: TextStyle(
           color: Colors.white,
-          fontSize: size * 0.28,
+          fontSize: size * 0.32,
           fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
         ),
       ),
       textDirection: TextDirection.ltr,
