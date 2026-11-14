@@ -161,6 +161,17 @@ Output:
 ```
 **Result: 104/104 tests passed across all 11 suites.**
 
+### 3.2.1 Full Global Flutter Test Suite (All 33 Test Suites)
+Command:
+```bash
+flutter test
+```
+Output:
+```
+00:47 +348: All tests passed!
+```
+**Result: 348/348 tests passed (100% across the entire application).**
+
 ---
 
 ### 3.3 Backend Isolated Test Suite
