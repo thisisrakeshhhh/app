@@ -1,4 +1,7 @@
 import '../l10n/app_language.dart';
+import '../domain/models/phone_sanitizer.dart';
+import '../domain/models/retailer_business_validator.dart';
+import '../domain/models/retailer_classification.dart';
 
 enum AppRole {
   sales,
@@ -623,13 +626,17 @@ class RetailerShop {
     this.skipReason,
   });
 
-  String? get resolvedPanNumber {
-    if (panNumber != null && panNumber!.isNotEmpty) return panNumber;
-    if (gstin != null && gstin!.length == 15) {
-      return gstin!.substring(2, 12);
-    }
-    return null;
-  }
+  String? get normalizedPhone =>
+      PhoneSanitizer.normalize(phone) ?? PhoneSanitizer.canonicalize(phone);
+  String? get displayPhone => PhoneSanitizer.formatDisplay(phone);
+  String? get normalizedWhatsappPhone => whatsappPhone != null
+      ? (PhoneSanitizer.normalize(whatsappPhone) ??
+          PhoneSanitizer.canonicalize(whatsappPhone!))
+      : null;
+
+  String? get resolvedPanNumber =>
+      RetailerBusinessValidator.resolvePan(pan: panNumber, gstin: gstin);
+  bool get hasValidGstin => RetailerBusinessValidator.isValidGstin(gstin);
 
   double get creditLimitRupees => creditLimitPaise / 100.0;
   double get outstandingRupees => outstandingPaise / 100.0;
@@ -658,20 +665,21 @@ class RetailerShop {
   }
 
   /// Canonical letter code: A, B, C, D, or NEW.
-  String get classCode {
-    final c = classType.toUpperCase();
-    if (c == 'CLASS_A' || c == 'A') return 'A';
-    if (c == 'CLASS_B' || c == 'B') return 'B';
-    if (c == 'CLASS_C' || c == 'C') return 'C';
-    if (c == 'CLASS_D' || c == 'D') return 'D';
-    return 'NEW';
-  }
+  String get classCode => RetailerClassification.normalize(classType);
 
   /// Display name for retailer classification without invented marketing hype.
-  String get classDisplayName {
-    final code = classCode;
-    return 'Class $code';
-  }
+  String get classDisplayName => RetailerClassification.displayName(classType);
+
+  int get defaultCreditLimitPaise =>
+      RetailerClassification.defaultCreditLimitPaise(classType);
+  int get defaultCreditDays =>
+      RetailerClassification.defaultCreditDays(classType);
+  int get defaultVisitFrequencyDays =>
+      RetailerClassification.defaultVisitFrequencyDays(classType);
+  bool get canUseCredit => RetailerClassification.canUseCredit(
+        classType: classType,
+        creditLimitPaise: creditLimitPaise,
+      );
 
   bool get isCheckedIn => currentVisitStartTime != null;
 

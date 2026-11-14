@@ -9,6 +9,9 @@ import '../data/local/local_repository.dart';
 import '../domain/auth/auth_exceptions.dart';
 import '../domain/auth/auth_models.dart';
 import '../domain/auth/tenant_boundary_gate.dart';
+import '../domain/models/phone_sanitizer.dart';
+import '../domain/models/retailer_business_validator.dart';
+import '../domain/models/retailer_classification.dart';
 import '../domain/outbox/outbox_models.dart';
 import '../models/models.dart';
 
@@ -617,13 +620,12 @@ class ApiService extends ChangeNotifier {
     String? gstin,
     double? latitude,
     double? longitude,
+    String? excludeRetailerId,
   }) {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    final last10Phone = cleanPhone.length >= 10
-        ? cleanPhone.substring(cleanPhone.length - 10)
-        : cleanPhone;
+    final cleanPhone = PhoneSanitizer.normalize(phone) ??
+        PhoneSanitizer.canonicalize(phone);
 
-    final cleanGstin = gstin?.trim().toUpperCase();
+    final cleanGstin = RetailerBusinessValidator.normalizeGstin(gstin);
 
     String normalizeName(String raw) {
       return raw
@@ -639,12 +641,14 @@ class ApiService extends ChangeNotifier {
     final normName = normalizeName(name);
 
     for (final shop in _retailers) {
-      // 1. Exact mobile check
-      final shopPhone = shop.phone.replaceAll(RegExp(r'\D'), '');
-      final shopLast10 = shopPhone.length >= 10
-          ? shopPhone.substring(shopPhone.length - 10)
-          : shopPhone;
-      if (last10Phone.isNotEmpty && shopLast10 == last10Phone) {
+      if (excludeRetailerId != null && shop.id == excludeRetailerId) {
+        continue;
+      }
+
+      // 1. Exact mobile check (comparing canonical normalized numbers)
+      final shopPhone = shop.normalizedPhone ??
+          PhoneSanitizer.canonicalize(shop.phone);
+      if (cleanPhone.isNotEmpty && shopPhone == cleanPhone) {
         return DuplicateCheckResult(
           type: DuplicateType.exactMobile,
           matchedShop: shop,
@@ -653,8 +657,9 @@ class ApiService extends ChangeNotifier {
       }
 
       // 2. Exact GSTIN check
-      if (cleanGstin != null && cleanGstin.isNotEmpty && shop.gstin != null) {
-        if (shop.gstin!.trim().toUpperCase() == cleanGstin) {
+      if (cleanGstin != null && shop.gstin != null) {
+        final shopGstin = RetailerBusinessValidator.normalizeGstin(shop.gstin);
+        if (shopGstin != null && shopGstin == cleanGstin) {
           return DuplicateCheckResult(
             type: DuplicateType.exactGstin,
             matchedShop: shop,
@@ -690,6 +695,19 @@ class ApiService extends ChangeNotifier {
     return const DuplicateCheckResult(type: DuplicateType.none);
   }
 
+  bool isDuplicatePhone(String phone, {String? excludeRetailerId}) {
+    final clean = PhoneSanitizer.normalize(phone) ??
+        PhoneSanitizer.canonicalize(phone);
+    if (clean.isEmpty) return false;
+    for (final shop in _retailers) {
+      if (excludeRetailerId != null && shop.id == excludeRetailerId) continue;
+      final shopPhone = shop.normalizedPhone ??
+          PhoneSanitizer.canonicalize(shop.phone);
+      if (shopPhone == clean) return true;
+    }
+    return false;
+  }
+
   Future<DuplicateCheckResult> checkShopDuplicates({
     required String phone,
     String? gstin,
@@ -697,6 +715,7 @@ class ApiService extends ChangeNotifier {
     String? area,
     double? latitude,
     double? longitude,
+    String? excludeRetailerId,
   }) async {
     return checkDuplicateRetailer(
       phone: phone,
@@ -705,6 +724,7 @@ class ApiService extends ChangeNotifier {
       gstin: gstin,
       latitude: latitude,
       longitude: longitude,
+      excludeRetailerId: excludeRetailerId,
     );
   }
 
@@ -845,11 +865,21 @@ class ApiService extends ChangeNotifier {
       throw StateError('Cannot create shop: Active user ID is required.');
     }
 
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-    final cleanPhone = digits.length >= 10 ? digits.substring(digits.length - 10) : digits;
-    if (cleanPhone.length != 10) {
-      throw ArgumentError('Valid 10-digit mobile number required: $phone');
+    final phoneError = PhoneSanitizer.validateIndianMobile(phone);
+    if (phoneError != null) {
+      throw ArgumentError(phoneError);
     }
+    final cleanPhone = PhoneSanitizer.normalize(phone)!;
+
+    String? cleanWhatsapp;
+    if (whatsappPhone != null && whatsappPhone.trim().isNotEmpty) {
+      final waError = PhoneSanitizer.validateIndianMobile(whatsappPhone);
+      if (waError != null) {
+        throw ArgumentError('WhatsApp $waError');
+      }
+      cleanWhatsapp = PhoneSanitizer.normalize(whatsappPhone);
+    }
+
     if (name.trim().isEmpty) {
       throw ArgumentError('Shop name cannot be empty');
     }
@@ -877,7 +907,18 @@ class ApiService extends ChangeNotifier {
     final hexSuffix = Random().nextInt(0xFFFFFF).toRadixString(16).padLeft(6, '0').toLowerCase();
     final provisionalRetailerId = 'ret_${epochMs}_$hexSuffix';
 
+    final cleanGstin = RetailerBusinessValidator.normalizeGstin(gstin);
+    final resolvedPan = RetailerBusinessValidator.resolvePan(
+      pan: panNumber,
+      gstin: cleanGstin,
+    );
+
     // Sales reps can only add shops with class = NEW, credit = 0 (Cash only)
+    final isSales = session.activeRole.toUpperCase() == 'SALES';
+    final targetClass = RetailerClassification.normalize(suggestedClass);
+    final effectiveClass = isSales ? 'NEW' : targetClass;
+    final effectiveCredit = isSales ? 0 : RetailerClassification.defaultCreditLimitPaise(effectiveClass);
+
     final newShop = RetailerShop(
       id: provisionalRetailerId,
       name: name.trim(),
@@ -886,7 +927,7 @@ class ApiService extends ChangeNotifier {
       address: address.trim(),
       area: area.trim(),
       routeId: routeId,
-      creditLimitPaise: 0, // strictly 0 credit enforced in data layer
+      creditLimitPaise: effectiveCredit,
       outstandingPaise: 0,
       visitedToday: false,
       totalTimeSpentSeconds: 0,
@@ -894,18 +935,18 @@ class ApiService extends ChangeNotifier {
       latitude: latitude,
       longitude: longitude,
       locationAccuracyMeters: locationAccuracyMeters,
-      classType: 'NEW',
-      classSource: 'SALESPERSON_SUGGESTED',
+      classType: effectiveClass,
+      classSource: isSales ? 'SALESPERSON_SUGGESTED' : 'OWNER_ASSIGNED',
       shopType: shopType,
-      gstin: gstin?.trim().toUpperCase(),
+      gstin: cleanGstin,
       pincode: pincode?.trim(),
       landmark: landmark?.trim(),
       status: 'ACTIVE',
       createdByUserId: session.userId,
       syncStatus: 'PENDING',
-      whatsappPhone: whatsappPhone?.trim(),
-      gstType: gstType ?? (gstin != null && gstin.trim().isNotEmpty ? 'REGULAR' : 'CONSUMER'),
-      panNumber: panNumber?.trim().toUpperCase(),
+      whatsappPhone: cleanWhatsapp,
+      gstType: gstType ?? (cleanGstin != null ? 'REGULAR' : 'CONSUMER'),
+      panNumber: resolvedPan,
     );
 
     final payload = CreateRetailerMutationPayload(
@@ -2597,11 +2638,10 @@ class ApiService extends ChangeNotifier {
   }
 
   bool canUseCreditOrKhata(RetailerShop shop) {
-    final c = shop.classType.toUpperCase();
-    if (c == 'D' || c == 'NEW') {
-      return false;
-    }
-    return shop.creditLimitPaise > 0;
+    return RetailerClassification.canUseCredit(
+      classType: shop.classType,
+      creditLimitPaise: shop.creditLimitPaise,
+    );
   }
 
   Future<void> recordNoOrderVisit({

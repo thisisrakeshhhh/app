@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../data/local/app_database.dart';
+import '../../domain/models/phone_sanitizer.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -343,10 +344,22 @@ class _AddShopSheetState extends State<AddShopSheet> {
       _showError(AppStrings.ownerNameRequired);
       return;
     }
-    final cleanDigits = rawPhone.replaceAll(RegExp(r'\D'), '');
-    if (cleanDigits.length < 10) {
-      _showError(AppStrings.validMobileRequired);
+
+    final phoneError = PhoneSanitizer.validateIndianMobile(rawPhone);
+    if (phoneError != null) {
+      _showError(phoneError);
       return;
+    }
+
+    if (!_whatsappSameAsPhone) {
+      final wa = _whatsappCtrl.text.trim();
+      if (wa.isNotEmpty) {
+        final waError = PhoneSanitizer.validateIndianMobile(wa);
+        if (waError != null) {
+          _showError('WhatsApp: $waError');
+          return;
+        }
+      }
     }
 
     final bool isJodhpur = widget.api.activeTerritory == 'jodhpur';

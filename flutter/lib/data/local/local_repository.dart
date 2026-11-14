@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 import '../../domain/models/inventory_math.dart';
+import '../../domain/models/phone_sanitizer.dart';
+import '../../domain/models/retailer_classification.dart';
 import '../../models/models.dart';
 import 'app_database.dart';
 
@@ -1136,12 +1138,16 @@ class LocalRepository {
   }
 
   Future<void> upsertRetailer(RetailerShop retailer) async {
+    final canonicalPhone = PhoneSanitizer.normalize(retailer.phone) ??
+        PhoneSanitizer.canonicalize(retailer.phone);
+    final canonicalClass = RetailerClassification.normalize(retailer.classType);
+
     await db.into(db.retailers).insertOnConflictUpdate(
       RetailersCompanion(
         id: Value(retailer.id),
         name: Value(retailer.name),
         ownerName: Value(retailer.ownerName),
-        phone: Value(retailer.phone),
+        phone: Value(canonicalPhone),
         address: Value(retailer.address),
         area: Value(retailer.area),
         creditLimitPaise: Value(retailer.creditLimitPaise),
@@ -1151,7 +1157,7 @@ class LocalRepository {
         visitCountToday: Value(retailer.visitCountToday),
         latitude: Value(retailer.latitude),
         longitude: Value(retailer.longitude),
-        classType: Value(retailer.classType),
+        classType: Value(canonicalClass),
         classSource: Value(retailer.classSource),
         routeId: Value(retailer.routeId),
         shopType: Value(retailer.shopType),
@@ -1195,11 +1201,13 @@ class LocalRepository {
     required String address,
     required String area,
   }) async {
+    final canonicalPhone = PhoneSanitizer.normalize(phone) ??
+        PhoneSanitizer.canonicalize(phone);
     await (db.update(db.retailers)..where((tbl) => tbl.id.equals(id))).write(
       RetailersCompanion(
         name: Value(name),
         ownerName: Value(ownerName),
-        phone: Value(phone),
+        phone: Value(canonicalPhone),
         address: Value(address),
         area: Value(area),
       ),
@@ -1209,6 +1217,46 @@ class LocalRepository {
   Future<RetailerEntry?> getRetailerById(String id) async {
     return (db.select(db.retailers)..where((tbl) => tbl.id.equals(id)))
         .getSingleOrNull();
+  }
+
+  /// Finds a retailer in SQLite by phone number, matching after normalization.
+  Future<RetailerEntry?> findRetailerByPhone(String phone) async {
+    final clean = PhoneSanitizer.normalize(phone) ??
+        PhoneSanitizer.canonicalize(phone);
+    if (clean.isEmpty) return null;
+
+    final all = await db.select(db.retailers).get();
+    for (final r in all) {
+      final rClean = PhoneSanitizer.normalize(r.phone) ??
+          PhoneSanitizer.canonicalize(r.phone);
+      if (rClean == clean) return r;
+    }
+    return null;
+  }
+
+  /// Finds a retailer in SQLite by uppercase normalized GSTIN.
+  Future<RetailerEntry?> findRetailerByGstin(String gstin) async {
+    final clean = gstin.trim().toUpperCase();
+    if (clean.isEmpty) return null;
+    return (db.select(db.retailers)..where((tbl) => tbl.gstin.equals(clean)))
+        .getSingleOrNull();
+  }
+
+  /// Checks if a normalized phone number is already registered in SQLite,
+  /// optionally excluding a specific [excludeRetailerId] (e.g. for edits).
+  Future<bool> isPhoneRegistered(String phone, {String? excludeRetailerId}) async {
+    final clean = PhoneSanitizer.normalize(phone) ??
+        PhoneSanitizer.canonicalize(phone);
+    if (clean.isEmpty) return false;
+
+    final all = await db.select(db.retailers).get();
+    for (final r in all) {
+      if (excludeRetailerId != null && r.id == excludeRetailerId) continue;
+      final rClean = PhoneSanitizer.normalize(r.phone) ??
+          PhoneSanitizer.canonicalize(r.phone);
+      if (rClean == clean) return true;
+    }
+    return false;
   }
 
   Future<void> updateRetailerClassAndLimit(

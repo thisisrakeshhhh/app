@@ -21,6 +21,19 @@ async function sha256Hex(data: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+export function normalizeIndianPhone(raw: string): string {
+  if (!raw) return '';
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('910') && digits.length === 13) {
+    digits = digits.substring(3);
+  } else if (digits.startsWith('91') && digits.length === 12) {
+    digits = digits.substring(2);
+  } else if (digits.startsWith('0') && digits.length === 11) {
+    digits = digits.substring(1);
+  }
+  return digits;
+}
+
 export function syncRouter(authMiddleware: any) {
   const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -147,7 +160,8 @@ export function syncRouter(authMiddleware: any) {
         const serverId = `ret_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         const nowMs = Date.now();
         const shopName = payload?.shopName || payload?.name || 'Unnamed Shop';
-        const contactNumber = payload?.phone || payload?.contactNumber || '';
+        const rawContact = payload?.phone || payload?.contactNumber || '';
+        const contactNumber = normalizeIndianPhone(rawContact) || rawContact;
         const address = payload?.address || '';
         const beatId = payload?.route || payload?.beatId || 'DEFAULT_BEAT';
         const lat = payload?.latitude ?? null;
