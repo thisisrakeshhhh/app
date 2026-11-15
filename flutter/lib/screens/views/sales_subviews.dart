@@ -177,9 +177,16 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                               ),
                               Text(
-                                '${item.quantity} ${item.unit.label} (${item.totalPieces} pcs)',
+                                item.freeQuantity > 0
+                                    ? '${item.quantity} ${item.unit.label} (+${item.freeQuantity} Free) (${item.totalPieces} pcs)'
+                                    : '${item.quantity} ${item.unit.label} (${item.totalPieces} pcs)',
                                 style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
                               ),
+                              if (item.discountPaise > 0)
+                                Text(
+                                  'Discount: -₹${item.discountRupees.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 10, color: AirbnbTheme.success, fontWeight: FontWeight.w600),
+                                ),
                             ],
                           ),
                         ),
@@ -208,6 +215,16 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                   Text('₹${widget.api.cartTotalGstRupees.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 ],
               ),
+              if (widget.api.cartTotalDiscountPaise > 0) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Scheme Discount:', style: TextStyle(fontSize: 12, color: AirbnbTheme.success, fontWeight: FontWeight.w600)),
+                    Text('-₹${widget.api.cartTotalDiscountRupees.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AirbnbTheme.success)),
+                  ],
+                ),
+              ],
               const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -488,9 +505,10 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
               final currentUnit = _getUnit(p);
               final currentQty = _getQty(p);
 
-              // Calculate rate per unit using data-driven wholesale pricing
-              final unitRate = p.priceRupeesForUnit(currentUnit);
-              final lineTotal = unitRate * currentQty;
+              // Calculate rate per unit and dynamic schemes
+              final schemeEval = widget.api.evaluateProductScheme(p, currentUnit, currentQty, paymentMode: 'COD');
+              final unitRate = schemeEval.effectiveUnitPriceRupees;
+              final lineTotal = (unitRate * currentQty) - schemeEval.discountRupees;
 
               return Container(
                 padding: const EdgeInsets.all(12),
@@ -518,6 +536,27 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                                 '${p.hindiName} • MRP ₹${p.mrpRupees.toStringAsFixed(0)}',
                                 style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
                               ),
+                              if (schemeEval.activeBadges.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: schemeEval.activeBadges.map((badge) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                                      ),
+                                      child: Text(
+                                        badge,
+                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF1D4ED8)),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -650,11 +689,22 @@ class _SalesOrderBookingViewState extends State<SalesOrderBookingView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
-                          child: Text(
-                            '₹${unitRate.toStringAsFixed(2)} / ${currentUnit.shortCode} • Total: ₹${lineTotal.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '₹${unitRate.toStringAsFixed(2)} / ${currentUnit.shortCode} • Total: ₹${lineTotal.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AirbnbTheme.dark),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (schemeEval.freeQuantity > 0)
+                                Text(
+                                  '+${schemeEval.freeQuantity} Free ${currentUnit.shortCode} included! 🎁',
+                                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 6),

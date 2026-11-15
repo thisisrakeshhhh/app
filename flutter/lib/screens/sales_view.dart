@@ -620,9 +620,16 @@ class _SalesViewState extends State<SalesView> {
                                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                                     ),
                                     Text(
-                                      '${item.quantity} x ${item.unit.label} (${item.totalPieces} pcs)',
+                                      item.freeQuantity > 0
+                                          ? '${item.quantity} x ${item.unit.label} (+${item.freeQuantity} Free) (${item.totalPieces} pcs)'
+                                          : '${item.quantity} x ${item.unit.label} (${item.totalPieces} pcs)',
                                       style: const TextStyle(fontSize: 11, color: AirbnbTheme.grey),
                                     ),
+                                    if (item.discountPaise > 0)
+                                      Text(
+                                        'Discount: -₹${item.discountRupees.toStringAsFixed(2)}',
+                                        style: const TextStyle(fontSize: 10, color: AirbnbTheme.success, fontWeight: FontWeight.w600),
+                                      ),
                                     Text(
                                       'Taxable: ₹${item.taxableRupees.toStringAsFixed(1)} + GST: ₹${item.totalGstRupees.toStringAsFixed(1)} (${item.product.gstRate.toInt()}%)',
                                       style: const TextStyle(fontSize: 10, color: Color(0xFF6C5CE7)),
@@ -697,6 +704,16 @@ class _SalesViewState extends State<SalesView> {
                             Text('₹${widget.api.cartSgstRupees.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6C5CE7))),
                           ],
                         ),
+                        if (widget.api.cartTotalDiscountPaise > 0) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Scheme Discount', style: TextStyle(fontSize: 11, color: AirbnbTheme.success, fontWeight: FontWeight.w600)),
+                              Text('-₹${widget.api.cartTotalDiscountRupees.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AirbnbTheme.success)),
+                            ],
+                          ),
+                        ],
                         const Divider(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

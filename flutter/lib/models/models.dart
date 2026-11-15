@@ -2,6 +2,7 @@ import '../l10n/app_language.dart';
 import '../domain/models/phone_sanitizer.dart';
 import '../domain/models/retailer_business_validator.dart';
 import '../domain/models/retailer_classification.dart';
+export '../domain/models/scheme_engine.dart';
 
 enum AppRole {
   sales,
@@ -538,20 +539,39 @@ class CartItem {
   final ProductItem product;
   OrderUnit unit;
   int quantity;
+  int freeQuantity;
+  int discountPaise;
+  String? appliedSchemeName;
+  int? customTierUnitPricePaise;
 
   CartItem({
     required this.product,
     this.unit = OrderUnit.box,
     this.quantity = 1,
+    this.freeQuantity = 0,
+    this.discountPaise = 0,
+    this.appliedSchemeName,
+    this.customTierUnitPricePaise,
   });
 
   String get cartKey => makeCartKey(product.id, unit);
   static String makeCartKey(String productId, OrderUnit unit) => '$productId::${unit.name}';
 
-  int get totalPieces => quantity * product.piecesForUnit(unit);
-  int get unitPricePaise => product.priceForUnit(unit);
-  int get totalPaise => quantity * unitPricePaise;
+  int get baseUnitPricePaise => product.priceForUnit(unit);
+  int get unitPricePaise => customTierUnitPricePaise ?? baseUnitPricePaise;
+  int get subtotalPaise => quantity * unitPricePaise;
+  int get totalPaise {
+    final net = subtotalPaise - discountPaise;
+    return net < 0 ? 0 : net;
+  }
   double get totalRupees => totalPaise / 100.0;
+  double get subtotalRupees => subtotalPaise / 100.0;
+  double get discountRupees => discountPaise / 100.0;
+
+  int get billablePieces => quantity * product.piecesForUnit(unit);
+  int get freePieces => freeQuantity * product.piecesForUnit(unit);
+  int get totalPieces => (quantity + freeQuantity) * product.piecesForUnit(unit);
+  int get totalReservedPieces => totalPieces;
 
   // Indian GST calculations (Intra-state Rajasthan)
   int get taxableAmountPaise {
@@ -875,6 +895,7 @@ class DistributorOrder {
   final int totalPaise;
   final int taxablePaise;
   final int totalGstPaise;
+  final int discountPaise;
   final String paymentMode; // COD or Credit
   OrderLifecycleStage stage;
   String assignedCarNumber;
@@ -925,6 +946,7 @@ class DistributorOrder {
     required this.totalPaise,
     required this.taxablePaise,
     required this.totalGstPaise,
+    this.discountPaise = 0,
     required this.paymentMode,
     this.stage = OrderLifecycleStage.booking,
     this.assignedCarNumber = 'RJ-19-GB-4021',
@@ -949,6 +971,7 @@ class DistributorOrder {
   double get totalRupees => totalPaise / 100.0;
   double get taxableRupees => taxablePaise / 100.0;
   double get gstRupees => totalGstPaise / 100.0;
+  double get discountRupees => discountPaise / 100.0;
 
   DistributorOrder copyWith({
     String? id,
@@ -961,6 +984,7 @@ class DistributorOrder {
     int? totalPaise,
     int? taxablePaise,
     int? totalGstPaise,
+    int? discountPaise,
     String? paymentMode,
     OrderLifecycleStage? stage,
     String? assignedCarNumber,
@@ -980,6 +1004,7 @@ class DistributorOrder {
       totalPaise: totalPaise ?? this.totalPaise,
       taxablePaise: taxablePaise ?? this.taxablePaise,
       totalGstPaise: totalGstPaise ?? this.totalGstPaise,
+      discountPaise: discountPaise ?? this.discountPaise,
       paymentMode: paymentMode ?? this.paymentMode,
       stage: stage ?? this.stage,
       assignedCarNumber: assignedCarNumber ?? this.assignedCarNumber,

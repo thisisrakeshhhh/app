@@ -1649,6 +1649,58 @@ class ApiService extends ChangeNotifier {
   final CompoundCartMap _cart = CompoundCartMap();
   CompoundCartMap get cart => _cart;
 
+  // Checkpoint 6: Dynamic Pricing Schemes & Promotions Engine
+  final List<PricingScheme> _pricingSchemes = [];
+  List<PricingScheme> get pricingSchemes => List.unmodifiable(_pricingSchemes);
+  List<PricingScheme> get activeSchemes => _pricingSchemes.where((s) => s.isActive).toList();
+
+  void registerScheme(PricingScheme scheme) {
+    _pricingSchemes.removeWhere((s) => s.id == scheme.id);
+    _pricingSchemes.add(scheme);
+    applySchemesToCart();
+    notifyListeners();
+  }
+
+  void removeScheme(String schemeId) {
+    _pricingSchemes.removeWhere((s) => s.id == schemeId);
+    applySchemesToCart();
+    notifyListeners();
+  }
+
+  void setSchemes(List<PricingScheme> schemes) {
+    _pricingSchemes.clear();
+    _pricingSchemes.addAll(schemes);
+    applySchemesToCart();
+    notifyListeners();
+  }
+
+  List<PricingScheme> getSchemesForProduct(String productId) {
+    return _pricingSchemes.where((s) => s.isActive && s.matchesProduct(productId)).toList();
+  }
+
+  SchemeEvaluationResult evaluateProductScheme(
+    ProductItem product,
+    OrderUnit unit,
+    int quantity, {
+    String? paymentMode,
+  }) {
+    return DynamicSchemeEngine.evaluateItem(
+      product: product,
+      unit: unit,
+      quantity: quantity,
+      activeSchemes: activeSchemes,
+      paymentMode: paymentMode,
+    );
+  }
+
+  void applySchemesToCart({String? paymentMode}) {
+    DynamicSchemeEngine.applyToCart(
+      cartItems: _cart.values,
+      activeSchemes: activeSchemes,
+      paymentMode: paymentMode ?? '',
+    );
+  }
+
   // Orders
   final List<DistributorOrder> _orders = [];
   List<DistributorOrder> get orders => _orders;
@@ -2187,6 +2239,7 @@ class ApiService extends ChangeNotifier {
         quantity: qty,
       );
     }
+    applySchemesToCart();
     notifyListeners();
   }
 
@@ -2459,6 +2512,7 @@ class ApiService extends ChangeNotifier {
       oldItem.unit = unit;
       final newKey = CartItem.makeCartKey(productId, unit);
       _cart._inner[newKey] = oldItem;
+      applySchemesToCart();
       notifyListeners();
     }
   }
@@ -2486,6 +2540,7 @@ class ApiService extends ChangeNotifier {
       } else {
         item.quantity = newQty;
       }
+      applySchemesToCart();
       notifyListeners();
     }
   }
@@ -2493,9 +2548,11 @@ class ApiService extends ChangeNotifier {
   void removeCartLine(String cartKey) {
     if (_cart._inner.containsKey(cartKey)) {
       _cart._inner.remove(cartKey);
+      applySchemesToCart();
       notifyListeners();
     } else {
       _cart.remove(cartKey);
+      applySchemesToCart();
       notifyListeners();
     }
   }
@@ -2563,6 +2620,7 @@ class ApiService extends ChangeNotifier {
         debugPrint('Failed to decode cart draft for $retailerId: $e');
       }
     }
+    applySchemesToCart();
     notifyListeners();
   }
 
@@ -2692,6 +2750,18 @@ class ApiService extends ChangeNotifier {
     return buf.toString();
   }
 
+  int get cartSubtotalPaise {
+    return _cart.values.fold(0, (sum, item) => sum + item.subtotalPaise);
+  }
+
+  double get cartSubtotalRupees => cartSubtotalPaise / 100.0;
+
+  int get cartTotalDiscountPaise {
+    return _cart.values.fold(0, (sum, item) => sum + item.discountPaise);
+  }
+
+  double get cartTotalDiscountRupees => cartTotalDiscountPaise / 100.0;
+
   int get cartTotalPaise {
     return _cart.values.fold(0, (sum, item) => sum + item.totalPaise);
   }
@@ -2728,6 +2798,13 @@ class ApiService extends ChangeNotifier {
     if (_cart.isEmpty) {
       throw StateError('Cannot place order: Cart is empty.');
     }
+
+    // Apply schemes matching the payment mode
+    DynamicSchemeEngine.applyToCart(
+      cartItems: _cart.values,
+      activeSchemes: activeSchemes,
+      paymentMode: paymentMode,
+    );
 
     final shop = _retailers.cast<RetailerShop?>().firstWhere(
           (r) => r?.id == shopId,
@@ -2784,6 +2861,7 @@ class ApiService extends ChangeNotifier {
       totalPaise: total,
       taxablePaise: taxable,
       totalGstPaise: gst,
+      discountPaise: cartTotalDiscountPaise,
       paymentMode: paymentMode,
       stage: OrderLifecycleStage.booking, // Starts in Booking
       assignedCarNumber: _carNumber,
@@ -2971,6 +3049,26 @@ class ApiService extends ChangeNotifier {
     required String paymentMode,
     String? checkoutIdempotencyKey,
   }) async {
+    // 0. Idempotent pre-check: if cart was already cleared and key already exists, return previous order safely
+    if (checkoutIdempotencyKey != null && _cart.isEmpty) {
+      final existingMutation = await db.outboxDao.getMutationByIdempotencyKey(checkoutIdempotencyKey);
+      if (existingMutation != null) {
+        final existingPayload = CreateOrderMutationPayload.fromCanonicalJson(existingMutation.payloadJson);
+        var existingOrder = _orders.cast<DistributorOrder?>().firstWhere(
+              (o) => o?.id == existingPayload.provisionalOrderId || o?.orderNumber == existingPayload.orderNumber,
+              orElse: () => null,
+            );
+        if (existingOrder == null) {
+          existingOrder = _reconstructOrderFromPayload(existingPayload);
+          _orders.insert(0, existingOrder);
+          _syncProductReservations();
+        }
+        _cart.clear();
+        notifyListeners();
+        return existingOrder;
+      }
+    }
+
     if (_cart.isEmpty) {
       throw StateError('Cannot place order: Cart is empty.');
     }
@@ -2993,6 +3091,13 @@ class ApiService extends ChangeNotifier {
     if (session.userId.isEmpty) {
       throw StateError('Cannot confirm order: Active user ID is required.');
     }
+
+    // Apply schemes matching the payment mode (e.g. COD/Cash immediate discount vs Credit)
+    DynamicSchemeEngine.applyToCart(
+      cartItems: _cart.values,
+      activeSchemes: activeSchemes,
+      paymentMode: paymentMode,
+    );
 
     // 1. Validate requested quantities per product against available godown pieces
     for (final item in _cart.values) {
@@ -3060,8 +3165,8 @@ class ApiService extends ChangeNotifier {
         taxableAmountPaise: item.taxableAmountPaise,
         gstAmountPaise: item.totalGstPaise,
         lineTotalPaise: item.totalPaise,
-        discountPaise: 0,
-        freeQuantity: 0,
+        discountPaise: item.discountPaise,
+        freeQuantity: item.freeQuantity,
       );
     }).toList();
 
@@ -3069,7 +3174,7 @@ class ApiService extends ChangeNotifier {
       totalAmountPaise: cartTotalPaise,
       taxableAmountPaise: cartTaxablePaise,
       gstAmountPaise: cartTotalGstPaise,
-      discountAmountPaise: 0,
+      discountAmountPaise: cartTotalDiscountPaise,
     );
 
     final candidatePayload = CreateOrderMutationPayload(
@@ -3142,6 +3247,7 @@ class ApiService extends ChangeNotifier {
     if (a.retailer.id != b.retailer.id) return false;
     if (a.paymentMode != b.paymentMode) return false;
     if (a.totals.totalAmountPaise != b.totals.totalAmountPaise) return false;
+    if (a.totals.discountAmountPaise != b.totals.discountAmountPaise) return false;
     if (a.items.length != b.items.length) return false;
     for (int i = 0; i < a.items.length; i++) {
       final itemA = a.items[i];
@@ -3151,6 +3257,8 @@ class ApiService extends ChangeNotifier {
       if (itemA.orderedUnit != itemB.orderedUnit) return false;
       if (itemA.lineTotalPaise != itemB.lineTotalPaise) return false;
       if (itemA.totalPieces != itemB.totalPieces) return false;
+      if (itemA.freeQuantity != itemB.freeQuantity) return false;
+      if (itemA.discountPaise != itemB.discountPaise) return false;
     }
     return true;
   }
@@ -3195,6 +3303,12 @@ class ApiService extends ChangeNotifier {
         product: product,
         unit: unit,
         quantity: i.orderedQuantity,
+        freeQuantity: i.freeQuantity,
+        discountPaise: i.discountPaise,
+        customTierUnitPricePaise:
+            i.unitPricePaiseAtTime != product.priceForUnit(unit)
+                ? i.unitPricePaiseAtTime
+                : null,
       );
     }).toList();
 
@@ -3209,6 +3323,7 @@ class ApiService extends ChangeNotifier {
       totalPaise: payload.totals.totalAmountPaise,
       taxablePaise: payload.totals.taxableAmountPaise,
       totalGstPaise: payload.totals.gstAmountPaise,
+      discountPaise: payload.totals.discountAmountPaise,
       paymentMode: payload.paymentMode,
       stage: OrderLifecycleStage.booking,
       assignedCarNumber: payload.assignedCarNumber.isNotEmpty
@@ -4642,6 +4757,52 @@ class ApiService extends ChangeNotifier {
         deliveryVehicle: _carNumber,
         itemsSummary: '3 Box Real Bites Aaloo Sev, 4 Strip Wafers',
         totalCartons: 3,
+      ),
+    ]);
+
+    _initializeSchemes();
+  }
+
+  void _initializeSchemes() {
+    _pricingSchemes.clear();
+    _pricingSchemes.addAll([
+      // 1. Universal Cash Discount: 3% on immediate payment (COD / Cash / UPI)
+      const PricingScheme(
+        id: 'scheme_cash_disc_3pct',
+        name: '3% Immediate Payment Cash Discount',
+        description: 'Instant 3% cash discount on COD, Cash, or UPI immediate payments',
+        type: SchemeType.cashDiscount,
+        discountPercent: 3.0,
+        eligiblePaymentModes: ['COD', 'CASH', 'UPI'],
+        isActive: true,
+      ),
+
+      // 2. Buy 10 Peti Get 1 Peti Free on wholesale cartons
+      const PricingScheme(
+        id: 'scheme_buy10_get1_free_peti',
+        name: 'Buy 10 Peti Get 1 Free',
+        description: 'Wholesale Peti promotion: Buy 10 cartons, receive 1 free carton',
+        type: SchemeType.buyXGetYFree,
+        productId: 'RB-NAM-01',
+        unitName: 'box',
+        minQuantity: 10,
+        freeQuantity: 1,
+        isActive: true,
+      ),
+
+      // 3. Bulk Crate/Box Volume Price Break Tiers (-₹20/box for 5-9 Peti, -₹50/box for 10+ Peti)
+      const PricingScheme(
+        id: 'scheme_volume_peti_tiers',
+        name: 'Wholesale Peti Volume Price Break',
+        description: 'Tiered wholesale price discounts: ₹20 off per box for 5-9 boxes, ₹50 off per box for 10+ boxes',
+        type: SchemeType.volumePriceBreak,
+        productId: 'RB-NAM-01',
+        unitName: 'box',
+        priceBreakTiers: [
+          PriceBreakTier(minQuantity: 5, maxQuantity: 9, discountPaise: 2000, tierLabel: '5-9 Peti Tier (-₹20/box)'),
+          PriceBreakTier(minQuantity: 10, discountPaise: 5000, tierLabel: '10+ Peti Bulk Tier (-₹50/box)'),
+        ],
+        isActive: true,
       ),
     ]);
   }
